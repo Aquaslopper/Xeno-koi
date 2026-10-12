@@ -1,5 +1,6 @@
 #include "ui_board.h"
 #include "ui_motion.h"
+#include "ui_board_status.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -163,26 +164,6 @@ void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
     DrawRectangleLinesEx(dest, 1.5f, gc);
 }
 
-static void draw_info_box(Rectangle box, const char *text, int is_active, float flash_alpha) {
-    DrawRectangleRec(box, COLOR_PANEL_BG);
-    if (is_active) {
-        float pulse = 0.3f + 0.7f * (0.5f + 0.5f * sinf((float)GetTime() * 4.0f));
-        Color c0 = g_theme.base; c0.a = (unsigned char)(255 * pulse);
-        Color c1 = g_theme.base; c1.a = (unsigned char)(165 * pulse);
-        Color c2 = g_theme.base; c2.a = (unsigned char)(95 * pulse);
-        Color c3 = g_theme.base; c3.a = (unsigned char)(40 * pulse);
-        DrawRectangleLinesEx(box, 1.0f, c0);
-        DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 1.5f, c1);
-        DrawRectangleLinesEx((Rectangle){ box.x - 2, box.y - 2, box.width + 4, box.height + 4 }, 2.5f, c2);
-        DrawRectangleLinesEx((Rectangle){ box.x - 3, box.y - 3, box.width + 6, box.height + 6 }, 3.5f, c3);
-        if (flash_alpha > 0.001f) {
-            Color cf = g_theme.base; cf.a = (unsigned char)(255 * flash_alpha);
-            DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 2.0f, cf);
-        }
-    } else ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
-    DrawText(text, (int)box.x + 6, (int)box.y + 6, 16, COLOR_PHOSPHOR);
-}
-
 static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int player, float start_y) {
     CardType types[4] = { CARD_TYPE_BRIGHT, CARD_TYPE_ANIMAL, CARD_TYPE_RIBBON, CARD_TYPE_PLAIN };
     const char *labels[4] = { "B", "A", "R", "P" };
@@ -283,10 +264,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (turn_flash_alpha < 0.0f) turn_flash_alpha = 0.0f;
     }
 
-    draw_info_box((Rectangle){ 12, 12, CAPTURE_PANEL_W, 30 }, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
+    board_draw_info_box((Rectangle){ 12, 12, CAPTURE_PANEL_W, 30 }, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
     draw_capture_lanes(ba, g, 1, 46.0f);
     draw_capture_lanes(ba, g, 0, 508.0f);
-    draw_info_box((Rectangle){ 12, 678, CAPTURE_PANEL_W, 30 }, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
+    board_draw_info_box((Rectangle){ 12, 678, CAPTURE_PANEL_W, 30 }, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
 
     /* 3. CPU Hand */
     int cpu_count = g->hand_count[1];
@@ -414,9 +395,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             DrawText(t_str, (1280 - MeasureText(t_str, 22)) / 2, 505, 22, COLOR_PHOSPHOR);
         }
     }
-    if (status_msg && status_msg[0] != '\0') {
-        DrawText(status_msg, (1280 - MeasureText(status_msg, 20)) / 2, 536, 20, COLOR_PHOSPHOR);
-    }
+    board_draw_status_message(status_msg);
 
     /* 11. Right Column */
     Rectangle cp = { 1160, 12, 112, 54 };
