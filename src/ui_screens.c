@@ -44,40 +44,23 @@ static void draw_yaku_cards(const BoardAssets *ba, const int *cards, int count, 
 }
 
 void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, float saved_timer) {
+    (void)st; /* ticker removed; kept in signature for caller compatibility */
     draw_bg_if_loaded(ba, 140);
     const char *title = "[XENO/KOI]";
-    int tw = MeasureText(title, 48);
-    DrawText(title, (1280 - tw) / 2, 85, 48, COLOR_PHOSPHOR);
+    DrawText(title, (1280 - MeasureText(title, 72)) / 2, 80, 72, COLOR_PHOSPHOR);
     const char *sub = "BIOMECHANICAL EDITION";
     float stw = MeasureTextEx(small_font, sub, 20.0f, 2.0f).x;
-    DrawTextEx(small_font, sub, (Vector2){ (1280.0f - stw) / 2.0f, 144.0f }, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(small_font, sub, (Vector2){ (1280.0f - stw) / 2.0f, 165.0f }, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
 
     const char *lbls[6] = { "START MATCH", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
-    for (int i = 0; i < 6; i++) draw_btn((Rectangle){ 490, 185 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
-    if (saved_timer > 0.0f) DrawText("ALL FILES SAVED", 570, 505, 20, COLOR_PHOSPHOR);
-
-    /* Arcade Ticker (marquee scrolling right to left) */
-    static float ticker_x = 0.0f;
-    ticker_x -= 100.0f * GetFrameTime();
-    char ticker[512];
-    snprintf(ticker, sizeof(ticker),
-             "/// SYSTEM ONLINE /// XENO-KOI V3.0 /// CAMPAIGN MODE ACTIVE /// VIBE CODER: AQUASLOPPER /// MUSIC: GRAF PUNK /// HIGHEST ROUND SCORE: %d PTS /// FAVORITE COMBO: %s /// NO NETWORK CONNECTION DETECTED ///",
-             st ? st->best_award : 0, st ? storage_get_favorite_combo(st) : "NONE");
-    float mtw = MeasureTextEx(small_font, ticker, 18.0f, 2.0f).x;
-    float rep = mtw + 120.0f;
-    if (ticker_x <= -rep) ticker_x += rep;
-    Rectangle bar = { 0, 684, 1280, 36 };
-    DrawRectangleRec(bar, (Color){ 0, 0, 0, 245 });
-    DrawLine(0, 684, 1280, 684, COLOR_PHOSPHOR);
-    for (float tx = ticker_x; tx < 1280.0f; tx += rep) {
-        if (tx + mtw > 0.0f) DrawTextEx(small_font, ticker, (Vector2){ tx, 693.0f }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    }
+    for (int i = 0; i < 6; i++) draw_btn((Rectangle){ 490, 235 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
+    if (saved_timer > 0.0f) DrawText("ALL FILES SAVED", 570, 555, 20, COLOR_PHOSPHOR);
 }
 
 ScreenAction screens_handle_start_click(Vector2 vm) {
     ScreenAction acts[6] = { ACT_START_GAME, ACT_GOTO_OPTIONS, ACT_GOTO_STATS, ACT_SAVE, ACT_GOTO_CREDITS, ACT_QUIT };
     for (int i = 0; i < 6; i++) {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 490, 185 + i * 50, 300, 40 })) return acts[i];
+        if (CheckCollisionPointRec(vm, (Rectangle){ 490, 235 + i * 50, 300, 40 })) return acts[i];
     }
     return ACT_NONE;
 }
