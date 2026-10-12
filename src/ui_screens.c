@@ -247,6 +247,14 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     return ACT_NONE;
 }
 
+/* Left-column row: label @X=135 (dim), value @X=350; optional faint divider under the row. */
+static void draw_stat_row(int row, const char *label, const char *value, int divider) {
+    float y = 120.0f + row * 30.0f;
+    DrawTextEx(small_font, label, (Vector2){ 135, y }, 18.0f, 2.0f, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(small_font, value, (Vector2){ 350, y }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    if (divider) DrawLine(135, (int)(y + 24), 585, (int)(y + 24), (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 60 });
+}
+
 void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchHistory *h, Vector2 vm, int confirm_reset, float log_timer) {
     draw_bg_if_loaded(ba, 180);
     DrawText("PLAYER STATISTICS", 500, 40, 32, COLOR_PHOSPHOR);
@@ -255,17 +263,17 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);
 
     float wr = (st->matches_played > 0) ? ((float)st->matches_won / st->matches_played * 100.0f) : 0.0f;
-    DrawTextEx(small_font, TextFormat("Matches Played:      %d", st->matches_played), (Vector2){ 140, 120 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Won / Lost:          %d / %d (Draw: %d)", st->matches_won, st->matches_lost, st->matches_drawn), (Vector2){ 140, 150 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Win Rate:            %.1f%%", wr), (Vector2){ 140, 180 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Rounds Won:          YOU %d | CPU %d", st->rounds_won_you, st->rounds_won_cpu), (Vector2){ 140, 220 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Total Points:        FOR %d | AGAINST %d", st->points_for, st->points_against), (Vector2){ 140, 250 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Highest Round Score: %d pts", st->best_award), (Vector2){ 140, 280 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Koi Calls:           YOU %d | CPU %d", st->koi_calls_you, st->koi_calls_cpu), (Vector2){ 140, 310 }, 18.0f, 2.0f, COLOR_TEXT_INFO_DIM);
-    DrawTextEx(small_font, TextFormat("Difficulty:          Easy %d | Hard %d | Master %d", st->easy_matches, st->hard_matches, st->master_matches), (Vector2){ 140, 350 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Current Streak:      %d", st->current_streak), (Vector2){ 140, 380 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Max Win Streak:      %d", st->best_streak), (Vector2){ 140, 410 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-    DrawTextEx(small_font, TextFormat("Favorite Combo:      %s", storage_get_favorite_combo(st)), (Vector2){ 140, 440 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    draw_stat_row(0, "Matches Played", TextFormat("%d", st->matches_played), 0);
+    draw_stat_row(1, "Won / Lost / Draw", TextFormat("%d / %d / %d", st->matches_won, st->matches_lost, st->matches_drawn), 0);
+    draw_stat_row(2, "Win Rate", TextFormat("%.1f%%", wr), 1);
+    draw_stat_row(3, "Rounds Won", TextFormat("YOU %d | CPU %d", st->rounds_won_you, st->rounds_won_cpu), 0);
+    draw_stat_row(4, "Total Points", TextFormat("FOR %d | AGAINST %d", st->points_for, st->points_against), 0);
+    draw_stat_row(5, "Highest Round Score", TextFormat("%d pts", st->best_award), 1);
+    draw_stat_row(6, "Koi Calls", TextFormat("YOU %d | CPU %d", st->koi_calls_you, st->koi_calls_cpu), 0);
+    draw_stat_row(7, "Difficulty", TextFormat("Easy %d | Hard %d | Master %d", st->easy_matches, st->hard_matches, st->master_matches), 1);
+    draw_stat_row(8, "Current Streak", TextFormat("%d", st->current_streak), 0);
+    draw_stat_row(9, "Max Win Streak", TextFormat("%d", st->best_streak), 0);
+    draw_stat_row(10, "Favorite Combo", storage_get_favorite_combo(st), 0);
 
     DrawLine(620, 110, 620, 560, COLOR_PHOSPHOR_DIM);
     DrawText("LAST 10 MATCHES", 650, 120, 20, COLOR_PHOSPHOR);
