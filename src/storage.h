@@ -1,0 +1,59 @@
+#ifndef STORAGE_H
+#define STORAGE_H
+
+#include "rules.h"
+#include "ai.h"
+
+typedef struct {
+    int rounds;            /* 1..12, default 6 */
+    Difficulty difficulty; /* EASY or HARD */
+    Ruleset ruleset;       /* NINTENDO, FUDAWIKI, KK_ADD_10 */
+    int background;        /* 0..4 */
+    float bgm_volume;      /* 0.0 .. 1.0, default 0.8f */
+    float sfx_volume;      /* 0.0 .. 1.0, default 0.8f */
+    int anim_speed;        /* 0: Slow (600ms), 1: Normal (400ms), 2: Fast (250ms) */
+    int terminal_color;    /* 0: Green, 1: Amber, 2: Teal */
+} GameSettings;
+
+typedef struct {
+    int matches_played;
+    int matches_won;
+    int matches_lost;
+    int matches_drawn;
+    int rounds_won_you;
+    int rounds_won_cpu;
+    int points_for;
+    int points_against;
+    int best_award;
+    int koi_calls_you;
+    int koi_calls_cpu;
+    int easy_matches;
+    int hard_matches;
+    int current_streak;
+    int best_streak;
+    int yaku_counts[YAKU_COUNT];
+} GameStats;
+
+typedef struct {
+    char lines[10][128];
+    int count;
+} MatchHistory;
+
+const char *storage_get_favorite_combo(const GameStats *st);
+
+/* Load settings / stats / history with safe fallbacks */
+void storage_load_settings(GameSettings *s);
+void storage_save_settings(const GameSettings *s);
+
+void storage_load_stats(GameStats *st);
+void storage_save_stats(const GameStats *st);
+void storage_reset_stats(GameStats *st);
+
+void storage_load_history(MatchHistory *h);
+void storage_add_history(MatchHistory *h, const char *record_line);
+
+/* Saves all files and writes stats_report.txt */
+void storage_save_all(const GameSettings *s, const GameStats *st, const MatchHistory *h);
+void storage_write_report(const GameStats *st, const MatchHistory *h);
+
+#endif /* STORAGE_H */

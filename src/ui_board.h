@@ -1,0 +1,46 @@
+#ifndef UI_BOARD_H
+#define UI_BOARD_H
+
+#include "raylib.h"
+#include "engine.h"
+#include "ui_theme.h"
+#include "ui_anim.h"
+
+typedef struct {
+    Texture2D atlas;
+    Texture2D card_back;
+    Texture2D bgs[5];
+    int current_bg;
+    int assets_loaded;
+    Shader fog_shader;
+    int fog_time_loc;
+    int has_fog_shader;
+} BoardAssets;
+
+/* Load / unload graphical assets */
+void board_load_assets(BoardAssets *ba);
+void board_unload_assets(BoardAssets *ba);
+
+/* Geometry helpers */
+Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered);
+Rectangle board_get_field_card_rect(int index, int total_cards);
+Rectangle board_get_field_rect(void);
+Rectangle board_get_stock_rect(void);
+Vector2 board_get_card_field_pos(const GameState *g, int card_id);
+
+/* Drawing primitives */
+void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest);
+void board_draw_card_back(const BoardAssets *ba, Rectangle dest);
+void board_draw_card_glow(Rectangle dest, float pulse_alpha);
+void board_draw_card_shadow(Rectangle dest, float lift_amount);
+
+/* Full table drawing */
+void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
+                      int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
+                      int easy_mode, const char *status_msg);
+
+/* Pre-match Oya-gime dealer selection */
+void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm);
+int board_check_dealer_select_click(const GameState *g, Vector2 vm);
+
+#endif /* UI_BOARD_H */

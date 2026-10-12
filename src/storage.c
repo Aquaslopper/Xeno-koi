@@ -1,0 +1,292 @@
+#include "storage.h"
+#include "raylib.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void get_app_path(const char *filename, char *out_path, size_t max_len) {
+    const char *base = GetApplicationDirectory();
+    if (base && base[0] != '\0') {
+        snprintf(out_path, max_len, "%s%s", base, filename);
+        if (FileExists(out_path)) return;
+    }
+    snprintf(out_path, max_len, "./%s", filename);
+}
+
+static void safe_write_text(const char *filename, const char *content) {
+    char target[512], tmp[520];
+    get_app_path(filename, target, sizeof(target));
+    snprintf(tmp, sizeof(tmp), "%s.tmp", target);
+
+    FILE *f = fopen(tmp, "w");
+    if (!f) return;
+    fputs(content, f);
+    fclose(f);
+
+    remove(target);
+    rename(tmp, target);
+}
+
+void storage_load_settings(GameSettings *s) {
+    s->rounds = 6;
+    s->difficulty = DIFFICULTY_EASY;
+    s->ruleset = RULESET_NINTENDO;
+    s->background = 0;
+    s->bgm_volume = 0.8f;
+    s->sfx_volume = 0.8f;
+    s->anim_speed = 1; /* Normal */
+    s->terminal_color = 0; /* Green default */
+
+    char path[512];
+    get_app_path("settings.txt", path, sizeof(path));
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        char k[64], v[64];
+        if (sscanf(line, "%63[^=]=%63s", k, v) == 2) {
+            if (strcmp(k, "rounds") == 0) {
+                int r = atoi(v);
+                if (r >= 1 && r <= 12) s->rounds = r;
+            } else if (strcmp(k, "difficulty") == 0) {
+                if (strcmp(v, "hard") == 0) s->difficulty = DIFFICULTY_HARD;
+                else s->difficulty = DIFFICULTY_EASY;
+            } else if (strcmp(k, "ruleset") == 0) {
+                if (strcmp(v, "fudawiki") == 0) s->ruleset = RULESET_FUDAWIKI;
+                else if (strcmp(v, "kk_add_10") == 0 || strcmp(v, "kk-add-10") == 0) s->ruleset = RULESET_KK_ADD_10;
+                else if (strcmp(v, "tournament") == 0) s->ruleset = RULESET_TOURNAMENT;
+                else if (strcmp(v, "yakuza") == 0) s->ruleset = RULESET_YAKUZA;
+                else s->ruleset = RULESET_NINTENDO;
+            } else if (strcmp(k, "background") == 0) {
+                int bg = atoi(v);
+                if (bg >= 0 && bg < 5) s->background = bg;
+            } else if (strcmp(k, "bgm_volume") == 0) {
+                float vol = (float)atof(v);
+                if (vol < 0.0f) vol = 0.0f;
+                if (vol > 1.0f) vol = 1.0f;
+                s->bgm_volume = vol;
+            } else if (strcmp(k, "sfx_volume") == 0) {
+                float vol = (float)atof(v);
+                if (vol < 0.0f) vol = 0.0f;
+                if (vol > 1.0f) vol = 1.0f;
+                s->sfx_volume = vol;
+            } else if (strcmp(k, "anim_speed") == 0) {
+                int sp = atoi(v);
+                if (sp >= 0 && sp <= 2) s->anim_speed = sp;
+            } else if (strcmp(k, "terminal_color") == 0 || strcmp(k, "theme") == 0) {
+                if (strcmp(v, "amber") == 0 || strcmp(v, "1") == 0) s->terminal_color = 1;
+                else if (strcmp(v, "teal") == 0 || strcmp(v, "2") == 0) s->terminal_color = 2;
+                else s->terminal_color = 0;
+            }
+        }
+    }
+    fclose(f);
+}
+
+void storage_save_settings(const GameSettings *s) {
+    char buf[512];
+    const char *diff_str = (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
+    const char *rule_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" :
+                           (s->ruleset == RULESET_KK_ADD_10) ? "kk_add_10" :
+                           (s->ruleset == RULESET_TOURNAMENT) ? "tournament" :
+                           (s->ruleset == RULESET_YAKUZA) ? "yakuza" : "nintendo";
+    const char *col_str = (s->terminal_color == 1) ? "amber" :
+                          (s->terminal_color == 2) ? "teal" : "green";
+
+    snprintf(buf, sizeof(buf),
+             "rounds=%d\n"
+             "difficulty=%s\n"
+             "ruleset=%s\n"
+             "background=%d\n"
+             "bgm_volume=%.2f\n"
+             "sfx_volume=%.2f\n"
+             "anim_speed=%d\n"
+             "terminal_color=%s\n",
+             s->rounds, diff_str, rule_str, s->background,
+             s->bgm_volume, s->sfx_volume, s->anim_speed, col_str);
+    safe_write_text("settings.txt", buf);
+}
+
+void storage_load_stats(GameStats *st) {
+    memset(st, 0, sizeof(*st));
+    char path[512];
+    get_app_path("stats.txt", path, sizeof(path));
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        char k[64], v[64];
+        if (sscanf(line, "%63[^=]=%63s", k, v) == 2) {
+            int val = atoi(v);
+            if (strcmp(k, "matches_played") == 0) st->matches_played = val;
+            else if (strcmp(k, "matches_won") == 0) st->matches_won = val;
+            else if (strcmp(k, "matches_lost") == 0) st->matches_lost = val;
+            else if (strcmp(k, "matches_drawn") == 0) st->matches_drawn = val;
+            else if (strcmp(k, "rounds_won_you") == 0) st->rounds_won_you = val;
+            else if (strcmp(k, "rounds_won_cpu") == 0) st->rounds_won_cpu = val;
+            else if (strcmp(k, "points_for") == 0) st->points_for = val;
+            else if (strcmp(k, "points_against") == 0) st->points_against = val;
+            else if (strcmp(k, "best_award") == 0 || strcmp(k, "highest_round_score") == 0) st->best_award = val;
+            else if (strcmp(k, "koi_calls_you") == 0) st->koi_calls_you = val;
+            else if (strcmp(k, "koi_calls_cpu") == 0) st->koi_calls_cpu = val;
+            else if (strcmp(k, "easy_matches") == 0) st->easy_matches = val;
+            else if (strcmp(k, "hard_matches") == 0) st->hard_matches = val;
+            else if (strcmp(k, "current_streak") == 0) st->current_streak = val;
+            else if (strcmp(k, "best_streak") == 0 || strcmp(k, "max_win_streak") == 0) st->best_streak = val;
+            else if (strncmp(k, "yaku_", 5) == 0) {
+                int yidx = atoi(k + 5);
+                if (yidx >= 0 && yidx < YAKU_COUNT) st->yaku_counts[yidx] = val;
+            }
+        }
+    }
+    fclose(f);
+}
+
+const char *storage_get_favorite_combo(const GameStats *st) {
+    static const char *const names[YAKU_COUNT] = {
+        "GOKO", "SHIKO", "AME-SHIKO", "SANKO",
+        "HANAMI-ZAKE", "TSUKIMI-ZAKE", "INO-SHIKA-CHO",
+        "AKATAN", "AOTAN", "AKATAN + AOTAN",
+        "TANE", "TANZAKU", "KASU"
+    };
+    if (!st) return "NONE";
+    int best = -1, max_val = 0;
+    for (int i = 0; i < YAKU_COUNT; i++) {
+        if (st->yaku_counts[i] > max_val) {
+            max_val = st->yaku_counts[i];
+            best = i;
+        }
+    }
+    return (best >= 0 && max_val > 0) ? names[best] : "NONE";
+}
+
+void storage_save_stats(const GameStats *st) {
+    char buf[2048];
+    snprintf(buf, sizeof(buf),
+             "matches_played=%d\n"
+             "matches_won=%d\n"
+             "matches_lost=%d\n"
+             "matches_drawn=%d\n"
+             "rounds_won_you=%d\n"
+             "rounds_won_cpu=%d\n"
+             "points_for=%d\n"
+             "points_against=%d\n"
+             "highest_round_score=%d\n"
+             "best_award=%d\n"
+             "koi_calls_you=%d\n"
+             "koi_calls_cpu=%d\n"
+             "easy_matches=%d\n"
+             "hard_matches=%d\n"
+             "current_streak=%d\n"
+             "max_win_streak=%d\n"
+             "best_streak=%d\n"
+             "favorite_combo=%s\n",
+             st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
+             st->rounds_won_you, st->rounds_won_cpu, st->points_for, st->points_against,
+             st->best_award, st->best_award,
+             st->koi_calls_you, st->koi_calls_cpu,
+             st->easy_matches, st->hard_matches,
+             st->current_streak, st->best_streak, st->best_streak,
+             storage_get_favorite_combo(st));
+
+    for (int i = 0; i < YAKU_COUNT; i++) {
+        char yline[48];
+        snprintf(yline, sizeof(yline), "yaku_%d=%d\n", i, st->yaku_counts[i]);
+        strncat(buf, yline, sizeof(buf) - strlen(buf) - 1);
+    }
+    safe_write_text("stats.txt", buf);
+}
+
+void storage_reset_stats(GameStats *st) {
+    memset(st, 0, sizeof(*st));
+    storage_save_stats(st);
+
+    char hist_path[512], rep_path[512];
+    get_app_path("history.txt", hist_path, sizeof(hist_path));
+    get_app_path("stats_report.txt", rep_path, sizeof(rep_path));
+    remove(hist_path);
+    remove(rep_path);
+}
+
+void storage_load_history(MatchHistory *h) {
+    h->count = 0;
+    char path[512];
+    get_app_path("history.txt", path, sizeof(path));
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = '\0';
+        if (len > 0 && h->count < 10) {
+            snprintf(h->lines[h->count++], sizeof(h->lines[0]), "%s", line);
+        }
+    }
+    fclose(f);
+}
+
+void storage_add_history(MatchHistory *h, const char *record_line) {
+    if (h->count >= 10) {
+        for (int i = 0; i < 9; i++) {
+            snprintf(h->lines[i], sizeof(h->lines[0]), "%s", h->lines[i + 1]);
+        }
+        h->count = 9;
+    }
+    snprintf(h->lines[h->count++], sizeof(h->lines[0]), "%s", record_line);
+
+    char buf[2048] = {0};
+    for (int i = 0; i < h->count; i++) {
+        strncat(buf, h->lines[i], sizeof(buf) - strlen(buf) - 2);
+        strcat(buf, "\n");
+    }
+    safe_write_text("history.txt", buf);
+}
+
+void storage_write_report(const GameStats *st, const MatchHistory *h) {
+    char buf[4096];
+    float win_rate = (st->matches_played > 0) ? ((float)st->matches_won / st->matches_played * 100.0f) : 0.0f;
+
+    snprintf(buf, sizeof(buf),
+             "====================================================\n"
+             "        HANAFUDA // KOI-KOI - STATS REPORT          \n"
+             "====================================================\n\n"
+             "MATCHES\n"
+             "  Played:              %d\n"
+             "  Won / Lost:          %d / %d (Drawn: %d)\n"
+             "  Win Rate:            %.1f%%\n\n"
+             "ROUNDS & SCORING\n"
+             "  Rounds Won:          YOU %d | CPU %d\n"
+             "  Total Points:        FOR %d | AGAINST %d\n"
+             "  Highest Round Score: %d pts\n"
+             "  Koi-Koi Calls:       YOU %d | CPU %d\n\n"
+             "DIFFICULTY & STREAKS\n"
+             "  Easy / Hard:         %d / %d\n"
+             "  Current Streak:      %d\n"
+             "  Max Win Streak:      %d\n"
+             "  Favorite Combo:      %s\n\n"
+             "LAST 10 MATCHES\n",
+             st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
+             win_rate, st->rounds_won_you, st->rounds_won_cpu,
+             st->points_for, st->points_against, st->best_award,
+             st->koi_calls_you, st->koi_calls_cpu,
+             st->easy_matches, st->hard_matches,
+             st->current_streak, st->best_streak,
+             storage_get_favorite_combo(st));
+
+    for (int i = 0; i < h->count; i++) {
+        char item[160];
+        snprintf(item, sizeof(item), "  [%d] %s\n", i + 1, h->lines[i]);
+        strncat(buf, item, sizeof(buf) - strlen(buf) - 1);
+    }
+    strncat(buf, "\n====================================================\n", sizeof(buf) - strlen(buf) - 1);
+    safe_write_text("stats_report.txt", buf);
+}
+
+void storage_save_all(const GameSettings *s, const GameStats *st, const MatchHistory *h) {
+    storage_save_settings(s);
+    storage_save_stats(st);
+    storage_write_report(st, h);
+}
