@@ -38,13 +38,13 @@ The game supports 5 distinct rule variations, selectable in the Options menu to 
 1. Download the latest `.zip` from the **[Releases]** tab.
 2. Extract the folder to your computer. *(Ensure the `assets/` folder remains in the same directory as the executable).*
 3. **Optional Custom Audio:** Add your own `.mp3` and `.wav` files into the `assets/music/` and `assets/sfx/` folders matching the required filenames.
-4. Run `XenoKoi.exe`.
+4. Run `KoiKoi.exe`.
 
 ## Building from Source
 For developers wishing to compile the game from source:
 ```bash
 # Clone the repository
-git clone https://github.com/YourUsername/xeno-koi.git
+git clone https://github.com/Aquaslopper/Xeno-koi.git
 cd xeno-koi
 
 # Compile using MinGW (Windows)
