@@ -1,0 +1,50 @@
+name: Build Xeno-Koi Windows Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MinGW Cross-Compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 zip
+
+      - name: Download Raylib 5.5 for Windows
+        run: |
+          curl -sL -o raylib_win.zip https://github.com/raysan5/raylib/releases/download/5.5/raylib-5.5_win64_mingw-w64.zip
+          unzip -q raylib_win.zip
+          mkdir -p raylib_win
+          mv raylib-5.5_win64_mingw-w64/* raylib_win/
+
+      - name: Compile Windows Executable
+        run: |
+          mkdir -p dist/assets
+          x86_64-w64-mingw32-gcc -std=c99 -O2 src/*.c \
+            -Iraylib_win/include \
+            raylib_win/lib/libraylib.a \
+            -lopengl32 -lgdi32 -lwinmm -static -mwindows \
+            -o dist/KoiKoi.exe
+          cp -rf assets/* dist/assets/
+          [ -f settings.txt ] && cp settings.txt dist/ || true
+
+      - name: Package Release ZIP
+        run: |
+          cd dist
+          zip -r ../XenoKoi_Windows.zip ./*
+
+      - name: Upload Windows Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XenoKoi_Windows
+          path: XenoKoi_Windows.zip
