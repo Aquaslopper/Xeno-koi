@@ -52,7 +52,7 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
 
     Rectangle p = { 90, 35, 1100, 650 };
     DrawRectangleRec(p, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(p, 1.5f, COLOR_PHOSPHOR);
+    ui_draw_panel_border(p, COLOR_PHOSPHOR);
 
     DrawText("CAMPAIGN: SELECT BIO-OPPONENT", 390, 52, 24, COLOR_PHOSPHOR);
     draw_btn_custom((Rectangle){ 1145, 48, 32, 28 }, "X", 18, vm, COLOR_PHOSPHOR);
@@ -88,14 +88,14 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
     /* Bottom Left: Large card portrait */
     Rectangle big_box = { 155.0f, 245.0f, 185.0f, 300.0f };
     DrawRectangleRec((Rectangle){ big_box.x - 4, big_box.y - 4, big_box.width + 8, big_box.height + 8 }, COLOR_PANEL_BG);
-    DrawRectangleLinesEx((Rectangle){ big_box.x - 2, big_box.y - 2, big_box.width + 4, big_box.height + 4 }, 2.0f, COLOR_PHOSPHOR);
+    ui_draw_panel_border((Rectangle){ big_box.x - 2, big_box.y - 2, big_box.width + 4, big_box.height + 4 }, COLOR_PHOSPHOR);
     Rectangle big_src = { (float)(selected_opponent * ATLAS_CELL_W), 0.0f, (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     DrawTexturePro(ba->atlas, big_src, big_box, (Vector2){0,0}, 0.0f, (selected_opponent < unlocked_opponents) ? WHITE : (Color){ 30, 30, 30, 255 });
 
     /* Bottom Right: Info Box */
     Rectangle txt_box = { 365.0f, 245.0f, 760.0f, 300.0f };
     DrawRectangleRec(txt_box, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(txt_box, 1.0f, COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(txt_box, COLOR_PHOSPHOR_DIM);
 
     if (selected_opponent < unlocked_opponents) {
         DrawText(opp->name, 385, 260, 24, COLOR_PHOSPHOR);

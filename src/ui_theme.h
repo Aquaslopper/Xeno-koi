@@ -18,6 +18,7 @@ extern TerminalTheme g_theme;
 
 TerminalTheme theme_get(int id);
 void theme_set(int id);
+void ui_draw_panel_border(Rectangle r, Color border_color);
 
 #define COLOR_PHOSPHOR       (g_theme.base)
 #define COLOR_PHOSPHOR_DIM   (g_theme.dim)

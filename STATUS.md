@@ -1,11 +1,28 @@
-# STATUS - session 10 - 2026-10-12
-Milestone: Elegant Subtle Specular Shimmer Polish (done)
-Builds: linux OK | exe OK | test_engine OK (3000x5, 0 failures)
-Done this session:
-- Diagnostic Red Tint & Solid Box Replaced: Removed intrusive solid boxes and test red tinting. Card textures draw with authentic artwork and clean lines.
-- Elegant Specular Shimmer: Implemented board_draw_card_shimmer() rendering an organic vertical gradient via DrawRectangleGradientV() over moving cards.
-- Low-Intensity Opacity Cap: Maximum top shimmer alpha is capped at 35/255 (~13.7% opacity) and bottom alpha at 8/255 (~3%), scaling gently with movement speed and flight arc lift.
-- Absolute Stillness: When velocity <= 0.1 or card is stationary (resting on table, resting in hand, or hovering stationary), shimmer alpha is strictly 0. Dark Giger art is 100% unaltered until physically moved.
-- Compliance: All 15 source files in `src/` verified strictly under 500 lines.
-Known bugs: none
-Next step: user testing on Windows
+# XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
+
+## Status Summary
+
+1. **Start Menu Order Updated**
+   - Configured exact 6-button main menu structure:
+     1. `START MATCH`
+     2. `OPTION`
+     3. `STATS`
+     4. `SAVE`
+     5. `CREDITS`
+     6. `QUIT`
+   - Spaced and centered cleanly with active navigation logic.
+
+2. **Wiki Components Fully Removed**
+   - Removed `src/ui_wiki.h` and `src/ui_wiki.c`.
+   - Removed `SCREEN_WIKI` from `ScreenState` and `ACT_GOTO_WIKI` from `ScreenAction`.
+   - Purged all Wiki-specific update, input, drawing, and audio routes from `src/ui_main.c`.
+
+3. **CRT Analog Beam & Clean Scanlines**
+   - All legacy software-loop scanlines removed from both board and screens.
+   - Clean analog CRT beam shader active with selectable in-menu filter strength (`0: OFF`, `1: LOW`, `2: MID`, `3: HIGH`).
+
+4. **Deliverables**
+   - All C source files strictly under 500 lines.
+   - 15,000 engine test matches passed.
+   - Windows 64-bit release binary compiled to `dist/KoiKoi.exe`.
+   - Archive packaged at `/home/user/koikoi_project.zip`.

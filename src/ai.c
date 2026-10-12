@@ -39,38 +39,40 @@ static int unseen_in_month(const GameState *g, int month, int me) {
 }
 
 static int blocks_opponent_set(const GameState *g, int card_id, int opp) {
+    if (card_id < 0 || card_id >= 48) return 0;
     int opp_has[48] = {0};
-    for (int i = 0; i < g->captured_count[opp]; i++) {
-        opp_has[g->captured[opp][i]] = 1;
-    }
+    for (int i = 0; i < g->captured_count[opp]; i++) opp_has[g->captured[opp][i]] = 1;
+    if (opp_has[card_id]) return 0;
 
-    /* Hanami: 08-B Curtain + 09-A Cup (32) */
+    /* Hanami: 08-B Curtain (8) + 09-A Cup (32) */
     if ((card_id == 32 && opp_has[8]) || (card_id == 8 && opp_has[32])) return 1;
 
     /* Tsukimi: 08-B Moon (28) + 09-A Cup (32) */
     if ((card_id == 32 && opp_has[28]) || (card_id == 28 && opp_has[32])) return 1;
 
     /* Ino-shika-cho: 20, 24, 36 */
-    int ino_count = opp_has[20] + opp_has[24] + opp_has[36];
-    if (ino_count == 2 && (card_id == 20 || card_id == 24 || card_id == 36) && !opp_has[card_id]) return 1;
+    if ((card_id == 20 || card_id == 24 || card_id == 36) &&
+        (opp_has[20] + opp_has[24] + opp_has[36] == 2)) return 1;
 
     /* Akatan: 1, 5, 9 */
-    int aka_count = opp_has[1] + opp_has[5] + opp_has[9];
-    if (aka_count == 2 && (card_id == 1 || card_id == 5 || card_id == 9) && !opp_has[card_id]) return 1;
+    if ((card_id == 1 || card_id == 5 || card_id == 9) &&
+        (opp_has[1] + opp_has[5] + opp_has[9] == 2)) return 1;
 
     /* Aotan: 21, 33, 37 */
-    int ao_count = opp_has[21] + opp_has[33] + opp_has[37];
-    if (ao_count == 2 && (card_id == 21 || card_id == 33 || card_id == 37) && !opp_has[card_id]) return 1;
+    if ((card_id == 21 || card_id == 33 || card_id == 37) &&
+        (opp_has[21] + opp_has[33] + opp_has[37] == 2)) return 1;
 
-    /* Brights */
-    int bright_count = opp_has[0] + opp_has[8] + opp_has[28] + opp_has[40] + opp_has[44];
-    if (bright_count == 4 && CARDS[card_id].type == CARD_TYPE_BRIGHT && !opp_has[card_id]) return 1;
-    if (bright_count == 2 && !opp_has[40] && CARDS[card_id].type == CARD_TYPE_BRIGHT && card_id != 40) return 1;
-
+    /* Brights: 1 card away from Sanko (2 non-rain), Shiko/Ame-Shiko (3 total), or Goko (4 total) */
+    if (CARDS[card_id].type == CARD_TYPE_BRIGHT) {
+        int non_rain = opp_has[0] + opp_has[8] + opp_has[28] + opp_has[44];
+        int total_b = non_rain + opp_has[40];
+        if (card_id != 40 && non_rain == 2) return 1;
+        if (total_b >= 3) return 1;
+    }
     return 0;
 }
 
-static int eval_card_value(const GameState *g, int card_id, const int *new_cards, int new_count, int me) {
+static int eval_card_value(const GameState *g, int card_id, const int *new_cards, int new_count, int me, Difficulty diff) {
     int val = CARDS[card_id].dealer_rank;
     int opp = 1 - me;
 
@@ -86,8 +88,17 @@ static int eval_card_value(const GameState *g, int card_id, const int *new_cards
         val += 15;
     }
 
-    if (blocks_opponent_set(g, card_id, opp)) {
-        val += 6;
+    if (diff == DIFFICULTY_MASTER) {
+        /* Master AI: massive +50 priority to block player major yaku */
+        if (blocks_opponent_set(g, card_id, opp)) val += 50;
+        for (int i = 0; i < new_count; i++) {
+            if (new_cards[i] != card_id && blocks_opponent_set(g, new_cards[i], opp)) {
+                val += 50;
+                break;
+            }
+        }
+    } else {
+        if (blocks_opponent_set(g, card_id, opp)) val += 6;
     }
 
     if (me == 1) {
@@ -217,9 +228,10 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
 
         if (mc == 0) {
             /* Discard: -(its value) minus 4 if its month still has unseen cards */
-            int val = eval_card_value(g, card, &card, 1, me);
+            int val = eval_card_value(g, card, &card, 1, me, diff);
             int score = -val;
             if (unseen_in_month(g, CARDS[card].month, me)) score -= 4;
+            if (diff == DIFFICULTY_MASTER && blocks_opponent_set(g, card, 1 - me)) score -= 100;
             if (score > best_score) {
                 best_score = score;
                 best_card = card;
@@ -227,7 +239,7 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
             }
         } else if (mc == 1) {
             int bundle[2] = { card, matches[0] };
-            int score = eval_card_value(g, card, bundle, 2, me) + eval_card_value(g, matches[0], bundle, 2, me);
+            int score = eval_card_value(g, card, bundle, 2, me, diff) + eval_card_value(g, matches[0], bundle, 2, me, diff);
             if (score > best_score) {
                 best_score = score;
                 best_card = card;
@@ -235,9 +247,9 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
             }
         } else if (mc == 2) {
             int b0[2] = { card, matches[0] };
-            int s0 = eval_card_value(g, card, b0, 2, me) + eval_card_value(g, matches[0], b0, 2, me);
+            int s0 = eval_card_value(g, card, b0, 2, me, diff) + eval_card_value(g, matches[0], b0, 2, me, diff);
             int b1[2] = { card, matches[1] };
-            int s1 = eval_card_value(g, card, b1, 2, me) + eval_card_value(g, matches[1], b1, 2, me);
+            int s1 = eval_card_value(g, card, b1, 2, me, diff) + eval_card_value(g, matches[1], b1, 2, me, diff);
 
             int chosen_target = (s1 > s0) ? matches[1] : matches[0];
             int chosen_score = (s1 > s0) ? s1 : s0;
@@ -248,10 +260,10 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
             }
         } else if (mc == 3) {
             int bundle[4] = { card, matches[0], matches[1], matches[2] };
-            int score = eval_card_value(g, card, bundle, 4, me) +
-                        eval_card_value(g, matches[0], bundle, 4, me) +
-                        eval_card_value(g, matches[1], bundle, 4, me) +
-                        eval_card_value(g, matches[2], bundle, 4, me);
+            int score = eval_card_value(g, card, bundle, 4, me, diff) +
+                        eval_card_value(g, matches[0], bundle, 4, me, diff) +
+                        eval_card_value(g, matches[1], bundle, 4, me, diff) +
+                        eval_card_value(g, matches[2], bundle, 4, me, diff);
             if (score > best_score) {
                 best_score = score;
                 best_card = card;
@@ -273,8 +285,8 @@ int ai_choose_stock_target(const GameState *g, Difficulty diff, uint32_t *ai_rng
     int t1 = g->choice_targets[1];
     int b0[2] = { g->pending_card, t0 };
     int b1[2] = { g->pending_card, t1 };
-    int v0 = eval_card_value(g, t0, b0, 2, me);
-    int v1 = eval_card_value(g, t1, b1, 2, me);
+    int v0 = eval_card_value(g, t0, b0, 2, me, diff);
+    int v1 = eval_card_value(g, t1, b1, 2, me, diff);
     return (v1 > v0) ? t1 : t0;
 }
 
@@ -287,6 +299,17 @@ DecisionType ai_choose_decision(const GameState *g, Difficulty diff, uint32_t *a
             return DECISION_KOI_KOI;
         }
         return DECISION_SHOBU;
+    }
+
+    if (diff == DIFFICULTY_MASTER) {
+        ScoreResult sr_opp = score_captures(g->ruleset, g->captured[opp], g->captured_count[opp]);
+        if (sr_opp.base_points > 0) return DECISION_SHOBU;
+        for (int i = 0; i < 48; i++) {
+            if (blocks_opponent_set(g, i, opp)) return DECISION_SHOBU;
+        }
+        ScoreResult sr_me = score_captures(g->ruleset, g->captured[me], g->captured_count[me]);
+        if (sr_me.base_points >= 7 || g->hand_count[me] < 3) return DECISION_SHOBU;
+        return DECISION_KOI_KOI;
     }
 
     /* Hard: Koi-Koi only if base < 7, computer hand >= 4 and opponent base = 0; otherwise SHOBU */

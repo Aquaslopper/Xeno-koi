@@ -121,7 +121,7 @@ void taunt_draw(void) {
         Color dim = COLOR_PHOSPHOR_DIM; dim.a = (unsigned char)(180 * alpha);
 
         DrawRectangleRec(box, bg);
-        DrawRectangleLinesEx(box, 1.5f, border);
+        ui_draw_panel_border(box, border);
         DrawText("[ CPU TRANSMISSION ]", (int)box.x + 8, (int)box.y + 7, 12, title_col);
         DrawLine((int)box.x + 6, (int)box.y + 24, (int)(box.x + box.width - 6), (int)box.y + 24, dim);
 

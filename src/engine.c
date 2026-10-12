@@ -29,61 +29,36 @@ int engine_determine_first_dealer(uint32_t *rng_state) {
 
 static int check_field_misdeal(const int *field, int n) {
     if (n != 8) return 0;
-    int mc[13] = {0};
+    int mc[13] = {0}, pairs = 0;
     for (int i = 0; i < n; i++) mc[CARDS[field[i]].month]++;
     for (int m = 1; m <= 12; m++) {
-        if (mc[m] == 4) return 1; /* 4 of a month on field */
-    }
-    int pairs = 0;
-    for (int m = 1; m <= 12; m++) {
+        if (mc[m] == 4) return 1;
         if (mc[m] == 2) pairs++;
     }
-    if (pairs == 4) return 1; /* exactly four pairs */
-    return 0;
+    return (pairs == 4);
 }
 
 static int check_hand_lucky(const int *hand, int n) {
     if (n != 8) return 0;
-    int mc[13] = {0};
+    int mc[13] = {0}, pairs = 0;
     for (int i = 0; i < n; i++) mc[CARDS[hand[i]].month]++;
     for (int m = 1; m <= 12; m++) {
-        if (mc[m] == 4) return 1; /* Teshi */
-    }
-    int pairs = 0;
-    for (int m = 1; m <= 12; m++) {
+        if (mc[m] == 4) return 1;
         if (mc[m] == 2) pairs++;
     }
-    if (pairs == 4) return 1; /* Kuttsuki */
-    return 0;
+    return (pairs == 4);
 }
 
 int engine_validate_zones(const GameState *g) {
     int seen[48] = {0};
     for (int p = 0; p < 2; p++) {
-        for (int i = 0; i < g->hand_count[p]; i++) {
-            int id = g->hand[p][i];
-            if (id < 0 || id >= 48 || seen[id]++) return 0;
-        }
-        for (int i = 0; i < g->captured_count[p]; i++) {
-            int id = g->captured[p][i];
-            if (id < 0 || id >= 48 || seen[id]++) return 0;
-        }
+        for (int i = 0; i < g->hand_count[p]; i++) { int id = g->hand[p][i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
+        for (int i = 0; i < g->captured_count[p]; i++) { int id = g->captured[p][i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
     }
-    for (int i = 0; i < g->field_count; i++) {
-        int id = g->field[i];
-        if (id < 0 || id >= 48 || seen[id]++) return 0;
-    }
-    for (int i = 0; i < g->stock_count; i++) {
-        int id = g->stock[i];
-        if (id < 0 || id >= 48 || seen[id]++) return 0;
-    }
-    if (g->has_pending) {
-        int id = g->pending_card;
-        if (id < 0 || id >= 48 || seen[id]++) return 0;
-    }
-    for (int i = 0; i < 48; i++) {
-        if (seen[i] != 1) return 0;
-    }
+    for (int i = 0; i < g->field_count; i++) { int id = g->field[i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
+    for (int i = 0; i < g->stock_count; i++) { int id = g->stock[i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
+    if (g->has_pending) { int id = g->pending_card; if (id < 0 || id >= 48 || seen[id]++) return 0; }
+    for (int i = 0; i < 48; i++) if (seen[i] != 1) return 0;
     return 1;
 }
 
@@ -314,6 +289,20 @@ int engine_cancel_hand_choice(GameState *g) {
     g->choice_count = 0;
     g->phase = PHASE_TURN_HAND;
     return 1;
+}
+
+int engine_timeout_autoplay(GameState *g) {
+    if (g->current_player != 0 || g->hand_count[0] <= 0) return 0;
+    if (g->phase == PHASE_HAND_CHOICE) {
+        return engine_pick_hand_choice(g, g->choice_targets[0]);
+    }
+    if (g->phase != PHASE_TURN_HAND) return 0;
+    int r_idx = (int)(engine_rand(&g->rng_state) % (uint32_t)g->hand_count[0]);
+    int card_id = g->hand[0][r_idx], target_id = -1;
+    for (int i = 0; i < g->field_count; i++) {
+        if (CARDS[g->field[i]].month == CARDS[card_id].month) { target_id = g->field[i]; break; }
+    }
+    return engine_play_hand(g, card_id, target_id);
 }
 
 static int apply_exhaustion(GameState *g) {

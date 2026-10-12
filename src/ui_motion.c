@@ -14,7 +14,10 @@ static int s_cinematic_round = 1;
 
 void motion_init(void) {
     memset(g_cards, 0, sizeof(g_cards));
-    for (int i = 0; i < 48; i++) g_cards[i].tint_val = 255.0f;
+    for (int i = 0; i < 48; i++) {
+        g_cards[i].tint_val = 255.0f;
+        g_cards[i].shimmer_alpha = 0.0f;
+    }
     s_cinematic_timer = 0.0f;
 }
 
@@ -88,23 +91,16 @@ Color motion_get_card_tint(int card_id) {
     return WHITE;
 }
 
+float motion_get_card_shimmer(int card_id) {
+    if (card_id < 0 || card_id >= 48) return 0.0f;
+    return g_cards[card_id].shimmer_alpha;
+}
+
 void motion_set_drag_velocity(int card_id, Vector2 mouse_delta) {
     if (card_id < 0 || card_id >= 48) return;
     CardMotion *m = &g_cards[card_id];
     m->is_dragged = 1;
     m->vel = mouse_delta;
-    float speed = sqrtf(mouse_delta.x * mouse_delta.x + mouse_delta.y * mouse_delta.y);
-    float target_tint = 255.0f;
-    if (speed > 0.3f) {
-        float tilt = mouse_delta.x - mouse_delta.y;
-        if (tilt < 0.0f) {
-            float factor = fminf(1.0f, -tilt / 16.0f);
-            target_tint = 255.0f - 55.0f * factor;
-        }
-    }
-    float dt = GetFrameTime();
-    if (dt > 0.05f) dt = 0.05f;
-    m->tint_val += (target_tint - m->tint_val) * fminf(1.0f, dt * 14.0f);
 }
 
 float motion_get_card_lift(int card_id) {
@@ -157,14 +153,9 @@ int motion_is_reflowing(const GameState *g) {
     return 0;
 }
 
-void motion_update(float dt) {
+void motion_update(float dt, int dragged_card_id) {
     for (int i = 0; i < 48; i++) {
         CardMotion *m = &g_cards[i];
-        if (m->is_dragged) {
-            m->is_dragged = 0;
-            continue;
-        }
-        float target_tint = 255.0f;
         if (m->moving) {
             m->elapsed += dt;
             m->prev_pos = m->current_pos;
@@ -183,19 +174,15 @@ void motion_update(float dt) {
                 m->current_size = Vector2Lerp(m->start_size, m->target_size, ease);
                 m->vel = (Vector2){ m->current_pos.x - m->prev_pos.x, m->current_pos.y - m->prev_pos.y };
             }
-            float speed = sqrtf(m->vel.x * m->vel.x + m->vel.y * m->vel.y);
-            if (speed > 0.15f) {
-                float tilt = m->vel.x - m->vel.y;
-                if (tilt < 0.0f) {
-                    float factor = fminf(1.0f, -tilt / 18.0f);
-                    target_tint = 255.0f - 55.0f * factor;
-                }
-            }
         } else {
             m->vel = (Vector2){ 0, 0 };
         }
-        float rate = fminf(1.0f, dt * 14.0f);
-        m->tint_val += (target_tint - m->tint_val) * rate;
+
+        /* Strictly Mouse Dragging ONLY: Target is 23.0f only if currently grabbed by mouse */
+        float target_alpha = (i == dragged_card_id && dragged_card_id >= 0) ? 23.0f : 0.0f;
+        m->shimmer_alpha = Lerp(m->shimmer_alpha, target_alpha, dt * 4.0f);
+        if (m->shimmer_alpha < 0.05f) m->shimmer_alpha = 0.0f;
+        if (m->shimmer_alpha > 23.0f) m->shimmer_alpha = 23.0f;
     }
 }
 

@@ -91,6 +91,9 @@ typedef struct {
 
     /* AAA Game Feel: Hitlag freeze-frame */
     float hitlag_timer;
+
+    /* Master Mode: Ticking clock */
+    float player_timer;
 } GameState;
 
 /* PRNG helper */
@@ -116,6 +119,9 @@ int engine_pick_hand_choice(GameState *g, int target_id);
 
 /* Cancel hand choice when 2 matches were available, returning to TURN_HAND. */
 int engine_cancel_hand_choice(GameState *g);
+
+/* Auto-plays a random card from player hand when timer expires in MASTER difficulty. */
+int engine_timeout_autoplay(GameState *g);
 
 /* Reveal stock card into pending zone and resolve 0/1/3 matches or enter DRAW_CHOICE. */
 int engine_reveal_stock(GameState *g);

@@ -131,15 +131,16 @@ void board_draw_card_shadow(Rectangle dest, float lift_amount) {
     DrawRectangleRec((Rectangle){ dest.x + off_x, dest.y + off_y, dest.width, dest.height }, (Color){ 0, 0, 0, (unsigned char)(255 * 0.40f * lift_amount) });
 }
 
-void board_draw_card_shimmer(Rectangle dest, float speed) {
-    if (speed <= 0.1f || dest.width <= 0.0f || dest.height <= 0.0f) return;
-    float factor = fminf(1.0f, speed / 12.0f);
-    unsigned char top_alpha = (unsigned char)(35.0f * factor);
-    unsigned char bot_alpha = (unsigned char)(8.0f * factor);
-    if (top_alpha == 0) return;
+void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
+    if (shimmer_val <= 0.5f || dest.width <= 0.0f || dest.height <= 0.0f) return;
+    unsigned char top_a = (unsigned char)shimmer_val;
+    if (top_a > 23) top_a = 23;
+    unsigned char bot_a = (unsigned char)(top_a * 0.25f);
+    BeginBlendMode(BLEND_ADDITIVE);
     DrawRectangleGradientV((int)dest.x, (int)dest.y, (int)dest.width, (int)dest.height,
-                           (Color){ 255, 255, 255, top_alpha },
-                           (Color){ 255, 255, 255, bot_alpha });
+                           (Color){ 255, 255, 255, top_a },
+                           (Color){ 255, 255, 255, bot_a });
+    EndBlendMode();
 }
 
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
@@ -165,20 +166,20 @@ void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
 static void draw_info_box(Rectangle box, const char *text, int is_active, float flash_alpha) {
     DrawRectangleRec(box, COLOR_PANEL_BG);
     if (is_active) {
-        float tp = 0.5f + 0.5f * sinf((float)GetTime() * 3.5f);
-        Color o = g_theme.base; o.a = (unsigned char)(35 + (int)(25.0f * tp));
-        Color i = g_theme.base; i.a = (unsigned char)(130 + (int)(45.0f * tp));
-        DrawRectangleLinesEx((Rectangle){ box.x - 2, box.y - 2, box.width + 4, box.height + 4 }, 1.0f, o);
-        DrawRectangleLinesEx(box, 1.0f, i);
+        float pulse = 0.3f + 0.7f * (0.5f + 0.5f * sinf((float)GetTime() * 4.0f));
+        Color c0 = g_theme.base; c0.a = (unsigned char)(255 * pulse);
+        Color c1 = g_theme.base; c1.a = (unsigned char)(165 * pulse);
+        Color c2 = g_theme.base; c2.a = (unsigned char)(95 * pulse);
+        Color c3 = g_theme.base; c3.a = (unsigned char)(40 * pulse);
+        DrawRectangleLinesEx(box, 1.0f, c0);
+        DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 1.5f, c1);
+        DrawRectangleLinesEx((Rectangle){ box.x - 2, box.y - 2, box.width + 4, box.height + 4 }, 2.5f, c2);
+        DrawRectangleLinesEx((Rectangle){ box.x - 3, box.y - 3, box.width + 6, box.height + 6 }, 3.5f, c3);
         if (flash_alpha > 0.001f) {
-            Color c1 = g_theme.base; c1.a = (unsigned char)(255 * flash_alpha);
-            Color c2 = g_theme.base; c2.a = (unsigned char)(160 * flash_alpha);
-            Color c3 = g_theme.base; c3.a = (unsigned char)(80 * flash_alpha);
-            DrawRectangleLinesEx((Rectangle){ box.x - 4, box.y - 4, box.width + 8, box.height + 8 }, 1.5f, c3);
-            DrawRectangleLinesEx((Rectangle){ box.x - 2, box.y - 2, box.width + 4, box.height + 4 }, 2.0f, c2);
-            DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 2.5f, c1);
+            Color cf = g_theme.base; cf.a = (unsigned char)(255 * flash_alpha);
+            DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 2.0f, cf);
         }
-    } else DrawRectangleLinesEx(box, 1.0f, COLOR_PHOSPHOR_DIM);
+    } else ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
     DrawText(text, (int)box.x + 6, (int)box.y + 6, 16, COLOR_PHOSPHOR);
 }
 
@@ -191,7 +192,7 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
         float y = start_y + t * (CAPTURE_PANEL_H + 4.0f);
         Rectangle lr = { 12.0f, y, CAPTURE_PANEL_W, CAPTURE_PANEL_H };
         DrawRectangleRec(lr, COLOR_PANEL_BG);
-        DrawRectangleLinesEx(lr, 1.0f, COLOR_PHOSPHOR_DIM);
+        ui_draw_panel_border(lr, COLOR_PHOSPHOR_DIM);
         int lc[48], count = 0, cup = 0;
         for (int i = 0; i < g->captured_count[player]; i++) {
             int cid = g->captured[player][i];
@@ -210,8 +211,6 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
                 board_draw_card(ba, cid, dr);
-                Vector2 v = motion_get_velocity(cid);
-                board_draw_card_shimmer(dr, fmaxf(sqrtf(v.x * v.x + v.y * v.y), 12.0f * motion_get_card_lift(cid)));
                 board_draw_card_glow(dr, 0.8f);
             } else board_draw_card(ba, cid, dr);
         }
@@ -228,7 +227,7 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
     float total_h = base_h + content_h + (max_yakus > 0 ? 6.0f : 0.0f);
     Rectangle r = { 1160, y, 112, total_h };
     DrawRectangleRec(r, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(r, 1.0f, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(r, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
     DrawText(title, 1168, (int)y + 8, 12, COLOR_PHOSPHOR);
     DrawTextEx(small_font, TextFormat("Base: %d%s", s->base_points, (koi_called > 0) ? " [KOI]" : ""), (Vector2){ 1168.0f, y + 25.0f }, 16.0f, 2.0f, (koi_called > 0) ? COLOR_RED : COLOR_TEXT_INFO_DIM);
 
@@ -301,8 +300,6 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (motion_is_card_moving(cid)) {
             board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card_back(ba, dr);
-            Vector2 v = motion_get_velocity(cid);
-            board_draw_card_shimmer(dr, fmaxf(sqrtf(v.x * v.x + v.y * v.y), 12.0f * motion_get_card_lift(cid)));
         } else board_draw_card_back(ba, dr);
     }
 
@@ -332,8 +329,6 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (motion_is_card_moving(cid)) {
             board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
-            Vector2 v = motion_get_velocity(cid);
-            board_draw_card_shimmer(dr, fmaxf(sqrtf(v.x * v.x + v.y * v.y), 12.0f * motion_get_card_lift(cid)));
         } else board_draw_card(ba, cid, dr);
         if (easy_mode && drag_m > 0 && CARDS[cid].month == drag_m) board_draw_card_glow(dr, pulse);
     }
@@ -357,8 +352,6 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (motion_is_card_moving(cid)) {
             board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
-            Vector2 v = motion_get_velocity(cid);
-            board_draw_card_shimmer(dr, fmaxf(sqrtf(v.x * v.x + v.y * v.y), 12.0f * motion_get_card_lift(cid)));
         } else board_draw_card(ba, cid, dr);
         if (easy_mode && g->current_player == 0 && dragging_idx < 0) {
             int m = 0;
@@ -370,12 +363,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 8. Dragged Card */
     if (dragging_idx >= 0 && dragging_idx < g->hand_count[0]) {
         int cid = g->hand[0][dragging_idx];
+        motion_set_drag_velocity(cid, GetMouseDelta());
         motion_set_instant(cid, drag_pos, (Vector2){ HAND_CARD_W, HAND_CARD_H });
         Rectangle dr = { drag_pos.x, drag_pos.y, HAND_CARD_W, HAND_CARD_H };
         board_draw_card_shadow(dr, 1.0f);
         board_draw_card(ba, cid, dr);
-        Vector2 md = GetMouseDelta();
-        board_draw_card_shimmer(dr, sqrtf(md.x * md.x + md.y * md.y) * 1.5f);
+        board_draw_card_shimmer(dr, motion_get_card_shimmer(cid));
         board_draw_card_glow(dr, 1.0f);
     }
 
@@ -385,13 +378,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         float lift = sinf((anim->elapsed / anim->duration) * 3.14159265f);
         board_draw_card_shadow(ar, lift);
         board_draw_card(ba, anim->card_id, ar);
-        board_draw_card_shimmer(ar, 12.0f * lift);
     } else if (anim->active && anim->type == ANIM_CPU_FLY) {
         Rectangle ar = { anim->current_pos.x, anim->current_pos.y, FIELD_CARD_W, FIELD_CARD_H };
         float lift = sinf((anim->elapsed / anim->duration) * 3.14159265f);
         board_draw_card_shadow(ar, lift);
         board_draw_card(ba, anim->cpu_card, ar);
-        board_draw_card_shimmer(ar, 12.0f * lift);
         board_draw_card_glow(ar, 1.0f);
     } else if (anim->active && (anim->type == ANIM_STOCK_FLY || anim->type == ANIM_STOCK_FLIP)) {
         float t = anim->elapsed / anim->duration;
@@ -407,18 +398,29 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         DrawRectangleRec(sr, (Color){ 0, 0, 0, (unsigned char)(255 * 0.40f) });
         if (cos_val > 0.0f) board_draw_card_back(ba, cr);
         else board_draw_card(ba, anim->card_id, cr);
-        board_draw_card_shimmer(cr, 12.0f * lift);
         board_draw_card_glow(cr, 1.0f);
     }
 
-    /* 10. Status Line */
+    /* 10. Status Line & Master Timer */
+    if (g->current_player == 0 && g->phase == PHASE_TURN_HAND && g->player_timer > 0.0f) {
+        char t_str[32];
+        if (g->player_timer <= 5.0f) {
+            int flash = ((int)(g->player_timer * 6.0f)) % 2;
+            Color tcol = flash ? (Color){ 255, 30, 30, 255 } : (Color){ 255, 230, 230, 255 };
+            snprintf(t_str, sizeof(t_str), "! TIME: %.1fS !", g->player_timer);
+            DrawText(t_str, (1280 - MeasureText(t_str, 24)) / 2, 502, 24, tcol);
+        } else {
+            snprintf(t_str, sizeof(t_str), "TIME: %.1fS", g->player_timer);
+            DrawText(t_str, (1280 - MeasureText(t_str, 22)) / 2, 505, 22, COLOR_PHOSPHOR);
+        }
+    }
     if (status_msg && status_msg[0] != '\0') {
         DrawText(status_msg, (1280 - MeasureText(status_msg, 20)) / 2, 536, 20, COLOR_PHOSPHOR);
     }
 
     /* 11. Right Column */
     Rectangle cp = { 1160, 12, 112, 54 };
-    DrawRectangleRec(cp, COLOR_PANEL_BG); DrawRectangleLinesEx(cp, 1.0f, COLOR_PHOSPHOR_DIM);
+    DrawRectangleRec(cp, COLOR_PANEL_BG); ui_draw_panel_border(cp, COLOR_PHOSPHOR_DIM);
     DrawText(TextFormat("RND %d/%d", g->current_round, g->total_rounds), 1168, 20, 14, COLOR_PHOSPHOR);
     const char *rnames[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
     DrawText(rnames[g->ruleset], 1168, 38, 11, COLOR_PHOSPHOR_DIM);
@@ -427,12 +429,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     float cpu_h = draw_combo_panel(74.0f, "CPU COMBOS", &s1, g->koi_called[1]);
     draw_combo_panel(74.0f + cpu_h + 10.0f, "YOU COMBOS", &s0, g->koi_called[0]);
 
-    Rectangle pb = { 1160, 560, 112, 40 }, rb = { 1160, 610, 112, 40 };
-    DrawRectangleRec(pb, COLOR_PANEL_BG); DrawRectangleLinesEx(pb, 1.0f, COLOR_PHOSPHOR); DrawText("PAUSE", 1192, 572, 16, COLOR_PHOSPHOR);
-    DrawRectangleRec(rb, COLOR_PANEL_BG); DrawRectangleLinesEx(rb, 1.0f, COLOR_PHOSPHOR); DrawText("RESTART", 1180, 622, 16, COLOR_PHOSPHOR);
-
-    /* 12. Scanlines */
-    for (int y = 0; y < 720; y += 3) DrawLine(0, y, 1280, y, COLOR_SCANLINE);
+    DrawRectangleRec((Rectangle){ 1160, 560, 112, 40 }, COLOR_PANEL_BG); ui_draw_panel_border((Rectangle){ 1160, 560, 112, 40 }, COLOR_PHOSPHOR); DrawText("PAUSE", 1192, 572, 16, COLOR_PHOSPHOR);
+    DrawRectangleRec((Rectangle){ 1160, 610, 112, 40 }, COLOR_PANEL_BG); ui_draw_panel_border((Rectangle){ 1160, 610, 112, 40 }, COLOR_PHOSPHOR); DrawText("RESTART", 1180, 622, 16, COLOR_PHOSPHOR);
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {
@@ -486,8 +484,7 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
 
 int board_check_dealer_select_click(const GameState *g, Vector2 vm) {
     if (g->oya_player_choice >= 0) return -1;
-    Rectangle r0 = { 400, 180, 176, 286 }, r1 = { 704, 180, 176, 286 };
-    if (CheckCollisionPointRec(vm, r0)) return 0;
-    if (CheckCollisionPointRec(vm, r1)) return 1;
+    if (CheckCollisionPointRec(vm, (Rectangle){ 400, 180, 176, 286 })) return 0;
+    if (CheckCollisionPointRec(vm, (Rectangle){ 704, 180, 176, 286 })) return 1;
     return -1;
 }

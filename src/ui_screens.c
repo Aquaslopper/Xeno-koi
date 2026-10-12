@@ -8,7 +8,7 @@ extern Font small_font;
 static int draw_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, Color txt_col) {
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
-    DrawRectangleLinesEx(r, 1.0f, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
     int tw = MeasureText(txt, fsz);
     DrawText(txt, (int)(r.x + (r.width - tw) / 2.0f), (int)(r.y + (r.height - fsz) / 2.0f), fsz, txt_col);
     return hov;
@@ -19,10 +19,6 @@ static void draw_bg_if_loaded(const BoardAssets *ba, unsigned char alpha) {
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){0,0,1280,720}, (Rectangle){0,0,1280,720}, (Vector2){0}, 0, WHITE);
     }
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, alpha });
-}
-
-static void draw_scanlines(void) {
-    for (int y = 0; y < 720; y += 3) DrawLine(0, y, 1280, y, COLOR_SCANLINE);
 }
 
 static void get_yaku_cards(const GameState *g, int winner, const ScoredYaku *y, int *out, int *out_cnt) {
@@ -43,29 +39,22 @@ static void get_yaku_cards(const GameState *g, int winner, const ScoredYaku *y, 
 }
 
 static void draw_yaku_cards(const BoardAssets *ba, const int *cards, int count, float x, float y) {
-    float max_w = 260.0f;
-    float step = (count > 1) ? fminf(MINI_CARD_W + 3.0f, (max_w - MINI_CARD_W) / (count - 1)) : 0.0f;
-    for (int c = 0; c < count; c++) {
-        Rectangle r = { x + c * step, y, MINI_CARD_W, MINI_CARD_H };
-        board_draw_card(ba, cards[c], r);
-    }
+    float step = (count > 1) ? fminf(MINI_CARD_W + 3.0f, (260.0f - MINI_CARD_W) / (count - 1)) : 0.0f;
+    for (int c = 0; c < count; c++) board_draw_card(ba, cards[c], (Rectangle){ x + c * step, y, MINI_CARD_W, MINI_CARD_H });
 }
 
 void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, float saved_timer) {
     draw_bg_if_loaded(ba, 140);
     const char *title = "[XENO/KOI]";
     int tw = MeasureText(title, 48);
-    DrawText(title, (1280 - tw) / 2, 90, 48, COLOR_PHOSPHOR);
-    DrawText("BIOMECHANICAL EDITION", 490, 150, 20, COLOR_PHOSPHOR_DIM);
+    DrawText(title, (1280 - tw) / 2, 85, 48, COLOR_PHOSPHOR);
+    const char *sub = "BIOMECHANICAL EDITION";
+    float stw = MeasureTextEx(small_font, sub, 20.0f, 2.0f).x;
+    DrawTextEx(small_font, sub, (Vector2){ (1280.0f - stw) / 2.0f, 144.0f }, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
 
-    Rectangle btns[6] = {
-        { 490, 190, 300, 42 }, { 490, 242, 300, 42 },
-        { 490, 294, 300, 42 }, { 490, 346, 300, 42 },
-        { 490, 398, 300, 42 }, { 490, 450, 300, 42 }
-    };
-    const char *lbls[6] = { "START GAME", "OPTIONS", "STATS", "CREDITS", "SAVE", "QUIT" };
-    for (int i = 0; i < 6; i++) draw_btn(btns[i], lbls[i], 20, vm, COLOR_PHOSPHOR);
-    if (saved_timer > 0.0f) DrawText("ALL FILES SAVED", 570, 510, 20, COLOR_PHOSPHOR);
+    const char *lbls[6] = { "START MATCH", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
+    for (int i = 0; i < 6; i++) draw_btn((Rectangle){ 490, 185 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
+    if (saved_timer > 0.0f) DrawText("ALL FILES SAVED", 570, 505, 20, COLOR_PHOSPHOR);
 
     /* Arcade Ticker (marquee scrolling right to left) */
     static float ticker_x = 0.0f;
@@ -83,22 +72,13 @@ void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, 
     for (float tx = ticker_x; tx < 1280.0f; tx += rep) {
         if (tx + mtw > 0.0f) DrawTextEx(small_font, ticker, (Vector2){ tx, 693.0f }, 18.0f, 2.0f, COLOR_TEXT_INFO);
     }
-
-    draw_scanlines();
 }
 
 ScreenAction screens_handle_start_click(Vector2 vm) {
-    Rectangle btns[6] = {
-        { 490, 190, 300, 42 }, { 490, 242, 300, 42 },
-        { 490, 294, 300, 42 }, { 490, 346, 300, 42 },
-        { 490, 398, 300, 42 }, { 490, 450, 300, 42 }
-    };
-    if (CheckCollisionPointRec(vm, btns[0])) return ACT_START_GAME;
-    if (CheckCollisionPointRec(vm, btns[1])) return ACT_GOTO_OPTIONS;
-    if (CheckCollisionPointRec(vm, btns[2])) return ACT_GOTO_STATS;
-    if (CheckCollisionPointRec(vm, btns[3])) return ACT_GOTO_CREDITS;
-    if (CheckCollisionPointRec(vm, btns[4])) return ACT_SAVE;
-    if (CheckCollisionPointRec(vm, btns[5])) return ACT_QUIT;
+    ScreenAction acts[6] = { ACT_START_GAME, ACT_GOTO_OPTIONS, ACT_GOTO_STATS, ACT_SAVE, ACT_GOTO_CREDITS, ACT_QUIT };
+    for (int i = 0; i < 6; i++) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 490, 185 + i * 50, 300, 40 })) return acts[i];
+    }
     return ACT_NONE;
 }
 
@@ -106,7 +86,7 @@ void screens_draw_credits(const BoardAssets *ba, Vector2 vm) {
     draw_bg_if_loaded(ba, 180);
     Rectangle panel = { 320, 80, 640, 540 };
     DrawRectangleRec(panel, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(panel, 1.0f, COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(panel, COLOR_PHOSPHOR_DIM);
     DrawText("[]", (1280 - MeasureText("[]", 24)) / 2, 130, 24, COLOR_PHOSPHOR_DIM);
     DrawText("XENO/KOI", (1280 - MeasureText("XENO/KOI", 46)) / 2, 180, 46, COLOR_PHOSPHOR);
     DrawText("Vibe Coder: [Aquaslopper]", (1280 - MeasureText("Vibe Coder: [Aquaslopper]", 22)) / 2, 275, 22, COLOR_PHOSPHOR);
@@ -114,7 +94,6 @@ void screens_draw_credits(const BoardAssets *ba, Vector2 vm) {
     DrawText("Development Platform: Arena.ai - Agent mode.", (1280 - MeasureText("Development Platform: Arena.ai - Agent mode.", 20)) / 2, 385, 20, COLOR_PHOSPHOR);
     DrawText("[]", (1280 - MeasureText("[]", 24)) / 2, 445, 24, COLOR_PHOSPHOR_DIM);
     draw_btn((Rectangle){ 520, 530, 240, 46 }, "BACK", 22, vm, COLOR_PHOSPHOR);
-    draw_scanlines();
 }
 
 ScreenAction screens_handle_credits_click(Vector2 vm) {
@@ -122,74 +101,100 @@ ScreenAction screens_handle_credits_click(Vector2 vm) {
     return ACT_NONE;
 }
 
+static void draw_slider(int y, float val, const char *lbl, const char *val_txt, Vector2 vm) {
+    DrawText(lbl, 340, y + 4, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, (float)y, 36, 26 }, "-", 18, vm, COLOR_PHOSPHOR);
+    Rectangle track = { 626, (float)y + 5, 180, 16 };
+    DrawRectangleRec(track, COLOR_PANEL_BG);
+    DrawRectangleLinesEx(track, 1.0f, COLOR_PHOSPHOR_DIM);
+    DrawRectangle(626, y + 5, (int)(180.0f * val), 16, COLOR_PHOSPHOR);
+    DrawRectangle((int)(626 + 180.0f * val - 3), y + 1, 6, 24, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 816, (float)y, 36, 26 }, "+", 18, vm, COLOR_PHOSPHOR);
+    DrawText(val_txt, 865, y + 4, 17, COLOR_PHOSPHOR);
+}
+
 void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     draw_bg_if_loaded(ba, 180);
-    DrawText("GAME OPTIONS", 520, 45, 34, COLOR_PHOSPHOR);
+    DrawText("GAME OPTIONS", 520, 24, 30, COLOR_PHOSPHOR);
 
-    DrawText("Match Length:", 340, 95, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 87, 44, 36 }, "-", 24, vm, COLOR_PHOSPHOR);
-    DrawText(TextFormat("%d Rounds", s->rounds), 650, 95, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 770, 87, 44, 36 }, "+", 24, vm, COLOR_PHOSPHOR);
+    DrawText("Match Length:", 340, 64, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 60, 44, 26 }, "-", 20, vm, COLOR_PHOSPHOR);
+    DrawText(TextFormat("%d Rounds", s->rounds), 650, 64, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 770, 60, 44, 26 }, "+", 20, vm, COLOR_PHOSPHOR);
 
-    DrawText("Difficulty:", 340, 145, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 137, 110, 36 }, "EASY", 18, vm, (s->difficulty == DIFFICULTY_EASY) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_btn((Rectangle){ 710, 137, 110, 36 }, "HARD", 18, vm, (s->difficulty == DIFFICULTY_HARD) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    DrawText("Difficulty:", 340, 98, 18, COLOR_PHOSPHOR);
+    const char *d_names[3] = { "EASY", "HARD", "MASTER" };
+    draw_btn((Rectangle){ 580, 94, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 630, 94, 140, 26 }, d_names[s->difficulty], 16, vm, (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 60, 60, 255 } : COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 776, 94, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
 
-    DrawText("Ruleset:", 340, 195, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 187, 44, 36 }, "<", 22, vm, COLOR_PHOSPHOR);
+    DrawText("Master Timer:", 340, 132, 18, (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 100, 100, 255 } : COLOR_PHOSPHOR_DIM);
+    if (s->difficulty == DIFFICULTY_MASTER) {
+        draw_btn((Rectangle){ 580, 128, 105, 26 }, "15 SEC", 14, vm, (s->master_timer == 15) ? (Color){ 255, 80, 80, 255 } : COLOR_PHOSPHOR_DIM);
+        draw_btn((Rectangle){ 695, 128, 105, 26 }, "30 SEC", 14, vm, (s->master_timer == 30) ? (Color){ 255, 80, 80, 255 } : COLOR_PHOSPHOR_DIM);
+    } else {
+        DrawText("[ MASTER ONLY ]", 580, 132, 16, COLOR_PHOSPHOR_DIM);
+    }
+
+    DrawText("Ruleset:", 340, 166, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 162, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
     const char *r_names[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
     Color dbg = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 20, 160, 40, 55 } :
                 (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 210, 140, 20, 55 } : (Color){ 210, 30, 30, 55 };
     Color dbdr = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 30, 220, 60, 140 } :
                  (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 240, 160, 30, 140 } : (Color){ 240, 40, 40, 140 };
-    Rectangle rbox = { 630, 187, 144, 36 };
-    DrawRectangleRec(rbox, dbg);
-    DrawRectangleLinesEx(rbox, 1.0f, dbdr);
-    DrawText(r_names[s->ruleset], 630 + (144 - MeasureText(r_names[s->ruleset], 18)) / 2, 196, 18, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 780, 187, 44, 36 }, ">", 22, vm, COLOR_PHOSPHOR);
+    Rectangle rbox = { 630, 162, 144, 26 };
+    DrawRectangleRec(rbox, dbg); DrawRectangleLinesEx(rbox, 1.0f, dbdr);
+    DrawText(r_names[s->ruleset], 630 + (144 - MeasureText(r_names[s->ruleset], 15)) / 2, 167, 15, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 780, 162, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
 
-    const char *cnames[3] = { "GREEN", "AMBER", "TEAL" };
-    DrawText("TERMINAL COLOR:", 340, 245, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 237, 44, 36 }, "<", 22, vm, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 630, 237, 140, 36 }, cnames[s->terminal_color], 18, vm, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 776, 237, 44, 36 }, ">", 22, vm, COLOR_PHOSPHOR);
+    const char *cnames[5] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET" };
+    DrawText("TERMINAL COLOR:", 340, 200, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 196, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 630, 196, 140, 26 }, cnames[s->terminal_color % 5], 15, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 776, 196, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
 
     const char *bg_names[5] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City" };
-    DrawText("Background:", 340, 295, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 287, 44, 36 }, "<", 22, vm, COLOR_PHOSPHOR);
-    DrawText(bg_names[s->background], 640, 295, 20, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 780, 287, 44, 36 }, ">", 22, vm, COLOR_PHOSPHOR);
+    DrawText("Background:", 340, 234, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 230, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+    DrawText(bg_names[s->background], 640, 234, 16, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 780, 230, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
     if (s->background >= 0 && s->background < 5 && ba->bgs[s->background].id > 0) {
-        Rectangle prev = { 850, 282, 90, 46 };
+        Rectangle prev = { 850, 224, 76, 38 };
         DrawTexturePro(ba->bgs[s->background], (Rectangle){0,0,1280,720}, prev, (Vector2){0}, 0, WHITE);
         DrawRectangleLinesEx(prev, 1.0f, COLOR_PHOSPHOR_DIM);
     }
 
-    DrawText("Anim Speed:", 340, 345, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 337, 95, 36 }, "SLOW", 16, vm, (s->anim_speed == 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_btn((Rectangle){ 690, 337, 95, 36 }, "NORMAL", 16, vm, (s->anim_speed == 1) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_btn((Rectangle){ 800, 337, 95, 36 }, "FAST", 16, vm, (s->anim_speed == 2) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    DrawText("Anim Speed:", 340, 268, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 264, 95, 26 }, "SLOW", 14, vm, (s->anim_speed == 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_btn((Rectangle){ 690, 264, 95, 26 }, "NORMAL", 14, vm, (s->anim_speed == 1) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_btn((Rectangle){ 800, 264, 95, 26 }, "FAST", 14, vm, (s->anim_speed == 2) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
 
-    DrawText("BGM Volume:", 340, 400, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 392, 36, 34 }, "-", 20, vm, COLOR_PHOSPHOR);
-    DrawRectangleRec((Rectangle){ 626, 401, 180, 16 }, COLOR_PANEL_BG);
-    DrawRectangleLinesEx((Rectangle){ 626, 401, 180, 16 }, 1.0f, COLOR_PHOSPHOR_DIM);
-    DrawRectangle(626, 401, (int)(180.0f * s->bgm_volume), 16, COLOR_PHOSPHOR);
-    DrawRectangle((int)(626 + 180.0f * s->bgm_volume - 3), 397, 6, 24, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 816, 392, 36, 34 }, "+", 20, vm, COLOR_PHOSPHOR);
-    DrawText(TextFormat("%d%%", (int)(s->bgm_volume * 100.0f + 0.5f)), 865, 400, 20, COLOR_PHOSPHOR);
+    draw_slider(298, s->bgm_volume, "BGM Volume:", TextFormat("%d%%", (int)(s->bgm_volume * 100.0f + 0.5f)), vm);
+    draw_slider(332, s->sfx_volume, "SFX Volume:", TextFormat("%d%%", (int)(s->sfx_volume * 100.0f + 0.5f)), vm);
 
-    DrawText("SFX Volume:", 340, 455, 22, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 580, 447, 36, 34 }, "-", 20, vm, COLOR_PHOSPHOR);
-    DrawRectangleRec((Rectangle){ 626, 456, 180, 16 }, COLOR_PANEL_BG);
-    DrawRectangleLinesEx((Rectangle){ 626, 456, 180, 16 }, 1.0f, COLOR_PHOSPHOR_DIM);
-    DrawRectangle(626, 456, (int)(180.0f * s->sfx_volume), 16, COLOR_PHOSPHOR);
-    DrawRectangle((int)(626 + 180.0f * s->sfx_volume - 3), 452, 6, 24, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 816, 447, 36, 34 }, "+", 20, vm, COLOR_PHOSPHOR);
-    DrawText(TextFormat("%d%%", (int)(s->sfx_volume * 100.0f + 0.5f)), 865, 455, 20, COLOR_PHOSPHOR);
+    DrawText("Fullscreen:", 340, 360, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 356, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+    const char *fs_names[2] = { "WINDOWED", "BORDERLESS" };
+    draw_btn((Rectangle){ 630, 356, 140, 26 }, fs_names[s->fullscreen ? 1 : 0], 15, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 776, 356, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
 
-    draw_btn((Rectangle){ 520, 530, 240, 46 }, "BACK (SAVE)", 22, vm, COLOR_PHOSPHOR);
-    draw_scanlines();
+    DrawText("Bloom Effect:", 340, 394, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 390, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+    const char *bl_names[3] = { "OFF", "MID", "FULL" };
+    draw_btn((Rectangle){ 630, 390, 140, 26 }, bl_names[s->bloom % 3], 15, vm, (s->bloom > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_btn((Rectangle){ 776, 390, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
+
+    DrawText("CRT Filter:", 340, 428, 18, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 580, 424, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+    const char *crt_names[4] = { "0: OFF", "1: LOW", "2: MID", "3: HIGH" };
+    draw_btn((Rectangle){ 630, 424, 140, 26 }, crt_names[s->crt_filter % 4], 15, vm, (s->crt_filter > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_btn((Rectangle){ 776, 424, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
+
+    float g_frac = fmaxf(0.0f, fminf(1.0f, (s->gamma - 0.5f) / 1.5f));
+    draw_slider(458, g_frac, "Display Gamma:", TextFormat("%.2f", s->gamma), vm);
+
+    draw_btn((Rectangle){ 520, 502, 240, 38 }, "BACK (SAVE)", 19, vm, COLOR_PHOSPHOR);
 }
 
 ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, AudioAssets *audio, Vector2 vm) {
@@ -197,36 +202,48 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     int down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
     if (down) {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 626, 392, 180, 34 })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 626, 298, 180, 26 })) {
             s->bgm_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 626.0f) / 180.0f));
             if (audio) audio_set_bgm_volume(audio, s->bgm_volume);
-        } else if (CheckCollisionPointRec(vm, (Rectangle){ 626, 447, 180, 34 })) {
+        } else if (CheckCollisionPointRec(vm, (Rectangle){ 626, 332, 180, 26 })) {
             s->sfx_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 626.0f) / 180.0f));
             if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); if (pressed) audio_play_click(audio); }
+        } else if (CheckCollisionPointRec(vm, (Rectangle){ 626, 458, 180, 26 })) {
+            s->gamma = 0.5f + fmaxf(0.0f, fminf(1.0f, (vm.x - 626.0f) / 180.0f)) * 1.5f;
+            if (pressed && audio) audio_play_click(audio);
         }
     }
     if (!pressed) return ACT_NONE;
 
-    if (CheckCollisionPointRec(vm, (Rectangle){ 580, 87, 44, 36 })) { if (s->rounds > 1) s->rounds--; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 770, 87, 44, 36 })) { if (s->rounds < 12) s->rounds++; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 137, 110, 36 })) { s->difficulty = DIFFICULTY_EASY; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 710, 137, 110, 36 })) { s->difficulty = DIFFICULTY_HARD; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 187, 44, 36 })) { s->ruleset = (s->ruleset + 4) % 5; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 187, 144, 36 }) || CheckCollisionPointRec(vm, (Rectangle){ 780, 187, 44, 36 })) {
-        s->ruleset = (s->ruleset + 1) % 5; if (audio) audio_play_click(audio);
+    if (CheckCollisionPointRec(vm, (Rectangle){ 580, 60, 44, 26 })) { if (s->rounds > 1) s->rounds--; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 770, 60, 44, 26 })) { if (s->rounds < 12) s->rounds++; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 94, 44, 26 })) { s->difficulty = (Difficulty)((s->difficulty + 2) % 3); if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 94, 140, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 776, 94, 44, 26 })) { s->difficulty = (Difficulty)((s->difficulty + 1) % 3); if (audio) audio_play_click(audio); }
+    else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 580, 128, 105, 26 })) { s->master_timer = 15; if (audio) audio_play_click(audio); }
+    else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 695, 128, 105, 26 })) { s->master_timer = 30; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 162, 44, 26 })) { s->ruleset = (s->ruleset + 4) % 5; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 162, 144, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 780, 162, 44, 26 })) { s->ruleset = (s->ruleset + 1) % 5; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 196, 44, 26 })) { s->terminal_color = (s->terminal_color + 4) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 196, 140, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 776, 196, 44, 26 })) { s->terminal_color = (s->terminal_color + 1) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 230, 44, 26 })) { s->background = (s->background + 4) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 780, 230, 44, 26 })) { s->background = (s->background + 1) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 264, 95, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 690, 264, 95, 26 })) { s->anim_speed = 1; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 800, 264, 95, 26 })) { s->anim_speed = 2; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 298, 36, 26 })) { s->bgm_volume = fmaxf(0.0f, s->bgm_volume - 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 816, 298, 36, 26 })) { s->bgm_volume = fminf(1.0f, s->bgm_volume + 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 332, 36, 26 })) { s->sfx_volume = fmaxf(0.0f, s->sfx_volume - 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 816, 332, 36, 26 })) { s->sfx_volume = fminf(1.0f, s->sfx_volume + 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 356, 44, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 630, 356, 140, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 776, 356, 44, 26 })) {
+        s->fullscreen = 1 - s->fullscreen; ToggleBorderlessWindowed(); if (audio) audio_play_click(audio);
     }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 237, 44, 36 })) { s->terminal_color = (s->terminal_color + 2) % 3; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 237, 140, 36 }) || CheckCollisionPointRec(vm, (Rectangle){ 776, 237, 44, 36 })) { s->terminal_color = (s->terminal_color + 1) % 3; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 287, 44, 36 })) { s->background = (s->background + 4) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 780, 287, 44, 36 })) { s->background = (s->background + 1) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 337, 95, 36 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 690, 337, 95, 36 })) { s->anim_speed = 1; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 800, 337, 95, 36 })) { s->anim_speed = 2; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 392, 36, 34 })) { s->bgm_volume = fmaxf(0.0f, s->bgm_volume - 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 816, 392, 36, 34 })) { s->bgm_volume = fminf(1.0f, s->bgm_volume + 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 447, 36, 34 })) { s->sfx_volume = fmaxf(0.0f, s->sfx_volume - 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 816, 447, 36, 34 })) { s->sfx_volume = fminf(1.0f, s->sfx_volume + 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 520, 530, 240, 46 })) { storage_save_settings(s); if (audio) audio_play_click(audio); return ACT_GOTO_MENU; }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 390, 44, 26 })) { s->bloom = (s->bloom + 2) % 3; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 390, 140, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 776, 390, 44, 26 })) { s->bloom = (s->bloom + 1) % 3; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 424, 44, 26 })) { s->crt_filter = (s->crt_filter + 3) % 4; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 630, 424, 140, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 776, 424, 44, 26 })) { s->crt_filter = (s->crt_filter + 1) % 4; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 580, 458, 36, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 816, 458, 36, 26 })) { s->gamma = fminf(2.0f, s->gamma + 0.05f); if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 520, 502, 240, 38 })) { storage_save_settings(s); if (audio) audio_play_click(audio); return ACT_GOTO_MENU; }
     return ACT_NONE;
 }
 
@@ -235,7 +252,7 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     DrawText("PLAYER STATISTICS", 500, 40, 32, COLOR_PHOSPHOR);
     Rectangle p = { 100, 90, 1080, 500 };
     DrawRectangleRec(p, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(p, 1.0f, COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);
 
     float wr = (st->matches_played > 0) ? ((float)st->matches_won / st->matches_played * 100.0f) : 0.0f;
     DrawTextEx(small_font, TextFormat("Matches Played:      %d", st->matches_played), (Vector2){ 140, 120 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
@@ -245,7 +262,7 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     DrawTextEx(small_font, TextFormat("Total Points:        FOR %d | AGAINST %d", st->points_for, st->points_against), (Vector2){ 140, 250 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
     DrawTextEx(small_font, TextFormat("Highest Round Score: %d pts", st->best_award), (Vector2){ 140, 280 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
     DrawTextEx(small_font, TextFormat("Koi Calls:           YOU %d | CPU %d", st->koi_calls_you, st->koi_calls_cpu), (Vector2){ 140, 310 }, 18.0f, 2.0f, COLOR_TEXT_INFO_DIM);
-    DrawTextEx(small_font, TextFormat("Difficulty:          Easy %d | Hard %d", st->easy_matches, st->hard_matches), (Vector2){ 140, 350 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Difficulty:          Easy %d | Hard %d | Master %d", st->easy_matches, st->hard_matches, st->master_matches), (Vector2){ 140, 350 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
     DrawTextEx(small_font, TextFormat("Current Streak:      %d", st->current_streak), (Vector2){ 140, 380 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
     DrawTextEx(small_font, TextFormat("Max Win Streak:      %d", st->best_streak), (Vector2){ 140, 410 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
     DrawTextEx(small_font, TextFormat("Favorite Combo:      %s", storage_get_favorite_combo(st)), (Vector2){ 140, 440 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
@@ -263,13 +280,12 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     if (confirm_reset) {
         Rectangle modal = { 440, 240, 400, 200 };
         DrawRectangleRec(modal, (Color){ 0, 0, 0, 240 });
-        DrawRectangleLinesEx(modal, 2.0f, COLOR_RED);
+        ui_draw_panel_border(modal, COLOR_RED);
         DrawText("RESET ALL STATS & LOGS?", 490, 270, 20, COLOR_RED);
         DrawTextEx(small_font, "This action cannot be undone.", (Vector2){ 510, 305 }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         draw_btn((Rectangle){ 480, 360, 140, 40 }, "CONFIRM", 18, vm, COLOR_RED);
         draw_btn((Rectangle){ 660, 360, 140, 40 }, "CANCEL", 18, vm, COLOR_PHOSPHOR);
     }
-    draw_scanlines();
 }
 
 ScreenAction screens_handle_stats_click(Vector2 vm, int *confirm_reset) {
@@ -288,7 +304,7 @@ void screens_draw_pause(Vector2 vm, int confirm_restart) {
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle p = { 440, 180, 400, 360 };
     DrawRectangleRec(p, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(p, 1.0f, COLOR_PHOSPHOR);
+    ui_draw_panel_border(p, COLOR_PHOSPHOR);
     DrawText("GAME PAUSED", 540, 210, 28, COLOR_PHOSPHOR);
 
     if (confirm_restart) {
@@ -300,7 +316,6 @@ void screens_draw_pause(Vector2 vm, int confirm_restart) {
         draw_btn((Rectangle){ 490, 350, 300, 50 }, "RESTART MATCH", 20, vm, COLOR_PHOSPHOR);
         draw_btn((Rectangle){ 490, 420, 300, 50 }, "ABANDON MATCH", 20, vm, COLOR_RED);
     }
-    draw_scanlines();
 }
 
 ScreenAction screens_handle_pause_click(Vector2 vm, int *confirm_restart) {
@@ -324,21 +339,18 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, Vector
 
     Rectangle p = { 340, 150, 600, 440 };
     DrawRectangleRec(p, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(p, 1.0f, COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);
 
     DrawText(TextFormat("FINAL SCORE:   YOU %d  -  CPU %d", p0, p1), 380, 190, 26, COLOR_PHOSPHOR);
     DrawLine(380, 230, 900, 230, COLOR_PHOSPHOR_DIM);
     DrawText("ROUND LEDGER:", 380, 245, 20, COLOR_PHOSPHOR);
-    int ly = 275;
-    for (int i = 0; i < g->ledger_count && i < 6; i++) {
+    for (int i = 0, ly = 275; i < g->ledger_count && i < 6; i++, ly += 26) {
         const RoundRecord *r = &g->ledger[i];
         const char *w = (r->winner == 0) ? "YOU" : (r->winner == 1) ? "CPU" : "DRAW";
         DrawTextEx(small_font, TextFormat("Round %d: %s (%d pts)", r->round_number, w, r->award), (Vector2){ 400, (float)ly }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-        ly += 26;
     }
     draw_btn((Rectangle){ 490, 470, 300, 46 }, "PLAY AGAIN", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20, vm, COLOR_PHOSPHOR);
-    draw_scanlines();
 }
 
 ScreenAction screens_handle_match_result_click(Vector2 vm) {
@@ -349,20 +361,17 @@ ScreenAction screens_handle_match_result_click(Vector2 vm) {
 
 void screens_draw_choice_overlay(const BoardAssets *ba, const GameState *g, Vector2 vm, int is_hand) {
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
-    int tw = MeasureText("CHOOSE ONE OF THE MATCHING CARDS", 28);
-    DrawText("CHOOSE ONE OF THE MATCHING CARDS", (1280 - tw) / 2, 140, 28, COLOR_PHOSPHOR);
+    DrawText("CHOOSE ONE OF THE MATCHING CARDS", (1280 - MeasureText("CHOOSE ONE OF THE MATCHING CARDS", 28)) / 2, 140, 28, COLOR_PHOSPHOR);
     Rectangle r0 = { 400, 180, CHOICE_CARD_W, CHOICE_CARD_H }, r1 = { 704, 180, CHOICE_CARD_W, CHOICE_CARD_H };
-    board_draw_card(ba, g->choice_targets[0], r0);
-    board_draw_card(ba, g->choice_targets[1], r1);
+    board_draw_card(ba, g->choice_targets[0], r0); board_draw_card(ba, g->choice_targets[1], r1);
     if (CheckCollisionPointRec(vm, r0)) board_draw_card_glow(r0, 1.0f);
     if (CheckCollisionPointRec(vm, r1)) board_draw_card_glow(r1, 1.0f);
     if (is_hand) draw_btn((Rectangle){ 560, 500, 160, 44 }, "CANCEL", 20, vm, COLOR_RED);
 }
 
 int screens_check_choice_click(const GameState *g, Vector2 vm, int is_hand, int *out_target_id) {
-    Rectangle r0 = { 400, 180, CHOICE_CARD_W, CHOICE_CARD_H }, r1 = { 704, 180, CHOICE_CARD_W, CHOICE_CARD_H };
-    if (CheckCollisionPointRec(vm, r0)) { *out_target_id = g->choice_targets[0]; return 1; }
-    if (CheckCollisionPointRec(vm, r1)) { *out_target_id = g->choice_targets[1]; return 1; }
+    if (CheckCollisionPointRec(vm, (Rectangle){ 400, 180, CHOICE_CARD_W, CHOICE_CARD_H })) { *out_target_id = g->choice_targets[0]; return 1; }
+    if (CheckCollisionPointRec(vm, (Rectangle){ 704, 180, CHOICE_CARD_W, CHOICE_CARD_H })) { *out_target_id = g->choice_targets[1]; return 1; }
     if (is_hand && CheckCollisionPointRec(vm, (Rectangle){ 560, 500, 160, 44 })) { *out_target_id = -1; return 2; }
     return 0;
 }
@@ -371,7 +380,7 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle panel = { 200, 45, 880, 630 };
     DrawRectangleRec(panel, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(panel, 2.0f, COLOR_PHOSPHOR);
+    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
 
     int p = g->current_player;
     ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
@@ -406,14 +415,8 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
 }
 
 int screens_check_decide_click(Vector2 vm, DecisionType *out_decision) {
-    if (CheckCollisionPointRec(vm, (Rectangle){ 280, 520, 320, 60 })) {
-        *out_decision = DECISION_KOI_KOI;
-        return 1;
-    }
-    if (CheckCollisionPointRec(vm, (Rectangle){ 680, 520, 320, 60 })) {
-        *out_decision = DECISION_SHOBU;
-        return 1;
-    }
+    if (CheckCollisionPointRec(vm, (Rectangle){ 280, 520, 320, 60 })) { *out_decision = DECISION_KOI_KOI; return 1; }
+    if (CheckCollisionPointRec(vm, (Rectangle){ 680, 520, 320, 60 })) { *out_decision = DECISION_SHOBU; return 1; }
     return 0;
 }
 
@@ -421,7 +424,7 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle panel = { 200, 45, 880, 630 };
     DrawRectangleRec(panel, COLOR_PANEL_BG);
-    DrawRectangleLinesEx(panel, 2.0f, COLOR_PHOSPHOR);
+    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
 
     const RoundRecord *rec = &g->current_round_record;
     const char *title = (rec->winner == 0) ? "YOU WIN THE ROUND!" :
@@ -463,29 +466,24 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
             y += 6;
             DrawLine(230, y, 1050, y, COLOR_PHOSPHOR_DIM);
             y += 10;
-            DrawTextEx(small_font, TextFormat("Base: %d pts", rec->base_points), (Vector2){ 230, (float)y }, 18.0f, 2.0f, COLOR_TEXT_INFO);
-            y += 22;
+            DrawTextEx(small_font, TextFormat("Base: %d pts", rec->base_points), (Vector2){ 230, (float)y }, 18.0f, 2.0f, COLOR_TEXT_INFO); y += 22;
             if (rec->mult_seven > 1) { DrawTextEx(small_font, "x2 7+ Points Multiplier", (Vector2){ 230, (float)y }, 16.0f, 2.0f, COLOR_TEXT_INFO); y += 20; }
             if (rec->mult_koi > 1) { DrawTextEx(small_font, "x2 Opponent Koi-Koi Multiplier", (Vector2){ 230, (float)y }, 16.0f, 2.0f, COLOR_TEXT_INFO); y += 20; }
         }
         DrawText(TextFormat("ROUND AWARD: %d PTS", rec->award), 230, y + 4, 22, COLOR_PHOSPHOR);
     }
 
-    DrawText(TextFormat("MATCH RUNNING SCORE:  YOU %d  -  CPU %d", g->total_score[0], g->total_score[1]),
-             230, 565, 20, COLOR_PHOSPHOR_DIM);
-
+    DrawText(TextFormat("MATCH RUNNING SCORE:  YOU %d  -  CPU %d", g->total_score[0], g->total_score[1]), 230, 565, 20, COLOR_PHOSPHOR_DIM);
     const char *btn_text = (g->current_round >= g->total_rounds) ? "MATCH RESULTS" : "NEXT ROUND";
     draw_btn((Rectangle){ 520, 610, 240, 48 }, btn_text, 20, vm, COLOR_PHOSPHOR);
 }
 
-int screens_check_round_result_click(Vector2 vm) {
-    return CheckCollisionPointRec(vm, (Rectangle){ 520, 610, 240, 48 });
-}
+int screens_check_round_result_click(Vector2 vm) { return CheckCollisionPointRec(vm, (Rectangle){ 520, 610, 240, 48 }); }
 
 void screens_draw_banner(const char *text) {
     int tw = MeasureText(text, 28);
     Rectangle br = { (1280 - tw) / 2.0f - 30.0f, 320.0f, tw + 60.0f, 60.0f };
     DrawRectangleRec(br, (Color){ 0, 0, 0, 230 });
-    DrawRectangleLinesEx(br, 2.0f, COLOR_PHOSPHOR);
+    ui_draw_panel_border(br, COLOR_PHOSPHOR);
     DrawText(text, (1280 - tw) / 2, 336, 28, COLOR_PHOSPHOR);
 }

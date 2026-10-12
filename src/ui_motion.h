@@ -16,6 +16,7 @@ typedef struct {
     float elapsed;
     float duration;
     float tint_val;
+    float shimmer_alpha;
     int moving;
     int is_dragged;
     int initialized;
@@ -38,6 +39,7 @@ Vector2 motion_get_pos(int card_id);
 int motion_is_card_moving(int card_id);
 Vector2 motion_get_velocity(int card_id);
 Color motion_get_card_tint(int card_id);
+float motion_get_card_shimmer(int card_id);
 void motion_set_drag_velocity(int card_id, Vector2 mouse_delta);
 
 /* Get physical lift factor (0.0 .. 1.0) for flying card drop shadows */
@@ -47,7 +49,7 @@ float motion_get_card_lift(int card_id);
 int motion_is_reflowing(const GameState *g);
 
 /* Advance all card lerps */
-void motion_update(float dt);
+void motion_update(float dt, int dragged_card_id);
 
 /* Deal cards smoothly from stock pile to hands and field at round start */
 void motion_deal_round(const GameState *g, float duration);

@@ -20,7 +20,11 @@ fi
 # Windows (the deliverable). -mwindows hides the console window.
 if [ "$1" = "win" ]; then
     x86_64-w64-mingw32-gcc -std=c99 -O2 src/*.c -I/tmp/raylib/src /tmp/libraylib_win.a \
-        -lopengl32 -lgdi32 -lwinmm -static -mwindows -o dist/KoiKoi.exe && cp -r assets dist/
+        -lopengl32 -lgdi32 -lwinmm -static -mwindows -o dist/KoiKoi.exe
+    mkdir -p dist/assets
+    cp -rf assets/* dist/assets/
+    cp -f assets/small_font.ttf dist/assets/small_font.ttf
+    [ -f settings.txt ] && cp -f settings.txt dist/settings.txt || true
     exit 0
 fi
 
@@ -40,5 +44,8 @@ if ls src/*.c 1> /dev/null 2>&1; then
     gcc -std=c99 -O2 -Wall -Wextra src/*.c -I/tmp/raylib/src /tmp/libraylib_linux.a \
         -l:libGL.so.1 -lm -lpthread -ldl -lrt -lX11 -o koikoi_linux
     x86_64-w64-mingw32-gcc -std=c99 -O2 src/*.c -I/tmp/raylib/src /tmp/libraylib_win.a \
-        -lopengl32 -lgdi32 -lwinmm -static -mwindows -o dist/KoiKoi.exe && cp -r assets dist/
+        -lopengl32 -lgdi32 -lwinmm -static -mwindows -o dist/KoiKoi.exe
+    mkdir -p dist/assets
+    cp -rf assets/* dist/assets/
+    cp -f assets/small_font.ttf dist/assets/small_font.ttf
 fi
