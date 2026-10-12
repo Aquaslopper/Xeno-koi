@@ -34,8 +34,8 @@ void main()
     float patch = smoothstep(0.15, 0.75, drift);
 
     // 4. Fog Blend:
-    // Base opacity/blend strength boosted by 3x (1.35 factor) for clearly visible dark mist.
-    vec3 fogColor = vec3(0.04, 0.09, 0.06);
+    // Pure black/shadow fog (#050505) with zero green/teal tint
+    vec3 fogColor = vec3(0.0196, 0.0196, 0.0196);
     float fogAlpha = clamp(depthMask * yMask * patch * 1.35, 0.0, 0.88);
     vec3 blended = mix(texel.rgb, fogColor, fogAlpha);
 
@@ -46,8 +46,8 @@ void main()
     float vignette = smoothstep(0.75, 0.25, dist);
 
     // 6. Ambient Tint:
-    // Deep, subtle desaturated green/teal tint to make overall image feel darker & unified.
-    vec3 ambientTint = vec3(0.82, 0.90, 0.86);
+    // Pure neutral luminance, no green/teal tint
+    vec3 ambientTint = vec3(1.0, 1.0, 1.0);
 
     vec3 finalRgb = blended * vignette * ambientTint;
     finalColor = vec4(finalRgb, texel.a) * colDiffuse * fragColor;

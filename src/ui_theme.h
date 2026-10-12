@@ -8,6 +8,8 @@ typedef struct {
     const char *name;
     Color base;
     Color dim;
+    Color text_info;
+    Color text_info_dim;
     Color scanline;
     Color btn_hover_bg;
 } TerminalTheme;
@@ -19,6 +21,8 @@ void theme_set(int id);
 
 #define COLOR_PHOSPHOR       (g_theme.base)
 #define COLOR_PHOSPHOR_DIM   (g_theme.dim)
+#define COLOR_TEXT_INFO      (g_theme.text_info)
+#define COLOR_TEXT_INFO_DIM  (g_theme.text_info_dim)
 #define COLOR_SCANLINE       (g_theme.scanline)
 #define COLOR_BTN_HOVER_BG   (g_theme.btn_hover_bg)
 

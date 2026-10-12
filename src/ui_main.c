@@ -14,6 +14,14 @@
 #include "ui_audio.h"
 #include "ui_screens.h"
 #include "ui_input.h"
+#include "campaign.h"
+#include "ui_taunt.h"
+
+#ifndef IsFontReady
+#define IsFontReady(f) ((f).texture.id > 0)
+#endif
+
+Font small_font;
 
 static float transition_alpha = 0.0f;
 static int transition_dir = 0;
@@ -31,51 +39,25 @@ static void start_transition(ScreenState target, int action, int track) {
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
 static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.25f : 0.15f; }
 
-static void record_match_stats(const GameState *g, const GameSettings *s, GameStats *st, MatchHistory *h) {
-    st->matches_played++;
-    if (s->difficulty == DIFFICULTY_HARD) st->hard_matches++; else st->easy_matches++;
-    int you = g->total_score[0], cpu = g->total_score[1];
-    st->points_for += you; st->points_against += cpu;
-    const char *outcome = (you > cpu) ? (st->matches_won++, st->current_streak++, "WIN") :
-                          (you < cpu) ? (st->matches_lost++, st->current_streak = 0, "LOSS") :
-                          (st->matches_drawn++, "DRAW");
-    if (st->current_streak > st->best_streak) st->best_streak = st->current_streak;
-    for (int i = 0; i < g->ledger_count; i++) {
-        if (g->ledger[i].winner == 0) st->rounds_won_you++;
-        else if (g->ledger[i].winner == 1) st->rounds_won_cpu++;
-        if (g->ledger[i].award > st->best_award) st->best_award = g->ledger[i].award;
-    }
-    for (int y = 0; y < YAKU_COUNT; y++) st->yaku_counts[y] += g->human_yaku_counts[y];
-    st->koi_calls_you += g->koi_called[0]; st->koi_calls_cpu += g->koi_called[1];
-    time_t now = time(NULL);
-    char time_str[32], record_line[160];
-    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", localtime(&now));
-    const char *r_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" :
-                        (s->ruleset == RULESET_KK_ADD_10) ? "kk-add-10" :
-                        (s->ruleset == RULESET_TOURNAMENT) ? "tournament" :
-                        (s->ruleset == RULESET_YAKUZA) ? "yakuza" : "nintendo";
-    const char *d_str = (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
-    snprintf(record_line, sizeof(record_line), "%s;rounds=%d;%s;%s;you=%d;cpu=%d;%s",
-             time_str, s->rounds, r_str, d_str, you, cpu, outcome);
-    storage_add_history(h, record_line);
-    storage_save_stats(st);
-    storage_write_report(st, h);
-}
-
 int main(int argc, char **argv) {
     uint32_t seed = 7;
-    int shot_frame = -1, win_w = 1280, win_h = 720, auto_start = 0, auto_options = 0, auto_dealer = 0;
+    int shot_frame = -1, win_w = 1280, win_h = 720, auto_start = 0, auto_options = 0, auto_dealer = 0, auto_stats = 0, auto_campaign = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) seed = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--shot-frame") == 0 && i + 1 < argc) shot_frame = atoi(argv[++i]);
         else if (strcmp(argv[i], "--window") == 0 && i + 1 < argc) sscanf(argv[++i], "%dx%d", &win_w, &win_h);
         else if (strcmp(argv[i], "--autostart") == 0) auto_start = 1;
         else if (strcmp(argv[i], "--options") == 0) auto_options = 1;
+        else if (strcmp(argv[i], "--stats") == 0) auto_stats = 1;
+        else if (strcmp(argv[i], "--campaign") == 0) auto_campaign = 1;
         else if (strcmp(argv[i], "--dealer") == 0) auto_dealer = 1;
     }
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(win_w, win_h, "[XENO/KOI] (Giger Biomechanical Edition)");
+    if (GetApplicationDirectory() && GetApplicationDirectory()[0] != '\0') {
+        ChangeDirectory(GetApplicationDirectory());
+    }
     SetWindowMinSize(960, 540);
     SetTargetFPS(60);
 
@@ -91,20 +73,34 @@ int main(int argc, char **argv) {
     BoardAssets assets;
     board_load_assets(&assets);
     assets.current_bg = settings.background;
+
+    small_font = LoadFont("assets/small_font.ttf");
+    if (!IsFontReady(small_font)) {
+        small_font = LoadFont(TextFormat("%s/assets/small_font.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""));
+    }
+    if (!IsFontReady(small_font)) {
+        small_font = GetFontDefault();
+    } else {
+        SetTextureFilter(small_font.texture, TEXTURE_FILTER_BILINEAR);
+    }
+
     GameStats stats;
     storage_load_stats(&stats);
     MatchHistory history;
     storage_load_history(&history);
 
-    ScreenState screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : SCREEN_START;
+    ScreenState screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
     GameState g;
     engine_init(&g, settings.ruleset, settings.rounds, seed);
     motion_init();
+    taunt_init();
+    ai_set_opponent(settings.current_opponent);
     if (auto_start) {
         engine_start_round(&g);
         motion_deal_round(&g, 0.45f);
         cinematic_start(g.current_round);
         audio_start_match_music(&audio, (rand() % 5) + 1);
+        taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.0f);
     }
 
     AnimState anim;
@@ -113,7 +109,7 @@ int main(int argc, char **argv) {
     memset(&drag, 0, sizeof(drag));
 
     uint32_t ai_rng = seed + 999;
-    int is_paused = 0, confirm_restart = 0, confirm_reset = 0;
+    int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = auto_campaign;
     float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f;
     GamePhase last_overlay_phase = PHASE_NONE;
     int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0;
@@ -132,6 +128,8 @@ int main(int argc, char **argv) {
                     anim_init(&anim); memset(&drag, 0, sizeof(drag));
                     hovered_idx = -1; is_paused = 0; confirm_restart = 0;
                     engine_init(&g, settings.ruleset, settings.rounds, (uint32_t)time(NULL));
+                    ai_set_opponent(settings.current_opponent); taunt_init();
+                    taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.0f);
                     audio_start_match_music(&audio, transition_track);
                 } else if (transition_action == 2 || transition_action == 3) {
                     audio_play_menu_music(&audio);
@@ -170,19 +168,24 @@ int main(int argc, char **argv) {
         Vector2 vm = input_vmouse(l);
 
         if (transition_dir == 0) {
-            if (screen == SCREEN_START && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                ScreenAction act = screens_handle_start_click(vm);
-                if (act != ACT_NONE) audio_play_click(&audio);
-                if (act == ACT_START_GAME) {
-                    int trk = (rand() % 5) + 1;
-                    audio_start_match_music(&audio, trk);
-                    start_transition(SCREEN_GAME, 1, trk);
+            if (screen == SCREEN_START) {
+                if (campaign_overlay_open) {
+                    int cres = campaign_handle_click(settings.unlocked_opponents, &settings.current_opponent, vm);
+                    if (cres == -1) { campaign_overlay_open = 0; audio_play_click(&audio); }
+                    else if (cres == 1) {
+                        campaign_overlay_open = 0; ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
+                        int trk = (rand() % 5) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk);
+                    } else if (cres == 2) audio_play_click(&audio);
+                } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    ScreenAction act = screens_handle_start_click(vm);
+                    if (act != ACT_NONE) audio_play_click(&audio);
+                    if (act == ACT_START_GAME) campaign_overlay_open = 1;
+                    else if (act == ACT_GOTO_OPTIONS) screen = SCREEN_OPTIONS;
+                    else if (act == ACT_GOTO_STATS) screen = SCREEN_STATS;
+                    else if (act == ACT_GOTO_CREDITS) screen = SCREEN_CREDITS;
+                    else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
+                    else if (act == ACT_QUIT) break;
                 }
-                else if (act == ACT_GOTO_OPTIONS) screen = SCREEN_OPTIONS;
-                else if (act == ACT_GOTO_STATS) screen = SCREEN_STATS;
-                else if (act == ACT_GOTO_CREDITS) screen = SCREEN_CREDITS;
-                else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
-                else if (act == ACT_QUIT) break;
             } else if (screen == SCREEN_CREDITS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) {
                     audio_play_click(&audio);
@@ -275,8 +278,10 @@ int main(int argc, char **argv) {
 
                     if (g.current_player == 1 && g.phase == PHASE_TURN_HAND && !cinematic_is_active() && !motion_is_reflowing(&g)) {
                         if (anim.active && anim.type == ANIM_CPU_FLY && anim.elapsed >= anim.duration) {
-                            anim.active = 0; audio_play_drop(&audio);
                             int card = anim.cpu_card, target = anim.cpu_target;
+                            Vector2 landed = anim.target_pos;
+                            anim.active = 0; audio_play_drop(&audio);
+                            motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
                             engine_play_hand(&g, card, target);
                             if (g.last_captured_count > 0) {
                                 audio_play_capture(&audio);
@@ -294,7 +299,10 @@ int main(int argc, char **argv) {
 
                     if (g.phase == PHASE_TURN_DRAW && !cinematic_is_active() && !motion_is_reflowing(&g)) {
                         if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
+                            int drawn_cid = anim.card_id;
+                            Vector2 landed = anim.target_pos;
                             anim.active = 0; audio_play_drop(&audio);
+                            motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
                             engine_reveal_stock(&g);
                             if (g.last_captured_count > 0) {
                                 audio_play_capture(&audio);
@@ -323,7 +331,10 @@ int main(int argc, char **argv) {
 
                     if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
                         DecisionType dec = ai_choose_decision(&g, settings.difficulty, &ai_rng);
-                        if (dec == DECISION_KOI_KOI) { audio_play_koi(&audio); anim_start_banner(&anim, "CPU: KOI-KOI", 1.5f); }
+                        if (dec == DECISION_KOI_KOI) {
+                            audio_play_koi(&audio); anim_start_banner(&anim, "CPU: KOI-KOI", 1.5f);
+                            taunt_trigger(campaign_get_opponent(settings.current_opponent)->koi_taunt, 4.0f);
+                        }
                         engine_decide(&g, dec);
                     }
 
@@ -365,14 +376,19 @@ int main(int argc, char **argv) {
                             audio_play_click(&audio);
                             if (g.current_round >= g.total_rounds) {
                                 anim_init(&anim); engine_next_round(&g);
-                                record_match_stats(&g, &settings, &stats, &history);
-                                if (g.total_score[0] > g.total_score[1]) audio_play_win(&audio);
-                                else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
+                                storage_record_match(&g, &settings, &stats, &history);
+                                if (g.total_score[0] > g.total_score[1]) {
+                                    audio_play_win(&audio);
+                                    if (settings.current_opponent == settings.unlocked_opponents - 1) {
+                                        if (settings.unlocked_opponents < 12) settings.unlocked_opponents++;
+                                        storage_save_settings(&settings);
+                                    }
+                                } else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
                                 start_transition(SCREEN_MATCH_RESULT, 2, 0);
                             } else {
-                                anim_init(&anim); engine_next_round(&g);
-                                motion_deal_round(&g, 0.45f);
+                                anim_init(&anim); engine_next_round(&g); motion_deal_round(&g, 0.45f);
                                 cinematic_start(g.current_round);
+                                taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 3.5f);
                             }
                         }
                     }
@@ -397,8 +413,13 @@ int main(int argc, char **argv) {
             overlay_alpha = 0.0f; last_overlay_phase = g.phase; last_overlay_paused = is_paused;
         }
 
+        if (screen == SCREEN_GAME) taunt_update(dt);
+
         BeginTextureMode(canvas);
-        if (screen == SCREEN_START) screens_draw_start(&assets, &stats, vm, saved_timer);
+        if (screen == SCREEN_START) {
+            screens_draw_start(&assets, &stats, vm, saved_timer);
+            if (campaign_overlay_open) campaign_draw_overlay(&assets, settings.unlocked_opponents, settings.current_opponent, vm);
+        }
         else if (screen == SCREEN_OPTIONS) screens_draw_options(&assets, &settings, vm);
         else if (screen == SCREEN_STATS) screens_draw_stats(&assets, &stats, &history, vm, confirm_reset, log_timer);
         else if (screen == SCREEN_CREDITS) screens_draw_credits(&assets, vm);
@@ -416,6 +437,7 @@ int main(int argc, char **argv) {
             else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
 
             board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos, (settings.difficulty == DIFFICULTY_EASY), status);
+            taunt_draw();
 
             if (!is_paused) {
                 Rectangle pb = { 1160, 560, 112, 40 }, rb = { 1160, 610, 112, 40 };
@@ -464,9 +486,9 @@ int main(int argc, char **argv) {
     }
 
     audio_close(&audio);
+    if (small_font.texture.id != GetFontDefault().texture.id) UnloadFont(small_font);
     board_unload_assets(&assets);
-    UnloadRenderTexture(overlay_canvas);
-    UnloadRenderTexture(canvas);
+    UnloadRenderTexture(overlay_canvas); UnloadRenderTexture(canvas);
     CloseWindow();
     return 0;
 }

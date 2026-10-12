@@ -1,5 +1,16 @@
 #include "ai.h"
+#include "campaign.h"
 #include <string.h>
+
+static int s_current_opponent = 0;
+
+void ai_set_opponent(int opp_id) {
+    if (opp_id >= 0 && opp_id < 12) s_current_opponent = opp_id;
+}
+
+int ai_get_opponent(void) {
+    return s_current_opponent;
+}
 
 uint32_t ai_rand(uint32_t *state) {
     if (*state == 0) *state = 0x87654321;
@@ -79,6 +90,32 @@ static int eval_card_value(const GameState *g, int card_id, const int *new_cards
         val += 6;
     }
 
+    if (me == 1) {
+        const Opponent *opp_info = campaign_get_opponent(s_current_opponent);
+        if (opp_info) {
+            int fav = opp_info->favorite_card_id;
+            if (card_id == fav) val += 35;
+            for (int i = 0; i < new_count; i++) {
+                if (new_cards[i] == fav) { val += 35; break; }
+            }
+            if (opp_info->favorite_yaku == YAKU_GOKO || opp_info->favorite_yaku == YAKU_SANKO ||
+                opp_info->favorite_yaku == YAKU_SHIKO || opp_info->favorite_yaku == YAKU_AME_SHIKO) {
+                if (CARDS[card_id].type == CARD_TYPE_BRIGHT) val += 24;
+            } else if (opp_info->favorite_yaku == YAKU_TANZAKU || opp_info->favorite_yaku == YAKU_AKATAN || opp_info->favorite_yaku == YAKU_AOTAN) {
+                if (CARDS[card_id].type == CARD_TYPE_RIBBON) val += 22;
+            } else if (opp_info->favorite_yaku == YAKU_TANE) {
+                if (CARDS[card_id].type == CARD_TYPE_ANIMAL) val += 22;
+            } else if (opp_info->favorite_yaku == YAKU_INO_SHIKA_CHO) {
+                if (card_id == 20 || card_id == 24 || card_id == 36) val += 32;
+                else if (CARDS[card_id].type == CARD_TYPE_ANIMAL) val += 14;
+            } else if (opp_info->favorite_yaku == YAKU_KASU) {
+                if (CARDS[card_id].type == CARD_TYPE_PLAIN) val += 20;
+            } else if (opp_info->favorite_yaku == YAKU_HANAMI_ZAKE || opp_info->favorite_yaku == YAKU_TSUKIMI_ZAKE) {
+                if (card_id == 32 || card_id == 8 || card_id == 28) val += 24;
+            }
+        }
+    }
+
     return val;
 }
 
@@ -93,6 +130,38 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
 
     /* Easy mode logic */
     if (diff == DIFFICULTY_EASY) {
+        const Opponent *opp_info = campaign_get_opponent(s_current_opponent);
+        if (opp_info) {
+            /* Priority 1: Signature Target */
+            for (int i = 0; i < n; i++) {
+                int card = g->hand[me][i];
+                for (int j = 0; j < g->field_count; j++) {
+                    int fc = g->field[j];
+                    if (CARDS[fc].month == CARDS[card].month && (card == opp_info->favorite_card_id || fc == opp_info->favorite_card_id)) {
+                        *out_card = card;
+                        *out_target = fc;
+                        return;
+                    }
+                }
+            }
+            /* Priority 2: Preferred Yaku */
+            for (int i = 0; i < n; i++) {
+                int card = g->hand[me][i];
+                for (int j = 0; j < g->field_count; j++) {
+                    int fc = g->field[j];
+                    if (CARDS[fc].month == CARDS[card].month) {
+                        int m = 0;
+                        if (opp_info->favorite_yaku == YAKU_GOKO && (CARDS[card].type == CARD_TYPE_BRIGHT || CARDS[fc].type == CARD_TYPE_BRIGHT)) m = 1;
+                        else if (opp_info->favorite_yaku == YAKU_TANZAKU && (CARDS[card].type == CARD_TYPE_RIBBON || CARDS[fc].type == CARD_TYPE_RIBBON)) m = 1;
+                        else if (opp_info->favorite_yaku == YAKU_TANE && (CARDS[card].type == CARD_TYPE_ANIMAL || CARDS[fc].type == CARD_TYPE_ANIMAL)) m = 1;
+                        else if (opp_info->favorite_yaku == YAKU_INO_SHIKA_CHO && (card == 20 || card == 24 || card == 36 || fc == 20 || fc == 24 || fc == 36)) m = 1;
+                        else if (opp_info->favorite_yaku == YAKU_KASU && (CARDS[card].type == CARD_TYPE_PLAIN && CARDS[fc].type == CARD_TYPE_PLAIN)) m = 1;
+                        if (m) { *out_card = card; *out_target = fc; return; }
+                    }
+                }
+            }
+        }
+
         /* 30% random card */
         if ((ai_rand(ai_rng) % 100) < 30) {
             int idx = ai_rand(ai_rng) % n;

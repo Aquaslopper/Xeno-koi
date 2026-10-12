@@ -3,6 +3,8 @@
 #include <string.h>
 #include <math.h>
 
+extern Font small_font;
+
 static int draw_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, Color txt_col) {
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
@@ -67,19 +69,20 @@ void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, 
 
     /* Arcade Ticker (marquee scrolling right to left) */
     static float ticker_x = 0.0f;
-    ticker_x -= 110.0f * GetFrameTime();
+    ticker_x -= 100.0f * GetFrameTime();
     char ticker[512];
     snprintf(ticker, sizeof(ticker),
-             "/// SYSTEM ONLINE /// XENO-KOI V1.0 /// VIBE CODER: AQUASLOPPER /// MUSIC: GRAF PUNK /// HIGHEST ROUND SCORE: %d PTS /// FAVORITE COMBO: %s /// NO NETWORK CONNECTION DETECTED ///",
+             "/// SYSTEM ONLINE /// XENO-KOI V3.0 /// CAMPAIGN MODE ACTIVE /// VIBE CODER: AQUASLOPPER /// MUSIC: GRAF PUNK /// HIGHEST ROUND SCORE: %d PTS /// FAVORITE COMBO: %s /// NO NETWORK CONNECTION DETECTED ///",
              st ? st->best_award : 0, st ? storage_get_favorite_combo(st) : "NONE");
-    int mtw = MeasureText(ticker, 16);
-    float rep = mtw + 100.0f;
+    float mtw = MeasureTextEx(small_font, ticker, 18.0f, 2.0f).x;
+    float rep = mtw + 120.0f;
     if (ticker_x <= -rep) ticker_x += rep;
-    Rectangle bar = { 0, 686, 1280, 34 };
-    DrawRectangleRec(bar, COLOR_PANEL_BG);
-    DrawLine(0, 686, 1280, 686, COLOR_PHOSPHOR);
-    DrawText(ticker, (int)ticker_x, 695, 16, COLOR_PHOSPHOR);
-    if (ticker_x + rep < 1280.0f) DrawText(ticker, (int)(ticker_x + rep), 695, 16, COLOR_PHOSPHOR);
+    Rectangle bar = { 0, 684, 1280, 36 };
+    DrawRectangleRec(bar, (Color){ 0, 0, 0, 245 });
+    DrawLine(0, 684, 1280, 684, COLOR_PHOSPHOR);
+    for (float tx = ticker_x; tx < 1280.0f; tx += rep) {
+        if (tx + mtw > 0.0f) DrawTextEx(small_font, ticker, (Vector2){ tx, 693.0f }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    }
 
     draw_scanlines();
 }
@@ -235,34 +238,34 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     DrawRectangleLinesEx(p, 1.0f, COLOR_PHOSPHOR_DIM);
 
     float wr = (st->matches_played > 0) ? ((float)st->matches_won / st->matches_played * 100.0f) : 0.0f;
-    DrawText(TextFormat("Matches Played:      %d", st->matches_played), 140, 120, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Won / Lost:          %d / %d (Draw: %d)", st->matches_won, st->matches_lost, st->matches_drawn), 140, 150, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Win Rate:            %.1f%%", wr), 140, 180, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Rounds Won:          YOU %d | CPU %d", st->rounds_won_you, st->rounds_won_cpu), 140, 220, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Total Points:        FOR %d | AGAINST %d", st->points_for, st->points_against), 140, 250, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Highest Round Score: %d pts", st->best_award), 140, 280, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Koi Calls:           YOU %d | CPU %d", st->koi_calls_you, st->koi_calls_cpu), 140, 310, 20, COLOR_PHOSPHOR_DIM);
-    DrawText(TextFormat("Difficulty:          Easy %d | Hard %d", st->easy_matches, st->hard_matches), 140, 350, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Current Streak:      %d", st->current_streak), 140, 380, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Max Win Streak:      %d", st->best_streak), 140, 410, 20, COLOR_PHOSPHOR);
-    DrawText(TextFormat("Favorite Combo:      %s", storage_get_favorite_combo(st)), 140, 440, 20, COLOR_PHOSPHOR);
+    DrawTextEx(small_font, TextFormat("Matches Played:      %d", st->matches_played), (Vector2){ 140, 120 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Won / Lost:          %d / %d (Draw: %d)", st->matches_won, st->matches_lost, st->matches_drawn), (Vector2){ 140, 150 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Win Rate:            %.1f%%", wr), (Vector2){ 140, 180 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Rounds Won:          YOU %d | CPU %d", st->rounds_won_you, st->rounds_won_cpu), (Vector2){ 140, 220 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Total Points:        FOR %d | AGAINST %d", st->points_for, st->points_against), (Vector2){ 140, 250 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Highest Round Score: %d pts", st->best_award), (Vector2){ 140, 280 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Koi Calls:           YOU %d | CPU %d", st->koi_calls_you, st->koi_calls_cpu), (Vector2){ 140, 310 }, 18.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+    DrawTextEx(small_font, TextFormat("Difficulty:          Easy %d | Hard %d", st->easy_matches, st->hard_matches), (Vector2){ 140, 350 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Current Streak:      %d", st->current_streak), (Vector2){ 140, 380 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Max Win Streak:      %d", st->best_streak), (Vector2){ 140, 410 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+    DrawTextEx(small_font, TextFormat("Favorite Combo:      %s", storage_get_favorite_combo(st)), (Vector2){ 140, 440 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
 
     DrawLine(620, 110, 620, 560, COLOR_PHOSPHOR_DIM);
     DrawText("LAST 10 MATCHES", 650, 120, 20, COLOR_PHOSPHOR);
     int hy = 155;
-    for (int i = 0; i < h->count; i++) { DrawText(h->lines[i], 650, hy, 14, COLOR_PHOSPHOR_DIM); hy += 28; }
+    for (int i = 0; i < h->count; i++) { DrawTextEx(small_font, h->lines[i], (Vector2){ 650, (float)hy }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM); hy += 28; }
 
     draw_btn((Rectangle){ 220, 610, 200, 44 }, "SAVE LOG", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 540, 610, 200, 44 }, "RESET STATS", 20, vm, COLOR_RED);
     draw_btn((Rectangle){ 860, 610, 200, 44 }, "BACK", 20, vm, COLOR_PHOSPHOR);
-    if (log_timer > 0.0f) DrawText("stats_report.txt written!", 230, 664, 16, COLOR_PHOSPHOR);
+    if (log_timer > 0.0f) DrawTextEx(small_font, "stats_report.txt written!", (Vector2){ 230, 664 }, 16.0f, 2.0f, COLOR_TEXT_INFO);
 
     if (confirm_reset) {
         Rectangle modal = { 440, 240, 400, 200 };
         DrawRectangleRec(modal, (Color){ 0, 0, 0, 240 });
         DrawRectangleLinesEx(modal, 2.0f, COLOR_RED);
         DrawText("RESET ALL STATS & LOGS?", 490, 270, 20, COLOR_RED);
-        DrawText("This action cannot be undone.", 510, 305, 16, COLOR_PHOSPHOR_DIM);
+        DrawTextEx(small_font, "This action cannot be undone.", (Vector2){ 510, 305 }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         draw_btn((Rectangle){ 480, 360, 140, 40 }, "CONFIRM", 18, vm, COLOR_RED);
         draw_btn((Rectangle){ 660, 360, 140, 40 }, "CANCEL", 18, vm, COLOR_PHOSPHOR);
     }
@@ -330,7 +333,7 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, Vector
     for (int i = 0; i < g->ledger_count && i < 6; i++) {
         const RoundRecord *r = &g->ledger[i];
         const char *w = (r->winner == 0) ? "YOU" : (r->winner == 1) ? "CPU" : "DRAW";
-        DrawText(TextFormat("Round %d: %s (%d pts)", r->round_number, w, r->award), 400, ly, 18, COLOR_PHOSPHOR_DIM);
+        DrawTextEx(small_font, TextFormat("Round %d: %s (%d pts)", r->round_number, w, r->award), (Vector2){ 400, (float)ly }, 18.0f, 2.0f, COLOR_TEXT_INFO);
         ly += 26;
     }
     draw_btn((Rectangle){ 490, 470, 300, 46 }, "PLAY AGAIN", 20, vm, COLOR_PHOSPHOR);
@@ -398,8 +401,8 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
 
     draw_btn((Rectangle){ 280, 520, 320, 60 }, "KOI-KOI (CONTINUE)", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 680, 520, 320, 60 }, "SHOBU (BANK & END)", 20, vm, COLOR_PHOSPHOR);
-    DrawText("Continue round to aim for higher combinations.", 280, 590, 14, COLOR_PHOSPHOR_DIM);
-    DrawText("Bank your current score and win this round.", 680, 590, 14, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(small_font, "Continue round to aim for higher combinations.", (Vector2){ 280, 590 }, 15.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+    DrawTextEx(small_font, "Bank your current score and win this round.", (Vector2){ 680, 590 }, 15.0f, 2.0f, COLOR_TEXT_INFO_DIM);
 }
 
 int screens_check_decide_click(Vector2 vm, DecisionType *out_decision) {
@@ -433,37 +436,37 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
     } else {
         int y = 110;
         if (rec->lucky_hand) {
-            DrawText("LUCKY HAND (Teshi / Kuttsuki): 6 pts", 230, y + 10, 20, COLOR_PHOSPHOR);
+            DrawTextEx(small_font, "LUCKY HAND (Teshi / Kuttsuki): 6 pts", (Vector2){ 230, (float)y + 10 }, 19.0f, 2.0f, COLOR_TEXT_INFO);
             int lcards[8], lcnt = 0;
             for (int i = 0; i < g->captured_count[rec->winner] && lcnt < 8; i++) lcards[lcnt++] = g->captured[rec->winner][i];
             draw_yaku_cards(ba, lcards, lcnt, 680.0f, (float)y);
             y += 48;
         } else if (rec->score_result.yaku_count == 0) {
-            DrawText("OYA-KEN (Dealer's Privilege): 6 pts", 230, y + 10, 20, COLOR_PHOSPHOR);
+            DrawTextEx(small_font, "OYA-KEN (Dealer's Privilege): 6 pts", (Vector2){ 230, (float)y + 10 }, 19.0f, 2.0f, COLOR_TEXT_INFO);
             y += 48;
         } else {
             const ScoreResult *sr = &rec->score_result;
             int max_show = (sr->yaku_count > 5) ? 5 : sr->yaku_count;
             for (int i = 0; i < max_show; i++) {
                 const ScoredYaku *yaku = &sr->yakus[i];
-                DrawText(TextFormat("- %s", yaku->name), 230, y + 9, 18, COLOR_PHOSPHOR);
-                DrawText(TextFormat("%d pts", yaku->points), 600, y + 9, 18, COLOR_PHOSPHOR);
+                DrawTextEx(small_font, TextFormat("- %s", yaku->name), (Vector2){ 230, (float)y + 9 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
+                DrawTextEx(small_font, TextFormat("%d pts", yaku->points), (Vector2){ 600, (float)y + 9 }, 18.0f, 2.0f, COLOR_TEXT_INFO);
                 int ycards[16], ycount = 0;
                 get_yaku_cards(g, rec->winner, yaku, ycards, &ycount);
                 draw_yaku_cards(ba, ycards, ycount, 680.0f, (float)y);
                 y += 44;
             }
             if (sr->yaku_count > 5) {
-                DrawText(TextFormat("+ %d more combos...", sr->yaku_count - 5), 230, y + 4, 16, COLOR_PHOSPHOR_DIM);
+                DrawTextEx(small_font, TextFormat("+ %d more combos...", sr->yaku_count - 5), (Vector2){ 230, (float)y + 4 }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
                 y += 24;
             }
             y += 6;
             DrawLine(230, y, 1050, y, COLOR_PHOSPHOR_DIM);
             y += 10;
-            DrawText(TextFormat("Base: %d pts", rec->base_points), 230, y, 19, COLOR_PHOSPHOR);
+            DrawTextEx(small_font, TextFormat("Base: %d pts", rec->base_points), (Vector2){ 230, (float)y }, 18.0f, 2.0f, COLOR_TEXT_INFO);
             y += 22;
-            if (rec->mult_seven > 1) { DrawText("x2 7+ Points Multiplier", 230, y, 16, COLOR_PHOSPHOR); y += 20; }
-            if (rec->mult_koi > 1) { DrawText("x2 Opponent Koi-Koi Multiplier", 230, y, 16, COLOR_PHOSPHOR); y += 20; }
+            if (rec->mult_seven > 1) { DrawTextEx(small_font, "x2 7+ Points Multiplier", (Vector2){ 230, (float)y }, 16.0f, 2.0f, COLOR_TEXT_INFO); y += 20; }
+            if (rec->mult_koi > 1) { DrawTextEx(small_font, "x2 Opponent Koi-Koi Multiplier", (Vector2){ 230, (float)y }, 16.0f, 2.0f, COLOR_TEXT_INFO); y += 20; }
         }
         DrawText(TextFormat("ROUND AWARD: %d PTS", rec->award), 230, y + 4, 22, COLOR_PHOSPHOR);
     }

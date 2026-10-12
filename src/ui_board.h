@@ -31,6 +31,7 @@ Vector2 board_get_card_field_pos(const GameState *g, int card_id);
 /* Drawing primitives */
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest);
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest);
+void board_draw_card_shimmer(Rectangle dest, float speed);
 void board_draw_card_glow(Rectangle dest, float pulse_alpha);
 void board_draw_card_shadow(Rectangle dest, float lift_amount);
 
@@ -42,5 +43,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 /* Pre-match Oya-gime dealer selection */
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm);
 int board_check_dealer_select_click(const GameState *g, Vector2 vm);
+
+/* Global clean font for high-readability UI details */
+extern Font small_font;
 
 #endif /* UI_BOARD_H */

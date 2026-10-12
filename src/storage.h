@@ -13,6 +13,8 @@ typedef struct {
     float sfx_volume;      /* 0.0 .. 1.0, default 0.8f */
     int anim_speed;        /* 0: Slow (600ms), 1: Normal (400ms), 2: Fast (250ms) */
     int terminal_color;    /* 0: Green, 1: Amber, 2: Teal */
+    int unlocked_opponents;/* 1..12, default 1 */
+    int current_opponent;  /* 0..11, default 0 */
 } GameSettings;
 
 typedef struct {
@@ -55,5 +57,6 @@ void storage_add_history(MatchHistory *h, const char *record_line);
 /* Saves all files and writes stats_report.txt */
 void storage_save_all(const GameSettings *s, const GameStats *st, const MatchHistory *h);
 void storage_write_report(const GameStats *st, const MatchHistory *h);
+void storage_record_match(const GameState *g, const GameSettings *s, GameStats *st, MatchHistory *h);
 
 #endif /* STORAGE_H */

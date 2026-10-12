@@ -21,4 +21,7 @@ int ai_choose_stock_target(const GameState *g, Difficulty diff, uint32_t *ai_rng
 /* Chooses between KOI-KOI and SHOBU. */
 DecisionType ai_choose_decision(const GameState *g, Difficulty diff, uint32_t *ai_rng);
 
+void ai_set_opponent(int opp_id);
+int ai_get_opponent(void);
+
 #endif /* AI_H */

@@ -1,4 +1,5 @@
 #include "ui_anim.h"
+#include "ui_motion.h"
 #include <string.h>
 
 void anim_init(AnimState *a) {
@@ -53,6 +54,7 @@ void anim_start_stock_fly(AnimState *a, int card_id, Vector2 from, Vector2 to, f
     a->start_pos = from;
     a->current_pos = from;
     a->target_pos = to;
+    motion_set_instant(card_id, from, (Vector2){ 76.0f, 116.0f });
 }
 
 void anim_start_capture(AnimState *a, int player, const int *cards, int count,
@@ -89,6 +91,11 @@ void anim_update(AnimState *a, float dt) {
         for (int i = 0; i < a->capture_count; i++) {
             a->capture_currents[i] = a->capture_target;
         }
+        if (a->type == ANIM_STOCK_FLY) {
+            motion_set_instant(a->card_id, a->target_pos, (Vector2){ 76.0f, 116.0f });
+        } else if (a->type == ANIM_CPU_FLY) {
+            motion_set_instant(a->cpu_card, a->target_pos, (Vector2){ 76.0f, 116.0f });
+        }
         if (a->type != ANIM_CPU_THINK && a->type != ANIM_CPU_FLY && a->type != ANIM_STOCK_FLY) {
             a->active = 0;
         }
@@ -104,6 +111,11 @@ void anim_update(AnimState *a, float dt) {
     if (a->type == ANIM_GLIDE_RETURN || a->type == ANIM_CPU_FLY || a->type == ANIM_STOCK_FLY) {
         a->current_pos.x = a->start_pos.x + (a->target_pos.x - a->start_pos.x) * ease;
         a->current_pos.y = a->start_pos.y + (a->target_pos.y - a->start_pos.y) * ease;
+        if (a->type == ANIM_STOCK_FLY) {
+            motion_set_instant(a->card_id, a->current_pos, (Vector2){ 76.0f, 116.0f });
+        } else if (a->type == ANIM_CPU_FLY) {
+            motion_set_instant(a->cpu_card, a->current_pos, (Vector2){ 76.0f, 116.0f });
+        }
     } else if (a->type == ANIM_CAPTURE_FLY) {
         for (int i = 0; i < a->capture_count; i++) {
             a->capture_currents[i].x = a->capture_starts[i].x + (a->capture_target.x - a->capture_starts[i].x) * ease;

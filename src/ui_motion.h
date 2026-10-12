@@ -8,12 +8,16 @@ typedef struct {
     Vector2 current_pos;
     Vector2 target_pos;
     Vector2 start_pos;
+    Vector2 prev_pos;
+    Vector2 vel;
     Vector2 current_size;
     Vector2 target_size;
     Vector2 start_size;
     float elapsed;
     float duration;
+    float tint_val;
     int moving;
+    int is_dragged;
     int initialized;
 } CardMotion;
 
@@ -32,6 +36,9 @@ Vector2 motion_get_pos(int card_id);
 
 /* Check if a card is currently moving */
 int motion_is_card_moving(int card_id);
+Vector2 motion_get_velocity(int card_id);
+Color motion_get_card_tint(int card_id);
+void motion_set_drag_velocity(int card_id, Vector2 mouse_delta);
 
 /* Get physical lift factor (0.0 .. 1.0) for flying card drop shadows */
 float motion_get_card_lift(int card_id);

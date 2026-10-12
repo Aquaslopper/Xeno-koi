@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static void get_app_path(const char *filename, char *out_path, size_t max_len) {
     const char *base = GetApplicationDirectory();
@@ -36,6 +37,8 @@ void storage_load_settings(GameSettings *s) {
     s->sfx_volume = 0.8f;
     s->anim_speed = 1; /* Normal */
     s->terminal_color = 0; /* Green default */
+    s->unlocked_opponents = 1;
+    s->current_opponent = 0;
 
     char path[512];
     get_app_path("settings.txt", path, sizeof(path));
@@ -78,6 +81,12 @@ void storage_load_settings(GameSettings *s) {
                 if (strcmp(v, "amber") == 0 || strcmp(v, "1") == 0) s->terminal_color = 1;
                 else if (strcmp(v, "teal") == 0 || strcmp(v, "2") == 0) s->terminal_color = 2;
                 else s->terminal_color = 0;
+            } else if (strcmp(k, "unlocked_opponents") == 0) {
+                int uo = atoi(v);
+                if (uo >= 1 && uo <= 12) s->unlocked_opponents = uo;
+            } else if (strcmp(k, "current_opponent") == 0) {
+                int co = atoi(v);
+                if (co >= 0 && co < 12) s->current_opponent = co;
             }
         }
     }
@@ -102,9 +111,12 @@ void storage_save_settings(const GameSettings *s) {
              "bgm_volume=%.2f\n"
              "sfx_volume=%.2f\n"
              "anim_speed=%d\n"
-             "terminal_color=%s\n",
+             "terminal_color=%s\n"
+             "unlocked_opponents=%d\n"
+             "current_opponent=%d\n",
              s->rounds, diff_str, rule_str, s->background,
-             s->bgm_volume, s->sfx_volume, s->anim_speed, col_str);
+             s->bgm_volume, s->sfx_volume, s->anim_speed, col_str,
+             s->unlocked_opponents, s->current_opponent);
     safe_write_text("settings.txt", buf);
 }
 
@@ -289,4 +301,28 @@ void storage_save_all(const GameSettings *s, const GameStats *st, const MatchHis
     storage_save_settings(s);
     storage_save_stats(st);
     storage_write_report(st, h);
+}
+
+void storage_record_match(const GameState *g, const GameSettings *s, GameStats *st, MatchHistory *h) {
+    st->matches_played++;
+    if (s->difficulty == DIFFICULTY_HARD) st->hard_matches++; else st->easy_matches++;
+    int you = g->total_score[0], cpu = g->total_score[1];
+    st->points_for += you; st->points_against += cpu;
+    const char *outcome = (you > cpu) ? (st->matches_won++, st->current_streak++, "WIN") :
+                          (you < cpu) ? (st->matches_lost++, st->current_streak = 0, "LOSS") : (st->matches_drawn++, "DRAW");
+    if (st->current_streak > st->best_streak) st->best_streak = st->current_streak;
+    for (int i = 0; i < g->ledger_count; i++) {
+        if (g->ledger[i].winner == 0) st->rounds_won_you++;
+        else if (g->ledger[i].winner == 1) st->rounds_won_cpu++;
+        if (g->ledger[i].award > st->best_award) st->best_award = g->ledger[i].award;
+    }
+    for (int y = 0; y < YAKU_COUNT; y++) st->yaku_counts[y] += g->human_yaku_counts[y];
+    st->koi_calls_you += g->koi_called[0]; st->koi_calls_cpu += g->koi_called[1];
+    time_t now = time(NULL); char time_str[32], record_line[160];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", localtime(&now));
+    const char *r_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" : (s->ruleset == RULESET_KK_ADD_10) ? "kk-add-10" :
+                        (s->ruleset == RULESET_TOURNAMENT) ? "tournament" : (s->ruleset == RULESET_YAKUZA) ? "yakuza" : "nintendo";
+    const char *d_str = (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
+    snprintf(record_line, sizeof(record_line), "%s;rounds=%d;%s;%s;you=%d;cpu=%d;%s", time_str, s->rounds, r_str, d_str, you, cpu, outcome);
+    storage_add_history(h, record_line); storage_save_stats(st); storage_write_report(st, h);
 }
