@@ -108,7 +108,7 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     DrawText("Difficulty:", 340, 101, 18, COLOR_PHOSPHOR);
     const char *d_names[3] = { "EASY", "HARD", "MASTER" };
     draw_btn((Rectangle){ 580, 97, 44, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 630, 97, 140, 26 }, d_names[s->difficulty], 16, vm, (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 55, 60, 255 } : COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 630, 97, 140, 26 }, d_names[s->difficulty], 16, vm, (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 60, 60, 255 } : COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 776, 97, 44, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
 
     DrawText("Master Timer:", 340, 143, 18, (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 100, 100, 255 } : COLOR_PHOSPHOR_DIM);
