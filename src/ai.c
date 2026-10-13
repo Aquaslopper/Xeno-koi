@@ -39,17 +39,34 @@ static int unseen_in_month(const GameState *g, int month, int me) {
     return (4 - known) > 0;
 }
 
+/* Score a capture pile the same way the engine does. */
+static ScoreResult ai_score(const GameState *g, const int *cards, int n) {
+    return score_captures_ex(g->ruleset, cards, n,
+                             ruleset_round_month(g->current_round, g->total_rounds));
+}
+
 static int blocks_opponent_set(const GameState *g, int card_id, int opp) {
     if (card_id < 0 || card_id >= 48) return 0;
     int opp_has[48] = {0};
     for (int i = 0; i < g->captured_count[opp]; i++) opp_has[g->captured[opp][i]] = 1;
     if (opp_has[card_id]) return 0;
 
-    /* Hanami: 08-B Curtain (8) + 09-A Cup (32) */
-    if ((card_id == 32 && opp_has[8]) || (card_id == 8 && opp_has[32])) return 1;
+    /* Hanami: 03-B Curtain (8) + 09-A Cup (32) — only where it scores */
+    if (ruleset_has_hanami_zake(g->ruleset) &&
+        ((card_id == 32 && opp_has[8]) || (card_id == 8 && opp_has[32]))) return 1;
 
-    /* Tsukimi: 08-B Moon (28) + 09-A Cup (32) */
-    if ((card_id == 32 && opp_has[28]) || (card_id == 28 && opp_has[32])) return 1;
+    /* Tsukimi: 08-B Moon (28) + 09-A Cup (32) — only where it scores */
+    if (ruleset_has_tsukimi_zake(g->ruleset) &&
+        ((card_id == 32 && opp_has[28]) || (card_id == 28 && opp_has[32]))) return 1;
+
+    /* Tsukifuda: opponent holds 3 of the round month, this is the 4th */
+    {
+        int month = ruleset_round_month(g->current_round, g->total_rounds);
+        if (month >= 1 && CARDS[card_id].month == month) {
+            int b = (month - 1) * 4;
+            if (opp_has[b] + opp_has[b + 1] + opp_has[b + 2] + opp_has[b + 3] == 3) return 1;
+        }
+    }
 
     /* Ino-shika-cho: 20, 24, 36 */
     if ((card_id == 20 || card_id == 24 || card_id == 36) &&
@@ -83,8 +100,8 @@ static int eval_card_value(const GameState *g, int card_id, const int *new_cards
     for (int i = 0; i < tc; i++) temp[i] = g->captured[me][i];
     for (int i = 0; i < new_count; i++) temp[tc++] = new_cards[i];
 
-    ScoreResult old_sr = score_captures(g->ruleset, g->captured[me], g->captured_count[me]);
-    ScoreResult new_sr = score_captures(g->ruleset, temp, tc);
+    ScoreResult old_sr = ai_score(g, g->captured[me], g->captured_count[me]);
+    ScoreResult new_sr = ai_score(g, temp, tc);
     if (new_sr.base_points > old_sr.base_points) {
         val += 15;
     }
@@ -287,30 +304,30 @@ DecisionType ai_choose_decision(const GameState *g, Difficulty diff, uint32_t *a
     }
 
     if (diff == DIFFICULTY_DEUS) {
-        ScoreResult sr_opp = score_captures(g->ruleset, g->captured[opp], g->captured_count[opp]);
+        ScoreResult sr_opp = ai_score(g, g->captured[opp], g->captured_count[opp]);
         if (sr_opp.base_points > 0) return DECISION_SHOBU; /* Never allow opponent comeback */
         for (int i = 0; i < 48; i++) {
             if (blocks_opponent_set(g, i, opp)) return DECISION_SHOBU; /* Opponent 1 card from yaku */
         }
-        ScoreResult sr_me = score_captures(g->ruleset, g->captured[me], g->captured_count[me]);
+        ScoreResult sr_me = ai_score(g, g->captured[me], g->captured_count[me]);
         if (sr_me.base_points >= 7 || g->hand_count[me] < 3) return DECISION_SHOBU;
         return DECISION_KOI_KOI;
     }
 
     if (diff == DIFFICULTY_MASTER) {
-        ScoreResult sr_opp = score_captures(g->ruleset, g->captured[opp], g->captured_count[opp]);
+        ScoreResult sr_opp = ai_score(g, g->captured[opp], g->captured_count[opp]);
         if (sr_opp.base_points > 0) return DECISION_SHOBU;
         for (int i = 0; i < 48; i++) {
             if (blocks_opponent_set(g, i, opp)) return DECISION_SHOBU;
         }
-        ScoreResult sr_me = score_captures(g->ruleset, g->captured[me], g->captured_count[me]);
+        ScoreResult sr_me = ai_score(g, g->captured[me], g->captured_count[me]);
         if (sr_me.base_points >= 7 || g->hand_count[me] < 3) return DECISION_SHOBU;
         return DECISION_KOI_KOI;
     }
 
     /* Hard: Koi-Koi only if base < 7, computer hand >= 4 and opponent base = 0; otherwise SHOBU */
-    ScoreResult sr_me = score_captures(g->ruleset, g->captured[me], g->captured_count[me]);
-    ScoreResult sr_opp = score_captures(g->ruleset, g->captured[opp], g->captured_count[opp]);
+    ScoreResult sr_me = ai_score(g, g->captured[me], g->captured_count[me]);
+    ScoreResult sr_opp = ai_score(g, g->captured[opp], g->captured_count[opp]);
 
     if (sr_me.base_points < 7 && g->hand_count[me] >= 4 && sr_opp.base_points == 0) {
         return DECISION_KOI_KOI;

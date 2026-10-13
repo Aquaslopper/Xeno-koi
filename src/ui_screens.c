@@ -79,7 +79,7 @@ static void get_yaku_cards(const GameState *g, int winner, const ScoredYaku *y, 
         CardType t = (y->id == YAKU_TANE) ? CARD_TYPE_ANIMAL : (y->id == YAKU_TANZAKU) ? CARD_TYPE_RIBBON : CARD_TYPE_PLAIN;
         for (int i = 0; i < g->captured_count[winner] && cnt < 10; i++) {
             int cid = g->captured[winner][i];
-            if (CARDS[cid].type == t || (y->id == YAKU_KASU && cid == 32)) out[cnt++] = cid;
+            if (CARDS[cid].type == t || (y->id == YAKU_KASU && cid == 32 && ruleset_cup_counts_as_kasu(g->ruleset))) out[cnt++] = cid;
         }
     }
     *out_cnt = cnt;
@@ -414,7 +414,7 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     Rectangle panel = { 200, 45, 880, 630 };
     DrawRectangleRec(panel, COLOR_PANEL_BG); ui_draw_panel_border(panel, COLOR_PHOSPHOR);
     int p = g->current_player, opp = 1 - p;
-    ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
+    ScoreResult sr = score_captures_ex(g->ruleset, g->captured[p], g->captured_count[p], ruleset_round_month(g->current_round, g->total_rounds));
     int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
     draw_centered_text(font_title, "YAKU DETECTED", 640.0f, 56.0f, 25.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_title, "KOI-KOI / SHOBU", 640.0f, 86.0f, 22.0f, 1.2f, COLOR_PHOSPHOR_DIM);

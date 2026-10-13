@@ -67,6 +67,7 @@ typedef struct {
 
     /* Round tracking */
     int last_base[2];
+    ScoreResult last_score[2]; /* pile score at each player's last Koi-Koi call */
     int koi_called[2];      /* number of times koi-koi called this round */
     int human_yaku_counts[YAKU_COUNT]; /* human yaku tracking */
 

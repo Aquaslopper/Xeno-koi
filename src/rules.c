@@ -1,7 +1,37 @@
 #include "rules.h"
 #include <string.h>
 
+int ruleset_has_hanami_zake(Ruleset ruleset) {
+    (void)ruleset; /* scored in every ruleset */
+    return 1;
+}
+
+int ruleset_has_tsukimi_zake(Ruleset ruleset) {
+    /* Removed only in Tournament (and Yakuza, which is Tournament scoring
+       plus Oya-ken): Moon + Sake Cup was judged too strong. */
+    return ruleset != RULESET_TOURNAMENT && ruleset != RULESET_YAKUZA;
+}
+
+int ruleset_cup_counts_as_kasu(Ruleset ruleset) {
+    /* In Tournament/Yakuza the Sake Cup is strictly an animal card. */
+    return ruleset != RULESET_TOURNAMENT && ruleset != RULESET_YAKUZA;
+}
+
+int ruleset_one_koi_call(Ruleset ruleset) {
+    return ruleset == RULESET_NINTENDO;
+}
+
+int ruleset_round_month(int current_round, int total_rounds) {
+    if (total_rounds != 12) return 0;
+    if (current_round < 1 || current_round > 12) return 0;
+    return current_round;
+}
+
 ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
+    return score_captures_ex(ruleset, cards, n, 0);
+}
+
+ScoreResult score_captures_ex(Ruleset ruleset, const int *cards, int n, int round_month) {
     ScoreResult res;
     memset(&res, 0, sizeof(res));
 
@@ -74,8 +104,9 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
         }
     }
 
-    /* 2. Viewings (Completely DISABLED in Tournament ruleset) */
-    if (ruleset != RULESET_TOURNAMENT) {
+    /* 2. Viewings. Tsukimi-zake is removed in Tournament/Yakuza only;
+       Hanami-zake is scored in every ruleset. */
+    if (ruleset_has_hanami_zake(ruleset)) {
         if (has[8] && has_cup) { /* Curtain 03-B + Sake Cup 09-A */
             ScoredYaku *y = &res.yakus[res.yaku_count++];
             y->id = YAKU_HANAMI_ZAKE;
@@ -85,6 +116,8 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
             y->card_ids[1] = 32;
             y->card_count = 2;
         }
+    }
+    if (ruleset_has_tsukimi_zake(ruleset)) {
         if (has[28] && has_cup) { /* Moon 08-B + Sake Cup 09-A */
             ScoredYaku *y = &res.yakus[res.yaku_count++];
             y->id = YAKU_TSUKIMI_ZAKE;
@@ -198,9 +231,10 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
         }
     }
 
-    /* 5. Plains (Kasu) */
+    /* 5. Plains (Kasu). The Sake Cup also counts as a chaff card, except
+       in Tournament/Yakuza where it is strictly an animal. */
     int effective_plains = plain_count;
-    if (ruleset == RULESET_KK_ADD_10 && has_cup) {
+    if (ruleset_cup_counts_as_kasu(ruleset) && has_cup) {
         effective_plains++;
     }
     if (effective_plains >= 10) {
@@ -211,6 +245,26 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
         y->card_count = 0;
     }
 
+    /* 6. Tsukifuda: all four cards of the current round's month. */
+    if (round_month >= 1 && round_month <= 12) {
+        int b = (round_month - 1) * 4;
+        if (has[b] && has[b + 1] && has[b + 2] && has[b + 3]) {
+            ScoredYaku *y = &res.yakus[res.yaku_count++];
+            y->id = YAKU_TSUKIFUDA;
+            y->name = "Tsukifuda (Cards of the Month)";
+            y->points = 4;
+            y->card_ids[0] = b; y->card_ids[1] = b + 1;
+            y->card_ids[2] = b + 2; y->card_ids[3] = b + 3;
+            y->card_count = 4;
+        }
+    }
+
+    res.bright_count = bright_count;
+    res.animal_count = animal_count;
+    res.ribbon_count = ribbon_count;
+    res.plain_count = plain_count;
+    res.effective_plain_count = effective_plains;
+
     /* Sum base points */
     int base = 0;
     for (int i = 0; i < res.yaku_count; i++) {
@@ -219,6 +273,41 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
     res.base_points = base;
 
     return res;
+}
+
+static const ScoredYaku *find_yaku(const ScoreResult *sr, YakuId id) {
+    for (int i = 0; i < sr->yaku_count; i++) {
+        if (sr->yakus[i].id == id) return &sr->yakus[i];
+    }
+    return NULL;
+}
+
+int score_is_improved(const ScoreResult *old_sr, const ScoreResult *new_sr) {
+    if (!old_sr || !new_sr) return 0;
+    if (new_sr->base_points > old_sr->base_points) return 1;
+
+    /* A yaku that was not there before, or that pays more than before. */
+    for (int i = 0; i < new_sr->yaku_count; i++) {
+        const ScoredYaku *o = find_yaku(old_sr, new_sr->yakus[i].id);
+        if (!o || new_sr->yakus[i].points > o->points) return 1;
+    }
+
+    /* Fixed-value yaku (KK-ADD-10 trios) do not pay more when their
+       category grows, but capturing another card of that category is
+       still an improvement the player must be offered a decision on:
+       e.g. Akatan held with 3 ribbons, then a 4th ribbon is captured. */
+    if (new_sr->ribbon_count > old_sr->ribbon_count &&
+        (find_yaku(new_sr, YAKU_AKATAN) || find_yaku(new_sr, YAKU_AOTAN) ||
+         find_yaku(new_sr, YAKU_AKATAN_AOTAN) || find_yaku(new_sr, YAKU_TANZAKU))) return 1;
+    if (new_sr->animal_count > old_sr->animal_count &&
+        (find_yaku(new_sr, YAKU_INO_SHIKA_CHO) || find_yaku(new_sr, YAKU_TANE))) return 1;
+    if (new_sr->bright_count > old_sr->bright_count &&
+        (find_yaku(new_sr, YAKU_GOKO) || find_yaku(new_sr, YAKU_SHIKO) ||
+         find_yaku(new_sr, YAKU_AME_SHIKO) || find_yaku(new_sr, YAKU_SANKO))) return 1;
+    if (new_sr->effective_plain_count > old_sr->effective_plain_count &&
+        find_yaku(new_sr, YAKU_KASU)) return 1;
+
+    return 0;
 }
 
 int calculate_award(int base, int opponent_called_koi) {

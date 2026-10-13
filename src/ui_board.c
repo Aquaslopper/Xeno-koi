@@ -422,7 +422,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     const char *rnames[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
     draw_text_ex_snapped(font_body, rnames[g->ruleset], (Vector2){ 1168.0f, 38.0f }, 11.0f, 0.7f, COLOR_PHOSPHOR_DIM);
 
-    ScoreResult s0 = score_captures(g->ruleset, g->captured[0], g->captured_count[0]), s1 = score_captures(g->ruleset, g->captured[1], g->captured_count[1]);
+    int rmonth = ruleset_round_month(g->current_round, g->total_rounds);
+    ScoreResult s0 = score_captures_ex(g->ruleset, g->captured[0], g->captured_count[0], rmonth), s1 = score_captures_ex(g->ruleset, g->captured[1], g->captured_count[1], rmonth);
     float cpu_h = draw_combo_panel(74.0f, "CPU COMBOS", &s1, g->koi_called[1]);
     draw_combo_panel(74.0f + cpu_h + 10.0f, "YOU COMBOS", &s0, g->koi_called[0]);
 

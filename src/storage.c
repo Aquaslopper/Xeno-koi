@@ -204,7 +204,7 @@ const char *storage_get_favorite_combo(const GameStats *st) {
         "GOKO", "SHIKO", "AME-SHIKO", "SANKO",
         "HANAMI-ZAKE", "TSUKIMI-ZAKE", "INO-SHIKA-CHO",
         "AKATAN", "AOTAN", "AKATAN + AOTAN",
-        "TANE", "TANZAKU", "KASU"
+        "TANE", "TANZAKU", "KASU", "TSUKIFUDA"
     };
     if (!st) return "NONE";
     int best = -1, max_val = 0;

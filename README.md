@@ -23,8 +23,8 @@ The game supports 5 distinct rule variations, selectable in the Options menu to 
 * **Nintendo (Standard):** The classic, balanced Koi-Koi rule set.
 * **FudaWiki:** Modern standard rules with slightly adjusted combo values.
 * **KK-ADD-10:** A high-scoring variant where fixed sets and counted cards stack additively.
-* **Tournament (Hardcore):** Disables "Hanami-zake" (Curtain + Cup) and "Tsukimi-zake" (Moon + Cup) Viewings. The Sake Cup is treated strictly as an animal card, eliminating cheap luck-based wins and forcing strategic combo building.
-* **Yakuza (Oya-ken):** Enables "Dealer's Privilege." If a round ends in exhaustion with a 0-0 draw, the current Dealer automatically wins the round and is awarded 6 points.
+* **Tournament (Hardcore):** Removes "Tsukimi-zake" (Moon + Cup) only — that viewing was judged too strong; "Hanami-zake" (Curtain + Cup) still scores. The Sake Cup is treated strictly as an animal card (it does not count toward Kasu), eliminating cheap luck-based wins and forcing strategic combo building.
+* **Yakuza (Oya-ken):** Same scoring as Tournament, plus "Dealer's Privilege." If a round ends in exhaustion, the current Dealer automatically wins the round and is awarded a flat 6 points.
 
 ## Technical Architecture
 * **Language:** C99

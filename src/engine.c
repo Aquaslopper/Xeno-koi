@@ -93,6 +93,7 @@ void engine_start_round(GameState *g) {
         g->pending_card = -1;
         g->last_base[0] = 0;
         g->last_base[1] = 0;
+        memset(g->last_score, 0, sizeof(g->last_score));
         g->koi_called[0] = 0;
         g->koi_called[1] = 0;
         memset(&g->current_round_record, 0, sizeof(g->current_round_record));
@@ -305,18 +306,26 @@ int engine_timeout_autoplay(GameState *g) {
     return engine_play_hand(g, card_id, target_id);
 }
 
+/* Score a player's capture pile under the game's ruleset, including
+   Tsukifuda when this round is a month round (12-round match). */
+static ScoreResult score_now(const GameState *g, int p) {
+    return score_captures_ex(g->ruleset, g->captured[p], g->captured_count[p],
+                             ruleset_round_month(g->current_round, g->total_rounds));
+}
+
 static int apply_exhaustion(GameState *g) {
-    if (g->ruleset == RULESET_YAKUZA && g->koi_called[0] == 0 && g->koi_called[1] == 0) {
+    if (g->ruleset == RULESET_YAKUZA) {
+        /* Oya-ken (Dealer's Privilege): an exhausted round is not a 0-0
+           draw; the dealer wins it for a flat 6 points, no multipliers,
+           and keeps the dealership. */
         int d = g->dealer;
-        int opp = 1 - d;
-        int award = calculate_award(6, g->koi_called[opp] > 0);
-        g->total_score[d] += award;
+        g->total_score[d] += 6;
         g->current_round_record.winner = d;
         g->current_round_record.draw_reason = 0;
         g->current_round_record.base_points = 6;
         g->current_round_record.mult_seven = 1;
-        g->current_round_record.mult_koi = (g->koi_called[opp] > 0) ? 2 : 1;
-        g->current_round_record.award = award;
+        g->current_round_record.mult_koi = 1;
+        g->current_round_record.award = 6;
         memset(&g->current_round_record.score_result, 0, sizeof(ScoreResult));
         g->dealer = d;
         g->phase = PHASE_ROUND_END;
@@ -341,7 +350,7 @@ static int advance_after_turn(GameState *g) {
 static int apply_shobu(GameState *g) {
     int p = g->current_player;
     int opp = 1 - p;
-    ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
+    ScoreResult sr = score_now(g, p);
     int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
     g->total_score[p] += award;
     g->current_round_record.winner = p;
@@ -362,12 +371,15 @@ static int apply_shobu(GameState *g) {
 
 static int finish_stock_turn(GameState *g) {
     int p = g->current_player;
-    ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    if (sr.base_points > g->last_base[p]) {
+    ScoreResult sr = score_now(g, p);
+    /* A decision is earned by forming a new yaku or improving an existing
+       one, not only by raising the point total (fixed-value yaku in
+       KK-ADD-10 improve without paying more). */
+    if (score_is_improved(&g->last_score[p], &sr)) {
         if (g->hand_count[p] == 0) {
             return apply_shobu(g);
         }
-        if ((g->ruleset == RULESET_NINTENDO || g->ruleset == RULESET_TOURNAMENT || g->ruleset == RULESET_YAKUZA) && g->koi_called[p] >= 1) {
+        if (ruleset_one_koi_call(g->ruleset) && g->koi_called[p] >= 1) {
             return apply_shobu(g);
         }
         g->phase = PHASE_DECIDE;
@@ -459,8 +471,9 @@ int engine_decide(GameState *g, DecisionType decision) {
         return apply_shobu(g);
     } else {
         int p = g->current_player;
-        ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
+        ScoreResult sr = score_now(g, p);
         g->last_base[p] = sr.base_points;
+        g->last_score[p] = sr;
         g->koi_called[p]++;
         return advance_after_turn(g);
     }
