@@ -25,7 +25,7 @@ void motion_init(void) {
 }
 
 void motion_set_instant(int card_id, Vector2 pos, Vector2 size) {
-    if (card_id < 0 || card_id >= 48) return;
+    if ((unsigned)card_id >= 48u) return;
     CardMotion *m = &g_cards[card_id];
     m->current_pos = pos;
     m->target_pos = pos;
@@ -43,7 +43,7 @@ void motion_set_instant(int card_id, Vector2 pos, Vector2 size) {
 }
 
 void motion_set_target(int card_id, Vector2 pos, Vector2 size, float duration) {
-    if (card_id < 0 || card_id >= 48) return;
+    if ((unsigned)card_id >= 48u) return;
     CardMotion *m = &g_cards[card_id];
     if (!m->initialized) {
         motion_set_instant(card_id, pos, size);
@@ -68,24 +68,24 @@ void motion_set_target(int card_id, Vector2 pos, Vector2 size, float duration) {
 }
 
 Rectangle motion_get_rect(int card_id) {
-    if (card_id < 0 || card_id >= 48) return (Rectangle){ 0, 0, 0, 0 };
+    if ((unsigned)card_id >= 48u) return (Rectangle){ 0, 0, 0, 0 };
     CardMotion *m = &g_cards[card_id];
     if (!m->initialized) return (Rectangle){ 0, 0, 0, 0 };
     return (Rectangle){ m->current_pos.x, m->current_pos.y, m->current_size.x, m->current_size.y };
 }
 
 Vector2 motion_get_pos(int card_id) {
-    if (card_id < 0 || card_id >= 48) return (Vector2){ 0, 0 };
+    if ((unsigned)card_id >= 48u) return (Vector2){ 0, 0 };
     return g_cards[card_id].current_pos;
 }
 
 int motion_is_card_moving(int card_id) {
-    if (card_id < 0 || card_id >= 48) return 0;
+    if ((unsigned)card_id >= 48u) return 0;
     return g_cards[card_id].moving;
 }
 
 Vector2 motion_get_velocity(int card_id) {
-    if (card_id < 0 || card_id >= 48) return (Vector2){ 0, 0 };
+    if ((unsigned)card_id >= 48u) return (Vector2){ 0, 0 };
     return g_cards[card_id].vel;
 }
 
@@ -95,19 +95,19 @@ Color motion_get_card_tint(int card_id) {
 }
 
 float motion_get_card_shimmer(int card_id) {
-    if (card_id < 0 || card_id >= 48) return 0.0f;
+    if ((unsigned)card_id >= 48u) return 0.0f;
     return g_cards[card_id].shimmer_alpha;
 }
 
 void motion_set_drag_velocity(int card_id, Vector2 mouse_delta) {
-    if (card_id < 0 || card_id >= 48) return;
+    if ((unsigned)card_id >= 48u) return;
     CardMotion *m = &g_cards[card_id];
     m->is_dragged = 1;
     m->vel = mouse_delta;
 }
 
 float motion_get_card_lift(int card_id) {
-    if (card_id < 0 || card_id >= 48) return 0.0f;
+    if ((unsigned)card_id >= 48u) return 0.0f;
     CardMotion *m = &g_cards[card_id];
     if (!m->moving || m->duration <= 0.001f) return 0.0f;
     float t = m->elapsed / m->duration;
@@ -119,37 +119,23 @@ float motion_get_card_lift(int card_id) {
 int motion_is_reflowing(const GameState *g) {
     if (!g) return 0;
 
-    /* Check field cards */
     for (int i = 0; i < g->field_count; i++) {
         int cid = g->field[i];
-        if (cid >= 0 && cid < 48 && g_cards[cid].moving) return 1;
+        if ((unsigned)cid < 48u && g_cards[cid].moving) return 1;
     }
 
-    /* Check captured cards */
     for (int p = 0; p < 2; p++) {
         for (int i = 0; i < g->captured_count[p]; i++) {
             int cid = g->captured[p][i];
-            if (cid >= 0 && cid < 48 && g_cards[cid].moving) return 1;
+            if ((unsigned)cid < 48u && g_cards[cid].moving) return 1;
         }
-    }
-
-    /* Check player hand cards reflowing horizontally or far returns */
-    for (int i = 0; i < g->hand_count[0]; i++) {
-        int cid = g->hand[0][i];
-        if (cid >= 0 && cid < 48 && g_cards[cid].moving) {
-            float dx = fabsf(g_cards[cid].target_pos.x - g_cards[cid].current_pos.x);
-            float dy = fabsf(g_cards[cid].target_pos.y - g_cards[cid].current_pos.y);
-            if (dx > 4.0f || dy > 18.0f) return 1;
-        }
-    }
-
-    /* Check CPU hand cards reflowing */
-    for (int i = 0; i < g->hand_count[1]; i++) {
-        int cid = g->hand[1][i];
-        if (cid >= 0 && cid < 48 && g_cards[cid].moving) {
-            float dx = fabsf(g_cards[cid].target_pos.x - g_cards[cid].current_pos.x);
-            float dy = fabsf(g_cards[cid].target_pos.y - g_cards[cid].current_pos.y);
-            if (dx > 4.0f || dy > 18.0f) return 1;
+        for (int i = 0; i < g->hand_count[p]; i++) {
+            int cid = g->hand[p][i];
+            if ((unsigned)cid < 48u && g_cards[cid].moving) {
+                float dx = fabsf(g_cards[cid].target_pos.x - g_cards[cid].current_pos.x);
+                float dy = fabsf(g_cards[cid].target_pos.y - g_cards[cid].current_pos.y);
+                if (dx > 4.0f || dy > 18.0f) return 1;
+            }
         }
     }
 
@@ -172,7 +158,7 @@ void motion_update(float dt, int dragged_card_id) {
                 float t = m->elapsed / m->duration;
                 if (t < 0.0f) t = 0.0f;
                 if (t > 1.0f) t = 1.0f;
-                float ease = t * t * (3.0f - 2.0f * t); /* smooth cubic ease-in-out */
+                float ease = t * t * (3.0f - 2.0f * t);
                 m->current_pos = Vector2Lerp(m->start_pos, m->target_pos, ease);
                 m->current_size = Vector2Lerp(m->start_size, m->target_size, ease);
                 m->vel = (Vector2){ m->current_pos.x - m->prev_pos.x, m->current_pos.y - m->prev_pos.y };
@@ -181,11 +167,12 @@ void motion_update(float dt, int dragged_card_id) {
             m->vel = (Vector2){ 0, 0 };
         }
 
-        /* Strictly Mouse Dragging ONLY: Target is 23.0f only if currently grabbed by mouse */
         float target_alpha = (i == dragged_card_id && dragged_card_id >= 0) ? 23.0f : 0.0f;
-        m->shimmer_alpha = Lerp(m->shimmer_alpha, target_alpha, dt * 4.0f);
-        if (m->shimmer_alpha < 0.05f) m->shimmer_alpha = 0.0f;
-        if (m->shimmer_alpha > 23.0f) m->shimmer_alpha = 23.0f;
+        if (m->shimmer_alpha != target_alpha) {
+            m->shimmer_alpha = Lerp(m->shimmer_alpha, target_alpha, dt * 4.0f);
+            if (m->shimmer_alpha < 0.05f) m->shimmer_alpha = 0.0f;
+            if (m->shimmer_alpha > 23.0f) m->shimmer_alpha = 23.0f;
+        }
     }
 }
 
@@ -195,7 +182,6 @@ void motion_deal_round(const GameState *g, float duration) {
     Vector2 stock_pos = { 330.0f, 262.0f };
     Vector2 stock_size = { FIELD_CARD_W, FIELD_CARD_H };
 
-    /* All 48 cards initialize at stock */
     for (int i = 0; i < 48; i++) {
         motion_set_instant(i, stock_pos, stock_size);
     }
@@ -216,12 +202,14 @@ void motion_deal_round(const GameState *g, float duration) {
         m->initialized = 1;
     }
 
-    /* 2. CPU hand cards deal out smoothly */
-    float opp_x = 710.0f - (g->hand_count[1] * (CPU_CARD_W + 6.0f)) / 2.0f;
-    float opp_step = (g->hand_count[1] > 1) ? fminf(CPU_CARD_W + 6.0f, 360.0f / (g->hand_count[1] - 1)) : 0.0f;
-    for (int i = 0; i < g->hand_count[1]; i++) {
+    /* 2. CPU hand cards deal out smoothly (matching board_draw_table layout) */
+    int cpu_count = g->hand_count[1];
+    float cpu_step = 62.0f;
+    float cpu_w = (cpu_count > 0) ? ((cpu_count - 1) * cpu_step + CPU_CARD_W) : 0.0f;
+    float cpu_x = 710.0f - cpu_w / 2.0f;
+    for (int i = 0; i < cpu_count; i++) {
         int cid = g->hand[1][i];
-        Rectangle r = { opp_x + i * opp_step, 18.0f, CPU_CARD_W, CPU_CARD_H };
+        Rectangle r = { cpu_x + i * cpu_step, 12.0f, CPU_CARD_W, CPU_CARD_H };
         CardMotion *m = &g_cards[cid];
         m->start_pos = stock_pos;
         m->current_pos = stock_pos;
@@ -234,16 +222,16 @@ void motion_deal_round(const GameState *g, float duration) {
         m->initialized = 1;
     }
 
-    /* 3. Field cards deal out smoothly */
+    /* 3. Field cards deal out smoothly (sorted by month then slot index) */
     int sorted_field[48];
-    for (int i = 0; i < g->field_count; i++) sorted_field[i] = i;
-    for (int i = 0; i < g->field_count - 1; i++) {
-        for (int j = i + 1; j < g->field_count; j++) {
-            int c1 = g->field[sorted_field[i]], c2 = g->field[sorted_field[j]];
-            if (CARDS[c1].month > CARDS[c2].month || (CARDS[c1].month == CARDS[c2].month && c1 > c2)) {
-                int tmp = sorted_field[i]; sorted_field[i] = sorted_field[j]; sorted_field[j] = tmp;
-            }
+    for (int i = 0; i < g->field_count; i++) {
+        int m_cur = CARDS[g->field[i]].month;
+        int j = i - 1;
+        while (j >= 0 && CARDS[g->field[sorted_field[j]]].month > m_cur) {
+            sorted_field[j + 1] = sorted_field[j];
+            j--;
         }
+        sorted_field[j + 1] = i;
     }
 
     for (int i = 0; i < g->field_count; i++) {
@@ -318,10 +306,8 @@ void cinematic_draw(void) {
 
     Rectangle box = { (float)box_x, (float)box_y, (float)box_w, (float)box_h };
 
-    /* Translucent dark background */
     DrawRectangleRec(box, (Color){ 0, 0, 0, (unsigned char)(225 * alpha) });
 
-    /* Phosphor border with outer bloom */
     Color col_base = g_theme.base;
     Color col_dim  = g_theme.dim;
 
@@ -333,7 +319,6 @@ void cinematic_draw(void) {
     border_inner.a = (unsigned char)(255 * alpha);
     DrawRectangleLinesEx(box, 2.0f, border_inner);
 
-    /* Biomechanical corner accents */
     float c_len = 16.0f;
     DrawLineEx((Vector2){ box.x, box.y }, (Vector2){ box.x + c_len, box.y }, 3.0f, border_inner);
     DrawLineEx((Vector2){ box.x, box.y }, (Vector2){ box.x, box.y + c_len }, 3.0f, border_inner);
@@ -347,13 +332,11 @@ void cinematic_draw(void) {
     DrawLineEx((Vector2){ box.x + box.width, box.y + box.height }, (Vector2){ box.x + box.width - c_len, box.y + box.height }, 3.0f, border_inner);
     DrawLineEx((Vector2){ box.x + box.width, box.y + box.height }, (Vector2){ box.x + box.width, box.y + box.height - c_len }, 3.0f, border_inner);
 
-    /* Text */
     Color text_col = col_base;
     text_col.a = (unsigned char)(255 * alpha);
     DrawTextEx(font_title, title, (Vector2){ (float)(box_x + pad_x), (float)(box_y + pad_y) },
                font_size, spacing, text_col);
 
-    /* Subtitle prompt */
     const char *sub = (s_cinematic_round <= 1) ? "// NEURAL LINK ESTABLISHED //" : "// DECK SHUFFLED & DEALT //";
     const float sub_size = 14.0f;
     const float sub_spacing = 1.2f;

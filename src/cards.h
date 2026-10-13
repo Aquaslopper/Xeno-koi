@@ -24,7 +24,6 @@ typedef struct {
     int flags;          /* Bitmask of CARD_FLAG_* */
     int dealer_rank;    /* 20 (Bright), 10 (Animal), 5 (Ribbon), 1 (Plain) */
     const char *name;   /* Short descriptive name */
-    float shimmer_alpha;/* Specular highlight opacity (0.0 .. 23.0) */
 } Card;
 
 extern const Card CARDS[48];

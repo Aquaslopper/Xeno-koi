@@ -34,16 +34,15 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
     } else {
         float breathe = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
         float glow_alpha = 0.5f + 0.5f * breathe;
-        const float outset[5] = { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f };
-        const float thickness[5] = { 3.0f, 2.7f, 2.4f, 2.0f, 1.6f };
-        const float strength[5] = { 1.0f, 0.88f, 0.74f, 0.60f, 0.48f };
-        for (int i = 0; i < 5; i++) {
-            Color ring = COLOR_PHOSPHOR;
-            ring.a = (unsigned char)(255.0f * glow_alpha * strength[i]);
-            Rectangle r = { box.x - outset[i], box.y - outset[i],
-                             box.width + outset[i] * 2.0f, box.height + outset[i] * 2.0f };
-            DrawRectangleLinesEx(r, thickness[i], ring);
-        }
+
+        Color ring_inner = COLOR_PHOSPHOR;
+        ring_inner.a = (unsigned char)(255.0f * glow_alpha);
+        DrawRectangleLinesEx(box, 2.5f, ring_inner);
+
+        Color ring_outer = COLOR_PHOSPHOR;
+        ring_outer.a = (unsigned char)(140.0f * glow_alpha);
+        DrawRectangleLinesEx((Rectangle){ box.x - 3.0f, box.y - 3.0f, box.width + 6.0f, box.height + 6.0f }, 2.0f, ring_outer);
+
         if (flash_alpha > 0.001f) {
             Color flash = COLOR_PHOSPHOR;
             flash.a = (unsigned char)(255.0f * flash_alpha);
@@ -59,9 +58,12 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
 
     int font_size = 16;
     int text_x = (int)box.x + 6;
-    int max_width = (int)box.width - 12;
-    if (is_active) max_width = (int)box.width - 45;
-    while (font_size > 12 && MeasureTextEx(font_body, text, (float)font_size, 1.0f).x > (float)max_width) font_size--;
+    float max_width = box.width - (is_active ? 45.0f : 12.0f);
+    float w16 = MeasureTextEx(font_body, text, 16.0f, 1.0f).x;
+    if (w16 > max_width && w16 > 0.0f) {
+        font_size = (int)(16.0f * (max_width / w16));
+        if (font_size < 12) font_size = 12;
+    }
     int text_y = (int)box.y + ((int)box.height - font_size) / 2;
     draw_text_ex_snapped(font_body, text, (Vector2){ (float)text_x, (float)text_y },
                (float)font_size, 1.0f, label);

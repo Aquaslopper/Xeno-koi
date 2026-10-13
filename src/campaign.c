@@ -14,31 +14,42 @@ extern Font font_body;
 
 static void draw_text_wrapped(Font font, const char *text, float x, float y, float max_width, float font_size, float spacing, Color color) {
     if (!text || text[0] == '\0') return;
-    char buffer[512];
-    strncpy(buffer, text, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0';
-
-    char *word = strtok(buffer, " ");
-    char line[512] = "";
+    char line[512];
+    size_t line_len = 0;
+    line[0] = '\0';
     float cur_y = y;
     float line_height = font_size + 4.0f;
 
-    while (word != NULL) {
-        char test_line[512];
-        if (line[0] == '\0') snprintf(test_line, sizeof(test_line), "%s", word);
-        else snprintf(test_line, sizeof(test_line), "%s %s", line, word);
+    const char *p = text;
+    while (*p) {
+        while (*p == ' ') p++;
+        if (!*p) break;
+        const char *w_start = p;
+        while (*p && *p != ' ') p++;
+        size_t w_len = (size_t)(p - w_start);
+        if (w_len >= sizeof(line) - 2) w_len = sizeof(line) - 2;
 
-        Vector2 sz = MeasureTextEx(font, test_line, font_size, spacing);
-        if (sz.x > max_width && line[0] != '\0') {
-            DrawTextEx(font, line, (Vector2){ x, cur_y }, font_size, spacing, color);
-            cur_y += line_height;
-            snprintf(line, sizeof(line), "%s", word);
-        } else {
-            strncpy(line, test_line, sizeof(line));
+        if (line_len == 0) {
+            memcpy(line, w_start, w_len);
+            line[w_len] = '\0';
+            line_len = w_len;
+        } else if (line_len + 1 + w_len < sizeof(line)) {
+            line[line_len] = ' ';
+            memcpy(line + line_len + 1, w_start, w_len);
+            line[line_len + 1 + w_len] = '\0';
+            if (MeasureTextEx(font, line, font_size, spacing).x > max_width) {
+                line[line_len] = '\0';
+                DrawTextEx(font, line, (Vector2){ x, cur_y }, font_size, spacing, color);
+                cur_y += line_height;
+                memcpy(line, w_start, w_len);
+                line[w_len] = '\0';
+                line_len = w_len;
+            } else {
+                line_len += 1 + w_len;
+            }
         }
-        word = strtok(NULL, " ");
     }
-    if (line[0] != '\0') {
+    if (line_len > 0) {
         DrawTextEx(font, line, (Vector2){ x, cur_y }, font_size, spacing, color);
     }
 }

@@ -36,12 +36,12 @@ void storage_load_settings(GameSettings *s) {
     s->background = 0;
     s->bgm_volume = 0.50f;
     s->sfx_volume = 0.30f;
-    s->anim_speed = 0; /* Slow (longest millisecond duration) */
-    s->terminal_color = 2; /* Teal default active color */
-    s->fullscreen = 0; /* Windowed */
-    s->bloom = 0; /* OFF */
-    s->crt_filter = 2; /* MID (Analog CRT Beam default) */
-    s->gamma = 1.0f; /* 1.0 default */
+    s->anim_speed = 0;
+    s->terminal_color = 2;
+    s->fullscreen = 0;
+    s->bloom = 0;
+    s->crt_filter = 2;
+    s->gamma = 1.0f;
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
 
@@ -76,14 +76,10 @@ void storage_load_settings(GameSettings *s) {
                 if (bg >= 0 && bg < 6) s->background = bg;
             } else if (strcmp(k, "bgm_volume") == 0) {
                 float vol = (float)atof(v);
-                if (vol < 0.0f) vol = 0.0f;
-                if (vol > 1.0f) vol = 1.0f;
-                s->bgm_volume = vol;
+                s->bgm_volume = (vol < 0.0f) ? 0.0f : (vol > 1.0f) ? 1.0f : vol;
             } else if (strcmp(k, "sfx_volume") == 0) {
                 float vol = (float)atof(v);
-                if (vol < 0.0f) vol = 0.0f;
-                if (vol > 1.0f) vol = 1.0f;
-                s->sfx_volume = vol;
+                s->sfx_volume = (vol < 0.0f) ? 0.0f : (vol > 1.0f) ? 1.0f : vol;
             } else if (strcmp(k, "anim_speed") == 0) {
                 int sp = atoi(v);
                 if (sp >= 0 && sp <= 2) s->anim_speed = sp;
@@ -95,8 +91,7 @@ void storage_load_settings(GameSettings *s) {
                 else if (strcmp(v, "dark") == 0 || strcmp(v, "5") == 0) s->terminal_color = 5;
                 else s->terminal_color = 0;
             } else if (strcmp(k, "fullscreen") == 0) {
-                int fs = atoi(v);
-                s->fullscreen = (fs == 1) ? 1 : 0;
+                s->fullscreen = (atoi(v) == 1) ? 1 : 0;
             } else if (strcmp(k, "bloom") == 0) {
                 int bl = atoi(v);
                 if (bl >= 0 && bl <= 2) s->bloom = bl;
@@ -219,7 +214,7 @@ const char *storage_get_favorite_combo(const GameStats *st) {
 
 void storage_save_stats(const GameStats *st) {
     char buf[2048];
-    snprintf(buf, sizeof(buf),
+    int n = snprintf(buf, sizeof(buf),
              "matches_played=%d\n"
              "matches_won=%d\n"
              "matches_lost=%d\n"
@@ -245,15 +240,16 @@ void storage_save_stats(const GameStats *st) {
              st->easy_matches, st->hard_matches,
              st->current_streak, st->best_streak, st->best_streak,
              storage_get_favorite_combo(st));
-    if (st->master_matches > 0) {
-        char mline[48]; snprintf(mline, sizeof(mline), "master_matches=%d\n", st->master_matches);
-        strncat(buf, mline, sizeof(buf) - strlen(buf) - 1);
+    size_t pos = (n > 0 && (size_t)n < sizeof(buf)) ? (size_t)n : 0;
+
+    if (st->master_matches > 0 && pos < sizeof(buf)) {
+        int w = snprintf(buf + pos, sizeof(buf) - pos, "master_matches=%d\n", st->master_matches);
+        if (w > 0 && pos + (size_t)w < sizeof(buf)) pos += (size_t)w;
     }
 
-    for (int i = 0; i < YAKU_COUNT; i++) {
-        char yline[48];
-        snprintf(yline, sizeof(yline), "yaku_%d=%d\n", i, st->yaku_counts[i]);
-        strncat(buf, yline, sizeof(buf) - strlen(buf) - 1);
+    for (int i = 0; i < YAKU_COUNT && pos < sizeof(buf); i++) {
+        int w = snprintf(buf + pos, sizeof(buf) - pos, "yaku_%d=%d\n", i, st->yaku_counts[i]);
+        if (w > 0 && pos + (size_t)w < sizeof(buf)) pos += (size_t)w;
     }
     safe_write_text("stats.txt", buf);
 }
@@ -289,17 +285,17 @@ void storage_load_history(MatchHistory *h) {
 
 void storage_add_history(MatchHistory *h, const char *record_line) {
     if (h->count >= 10) {
-        for (int i = 0; i < 9; i++) {
-            snprintf(h->lines[i], sizeof(h->lines[0]), "%s", h->lines[i + 1]);
-        }
+        memmove(&h->lines[0], &h->lines[1], 9 * sizeof(h->lines[0]));
         h->count = 9;
     }
     snprintf(h->lines[h->count++], sizeof(h->lines[0]), "%s", record_line);
 
-    char buf[2048] = {0};
-    for (int i = 0; i < h->count; i++) {
-        strncat(buf, h->lines[i], sizeof(buf) - strlen(buf) - 2);
-        strcat(buf, "\n");
+    char buf[2048];
+    size_t pos = 0;
+    buf[0] = '\0';
+    for (int i = 0; i < h->count && pos < sizeof(buf); i++) {
+        int w = snprintf(buf + pos, sizeof(buf) - pos, "%s\n", h->lines[i]);
+        if (w > 0 && pos + (size_t)w < sizeof(buf)) pos += (size_t)w;
     }
     safe_write_text("history.txt", buf);
 }
@@ -308,7 +304,7 @@ void storage_write_report(const GameStats *st, const MatchHistory *h) {
     char buf[4096];
     float win_rate = (st->matches_played > 0) ? ((float)st->matches_won / st->matches_played * 100.0f) : 0.0f;
 
-    snprintf(buf, sizeof(buf),
+    int n = snprintf(buf, sizeof(buf),
              "====================================================\n"
              "        HANAFUDA // KOI-KOI - STATS REPORT          \n"
              "====================================================\n\n"
@@ -334,13 +330,15 @@ void storage_write_report(const GameStats *st, const MatchHistory *h) {
              st->easy_matches, st->hard_matches,
              st->current_streak, st->best_streak,
              storage_get_favorite_combo(st));
+    size_t pos = (n > 0 && (size_t)n < sizeof(buf)) ? (size_t)n : 0;
 
-    for (int i = 0; i < h->count; i++) {
-        char item[160];
-        snprintf(item, sizeof(item), "  [%d] %s\n", i + 1, h->lines[i]);
-        strncat(buf, item, sizeof(buf) - strlen(buf) - 1);
+    for (int i = 0; i < h->count && pos < sizeof(buf); i++) {
+        int w = snprintf(buf + pos, sizeof(buf) - pos, "  [%d] %s\n", i + 1, h->lines[i]);
+        if (w > 0 && pos + (size_t)w < sizeof(buf)) pos += (size_t)w;
     }
-    strncat(buf, "\n====================================================\n", sizeof(buf) - strlen(buf) - 1);
+    if (pos < sizeof(buf)) {
+        snprintf(buf + pos, sizeof(buf) - pos, "\n====================================================\n");
+    }
     safe_write_text("stats_report.txt", buf);
 }
 

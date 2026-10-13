@@ -45,6 +45,14 @@ static void draw_hover_action_label(const char *label, Rectangle bounds) {
     DrawTextEx(font_title, label, (Vector2){ floorf(bounds.x + (bounds.width - ts.x) / 2.0f), floorf(bounds.y + (bounds.height - 18.0f) / 2.0f) }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
+static void draw_active_game_overlays(const BoardAssets *assets, const GameState *g, Vector2 vm, int is_paused, int confirm_restart) {
+    if (g->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(assets, g, vm);
+    else if (g->phase == PHASE_HAND_CHOICE || g->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(assets, g, vm, g->phase == PHASE_HAND_CHOICE);
+    else if (g->phase == PHASE_DECIDE && g->current_player == 0) screens_draw_decide_overlay(assets, g, vm);
+    else if (g->phase == PHASE_ROUND_END) screens_draw_round_result(assets, g, vm);
+    if (is_paused) screens_draw_pause(vm, confirm_restart);
+}
+
 int main(int argc, char **argv) {
     uint32_t seed = 7;
     int shot_frame = -1, win_w = 1280, win_h = 720, auto_start = 0, auto_options = 0, auto_dealer = 0, auto_stats = 0, auto_campaign = 0;
@@ -78,6 +86,7 @@ int main(int argc, char **argv) {
     int loc_bloom = GetShaderLocation(post_shader, "bloom_intensity");
     int loc_crt = GetShaderLocation(post_shader, "crt_intensity");
     int loc_gamma = GetShaderLocation(post_shader, "gamma");
+    float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
 
     BoardAssets assets;
     board_load_assets(&assets);
@@ -145,13 +154,13 @@ int main(int argc, char **argv) {
             if (transition_alpha <= 0.0f) { transition_alpha = 0.0f; transition_dir = 0; }
         }
 
+        float b_val = (settings.bloom == 2) ? 1.0f : (settings.bloom == 1) ? 0.5f : 0.0f;
+        float c_val = (settings.crt_filter == 3) ? 1.0f : (settings.crt_filter == 2) ? 0.65f : (settings.crt_filter == 1) ? 0.35f : 0.0f;
+        float g_val = (settings.gamma > 0.1f) ? settings.gamma : 1.0f;
         if (post_shader.id > 0) {
-            float b_val = (settings.bloom == 2) ? 1.0f : (settings.bloom == 1) ? 0.5f : 0.0f;
-            float c_val = (settings.crt_filter == 3) ? 1.0f : (settings.crt_filter == 2) ? 0.65f : (settings.crt_filter == 1) ? 0.35f : 0.0f;
-            float g_val = (settings.gamma > 0.1f) ? settings.gamma : 1.0f;
-            SetShaderValue(post_shader, loc_bloom, &b_val, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(post_shader, loc_crt, &c_val, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(post_shader, loc_gamma, &g_val, SHADER_UNIFORM_FLOAT);
+            if (b_val != cached_bloom) { SetShaderValue(post_shader, loc_bloom, &b_val, SHADER_UNIFORM_FLOAT); cached_bloom = b_val; }
+            if (c_val != cached_crt)   { SetShaderValue(post_shader, loc_crt,   &c_val, SHADER_UNIFORM_FLOAT); cached_crt = c_val; }
+            if (g_val != cached_gamma) { SetShaderValue(post_shader, loc_gamma, &g_val, SHADER_UNIFORM_FLOAT); cached_gamma = g_val; }
         }
 
         audio_set_bgm_volume(&audio, settings.bgm_volume * (1.0f - transition_alpha));
@@ -244,154 +253,152 @@ int main(int argc, char **argv) {
                         int input_unlocked = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
 
                         if (g.phase == PHASE_DEALER_SELECT) {
-                        if (g.oya_player_choice < 0) {
-                            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                                int pick = board_check_dealer_select_click(&g, vm);
-                                if (pick >= 0) {
-                                    g.oya_player_choice = pick; g.oya_timer = 0.0f;
-                                    int p_cid = g.oya_cards[pick], c_cid = g.oya_cards[1 - pick];
-                                    int mp = CARDS[p_cid].month, mc = CARDS[c_cid].month;
-                                    g.oya_winner = (mp < mc) ? 0 : (mc < mp) ? 1 : (CARDS[p_cid].dealer_rank >= CARDS[c_cid].dealer_rank) ? 0 : 1;
-                                    g.dealer = g.oya_winner; audio_play_flip(&audio);
-                                }
-                            }
-                        } else {
-                            float prev_t = g.oya_timer; g.oya_timer += dt;
-                            if (prev_t < 0.45f && g.oya_timer >= 0.45f) audio_play_flip(&audio);
-                            if (prev_t < 0.90f && g.oya_timer >= 0.90f) audio_play_click(&audio);
-                            if (g.oya_timer >= 3.4f) {
-                                engine_start_round(&g); motion_deal_round(&g, 0.45f); cinematic_start(g.current_round);
-                                if (audio.current_music != 2) audio_start_match_music(&audio, transition_track);
-                            }
-                        }
-                    }
-
-                    if (g.current_player == 1 && g.phase == PHASE_TURN_HAND && !cinematic_is_active() && !motion_is_reflowing(&g)) {
-                        if (anim.active && anim.type == ANIM_CPU_FLY && anim.elapsed >= anim.duration) {
-                            int card = anim.cpu_card, target = anim.cpu_target;
-                            Vector2 landed = anim.target_pos;
-                            anim.active = 0; audio_play_drop(&audio);
-                            motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
-                            engine_play_hand(&g, card, target);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
-                        } else if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
-                            anim.active = 0; int card, target;
-                            ai_choose_hand(&g, settings.difficulty, &ai_rng, &card, &target);
-                            Vector2 from = { 710.0f, 12.0f };
-                            Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target) : (Vector2){ 710.0f, 240.0f };
-                            anim_start_cpu_fly(&anim, card, target, from, to, get_flight_duration(settings.anim_speed));
-                        } else if (!anim.active) {
-                            anim_start_cpu_think(&anim, get_think_duration(settings.anim_speed));
-                        }
-                    }
-
-                    if (g.phase == PHASE_TURN_DRAW && !cinematic_is_active() && !motion_is_reflowing(&g)) {
-                        if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
-                            int drawn_cid = anim.card_id;
-                            Vector2 landed = anim.target_pos;
-                            anim.active = 0; audio_play_drop(&audio);
-                            motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
-                            engine_reveal_stock(&g);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
-                        } else if (!anim.active) {
-                            int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
-                            if (top_stock >= 0) {
-                                audio_play_flip(&audio); int match_target = -1;
-                                for (int i = 0; i < g.field_count; i++) {
-                                    if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
-                                }
-                                /* Placement must aim at the slot the painted (month-sorted) table will
-                                   give the card, not at its position in the engine's field array */
-                                Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
-                                                                     : board_get_field_card_rect_of(&g, top_stock);
-                                Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
-                                anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
-                            } else { engine_reveal_stock(&g); }
-                        }
-                    }
-
-                    if (g.current_player == 1 && g.phase == PHASE_DRAW_CHOICE && input_unlocked) {
-                        int target = ai_choose_stock_target(&g, settings.difficulty, &ai_rng);
-                        engine_pick_draw_choice(&g, target);
-                        if (g.last_captured_count > 0) audio_play_capture(&audio);
-                    }
-
-                    if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
-                        DecisionType dec = ai_choose_decision(&g, settings.difficulty, &ai_rng);
-                        if (dec == DECISION_KOI_KOI) {
-                            audio_play_koi(&audio); anim_start_banner(&anim, "CPU: KOI-KOI", 1.5f);
-                            taunt_trigger(campaign_get_opponent(settings.current_opponent)->koi_taunt, 4.0f);
-                        }
-                        engine_decide(&g, dec);
-                    }
-
-                    if (g.current_player != 0 || (g.phase != PHASE_TURN_HAND && g.phase != PHASE_HAND_CHOICE)) human_turn_started = 0;
-
-                    if (g.current_player == 0 && input_unlocked) {
-                        if (g.phase == PHASE_TURN_HAND) {
-                            if (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS) {
-                                if (!human_turn_started) {
-                                    g.player_timer = (settings.difficulty == DIFFICULTY_DEUS || settings.master_timer == 15) ? 15.0f : 30.0f;
-                                    human_turn_started = 1;
-                                }
-                                g.player_timer -= dt;
-                                if (g.player_timer <= 0.0f) {
-                                    g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
-                                    engine_timeout_autoplay(&g);
-                                    if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
-                                    anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
-                                }
-                            }
-                            if (g.phase == PHASE_TURN_HAND) {
-                                int was_dragging = drag.on;
-                                input_handle_mouse(&g, &drag, &anim, l, vm, &hovered_idx, 1);
-                                if (was_dragging && !drag.on) {
-                                    if (g.last_captured_count > 0) audio_play_capture(&audio);
-                                    else audio_play_drop(&audio);
-                                }
-                            }
-                        }
-                        else if (g.phase == PHASE_HAND_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                            int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
-                            if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
-                            else if (res == 2) { audio_play_click(&audio); engine_cancel_hand_choice(&g); }
-                        } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                            int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
-                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
-                            }
-                        } else if (g.phase == PHASE_DECIDE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                            DecisionType dec;
-                            if (screens_check_decide_click(vm, &dec)) {
-                                audio_play_click(&audio); if (dec == DECISION_KOI_KOI) audio_play_koi(&audio);
-                                engine_decide(&g, dec);
-                            }
-                        }
-                    }
-
-                    if (g.phase == PHASE_ROUND_END && input_unlocked && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                        if (screens_check_round_result_click(vm)) {
-                            audio_play_click(&audio);
-                            if (g.current_round >= g.total_rounds) {
-                                anim_init(&anim); engine_next_round(&g);
-                                storage_record_match(&g, &settings, &stats, &history);
-                                if (g.total_score[0] > g.total_score[1]) {
-                                    audio_play_win(&audio);
-                                    bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
-                                                           (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
-                                                           (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
-                                    if (settings.current_opponent == settings.unlocked_opponents - 1 && meets_clearance && settings.unlocked_opponents < 12) {
-                                        settings.unlocked_opponents++;
-                                        storage_save_settings(&settings);
+                            if (g.oya_player_choice < 0) {
+                                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                                    int pick = board_check_dealer_select_click(&g, vm);
+                                    if (pick >= 0) {
+                                        g.oya_player_choice = pick; g.oya_timer = 0.0f;
+                                        int p_cid = g.oya_cards[pick], c_cid = g.oya_cards[1 - pick];
+                                        int mp = CARDS[p_cid].month, mc = CARDS[c_cid].month;
+                                        g.oya_winner = (mp < mc) ? 0 : (mc < mp) ? 1 : (CARDS[p_cid].dealer_rank >= CARDS[c_cid].dealer_rank) ? 0 : 1;
+                                        g.dealer = g.oya_winner; audio_play_flip(&audio);
                                     }
-                                } else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
-                                start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                                }
                             } else {
-                                anim_init(&anim); engine_next_round(&g); motion_deal_round(&g, 0.45f);
-                                cinematic_start(g.current_round);
-                                taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 3.5f);
+                                float prev_t = g.oya_timer; g.oya_timer += dt;
+                                if (prev_t < 0.45f && g.oya_timer >= 0.45f) audio_play_flip(&audio);
+                                if (prev_t < 0.90f && g.oya_timer >= 0.90f) audio_play_click(&audio);
+                                if (g.oya_timer >= 3.4f) {
+                                    engine_start_round(&g); motion_deal_round(&g, 0.45f); cinematic_start(g.current_round);
+                                    if (audio.current_music != 2) audio_start_match_music(&audio, transition_track);
+                                }
                             }
                         }
-                    }
+
+                        if (g.current_player == 1 && g.phase == PHASE_TURN_HAND && !cinematic_is_active() && !motion_is_reflowing(&g)) {
+                            if (anim.active && anim.type == ANIM_CPU_FLY && anim.elapsed >= anim.duration) {
+                                int card = anim.cpu_card, target = anim.cpu_target;
+                                Vector2 landed = anim.target_pos;
+                                anim.active = 0; audio_play_drop(&audio);
+                                motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
+                                engine_play_hand(&g, card, target);
+                                if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            } else if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
+                                anim.active = 0; int card, target;
+                                ai_choose_hand(&g, settings.difficulty, &ai_rng, &card, &target);
+                                Vector2 from = { 710.0f, 12.0f };
+                                Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target) : (Vector2){ 710.0f, 240.0f };
+                                anim_start_cpu_fly(&anim, card, target, from, to, get_flight_duration(settings.anim_speed));
+                            } else if (!anim.active) {
+                                anim_start_cpu_think(&anim, get_think_duration(settings.anim_speed));
+                            }
+                        }
+
+                        if (g.phase == PHASE_TURN_DRAW && !cinematic_is_active() && !motion_is_reflowing(&g)) {
+                            if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
+                                int drawn_cid = anim.card_id;
+                                Vector2 landed = anim.target_pos;
+                                anim.active = 0; audio_play_drop(&audio);
+                                motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
+                                engine_reveal_stock(&g);
+                                if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            } else if (!anim.active) {
+                                int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
+                                if (top_stock >= 0) {
+                                    audio_play_flip(&audio); int match_target = -1;
+                                    for (int i = 0; i < g.field_count; i++) {
+                                        if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
+                                    }
+                                    Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
+                                                                         : board_get_field_card_rect_of(&g, top_stock);
+                                    Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
+                                    anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
+                                } else { engine_reveal_stock(&g); }
+                            }
+                        }
+
+                        if (g.current_player == 1 && g.phase == PHASE_DRAW_CHOICE && input_unlocked) {
+                            int target = ai_choose_stock_target(&g, settings.difficulty, &ai_rng);
+                            engine_pick_draw_choice(&g, target);
+                            if (g.last_captured_count > 0) audio_play_capture(&audio);
+                        }
+
+                        if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
+                            DecisionType dec = ai_choose_decision(&g, settings.difficulty, &ai_rng);
+                            if (dec == DECISION_KOI_KOI) {
+                                audio_play_koi(&audio); anim_start_banner(&anim, "CPU: KOI-KOI", 1.5f);
+                                taunt_trigger(campaign_get_opponent(settings.current_opponent)->koi_taunt, 4.0f);
+                            }
+                            engine_decide(&g, dec);
+                        }
+
+                        if (g.current_player != 0 || (g.phase != PHASE_TURN_HAND && g.phase != PHASE_HAND_CHOICE)) human_turn_started = 0;
+
+                        if (g.current_player == 0 && input_unlocked) {
+                            if (g.phase == PHASE_TURN_HAND) {
+                                if (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS) {
+                                    if (!human_turn_started) {
+                                        g.player_timer = (settings.difficulty == DIFFICULTY_DEUS || settings.master_timer == 15) ? 15.0f : 30.0f;
+                                        human_turn_started = 1;
+                                    }
+                                    g.player_timer -= dt;
+                                    if (g.player_timer <= 0.0f) {
+                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
+                                        engine_timeout_autoplay(&g);
+                                        if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
+                                        anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
+                                    }
+                                }
+                                if (g.phase == PHASE_TURN_HAND) {
+                                    int was_dragging = drag.on;
+                                    input_handle_mouse(&g, &drag, &anim, l, vm, &hovered_idx, 1);
+                                    if (was_dragging && !drag.on) {
+                                        if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                        else audio_play_drop(&audio);
+                                    }
+                                }
+                            }
+                            else if (g.phase == PHASE_HAND_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                                int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
+                                if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
+                                else if (res == 2) { audio_play_click(&audio); engine_cancel_hand_choice(&g); }
+                            } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                                int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
+                                    audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                }
+                            } else if (g.phase == PHASE_DECIDE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                                DecisionType dec;
+                                if (screens_check_decide_click(vm, &dec)) {
+                                    audio_play_click(&audio); if (dec == DECISION_KOI_KOI) audio_play_koi(&audio);
+                                    engine_decide(&g, dec);
+                                }
+                            }
+                        }
+
+                        if (g.phase == PHASE_ROUND_END && input_unlocked && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                            if (screens_check_round_result_click(vm)) {
+                                audio_play_click(&audio);
+                                if (g.current_round >= g.total_rounds) {
+                                    anim_init(&anim); engine_next_round(&g);
+                                    storage_record_match(&g, &settings, &stats, &history);
+                                    if (g.total_score[0] > g.total_score[1]) {
+                                        audio_play_win(&audio);
+                                        bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
+                                                               (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
+                                                               (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
+                                        if (settings.current_opponent == settings.unlocked_opponents - 1 && meets_clearance && settings.unlocked_opponents < 12) {
+                                            settings.unlocked_opponents++;
+                                            storage_save_settings(&settings);
+                                        }
+                                    } else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
+                                    start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                                } else {
+                                    anim_init(&anim); engine_next_round(&g); motion_deal_round(&g, 0.45f);
+                                    cinematic_start(g.current_round);
+                                    taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 3.5f);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -439,51 +446,42 @@ int main(int argc, char **argv) {
             taunt_draw();
 
             if (!is_paused) {
-                if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) {
-                    Rectangle pause_button = { 1160, 560, 112, 40 };
-                    DrawRectangleRec(pause_button, COLOR_BTN_HOVER_BG);
-                    ui_draw_panel_border(pause_button, COLOR_PHOSPHOR);
-                    draw_hover_action_label("PAUSE", pause_button);
+                Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
+                if (CheckCollisionPointRec(vm, pause_btn)) {
+                    DrawRectangleRec(pause_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);
+                    draw_hover_action_label("PAUSE", pause_btn);
                 }
-                if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) {
-                    Rectangle restart_button = { 1160, 610, 112, 40 };
-                    DrawRectangleRec(restart_button, COLOR_BTN_HOVER_BG);
-                    ui_draw_panel_border(restart_button, COLOR_PHOSPHOR);
-                    draw_hover_action_label("RESTART", restart_button);
+                if (CheckCollisionPointRec(vm, restart_btn)) {
+                    DrawRectangleRec(restart_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
+                    draw_hover_action_label("RESTART", restart_btn);
                 }
             }
             if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
             cinematic_draw();
+            if (overlay_active && overlay_alpha >= 0.999f) draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart);
         }
         EndTextureMode();
 
-        if (overlay_active && overlay_alpha > 0.0f) {
-            BeginTextureMode(overlay_canvas);
-            ClearBackground(BLANK);
-            if (g.phase == PHASE_DEALER_SELECT) board_draw_dealer_select(&assets, &g, vm);
-            else if (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(&assets, &g, vm, g.phase == PHASE_HAND_CHOICE);
-            else if (g.phase == PHASE_DECIDE && g.current_player == 0) screens_draw_decide_overlay(&assets, &g, vm);
-            else if (g.phase == PHASE_ROUND_END) screens_draw_round_result(&assets, &g, vm);
-            if (is_paused) screens_draw_pause(vm, confirm_restart);
+        if (overlay_active && overlay_alpha > 0.0f && overlay_alpha < 0.999f) {
+            BeginTextureMode(overlay_canvas); ClearBackground(BLANK);
+            draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart);
             EndTextureMode();
-
             BeginTextureMode(canvas);
             DrawTextureRec(overlay_canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H }, (Vector2){ 0, 0 }, (Color){ 255, 255, 255, (unsigned char)(overlay_alpha * 255.0f) });
             EndTextureMode();
         }
-
         if (transition_alpha > 0.0f) {
             BeginTextureMode(canvas);
             DrawRectangle(0, 0, CANVAS_W, CANVAS_H, (Color){ 0, 0, 0, (unsigned char)(fminf(1.0f, fmaxf(0.0f, transition_alpha)) * 255.0f) });
             EndTextureMode();
         }
 
-        BeginDrawing();
-        ClearBackground(BLACK);
-        if (post_shader.id > 0) BeginShaderMode(post_shader);
+        BeginDrawing(); ClearBackground(BLACK);
+        int use_post = (post_shader.id > 0) && (b_val > 0.001f || c_val > 0.001f || fabsf(g_val - 1.0f) > 0.005f);
+        if (use_post) BeginShaderMode(post_shader);
         DrawTexturePro(canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
                        (Rectangle){ l.ox, l.oy, CANVAS_W * l.scale, CANVAS_H * l.scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
-        if (post_shader.id > 0) EndShaderMode();
+        if (use_post) EndShaderMode();
         EndDrawing();
 
         if (shot_frame > 0 && frame_count >= shot_frame) { TakeScreenshot("screenshot.png"); break; }

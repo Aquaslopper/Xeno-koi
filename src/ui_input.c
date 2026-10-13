@@ -1,4 +1,5 @@
 #include "ui_input.h"
+#include "ui_motion.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -34,8 +35,9 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
     /* 2. Inside field */
     int matches[4];
     int mc = 0;
+    int card_month = CARDS[card_id].month;
     for (int i = 0; i < g->field_count; i++) {
-        if (CARDS[g->field[i]].month == CARDS[card_id].month) {
+        if (CARDS[g->field[i]].month == card_month) {
             matches[mc++] = g->field[i];
         }
     }
