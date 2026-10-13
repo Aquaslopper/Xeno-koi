@@ -6,10 +6,17 @@
 extern Font font_title;
 extern Font font_body;
 
+static void draw_text_ex_snapped(Font font, const char *text, Vector2 position,
+                                 float font_size, float spacing, Color color) {
+    position.x = floorf(position.x);
+    position.y = floorf(position.y);
+    DrawTextEx(font, text, position, font_size, spacing, color);
+}
+
 static void draw_centered_text(Font font, const char *text, float center_x, float y,
                                float font_size, float spacing, Color color) {
     Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
-    DrawTextEx(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
+    draw_text_ex_snapped(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
                font_size, spacing, color);
 }
 
@@ -47,7 +54,7 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
         Color badge = COLOR_PHOSPHOR;
         badge.a = (unsigned char)(190.0f + 65.0f * breathe);
         DrawRectangleRec(tag, badge);
-        DrawTextEx(font_title, ">>", (Vector2){ tag.x + 4.0f, tag.y + 2.0f }, 14.0f, 0.8f, (Color){ 0, 0, 0, 255 });
+        draw_text_ex_snapped(font_title, ">>", (Vector2){ tag.x + 4.0f, tag.y + 2.0f }, 14.0f, 0.8f, (Color){ 0, 0, 0, 255 });
     }
 
     int font_size = 16;
@@ -56,7 +63,7 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
     if (is_active) max_width = (int)box.width - 45;
     while (font_size > 12 && MeasureTextEx(font_body, text, (float)font_size, 1.0f).x > (float)max_width) font_size--;
     int text_y = (int)box.y + ((int)box.height - font_size) / 2;
-    DrawTextEx(font_body, text, (Vector2){ (float)text_x, (float)text_y },
+    draw_text_ex_snapped(font_body, text, (Vector2){ (float)text_x, (float)text_y },
                (float)font_size, 1.0f, label);
 }
 

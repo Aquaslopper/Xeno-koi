@@ -361,6 +361,6 @@ void cinematic_draw(void) {
     Color sub_col = col_dim;
     sub_col.a = (unsigned char)(210 * alpha);
     DrawTextEx(font_body, sub,
-               (Vector2){ (CANVAS_W - sub_measure.x) / 2.0f, (float)(box_y + box_h + 10) },
+               (Vector2){ floorf((CANVAS_W - sub_measure.x) / 2.0f), floorf((float)(box_y + box_h + 10)) },
                sub_size, sub_spacing, sub_col);
 }

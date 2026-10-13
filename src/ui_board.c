@@ -8,17 +8,24 @@
 extern Font font_title;
 extern Font font_body;
 
+static void draw_text_ex_snapped(Font font, const char *text, Vector2 position,
+                                 float font_size, float spacing, Color color) {
+    position.x = floorf(position.x);
+    position.y = floorf(position.y);
+    DrawTextEx(font, text, position, font_size, spacing, color);
+}
+
 static void draw_centered_text(Font font, const char *text, float center_x, float y,
                                float font_size, float spacing, Color color) {
     Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
-    DrawTextEx(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
+    draw_text_ex_snapped(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
                font_size, spacing, color);
 }
 
 static void draw_text_in_rect(Font font, const char *text, Rectangle bounds,
                               float font_size, float spacing, Color color) {
     Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
-    DrawTextEx(font, text,
+    draw_text_ex_snapped(font, text,
                (Vector2){ bounds.x + (bounds.width - text_size.x) / 2.0f,
                           bounds.y + (bounds.height - font_size) / 2.0f },
                font_size, spacing, color);
@@ -200,7 +207,7 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             if (CARDS[cid].type == types[t]) lc[count++] = cid;
         }
         const char *cnt_str = TextFormat((t == 1 && cup) ? "%s %d*" : "%s %d", labels[t], count);
-        DrawTextEx(font_body, cnt_str, (Vector2){ 16.0f, y + 8.5f }, 20.0f, 1.4f, COLOR_TEXT_INFO);
+        draw_text_ex_snapped(font_body, cnt_str, (Vector2){ 16.0f, y + 8.5f }, 20.0f, 1.4f, COLOR_TEXT_INFO);
         float fa = CAPTURE_PANEL_W - 54.0f - card_w, step = (count > 1) ? fminf(24.0f, fa / (count - 1)) : 0.0f;
         float card_y = y + (CAPTURE_PANEL_H - card_h) / 2.0f;
         for (int c = 0; c < count; c++) {
@@ -228,8 +235,8 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
     Rectangle r = { 1160, y, 112, total_h };
     DrawRectangleRec(r, COLOR_PANEL_BG);
     ui_draw_panel_border(r, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    DrawTextEx(font_title, title, (Vector2){ 1168.0f, y + 8.0f }, 11.0f, 0.8f, COLOR_PHOSPHOR);
-    DrawTextEx(font_body, TextFormat("Base: %d%s", s->base_points, (koi_called > 0) ? " [KOI]" : ""),
+    draw_text_ex_snapped(font_title, title, (Vector2){ 1168.0f, y + 8.0f }, 11.0f, 0.8f, COLOR_PHOSPHOR);
+    draw_text_ex_snapped(font_body, TextFormat("Base: %d%s", s->base_points, (koi_called > 0) ? " [KOI]" : ""),
                (Vector2){ 1168.0f, y + 25.0f }, 15.0f, 1.0f,
                (koi_called > 0) ? COLOR_RED : COLOR_TEXT_INFO_DIM);
 
@@ -239,10 +246,10 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
         for (int i = 0; i < max_yakus; i++) {
             char full[64]; snprintf(full, sizeof(full), "%s: %d", s->yakus[i].name, s->yakus[i].points);
             if (MeasureTextEx(font_body, full, 16.0f, 1.2f).x > 96.0f) {
-                DrawTextEx(font_body, s->yakus[i].name, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO);
-                DrawTextEx(font_body, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + 17.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM); cy += 34.0f;
+                draw_text_ex_snapped(font_body, s->yakus[i].name, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO);
+                draw_text_ex_snapped(font_body, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + 17.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM); cy += 34.0f;
             } else {
-                DrawTextEx(font_body, full, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO); cy += 18.0f;
+                draw_text_ex_snapped(font_body, full, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO); cy += 18.0f;
             }
         }
     }
@@ -308,7 +315,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 4. Stock Pile */
     int st_off = g->stock_count / 4;
     for (int i = 0; i <= st_off; i++) board_draw_card_back(ba, (Rectangle){ 330.0f - i, 262.0f - i, FIELD_CARD_W, FIELD_CARD_H });
-    DrawTextEx(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 
     /* 5. Field Cards */
     int sf[48];
@@ -421,9 +428,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 11. Right Column */
     Rectangle cp = { 1160, 12, 112, 54 };
     DrawRectangleRec(cp, COLOR_PANEL_BG); ui_draw_panel_border(cp, COLOR_PHOSPHOR_DIM);
-    DrawTextEx(font_body, TextFormat("RND %d/%d", g->current_round, g->total_rounds), (Vector2){ 1168.0f, 20.0f }, 14.0f, 1.0f, COLOR_PHOSPHOR);
+    draw_text_ex_snapped(font_body, TextFormat("RND %d/%d", g->current_round, g->total_rounds), (Vector2){ 1168.0f, 20.0f }, 14.0f, 1.0f, COLOR_PHOSPHOR);
     const char *rnames[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
-    DrawTextEx(font_body, rnames[g->ruleset], (Vector2){ 1168.0f, 38.0f }, 11.0f, 0.7f, COLOR_PHOSPHOR_DIM);
+    draw_text_ex_snapped(font_body, rnames[g->ruleset], (Vector2){ 1168.0f, 38.0f }, 11.0f, 0.7f, COLOR_PHOSPHOR_DIM);
 
     ScoreResult s0 = score_captures(g->ruleset, g->captured[0], g->captured_count[0]), s1 = score_captures(g->ruleset, g->captured[1], g->captured_count[1]);
     float cpu_h = draw_combo_panel(74.0f, "CPU COMBOS", &s1, g->koi_called[1]);

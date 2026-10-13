@@ -3,6 +3,7 @@
 #include "ui_theme.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 extern Font font_title;
 extern Font font_body;
@@ -46,8 +47,8 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
     const float spacing = 1.2f;
     Vector2 text_size = MeasureTextEx(font_title, txt, font_size, spacing);
     DrawTextEx(font_title, txt,
-               (Vector2){ r.x + (r.width - text_size.x) / 2.0f,
-                          r.y + (r.height - font_size) / 2.0f },
+               (Vector2){ floorf(r.x + (r.width - text_size.x) / 2.0f),
+                          floorf(r.y + (r.height - font_size) / 2.0f) },
                font_size, spacing, col);
     return hov;
 }

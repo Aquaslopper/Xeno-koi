@@ -46,8 +46,8 @@ static void draw_hover_action_label(const char *label, Rectangle bounds) {
     const float spacing = 1.2f;
     Vector2 text_size = MeasureTextEx(font_title, label, font_size, spacing);
     DrawTextEx(font_title, label,
-               (Vector2){ bounds.x + (bounds.width - text_size.x) / 2.0f,
-                          bounds.y + (bounds.height - font_size) / 2.0f },
+               (Vector2){ floorf(bounds.x + (bounds.width - text_size.x) / 2.0f),
+                          floorf(bounds.y + (bounds.height - font_size) / 2.0f) },
                font_size, spacing, COLOR_PHOSPHOR);
 }
 
@@ -76,8 +76,9 @@ int main(int argc, char **argv) {
     AudioAssets audio;
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
     RenderTexture2D canvas = LoadRenderTexture(CANVAS_W, CANVAS_H);
-    SetTextureFilter(canvas.texture, TEXTURE_FILTER_POINT);
+    SetTextureFilter(canvas.texture, TEXTURE_FILTER_BILINEAR);
     RenderTexture2D overlay_canvas = LoadRenderTexture(CANVAS_W, CANVAS_H);
+    SetTextureFilter(overlay_canvas.texture, TEXTURE_FILTER_BILINEAR);
 
     Shader post_shader = LoadShader(0, FileExists("assets/postprocess.fs") ? "assets/postprocess.fs" :
         TextFormat("%s/assets/postprocess.fs", GetApplicationDirectory() ? GetApplicationDirectory() : ""));
