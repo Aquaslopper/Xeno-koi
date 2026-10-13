@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern Font small_font;
+extern Font font_title;
+extern Font font_body;
 
 typedef struct {
     Vector2 pos;
@@ -122,11 +123,11 @@ void taunt_draw(void) {
 
         DrawRectangleRec(box, bg);
         ui_draw_panel_border(box, border);
-        DrawText("[ CPU TRANSMISSION ]", (int)box.x + 8, (int)box.y + 7, 12, title_col);
+        DrawTextEx(font_title, "[ CPU TRANSMISSION ]", (Vector2){ box.x + 8.0f, box.y + 7.0f }, 12.0f, 0.8f, title_col);
         DrawLine((int)box.x + 6, (int)box.y + 24, (int)(box.x + box.width - 6), (int)box.y + 24, dim);
 
         Rectangle text_r = { box.x + 8.0f, box.y + 30.0f, box.width - 16.0f, box.height - 34.0f };
-        draw_text_wrap_box(small_font, s_active_taunt, text_r, 14.0f, txt_col);
+        draw_text_wrap_box(font_body, s_active_taunt, text_r, 14.0f, txt_col);
     }
 
     /* Draw dark ash particles */

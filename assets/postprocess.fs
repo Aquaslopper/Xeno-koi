@@ -30,7 +30,7 @@ void main()
                 vec2 offset = vec2(float(x), float(y)) * texelSize * 4.0;
                 vec3 sCol = texture(texture0, fragTexCoord + offset).rgb;
                 float lum = dot(sCol, vec3(0.299, 0.587, 0.114));
-                float bright = clamp((lum - 0.35) * 1.5, 0.0, 1.0);
+                float bright = clamp((lum - 0.65) * 2.0, 0.0, 1.0);
                 float weight = (x == 0 && y == 0) ? 0.25 : ((x == 0 || y == 0) ? 0.125 : 0.0625);
                 bloomAcc += sCol * bright * weight;
                 totalWeight += weight;

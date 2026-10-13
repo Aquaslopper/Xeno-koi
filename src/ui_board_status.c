@@ -1,6 +1,24 @@
 #include "ui_board_status.h"
 #include "ui_theme.h"
 #include <math.h>
+#include <string.h>
+
+extern Font font_title;
+extern Font font_body;
+
+static void draw_text_ex_snapped(Font font, const char *text, Vector2 position,
+                                 float font_size, float spacing, Color color) {
+    position.x = floorf(position.x);
+    position.y = floorf(position.y);
+    DrawTextEx(font, text, position, font_size, spacing, color);
+}
+
+static void draw_centered_text(Font font, const char *text, float center_x, float y,
+                               float font_size, float spacing, Color color) {
+    Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
+    draw_text_ex_snapped(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
+               font_size, spacing, color);
+}
 
 void board_draw_info_box(Rectangle box, const char *text, int is_active, float flash_alpha) {
     Color panel = COLOR_PANEL_BG;
@@ -36,21 +54,25 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
         Color badge = COLOR_PHOSPHOR;
         badge.a = (unsigned char)(190.0f + 65.0f * breathe);
         DrawRectangleRec(tag, badge);
-        DrawText(">>", (int)tag.x + 4, (int)tag.y + 2, 14, (Color){ 0, 0, 0, 255 });
+        draw_text_ex_snapped(font_title, ">>", (Vector2){ tag.x + 4.0f, tag.y + 2.0f }, 14.0f, 0.8f, (Color){ 0, 0, 0, 255 });
     }
 
     int font_size = 16;
     int text_x = (int)box.x + 6;
     int max_width = (int)box.width - 12;
     if (is_active) max_width = (int)box.width - 45;
-    while (font_size > 12 && MeasureText(text, font_size) > max_width) font_size--;
+    while (font_size > 12 && MeasureTextEx(font_body, text, (float)font_size, 1.0f).x > (float)max_width) font_size--;
     int text_y = (int)box.y + ((int)box.height - font_size) / 2;
-    DrawText(text, text_x, text_y, font_size, label);
+    draw_text_ex_snapped(font_body, text, (Vector2){ (float)text_x, (float)text_y },
+               (float)font_size, 1.0f, label);
 }
 
 void board_draw_status_message(const char *text) {
     if (!text || text[0] == '\0') return;
-    const int font_size = 20;
-    int text_width = MeasureText(text, font_size);
-    DrawText(text, (int)(710.0f - text_width * 0.5f), 529, font_size, COLOR_PHOSPHOR);
+    int is_callout = strstr(text, "KOI-KOI") != NULL || strstr(text, "SHOBU") != NULL ||
+                     strstr(text, "YAKU DETECTED") != NULL;
+    Font font = is_callout ? font_title : font_body;
+    const float font_size = is_callout ? 20.0f : 18.0f;
+    const float spacing = is_callout ? 1.1f : 1.2f;
+    draw_centered_text(font, text, 710.0f, 529.0f, font_size, spacing, COLOR_PHOSPHOR);
 }
