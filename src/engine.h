@@ -68,6 +68,7 @@ typedef struct {
     /* Round tracking */
     int last_base[2];
     int koi_called[2];      /* number of times koi-koi called this round */
+    int match_koi_calls[2]; /* number of times koi-koi called this match (koi_called resets every round) */
     int human_yaku_counts[YAKU_COUNT]; /* human yaku tracking */
 
     /* Ledger */

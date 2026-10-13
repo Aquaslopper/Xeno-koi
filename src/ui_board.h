@@ -25,6 +25,7 @@ void board_unload_assets(BoardAssets *ba);
 /* Geometry helpers */
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered);
 Rectangle board_get_field_card_rect(int index, int total_cards);
+Rectangle board_get_field_card_rect_of(const GameState *g, int card_id);
 Rectangle board_get_field_rect(void);
 Rectangle board_get_stock_rect(void);
 Vector2 board_get_card_field_pos(const GameState *g, int card_id);

@@ -300,8 +300,11 @@ int main(int argc, char **argv) {
                                 for (int i = 0; i < g.field_count; i++) {
                                     if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
                                 }
-                                Vector2 to_pos = (match_target >= 0) ? board_get_card_field_pos(&g, match_target) :
-                                                (Vector2){ board_get_field_card_rect(g.field_count, g.field_count + 1).x, board_get_field_card_rect(g.field_count, g.field_count + 1).y };
+                                /* Placement must aim at the slot the painted (month-sorted) table will
+                                   give the card, not at its position in the engine's field array */
+                                Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
+                                                                     : board_get_field_card_rect_of(&g, top_stock);
+                                Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
                                 anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
                             } else { engine_reveal_stock(&g); }
                         }

@@ -74,8 +74,8 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
         }
     }
 
-    /* 2. Viewings (Completely DISABLED in Tournament ruleset) */
-    if (ruleset != RULESET_TOURNAMENT) {
+    /* 2. Viewings (Completely DISABLED in Tournament and Yakuza rulesets) */
+    if (ruleset != RULESET_TOURNAMENT && ruleset != RULESET_YAKUZA) {
         if (has[8] && has_cup) { /* Curtain 03-B + Sake Cup 09-A */
             ScoredYaku *y = &res.yakus[res.yaku_count++];
             y->id = YAKU_HANAMI_ZAKE;
@@ -142,15 +142,24 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
     int has_aotan  = (has[21] && has[33] && has[37]);   /* 06, 09, 10 Blue */
 
     if (ruleset == RULESET_KK_ADD_10) {
-        if (has_akatan) {
+        if (has_akatan && has_aotan) {
+            /* KK-ADD: the combined set exists as its own combo (10, replacing the two 5s);
+               Tanzaku still stacks on top of it */
+            ScoredYaku *y = &res.yakus[res.yaku_count++];
+            y->id = YAKU_AKATAN_AOTAN;
+            y->name = "Akatan + Aotan (All Ribbons)";
+            y->points = 10;
+            y->card_ids[0] = 1;  y->card_ids[1] = 5;  y->card_ids[2] = 9;
+            y->card_ids[3] = 21; y->card_ids[4] = 33; y->card_ids[5] = 37;
+            y->card_count = 6;
+        } else if (has_akatan) {
             ScoredYaku *y = &res.yakus[res.yaku_count++];
             y->id = YAKU_AKATAN;
             y->name = "Akatan (Red Poetry Ribbons)";
             y->points = 5;
             y->card_ids[0] = 1; y->card_ids[1] = 5; y->card_ids[2] = 9;
             y->card_count = 3;
-        }
-        if (has_aotan) {
+        } else if (has_aotan) {
             ScoredYaku *y = &res.yakus[res.yaku_count++];
             y->id = YAKU_AOTAN;
             y->name = "Aotan (Blue Ribbons)";
@@ -158,11 +167,13 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
             y->card_ids[0] = 21; y->card_ids[1] = 33; y->card_ids[2] = 37;
             y->card_count = 3;
         }
-        if (ribbon_count >= 5) {
+        /* KK-ADD: count the ribbons from the 4th card, so every extra ribbon is a real +1
+           and the Koi-Koi window opens on the 3rd, 4th, 5th ... ribbon (was: >= 5, n-4) */
+        if (ribbon_count >= 4) {
             ScoredYaku *y = &res.yakus[res.yaku_count++];
             y->id = YAKU_TANZAKU;
             y->name = "Tanzaku (Ribbons)";
-            y->points = ribbon_count - 4;
+            y->points = ribbon_count - 3;
             y->card_count = 0;
         }
     } else {

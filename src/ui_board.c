@@ -1,4 +1,5 @@
 #include "ui_board.h"
+#include "board_layout.h"
 #include "ui_motion.h"
 #include "ui_board_status.h"
 #include "storage.h"
@@ -114,16 +115,21 @@ Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered) {
 }
 
 Rectangle board_get_field_card_rect(int index, int total_cards) {
-    if (total_cards <= 0) return (Rectangle){ FIELD_X, 170.0f, FIELD_CARD_W, FIELD_CARD_H };
-    int top_count = (total_cards + 1) / 2, bot_count = total_cards - top_count;
-    int row = (index < top_count) ? 0 : 1, col = (row == 0) ? index : (index - top_count);
-    int row_count = (row == 0) ? top_count : bot_count;
-    float step = 96.0f, total_w = (row_count > 0) ? ((row_count - 1) * step + FIELD_CARD_W) : FIELD_CARD_W;
-    if (total_w > (FIELD_W - 20.0f) && row_count > 1) {
-        step = (FIELD_W - 20.0f - FIELD_CARD_W) / (float)(row_count - 1);
-        total_w = (row_count - 1) * step + FIELD_CARD_W;
-    }
-    return (Rectangle){ FIELD_X + (FIELD_W - total_w) / 2.0f + col * step, (row == 0) ? 170.0f : 310.0f, FIELD_CARD_W, FIELD_CARD_H };
+    float x, y;
+    board_field_slot_xy(index, total_cards, &x, &y);
+    return (Rectangle){ x, y, FIELD_CARD_W, FIELD_CARD_H };
+}
+
+/* The table is painted sorted by month (then by position in g->field[]), so a card's position in
+   the field array is NOT the slot it is drawn in.  This returns the rectangle of the slot the card
+   is painted in, using the same slot order as the painter (board_layout.c).  Pass a card that is not
+   on the field yet (the drawn stock card) and it returns the slot that card will occupy once
+   engine_reveal_stock() appends it. */
+Rectangle board_get_field_card_rect_of(const GameState *g, int card_id) {
+    int total = 0;
+    int slot = board_field_slot_of(card_id, g->field, g->field_count, &total);
+    if (slot < 0) return (Rectangle){ 0, 0, 0, 0 };
+    return board_get_field_card_rect(slot, total);
 }
 
 Vector2 board_get_card_field_pos(const GameState *g, int card_id) {
@@ -131,9 +137,8 @@ Vector2 board_get_card_field_pos(const GameState *g, int card_id) {
         Vector2 p = motion_get_pos(card_id);
         if (p.x > 0.0f || p.y > 0.0f) return p;
     }
-    for (int i = 0; i < g->field_count; i++) {
-        if (g->field[i] == card_id) { Rectangle r = board_get_field_card_rect(i, g->field_count); return (Vector2){ r.x, r.y }; }
-    }
+    Rectangle r = board_get_field_card_rect_of(g, card_id);
+    if (r.width > 0.0f) return (Vector2){ r.x, r.y };
     return (Vector2){ 710.0f, 240.0f };
 }
 
@@ -215,13 +220,21 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
 }
 
 static float draw_combo_panel(float y, const char *title, const ScoreResult *s, int koi_called) {
-    float base_h = 48.0f, content_h = 0.0f;
+    /* The column only has room for five rows per player; anything past that is announced on a
+       "+ N more" line (same convention as the round-result screen) instead of being dropped.
+       The rows of a truncated panel are tightened so the extra line never grows the panel
+       beyond the height of an untruncated one. */
     int max_yakus = (s->yaku_count > 5) ? 5 : s->yaku_count;
+    int hidden = s->yaku_count - max_yakus;
+    float row_two = (hidden > 0) ? 30.0f : 34.0f;
+    float row_one = (hidden > 0) ? 16.0f : 18.0f;
+    float sub_dy  = (hidden > 0) ? 15.0f : 17.0f;
+    float base_h = 48.0f, content_h = 0.0f;
     for (int i = 0; i < max_yakus; i++) {
         char full[64]; snprintf(full, sizeof(full), "%s: %d", s->yakus[i].name, s->yakus[i].points);
-        content_h += (MeasureTextEx(font_body, full, 16.0f, 1.2f).x > 96.0f) ? 34.0f : 18.0f;
+        content_h += (MeasureTextEx(font_body, full, 16.0f, 1.2f).x > 96.0f) ? row_two : row_one;
     }
-    float total_h = base_h + content_h + (max_yakus > 0 ? 6.0f : 0.0f);
+    float total_h = base_h + content_h + (max_yakus > 0 ? 6.0f : 0.0f) + (hidden > 0 ? 18.0f : 0.0f);
     Rectangle r = { 1160, y, 112, total_h };
     DrawRectangleRec(r, COLOR_PANEL_BG);
     ui_draw_panel_border(r, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
@@ -237,10 +250,13 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
             char full[64]; snprintf(full, sizeof(full), "%s: %d", s->yakus[i].name, s->yakus[i].points);
             if (MeasureTextEx(font_body, full, 16.0f, 1.2f).x > 96.0f) {
                 draw_text_ex_snapped(font_body, s->yakus[i].name, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO);
-                draw_text_ex_snapped(font_body, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + 17.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM); cy += 34.0f;
+                draw_text_ex_snapped(font_body, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + sub_dy }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM); cy += row_two;
             } else {
-                draw_text_ex_snapped(font_body, full, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO); cy += 18.0f;
+                draw_text_ex_snapped(font_body, full, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO); cy += row_one;
             }
+        }
+        if (hidden > 0) {
+            draw_text_ex_snapped(font_body, TextFormat("+%d more", hidden), (Vector2){ 1168.0f, cy + 2.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         }
     }
     return total_h;
@@ -309,14 +325,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     /* 5. Field Cards */
     int sf[48];
-    for (int i = 0; i < g->field_count; i++) sf[i] = i;
-    for (int i = 0; i < g->field_count - 1; i++) {
-        for (int j = i + 1; j < g->field_count; j++) {
-            if (CARDS[g->field[sf[i]]].month > CARDS[g->field[sf[j]]].month || (CARDS[g->field[sf[i]]].month == CARDS[g->field[sf[j]]].month && sf[i] > sf[j])) {
-                int tmp = sf[i]; sf[i] = sf[j]; sf[j] = tmp;
-            }
-        }
-    }
+    board_field_sort_slots(g->field, g->field_count, sf);   /* same order the hit tests use */
     int drag_m = (dragging_idx >= 0 && dragging_idx < g->hand_count[0]) ? CARDS[g->hand[0][dragging_idx]].month : -1;
     float pulse = 0.12f + 0.28f * (0.5f + 0.5f * sinf((float)GetTime() * 4.0f));
 
