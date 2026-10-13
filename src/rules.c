@@ -172,7 +172,8 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
             y->id = YAKU_AKATAN_AOTAN;
             y->name = "Akatan + Aotan (All Ribbons)";
             y->points = 10 + (ribbon_count - 6);
-            y->card_ids[0] = 1; y->card_ids[1] = 5; y->card_ids[2] = 9;
+            y->card_ids[0] = 1;  y->card_ids[1] = 5;  y->card_ids[2] = 9;   /* 01, 02, 03 Red Poetry */
+            y->card_ids[3] = 21; y->card_ids[4] = 33; y->card_ids[5] = 37;  /* 06, 09, 10 Blue Ribbons */
             y->card_count = 6;
         } else if (has_akatan) {
             ScoredYaku *y = &res.yakus[res.yaku_count++];

@@ -1,5 +1,6 @@
 #include "ai.h"
 #include "campaign.h"
+#include <stdbool.h>
 #include <string.h>
 
 static int s_current_opponent = 0;
@@ -130,6 +131,19 @@ static int eval_card_value(const GameState *g, int card_id, const int *new_cards
     return val;
 }
 
+static int ai_get_accuracy(Difficulty diff, int boss_id) {
+    if (boss_id < 0) boss_id = 0;
+    if (boss_id > 11) boss_id = 11;
+
+    if (diff == DIFFICULTY_EASY) {
+        return 20 + (boss_id * 40) / 11;
+    } else if (diff == DIFFICULTY_HARD) {
+        return 50 + (boss_id * 30) / 11;
+    } else {
+        return 78 + boss_id * 2;
+    }
+}
+
 void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *out_card, int *out_target) {
     int me = g->current_player;
     int n = g->hand_count[me];
@@ -139,139 +153,97 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
         return;
     }
 
-    /* Easy mode logic */
-    if (diff == DIFFICULTY_EASY) {
-        const Opponent *opp_info = campaign_get_opponent(s_current_opponent);
-        if (opp_info) {
-            /* Priority 1: Signature Target */
-            for (int i = 0; i < n; i++) {
-                int card = g->hand[me][i];
-                for (int j = 0; j < g->field_count; j++) {
-                    int fc = g->field[j];
-                    if (CARDS[fc].month == CARDS[card].month && (card == opp_info->favorite_card_id || fc == opp_info->favorite_card_id)) {
-                        *out_card = card;
-                        *out_target = fc;
-                        return;
-                    }
-                }
-            }
-            /* Priority 2: Preferred Yaku */
-            for (int i = 0; i < n; i++) {
-                int card = g->hand[me][i];
-                for (int j = 0; j < g->field_count; j++) {
-                    int fc = g->field[j];
-                    if (CARDS[fc].month == CARDS[card].month) {
-                        int m = 0;
-                        if (opp_info->favorite_yaku == YAKU_GOKO && (CARDS[card].type == CARD_TYPE_BRIGHT || CARDS[fc].type == CARD_TYPE_BRIGHT)) m = 1;
-                        else if (opp_info->favorite_yaku == YAKU_TANZAKU && (CARDS[card].type == CARD_TYPE_RIBBON || CARDS[fc].type == CARD_TYPE_RIBBON)) m = 1;
-                        else if (opp_info->favorite_yaku == YAKU_TANE && (CARDS[card].type == CARD_TYPE_ANIMAL || CARDS[fc].type == CARD_TYPE_ANIMAL)) m = 1;
-                        else if (opp_info->favorite_yaku == YAKU_INO_SHIKA_CHO && (card == 20 || card == 24 || card == 36 || fc == 20 || fc == 24 || fc == 36)) m = 1;
-                        else if (opp_info->favorite_yaku == YAKU_KASU && (CARDS[card].type == CARD_TYPE_PLAIN && CARDS[fc].type == CARD_TYPE_PLAIN)) m = 1;
-                        if (m) { *out_card = card; *out_target = fc; return; }
-                    }
-                }
-            }
-        }
+    int target_acc = ai_get_accuracy(diff, s_current_opponent);
+    int roll = (int)(ai_rand(ai_rng) % 100);
+    bool play_optimally = (roll < target_acc);
 
-        /* 30% random card */
-        if ((ai_rand(ai_rng) % 100) < 30) {
-            int idx = ai_rand(ai_rng) % n;
-            int card = g->hand[me][idx];
-            int matches[4];
-            int mc = 0;
-            for (int i = 0; i < g->field_count; i++) {
-                if (CARDS[g->field[i]].month == CARDS[card].month) matches[mc++] = g->field[i];
-            }
-            *out_card = card;
-            if (mc == 2) *out_target = (ai_rand(ai_rng) % 2) ? matches[1] : matches[0];
-            else if (mc == 1) *out_target = matches[0];
-            else *out_target = -1;
-            return;
+    /* If suboptimal roll: simulate a casual human blunder / inattentive play */
+    if (!play_optimally) {
+        int idx = (int)(ai_rand(ai_rng) % n);
+        int card = g->hand[me][idx];
+        int matches[4], mc = 0;
+        for (int i = 0; i < g->field_count; i++) {
+            if (CARDS[g->field[i]].month == CARDS[card].month) matches[mc++] = g->field[i];
         }
-
-        /* Otherwise first legal capture */
-        for (int i = 0; i < n; i++) {
-            int card = g->hand[me][i];
-            int matches[4];
-            int mc = 0;
-            for (int j = 0; j < g->field_count; j++) {
-                if (CARDS[g->field[j]].month == CARDS[card].month) matches[mc++] = g->field[j];
-            }
-            if (mc > 0) {
-                *out_card = card;
-                if (mc == 2) *out_target = (ai_rand(ai_rng) % 2) ? matches[1] : matches[0];
-                else if (mc == 1) *out_target = matches[0];
-                else *out_target = -1;
-                return;
-            }
-        }
-
-        /* Else random discard */
-        int idx = ai_rand(ai_rng) % n;
-        *out_card = g->hand[me][idx];
-        *out_target = -1;
+        *out_card = card;
+        if (mc == 2) *out_target = (ai_rand(ai_rng) % 2) ? matches[1] : matches[0];
+        else if (mc == 1) *out_target = matches[0];
+        else *out_target = -1;
         return;
     }
 
-    /* Hard mode logic */
+    /* If optimal roll: execute smart strategy */
+    /* 1. Campaign signature card & preferred yaku priority */
+    const Opponent *opp_info = campaign_get_opponent(s_current_opponent);
+    if (opp_info) {
+        for (int i = 0; i < n; i++) {
+            int card = g->hand[me][i];
+            for (int j = 0; j < g->field_count; j++) {
+                int fc = g->field[j];
+                if (CARDS[fc].month == CARDS[card].month &&
+                    (card == opp_info->favorite_card_id || fc == opp_info->favorite_card_id)) {
+                    *out_card = card;
+                    *out_target = fc;
+                    return;
+                }
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            int card = g->hand[me][i];
+            for (int j = 0; j < g->field_count; j++) {
+                int fc = g->field[j];
+                if (CARDS[fc].month == CARDS[card].month) {
+                    int m = 0;
+                    if (opp_info->favorite_yaku == YAKU_GOKO && (CARDS[card].type == CARD_TYPE_BRIGHT || CARDS[fc].type == CARD_TYPE_BRIGHT)) m = 1;
+                    else if (opp_info->favorite_yaku == YAKU_TANZAKU && (CARDS[card].type == CARD_TYPE_RIBBON || CARDS[fc].type == CARD_TYPE_RIBBON)) m = 1;
+                    else if (opp_info->favorite_yaku == YAKU_TANE && (CARDS[card].type == CARD_TYPE_ANIMAL || CARDS[fc].type == CARD_TYPE_ANIMAL)) m = 1;
+                    else if (opp_info->favorite_yaku == YAKU_INO_SHIKA_CHO && (card == 20 || card == 24 || card == 36 || fc == 20 || fc == 24 || fc == 36)) m = 1;
+                    else if (opp_info->favorite_yaku == YAKU_KASU && (CARDS[card].type == CARD_TYPE_PLAIN && CARDS[fc].type == CARD_TYPE_PLAIN)) m = 1;
+                    if (m) { *out_card = card; *out_target = fc; return; }
+                }
+            }
+        }
+    }
+
+    /* 2. Full heuristic evaluation (capture value, combo building, and blocking) */
     int best_score = -999999;
     int best_card = g->hand[me][0];
     int best_target = -1;
 
     for (int i = 0; i < n; i++) {
         int card = g->hand[me][i];
-        int matches[4];
-        int mc = 0;
+        int matches[4], mc = 0;
         for (int j = 0; j < g->field_count; j++) {
             if (CARDS[g->field[j]].month == CARDS[card].month) matches[mc++] = g->field[j];
         }
 
         if (mc == 0) {
-            /* Discard: -(its value) minus 4 if its month still has unseen cards */
             int val = eval_card_value(g, card, &card, 1, me, diff);
             int score = -val;
             if (unseen_in_month(g, CARDS[card].month, me)) score -= 4;
             if (diff == DIFFICULTY_MASTER && blocks_opponent_set(g, card, 1 - me)) score -= 100;
-            if (score > best_score) {
-                best_score = score;
-                best_card = card;
-                best_target = -1;
-            }
+            if (score > best_score) { best_score = score; best_card = card; best_target = -1; }
         } else if (mc == 1) {
             int bundle[2] = { card, matches[0] };
             int score = eval_card_value(g, card, bundle, 2, me, diff) + eval_card_value(g, matches[0], bundle, 2, me, diff);
-            if (score > best_score) {
-                best_score = score;
-                best_card = card;
-                best_target = matches[0];
-            }
+            if (score > best_score) { best_score = score; best_card = card; best_target = matches[0]; }
         } else if (mc == 2) {
             int b0[2] = { card, matches[0] };
             int s0 = eval_card_value(g, card, b0, 2, me, diff) + eval_card_value(g, matches[0], b0, 2, me, diff);
             int b1[2] = { card, matches[1] };
             int s1 = eval_card_value(g, card, b1, 2, me, diff) + eval_card_value(g, matches[1], b1, 2, me, diff);
-
             int chosen_target = (s1 > s0) ? matches[1] : matches[0];
             int chosen_score = (s1 > s0) ? s1 : s0;
-            if (chosen_score > best_score) {
-                best_score = chosen_score;
-                best_card = card;
-                best_target = chosen_target;
-            }
+            if (chosen_score > best_score) { best_score = chosen_score; best_card = card; best_target = chosen_target; }
         } else if (mc == 3) {
             int bundle[4] = { card, matches[0], matches[1], matches[2] };
             int score = eval_card_value(g, card, bundle, 4, me, diff) +
                         eval_card_value(g, matches[0], bundle, 4, me, diff) +
                         eval_card_value(g, matches[1], bundle, 4, me, diff) +
                         eval_card_value(g, matches[2], bundle, 4, me, diff);
-            if (score > best_score) {
-                best_score = score;
-                best_card = card;
-                best_target = -1;
-            }
+            if (score > best_score) { best_score = score; best_card = card; best_target = -1; }
         }
     }
-
     *out_card = best_card;
     *out_target = best_target;
 }
