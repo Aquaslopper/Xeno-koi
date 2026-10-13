@@ -426,7 +426,8 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     DrawRectangleRec(panel, COLOR_PANEL_BG); ui_draw_panel_border(panel, COLOR_PHOSPHOR);
     int p = g->current_player, opp = 1 - p;
     ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
+    int self_koi = g->koi_called[p];
+    int award = calculate_award(sr.base_points, self_koi, g->koi_called[opp]);
     draw_centered_text(font_title, "YAKU DETECTED", 640.0f, 56.0f, 25.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_title, "KOI-KOI / SHOBU", 640.0f, 86.0f, 22.0f, 1.2f, COLOR_PHOSPHOR_DIM);
 
@@ -450,11 +451,22 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     DrawLine(240, 430, 1040, 430, COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_body, TextFormat("Base: %d pts", sr.base_points), (Vector2){ 240.0f, 442.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
     if (sr.base_points >= 7) draw_text_ex_snapped(font_body, "x2  7+ Multiplier", (Vector2){ 420.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
-    if (g->koi_called[opp] > 0) draw_text_ex_snapped(font_body, "x2  Koi-Koi Multiplier", (Vector2){ 660.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
+    if (g->koi_called[opp] > 0) draw_text_ex_snapped(font_body, "x2  Opponent Koi", (Vector2){ 610.0f, 442.0f }, 17.0f, 1.3f, COLOR_TEXT_INFO);
+    /* Escalating streak: every call you made adds +1 to your own multiplier. */
+    if (self_koi > 0) {
+        int streak = koi_caller_multiplier(self_koi);
+        draw_text_ex_snapped(font_body, TextFormat("x%d  Koi Streak (%d call%s)", streak, self_koi, (self_koi == 1) ? "" : "s"),
+                             (Vector2){ 790.0f, 442.0f }, 17.0f, 1.3f, COLOR_TEXT_INFO);
+    }
     draw_text_ex_snapped(font_body, TextFormat("IF YOU SHOBU NOW: %d POINTS", award), (Vector2){ 240.0f, 475.0f }, 22.0f, 1.3f, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 280, 520, 320, 60 }, "KOI-KOI (CONTINUE)", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 680, 520, 320, 60 }, "SHOBU (BANK & END)", 20, vm, COLOR_PHOSPHOR);
-    draw_text_ex_snapped(font_body, "Continue round to aim for higher combinations.", (Vector2){ 280.0f, 590.0f }, 15.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+    int next_mult = koi_caller_multiplier(self_koi + 1);
+    if (next_mult > koi_caller_multiplier(self_koi)) {
+        draw_text_ex_snapped(font_body, TextFormat("Next call pays x%d on your win.", next_mult), (Vector2){ 280.0f, 590.0f }, 15.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+    } else {
+        draw_text_ex_snapped(font_body, TextFormat("Streak is maxed at x%d.", next_mult), (Vector2){ 280.0f, 590.0f }, 15.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+    }
     draw_text_ex_snapped(font_body, "Bank your current score and win this round.", (Vector2){ 680.0f, 590.0f }, 15.0f, 1.2f, COLOR_TEXT_INFO_DIM);
 }
 
@@ -502,7 +514,8 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
             DrawLine(230, y + 6, 1050, y + 6, COLOR_PHOSPHOR_DIM); y += 16;
             draw_text_ex_snapped(font_body, TextFormat("Base: %d pts", rec->base_points), (Vector2){ 230.0f, (float)y }, 18.0f, 1.2f, COLOR_TEXT_INFO); y += 22;
             if (rec->mult_seven > 1) { draw_text_ex_snapped(font_body, "x2 7+ Points Multiplier", (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
-            if (rec->mult_koi > 1) { draw_text_ex_snapped(font_body, "x2 Opponent Koi-Koi Multiplier", (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
+            if (rec->mult_opp_koi > 1) { draw_text_ex_snapped(font_body, "x2 Opponent Koi-Koi Multiplier", (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
+            if (rec->mult_self_koi > 1) { draw_text_ex_snapped(font_body, TextFormat("x%d Koi-Koi Streak Multiplier (%d calls)", rec->mult_self_koi, rec->self_koi_calls), (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
         }
         draw_text_ex_snapped(font_body, TextFormat("ROUND AWARD: %d PTS", rec->award), (Vector2){ 230.0f, (float)y + 4.0f }, 22.0f, 1.2f, COLOR_PHOSPHOR);
     }

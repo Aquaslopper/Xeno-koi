@@ -236,7 +236,9 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
     DrawRectangleRec(r, COLOR_PANEL_BG);
     ui_draw_panel_border(r, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_title, title, (Vector2){ 1168.0f, y + 8.0f }, 11.0f, 0.8f, COLOR_PHOSPHOR);
-    draw_text_ex_snapped(font_body, TextFormat("Base: %d%s", s->base_points, (koi_called > 0) ? " [KOI]" : ""),
+    /* Koi-Koi streak: each call the owner made raises their own multiplier by +1. */
+    const char *koi_str = (koi_called > 0) ? TextFormat(" x%d", koi_caller_multiplier(koi_called)) : "";
+    draw_text_ex_snapped(font_body, TextFormat("Base: %d%s", s->base_points, koi_str),
                (Vector2){ 1168.0f, y + 25.0f }, 15.0f, 1.0f, (koi_called > 0) ? COLOR_RED : COLOR_TEXT_INFO_DIM);
     if (max_yakus > 0) {
         DrawLine(1164, (int)y + 44, 1268, (int)y + 44, COLOR_PHOSPHOR_DIM);

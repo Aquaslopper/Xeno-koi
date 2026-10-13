@@ -288,10 +288,17 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
     return res;
 }
 
-int calculate_award(int base, int opponent_called_koi) {
+int koi_caller_multiplier(int self_koi_calls) {
+    if (self_koi_calls <= 0) return 1;
+    int mult = 1 + self_koi_calls;
+    return (mult > KOI_CALLER_MULT_MAX) ? KOI_CALLER_MULT_MAX : mult;
+}
+
+int calculate_award(int base, int self_koi_calls, int opponent_koi_calls) {
     if (base <= 0) return 0;
     int mult = 1;
     if (base >= 7) mult *= 2;
-    if (opponent_called_koi) mult *= 2;
+    if (opponent_koi_calls > 0) mult *= 2;
+    mult *= koi_caller_multiplier(self_koi_calls);
     return base * mult;
 }
