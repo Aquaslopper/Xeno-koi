@@ -4,54 +4,54 @@
 
 TerminalTheme g_theme = {
     2, "TEAL",
-    { 0x00, 0xE5, 0xFF, 0xFF },
-    { 0x00, 0x88, 0x99, 0xFF },
+    { 100, 240, 255, 255 },
+    { 45, 175, 195, 255 },
     { 242, 253, 255, 255 },
     { 200, 232, 240, 255 },
-    { 0x00, 0xE5, 0xFF, 10 },
-    { 0, 34, 38, 230 }
+    { 100, 240, 255, 10 },
+    { 11, 43, 48, 230 }
 };
 
 TerminalTheme theme_get(int id) {
     TerminalTheme t;
     if (id == 1) {
-        /* Theme 1 (Amber): Base #FFB000, Dim #996600 */
+        /* Theme 1 (Amber): Lifted ~20% brightness */
         t.id = 1;
         t.name = "AMBER";
-        t.base = GetColor(0xFFB000FF);
-        t.dim  = GetColor(0x996600FF);
+        t.base = (Color){ 255, 200, 80, 255 };
+        t.dim  = (Color){ 195, 140, 45, 255 };
         t.text_info = (Color){ 255, 250, 240, 255 };
         t.text_info_dim = (Color){ 238, 220, 195, 255 };
     } else if (id == 2) {
-        /* Theme 2 (Teal): Base #00E5FF, Dim #008899 */
+        /* Theme 2 (Teal): Lifted ~20% brightness */
         t.id = 2;
         t.name = "TEAL";
-        t.base = GetColor(0x00E5FFFF);
-        t.dim  = GetColor(0x008899FF);
+        t.base = (Color){ 100, 240, 255, 255 };
+        t.dim  = (Color){ 45, 175, 195, 255 };
         t.text_info = (Color){ 242, 253, 255, 255 };
         t.text_info_dim = (Color){ 200, 232, 240, 255 };
     } else if (id == 3) {
-        /* Theme 3 (Crimson): Base #FF3333, Dim #991111 */
+        /* Theme 3 (Crimson): Lifted ~20% brightness */
         t.id = 3;
         t.name = "CRIMSON";
-        t.base = (Color){ 0xFF, 0x33, 0x33, 0xFF };
-        t.dim  = (Color){ 0x99, 0x11, 0x11, 0xFF };
+        t.base = (Color){ 255, 95, 95, 255 };
+        t.dim  = (Color){ 195, 55, 55, 255 };
         t.text_info = (Color){ 255, 242, 242, 255 };
         t.text_info_dim = (Color){ 240, 210, 210, 255 };
     } else if (id == 4) {
-        /* Theme 4 (Violet): Base #D45CFF, Dim #7A2E9A */
+        /* Theme 4 (Violet): Lifted ~20% brightness */
         t.id = 4;
         t.name = "VIOLET";
-        t.base = (Color){ 0xD4, 0x5C, 0xFF, 0xFF };
-        t.dim  = (Color){ 0x7A, 0x2E, 0x9A, 0xFF };
+        t.base = (Color){ 225, 130, 255, 255 };
+        t.dim  = (Color){ 165, 85, 200, 255 };
         t.text_info = (Color){ 250, 242, 255, 255 };
         t.text_info_dim = (Color){ 230, 210, 245, 255 };
     } else {
-        /* Theme 0 (Green): Base #5CFF8A, Dim #2E9E55 */
+        /* Theme 0 (Green): Lifted ~20% brightness */
         t.id = 0;
         t.name = "GREEN";
-        t.base = GetColor(0x5CFF8AFF);
-        t.dim  = GetColor(0x2E9E55FF);
+        t.base = (Color){ 120, 255, 160, 255 };
+        t.dim  = (Color){ 75, 195, 115, 255 };
         t.text_info = (Color){ 244, 255, 246, 255 };
         t.text_info_dim = (Color){ 205, 235, 212, 255 };
     }

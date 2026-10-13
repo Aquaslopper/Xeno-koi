@@ -1,6 +1,8 @@
 #include "campaign.h"
 #include "cards.h"
+#include "storage.h"
 #include "ui_theme.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -53,7 +55,8 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
     return hov;
 }
 
-void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int selected_opponent, Vector2 vm) {
+void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent, Vector2 vm) {
+    int unlocked_opponents = settings->unlocked_opponents;
     /* Dim background */
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 225 });
 
@@ -109,8 +112,26 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
         DrawTextEx(font_body, opp->title, (Vector2){ 385.0f, 290.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         DrawLine(385, 312, 1105, 312, COLOR_PHOSPHOR_DIM);
         DrawTextEx(font_body, TextFormat("PRIORITY YAKU:   %s", opp->favorite_combo), (Vector2){ 385.0f, 324.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, TextFormat("SIGNATURE TARGET: %s (#%02d)", CARDS[opp->favorite_card_id].name, opp->favorite_card_id + 1), (Vector2){ 385.0f, 348.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, TextFormat("CPU TAUNT:        \"%s\"", opp->taunt_text), (Vector2){ 385.0f, 372.0f }, 15.0f, 2.0f, COLOR_RED);
+        DrawTextEx(font_body, TextFormat("SIGNATURE TARGET: %s (#%02d)", CARDS[opp->favorite_card_id].name, opp->favorite_card_id + 1), (Vector2){ 385.0f, 344.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, "CLEARANCE PROTOCOL:", (Vector2){ 385.0f, 368.0f }, 15.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+
+        bool is_master = (settings->difficulty == DIFFICULTY_MASTER && settings->rounds >= 3);
+        bool is_hard   = (settings->difficulty == DIFFICULTY_HARD   && settings->rounds >= 6);
+        bool is_easy   = (settings->difficulty == DIFFICULTY_EASY   && settings->rounds >= 9);
+
+        Rectangle btn_req_m = { 560.0f, 364.0f, 160.0f, 26.0f };
+        Rectangle btn_req_h = { 730.0f, 364.0f, 150.0f, 26.0f };
+        Rectangle btn_req_e = { 890.0f, 364.0f, 150.0f, 26.0f };
+
+        draw_btn_custom(btn_req_m, "MASTER (3 RDS)", 13, vm, is_master ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
+        if (is_master) DrawRectangleLinesEx(btn_req_m, 1.5f, COLOR_PHOSPHOR);
+
+        draw_btn_custom(btn_req_h, "HARD (6 RDS)", 13, vm, is_hard ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
+        if (is_hard) DrawRectangleLinesEx(btn_req_h, 1.5f, COLOR_PHOSPHOR);
+
+        draw_btn_custom(btn_req_e, "EASY (9 RDS)", 13, vm, is_easy ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
+        if (is_easy) DrawRectangleLinesEx(btn_req_e, 1.5f, COLOR_PHOSPHOR);
+
         DrawLine(385, 396, 1105, 396, COLOR_PHOSPHOR_DIM);
         draw_text_wrapped(font_body, opp->lore_text, 385.0f, 408.0f, 720.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
     } else {
@@ -127,8 +148,9 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
     draw_btn_custom(btn_back, "BACK", 20, vm, COLOR_PHOSPHOR);
 }
 
-int campaign_handle_click(int unlocked_opponents, int *out_selected, Vector2 vm) {
+int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm) {
     if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return 0;
+    int unlocked_opponents = settings->unlocked_opponents;
 
     /* Close / Back button */
     if (CheckCollisionPointRec(vm, (Rectangle){ 1145, 48, 32, 28 }) ||
@@ -144,6 +166,28 @@ int campaign_handle_click(int unlocked_opponents, int *out_selected, Vector2 vm)
                 *out_selected = i;
                 return 2;
             }
+        }
+    }
+
+    /* Clearance Protocol quick-select preset buttons */
+    if (*out_selected < unlocked_opponents) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 560.0f, 364.0f, 160.0f, 26.0f })) {
+            settings->difficulty = DIFFICULTY_MASTER;
+            settings->rounds = 3;
+            storage_save_settings(settings);
+            return 3;
+        }
+        if (CheckCollisionPointRec(vm, (Rectangle){ 730.0f, 364.0f, 150.0f, 26.0f })) {
+            settings->difficulty = DIFFICULTY_HARD;
+            settings->rounds = 6;
+            storage_save_settings(settings);
+            return 3;
+        }
+        if (CheckCollisionPointRec(vm, (Rectangle){ 890.0f, 364.0f, 150.0f, 26.0f })) {
+            settings->difficulty = DIFFICULTY_EASY;
+            settings->rounds = 9;
+            storage_save_settings(settings);
+            return 3;
         }
     }
 
