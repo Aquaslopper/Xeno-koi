@@ -426,7 +426,8 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     DrawRectangleRec(panel, COLOR_PANEL_BG); ui_draw_panel_border(panel, COLOR_PHOSPHOR);
     int p = g->current_player, opp = 1 - p;
     ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
+    int koi_mult = koi_multiplier(g->koi_called[p], g->koi_called[opp] > 0);
+    int award = calculate_award(sr.base_points, g->koi_called[p], g->koi_called[opp] > 0);
     draw_centered_text(font_title, "YAKU DETECTED", 640.0f, 56.0f, 25.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_title, "KOI-KOI / SHOBU", 640.0f, 86.0f, 22.0f, 1.2f, COLOR_PHOSPHOR_DIM);
 
@@ -450,7 +451,7 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     DrawLine(240, 430, 1040, 430, COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_body, TextFormat("Base: %d pts", sr.base_points), (Vector2){ 240.0f, 442.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
     if (sr.base_points >= 7) draw_text_ex_snapped(font_body, "x2  7+ Multiplier", (Vector2){ 420.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
-    if (g->koi_called[opp] > 0) draw_text_ex_snapped(font_body, "x2  Koi-Koi Multiplier", (Vector2){ 660.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
+    if (koi_mult > 1) draw_text_ex_snapped(font_body, TextFormat("x%d  Koi-Koi Multiplier", koi_mult), (Vector2){ 660.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
     draw_text_ex_snapped(font_body, TextFormat("IF YOU SHOBU NOW: %d POINTS", award), (Vector2){ 240.0f, 475.0f }, 22.0f, 1.3f, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 280, 520, 320, 60 }, "KOI-KOI (CONTINUE)", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 680, 520, 320, 60 }, "SHOBU (BANK & END)", 20, vm, COLOR_PHOSPHOR);
@@ -502,7 +503,11 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
             DrawLine(230, y + 6, 1050, y + 6, COLOR_PHOSPHOR_DIM); y += 16;
             draw_text_ex_snapped(font_body, TextFormat("Base: %d pts", rec->base_points), (Vector2){ 230.0f, (float)y }, 18.0f, 1.2f, COLOR_TEXT_INFO); y += 22;
             if (rec->mult_seven > 1) { draw_text_ex_snapped(font_body, "x2 7+ Points Multiplier", (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
-            if (rec->mult_koi > 1) { draw_text_ex_snapped(font_body, "x2 Opponent Koi-Koi Multiplier", (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
+            if (rec->mult_koi > 1) {
+                const char *koi_label = rec->mult_koi_opp ? TextFormat("x2 Opponent Koi-Koi Multiplier")
+                                                          : TextFormat("x%d Koi-Koi Multiplier (YOUR CALL)", rec->mult_koi);
+                draw_text_ex_snapped(font_body, koi_label, (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20;
+            }
         }
         draw_text_ex_snapped(font_body, TextFormat("ROUND AWARD: %d PTS", rec->award), (Vector2){ 230.0f, (float)y + 4.0f }, 22.0f, 1.2f, COLOR_PHOSPHOR);
     }

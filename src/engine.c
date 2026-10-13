@@ -346,12 +346,14 @@ static int apply_shobu(GameState *g) {
     int p = g->current_player;
     int opp = 1 - p;
     ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
+    int koi_mult = koi_multiplier(g->koi_called[p], g->koi_called[opp] > 0);
+    int award = calculate_award(sr.base_points, g->koi_called[p], g->koi_called[opp] > 0);
     g->total_score[p] += award;
     g->current_round_record.winner = p;
     g->current_round_record.base_points = sr.base_points;
     g->current_round_record.mult_seven = (sr.base_points >= 7) ? 2 : 1;
-    g->current_round_record.mult_koi = (g->koi_called[opp] > 0) ? 2 : 1;
+    g->current_round_record.mult_koi = koi_mult;
+    g->current_round_record.mult_koi_opp = (g->koi_called[p] == 0 && koi_mult > 1) ? 1 : 0;
     g->current_round_record.award = award;
     g->current_round_record.score_result = sr;
     if (p == 0) {

@@ -45,7 +45,12 @@ typedef struct {
 /* Scores a capture pile according to the specified ruleset. */
 ScoreResult score_captures(Ruleset ruleset, const int *cards, int n);
 
-/* Calculates the final round award given the base and opponent koi status. */
-int calculate_award(int base, int opponent_called_koi);
+/* Koi-Koi multiplier for the round award:
+   - Winner called Koi-Koi: EVERY call adds one step (1 call = x2, 2 calls = x3, 3 calls = x4, ...).
+   - Only the opponent called: flat x2 for the winner (the caller's risk pays the opponent). */
+int koi_multiplier(int winner_koi_calls, int opponent_called_koi);
+
+/* Calculates the final round award given the base and both players' koi status. */
+int calculate_award(int base, int winner_koi_calls, int opponent_called_koi);
 
 #endif /* RULES_H */

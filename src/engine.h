@@ -32,7 +32,8 @@ typedef struct {
     int lucky_hand;     /* 1 if won via Teshi/Kuttsuki */
     int base_points;
     int mult_seven;     /* 1 or 2 */
-    int mult_koi;       /* 1 or 2 */
+    int mult_koi;       /* koi multiplier applied: 1, 2, 3, ... */
+    int mult_koi_opp;   /* 1 if the koi multiplier came from the opponent's calls */
     int award;
     ScoreResult score_result;
 } RoundRecord;

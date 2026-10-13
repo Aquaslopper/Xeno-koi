@@ -232,10 +232,16 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
     return res;
 }
 
-int calculate_award(int base, int opponent_called_koi) {
+int koi_multiplier(int winner_koi_calls, int opponent_called_koi) {
+    if (winner_koi_calls > 0) return winner_koi_calls + 1;
+    if (opponent_called_koi) return 2;
+    return 1;
+}
+
+int calculate_award(int base, int winner_koi_calls, int opponent_called_koi) {
     if (base <= 0) return 0;
     int mult = 1;
     if (base >= 7) mult *= 2;
-    if (opponent_called_koi) mult *= 2;
+    mult *= koi_multiplier(winner_koi_calls, opponent_called_koi);
     return base * mult;
 }
