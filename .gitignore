@@ -1,0 +1,7 @@
+# Build artifacts
+test_engine
+koikoi_linux
+dist/
+screenshot.png
+*.o
+*.a
