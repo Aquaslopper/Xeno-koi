@@ -46,7 +46,6 @@ void taunt_update(float dt) {
         s_taunt_timer -= dt;
         if (s_taunt_timer < 0.0f) s_taunt_timer = 0.0f;
 
-        /* When taunt_timer enters last 0.5s, spawn 15-20 dark ash particles */
         if (s_taunt_timer <= 0.5f && !s_ash_spawned) {
             s_ash_spawned = 1;
             int to_spawn = 18;
@@ -58,12 +57,11 @@ void taunt_update(float dt) {
                 p->life = 0.6f + (float)(rand() % 40) / 100.0f;
                 p->max_life = p->life;
                 p->size = 3.0f + (float)(rand() % 4);
-                p->color = (rand() % 2 == 0) ? (Color){ 20, 20, 20, 240 } : (Color){ 55, 55, 55, 220 };
+                p->color = (rand() & 1) ? (Color){ 55, 55, 55, 220 } : (Color){ 20, 20, 20, 240 };
             }
         }
     }
 
-    /* Update ash particles */
     for (int i = 0; i < s_particle_count; i++) {
         AshParticle *p = &s_particles[i];
         p->pos.x += p->vel.x * dt;
@@ -77,31 +75,43 @@ void taunt_update(float dt) {
 }
 
 static void draw_text_wrap_box(Font font, const char *text, Rectangle r, float font_size, Color col) {
-    char buf[256];
-    strncpy(buf, text, sizeof(buf) - 1);
-    buf[sizeof(buf) - 1] = '\0';
-
-    char *word = strtok(buf, " ");
-    char line[256] = "";
+    char line[256];
+    size_t line_len = 0;
+    line[0] = '\0';
     float cur_y = r.y;
     float max_w = r.width;
     float lh = font_size + 4.0f;
 
-    while (word != NULL) {
-        char test[256];
-        if (line[0] == '\0') snprintf(test, sizeof(test), "%s", word);
-        else snprintf(test, sizeof(test), "%s %s", line, word);
+    const char *p = text;
+    while (*p) {
+        while (*p == ' ') p++;
+        if (!*p) break;
+        const char *w_start = p;
+        while (*p && *p != ' ') p++;
+        size_t w_len = (size_t)(p - w_start);
+        if (w_len >= sizeof(line) - 2) w_len = sizeof(line) - 2;
 
-        if (MeasureTextEx(font, test, font_size, 2.0f).x > max_w && line[0] != '\0') {
-            DrawTextEx(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
-            cur_y += lh;
-            snprintf(line, sizeof(line), "%s", word);
-        } else {
-            strncpy(line, test, sizeof(line));
+        if (line_len == 0) {
+            memcpy(line, w_start, w_len);
+            line[w_len] = '\0';
+            line_len = w_len;
+        } else if (line_len + 1 + w_len < sizeof(line)) {
+            line[line_len] = ' ';
+            memcpy(line + line_len + 1, w_start, w_len);
+            line[line_len + 1 + w_len] = '\0';
+            if (MeasureTextEx(font, line, font_size, 2.0f).x > max_w) {
+                line[line_len] = '\0';
+                DrawTextEx(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
+                cur_y += lh;
+                memcpy(line, w_start, w_len);
+                line[w_len] = '\0';
+                line_len = w_len;
+            } else {
+                line_len += 1 + w_len;
+            }
         }
-        word = strtok(NULL, " ");
     }
-    if (line[0] != '\0') {
+    if (line_len > 0) {
         DrawTextEx(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
     }
 }
@@ -130,7 +140,6 @@ void taunt_draw(void) {
         draw_text_wrap_box(font_body, s_active_taunt, text_r, 14.0f, txt_col);
     }
 
-    /* Draw dark ash particles */
     for (int i = 0; i < s_particle_count; i++) {
         const AshParticle *p = &s_particles[i];
         float p_alpha = p->life / p->max_life;

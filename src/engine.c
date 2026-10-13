@@ -27,21 +27,10 @@ int engine_determine_first_dealer(uint32_t *rng_state) {
     }
 }
 
-static int check_field_misdeal(const int *field, int n) {
+static int has_four_of_month_or_four_pairs(const int *cards, int n) {
     if (n != 8) return 0;
     int mc[13] = {0}, pairs = 0;
-    for (int i = 0; i < n; i++) mc[CARDS[field[i]].month]++;
-    for (int m = 1; m <= 12; m++) {
-        if (mc[m] == 4) return 1;
-        if (mc[m] == 2) pairs++;
-    }
-    return (pairs == 4);
-}
-
-static int check_hand_lucky(const int *hand, int n) {
-    if (n != 8) return 0;
-    int mc[13] = {0}, pairs = 0;
-    for (int i = 0; i < n; i++) mc[CARDS[hand[i]].month]++;
+    for (int i = 0; i < 8; i++) mc[CARDS[cards[i]].month]++;
     for (int m = 1; m <= 12; m++) {
         if (mc[m] == 4) return 1;
         if (mc[m] == 2) pairs++;
@@ -50,16 +39,35 @@ static int check_hand_lucky(const int *hand, int n) {
 }
 
 int engine_validate_zones(const GameState *g) {
-    int seen[48] = {0};
+    uint64_t seen = 0;
     for (int p = 0; p < 2; p++) {
-        for (int i = 0; i < g->hand_count[p]; i++) { int id = g->hand[p][i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
-        for (int i = 0; i < g->captured_count[p]; i++) { int id = g->captured[p][i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
+        for (int i = 0; i < g->hand_count[p]; i++) {
+            int id = g->hand[p][i];
+            if ((unsigned)id >= 48u || (seen & (1ULL << id))) return 0;
+            seen |= (1ULL << id);
+        }
+        for (int i = 0; i < g->captured_count[p]; i++) {
+            int id = g->captured[p][i];
+            if ((unsigned)id >= 48u || (seen & (1ULL << id))) return 0;
+            seen |= (1ULL << id);
+        }
     }
-    for (int i = 0; i < g->field_count; i++) { int id = g->field[i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
-    for (int i = 0; i < g->stock_count; i++) { int id = g->stock[i]; if (id < 0 || id >= 48 || seen[id]++) return 0; }
-    if (g->has_pending) { int id = g->pending_card; if (id < 0 || id >= 48 || seen[id]++) return 0; }
-    for (int i = 0; i < 48; i++) if (seen[i] != 1) return 0;
-    return 1;
+    for (int i = 0; i < g->field_count; i++) {
+        int id = g->field[i];
+        if ((unsigned)id >= 48u || (seen & (1ULL << id))) return 0;
+        seen |= (1ULL << id);
+    }
+    for (int i = 0; i < g->stock_count; i++) {
+        int id = g->stock[i];
+        if ((unsigned)id >= 48u || (seen & (1ULL << id))) return 0;
+        seen |= (1ULL << id);
+    }
+    if (g->has_pending) {
+        int id = g->pending_card;
+        if ((unsigned)id >= 48u || (seen & (1ULL << id))) return 0;
+        seen |= (1ULL << id);
+    }
+    return (seen == ((1ULL << 48) - 1ULL));
 }
 
 void engine_init(GameState *g, Ruleset ruleset, int total_rounds, uint32_t seed) {
@@ -83,10 +91,10 @@ void engine_init(GameState *g, Ruleset ruleset, int total_rounds, uint32_t seed)
 
 void engine_start_round(GameState *g) {
     while (1) {
-        g->hand_count[0] = 0;
-        g->hand_count[1] = 0;
-        g->field_count = 0;
-        g->stock_count = 0;
+        g->hand_count[0] = 8;
+        g->hand_count[1] = 8;
+        g->field_count = 8;
+        g->stock_count = 24;
         g->captured_count[0] = 0;
         g->captured_count[1] = 0;
         g->has_pending = 0;
@@ -106,12 +114,12 @@ void engine_start_round(GameState *g) {
             int tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
         }
 
-        for (int i = 0; i < 8; i++) g->hand[0][g->hand_count[0]++] = deck[i];
-        for (int i = 0; i < 8; i++) g->hand[1][g->hand_count[1]++] = deck[8 + i];
-        for (int i = 0; i < 8; i++) g->field[g->field_count++] = deck[16 + i];
-        for (int i = 0; i < 24; i++) g->stock[g->stock_count++] = deck[24 + i];
+        memcpy(g->hand[0], &deck[0], 8 * sizeof(int));
+        memcpy(g->hand[1], &deck[8], 8 * sizeof(int));
+        memcpy(g->field, &deck[16], 8 * sizeof(int));
+        memcpy(g->stock, &deck[24], 24 * sizeof(int));
 
-        if (!check_field_misdeal(g->field, g->field_count)) break;
+        if (!has_four_of_month_or_four_pairs(g->field, 8)) break;
         /* Misdeal on field: redeal with same dealer */
     }
 
@@ -139,8 +147,8 @@ static int apply_dealer_privilege(GameState *g) {
 
 void engine_check_lucky_hands(GameState *g) {
     if (g->phase != PHASE_LUCKY_CHECK) return;
-    int lucky0 = check_hand_lucky(g->hand[0], 8);
-    int lucky1 = check_hand_lucky(g->hand[1], 8);
+    int lucky0 = has_four_of_month_or_four_pairs(g->hand[0], 8);
+    int lucky1 = has_four_of_month_or_four_pairs(g->hand[1], 8);
 
     if (lucky0 && lucky1) {
         if (g->ruleset == RULESET_YAKUZA) { apply_dealer_privilege(g); return; }
@@ -150,27 +158,16 @@ void engine_check_lucky_hands(GameState *g) {
         g->phase = PHASE_ROUND_END;
         return;
     }
-    if (lucky0) {
-        g->current_round_record.winner = 0;
+    if (lucky0 || lucky1) {
+        int w = lucky0 ? 0 : 1;
+        g->current_round_record.winner = w;
         g->current_round_record.lucky_hand = 1;
         g->current_round_record.base_points = 6;
         g->current_round_record.mult_seven = 1;
         g->current_round_record.mult_koi = 1;
         g->current_round_record.award = 6;
-        g->total_score[0] += 6;
-        g->dealer = 0;
-        g->phase = PHASE_ROUND_END;
-        return;
-    }
-    if (lucky1) {
-        g->current_round_record.winner = 1;
-        g->current_round_record.lucky_hand = 1;
-        g->current_round_record.base_points = 6;
-        g->current_round_record.mult_seven = 1;
-        g->current_round_record.mult_koi = 1;
-        g->current_round_record.award = 6;
-        g->total_score[1] += 6;
-        g->dealer = 1;
+        g->total_score[w] += 6;
+        g->dealer = w;
         g->phase = PHASE_ROUND_END;
         return;
     }
@@ -179,21 +176,12 @@ void engine_check_lucky_hands(GameState *g) {
     g->phase = PHASE_TURN_HAND;
 }
 
-static void remove_from_field(GameState *g, int card_id) {
-    for (int i = 0; i < g->field_count; i++) {
-        if (g->field[i] == card_id) {
-            for (int j = i; j < g->field_count - 1; j++) g->field[j] = g->field[j + 1];
-            g->field_count--;
-            return;
-        }
-    }
-}
-
-static void remove_from_hand(GameState *g, int player, int card_id) {
-    for (int i = 0; i < g->hand_count[player]; i++) {
-        if (g->hand[player][i] == card_id) {
-            for (int j = i; j < g->hand_count[player] - 1; j++) g->hand[player][j] = g->hand[player][j + 1];
-            g->hand_count[player]--;
+static void remove_from_zone(int *zone, int *count, int card_id) {
+    int n = *count;
+    for (int i = 0; i < n; i++) {
+        if (zone[i] == card_id) {
+            for (int j = i; j < n - 1; j++) zone[j] = zone[j + 1];
+            *count = n - 1;
             return;
         }
     }
@@ -205,14 +193,15 @@ int engine_pick_hand_choice(GameState *g, int target_id) {
 
     int p = g->current_player;
     int card_id = g->played_hand_card;
-    remove_from_hand(g, p, card_id);
-    remove_from_field(g, target_id);
+    remove_from_zone(g->hand[p], &g->hand_count[p], card_id);
+    remove_from_zone(g->field, &g->field_count, target_id);
     g->captured[p][g->captured_count[p]++] = card_id;
     g->captured[p][g->captured_count[p]++] = target_id;
     g->last_capture_source = card_id;
     g->last_captured[0] = card_id;
     g->last_captured[1] = target_id;
-    g->last_captured_count = 2; g->hitlag_timer = 0.15f;
+    g->last_captured_count = 2;
+    g->hitlag_timer = 0.15f;
     g->played_hand_card = -1;
     g->choice_count = 0;
     g->phase = PHASE_TURN_DRAW;
@@ -236,41 +225,44 @@ int engine_play_hand(GameState *g, int card_id, int target_id) {
 
     int matches[4];
     int match_count = 0;
+    int card_month = CARDS[card_id].month;
     for (int i = 0; i < g->field_count; i++) {
-        if (CARDS[g->field[i]].month == CARDS[card_id].month) {
+        if (CARDS[g->field[i]].month == card_month) {
             matches[match_count++] = g->field[i];
         }
     }
 
     if (match_count == 0) {
-        remove_from_hand(g, p, card_id);
+        remove_from_zone(g->hand[p], &g->hand_count[p], card_id);
         g->field[g->field_count++] = card_id;
         g->last_captured_count = 0;
         g->phase = PHASE_TURN_DRAW;
         return 1;
     }
     if (match_count == 1) {
-        remove_from_hand(g, p, card_id);
-        remove_from_field(g, matches[0]);
+        remove_from_zone(g->hand[p], &g->hand_count[p], card_id);
+        remove_from_zone(g->field, &g->field_count, matches[0]);
         g->captured[p][g->captured_count[p]++] = card_id;
         g->captured[p][g->captured_count[p]++] = matches[0];
         g->last_capture_source = card_id;
         g->last_captured[0] = card_id;
         g->last_captured[1] = matches[0];
-        g->last_captured_count = 2; g->hitlag_timer = 0.15f;
+        g->last_captured_count = 2;
+        g->hitlag_timer = 0.15f;
         g->phase = PHASE_TURN_DRAW;
         return 1;
     }
     if (match_count == 2) {
         if (target_id == matches[0] || target_id == matches[1]) {
-            remove_from_hand(g, p, card_id);
-            remove_from_field(g, target_id);
+            remove_from_zone(g->hand[p], &g->hand_count[p], card_id);
+            remove_from_zone(g->field, &g->field_count, target_id);
             g->captured[p][g->captured_count[p]++] = card_id;
             g->captured[p][g->captured_count[p]++] = target_id;
             g->last_capture_source = card_id;
             g->last_captured[0] = card_id;
             g->last_captured[1] = target_id;
-            g->last_captured_count = 2; g->hitlag_timer = 0.15f;
+            g->last_captured_count = 2;
+            g->hitlag_timer = 0.15f;
             g->phase = PHASE_TURN_DRAW;
             return 1;
         }
@@ -282,10 +274,10 @@ int engine_play_hand(GameState *g, int card_id, int target_id) {
         return 0;
     }
     if (match_count == 3) {
-        remove_from_hand(g, p, card_id);
-        remove_from_field(g, matches[0]);
-        remove_from_field(g, matches[1]);
-        remove_from_field(g, matches[2]);
+        remove_from_zone(g->hand[p], &g->hand_count[p], card_id);
+        remove_from_zone(g->field, &g->field_count, matches[0]);
+        remove_from_zone(g->field, &g->field_count, matches[1]);
+        remove_from_zone(g->field, &g->field_count, matches[2]);
         g->captured[p][g->captured_count[p]++] = card_id;
         g->captured[p][g->captured_count[p]++] = matches[0];
         g->captured[p][g->captured_count[p]++] = matches[1];
@@ -295,7 +287,8 @@ int engine_play_hand(GameState *g, int card_id, int target_id) {
         g->last_captured[1] = matches[0];
         g->last_captured[2] = matches[1];
         g->last_captured[3] = matches[2];
-        g->last_captured_count = 4; g->hitlag_timer = 0.15f;
+        g->last_captured_count = 4;
+        g->hitlag_timer = 0.15f;
         g->phase = PHASE_TURN_DRAW;
         return 1;
     }
@@ -366,8 +359,8 @@ static int apply_shobu(GameState *g) {
 
 static int finish_stock_turn(GameState *g) {
     int p = g->current_player;
-    ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    if (sr.base_points > g->last_base[p]) {
+    int base = score_captures_base(g->ruleset, g->captured[p], g->captured_count[p]);
+    if (base > g->last_base[p]) {
         if (g->hand_count[p] == 0) {
             return apply_shobu(g);
         }
@@ -389,8 +382,9 @@ int engine_reveal_stock(GameState *g) {
 
     int matches[4];
     int match_count = 0;
+    int stock_month = CARDS[stock_card].month;
     for (int i = 0; i < g->field_count; i++) {
-        if (CARDS[g->field[i]].month == CARDS[stock_card].month) {
+        if (CARDS[g->field[i]].month == stock_month) {
             matches[match_count++] = g->field[i];
         }
     }
@@ -403,14 +397,15 @@ int engine_reveal_stock(GameState *g) {
     }
     if (match_count == 1) {
         int p = g->current_player;
-        remove_from_field(g, matches[0]);
+        remove_from_zone(g->field, &g->field_count, matches[0]);
         g->captured[p][g->captured_count[p]++] = stock_card;
         g->captured[p][g->captured_count[p]++] = matches[0];
         g->has_pending = 0;
         g->last_capture_source = stock_card;
         g->last_captured[0] = stock_card;
         g->last_captured[1] = matches[0];
-        g->last_captured_count = 2; g->hitlag_timer = 0.15f;
+        g->last_captured_count = 2;
+        g->hitlag_timer = 0.15f;
         return finish_stock_turn(g);
     }
     if (match_count == 2) {
@@ -422,9 +417,9 @@ int engine_reveal_stock(GameState *g) {
     }
     if (match_count == 3) {
         int p = g->current_player;
-        remove_from_field(g, matches[0]);
-        remove_from_field(g, matches[1]);
-        remove_from_field(g, matches[2]);
+        remove_from_zone(g->field, &g->field_count, matches[0]);
+        remove_from_zone(g->field, &g->field_count, matches[1]);
+        remove_from_zone(g->field, &g->field_count, matches[2]);
         g->captured[p][g->captured_count[p]++] = stock_card;
         g->captured[p][g->captured_count[p]++] = matches[0];
         g->captured[p][g->captured_count[p]++] = matches[1];
@@ -435,7 +430,8 @@ int engine_reveal_stock(GameState *g) {
         g->last_captured[1] = matches[0];
         g->last_captured[2] = matches[1];
         g->last_captured[3] = matches[2];
-        g->last_captured_count = 4; g->hitlag_timer = 0.15f;
+        g->last_captured_count = 4;
+        g->hitlag_timer = 0.15f;
         return finish_stock_turn(g);
     }
     return 0;
@@ -446,14 +442,15 @@ int engine_pick_draw_choice(GameState *g, int target_id) {
     if (target_id != g->choice_targets[0] && target_id != g->choice_targets[1]) return 0;
     int p = g->current_player;
     int stock_card = g->pending_card;
-    remove_from_field(g, target_id);
+    remove_from_zone(g->field, &g->field_count, target_id);
     g->captured[p][g->captured_count[p]++] = stock_card;
     g->captured[p][g->captured_count[p]++] = target_id;
     g->has_pending = 0;
     g->last_capture_source = stock_card;
     g->last_captured[0] = stock_card;
     g->last_captured[1] = target_id;
-    g->last_captured_count = 2; g->hitlag_timer = 0.15f;
+    g->last_captured_count = 2;
+    g->hitlag_timer = 0.15f;
     return finish_stock_turn(g);
 }
 
@@ -463,8 +460,7 @@ int engine_decide(GameState *g, DecisionType decision) {
         return apply_shobu(g);
     } else {
         int p = g->current_player;
-        ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-        g->last_base[p] = sr.base_points;
+        g->last_base[p] = score_captures_base(g->ruleset, g->captured[p], g->captured_count[p]);
         g->koi_called[p]++;
         g->match_koi_calls[p]++;
         return advance_after_turn(g);

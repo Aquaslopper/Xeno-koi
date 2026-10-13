@@ -3,15 +3,13 @@
 #include "ui_theme.h"
 
 void board_field_sort_slots(const int *field, int n, int *slots) {
-    for (int i = 0; i < n; i++) slots[i] = i;
-    for (int i = 0; i < n - 1; i++) {
-        for (int j = i + 1; j < n; j++) {
-            int a = slots[i], b = slots[j];
-            if (CARDS[field[a]].month > CARDS[field[b]].month ||
-                (CARDS[field[a]].month == CARDS[field[b]].month && a > b)) {
-                slots[i] = b; slots[j] = a;
-            }
+    for (int i = 0; i < n; i++) {
+        int m_cur = CARDS[field[i]].month, j = i - 1;
+        while (j >= 0 && CARDS[field[slots[j]]].month > m_cur) {
+            slots[j + 1] = slots[j];
+            j--;
         }
+        slots[j + 1] = i;
     }
 }
 

@@ -15,7 +15,6 @@ TerminalTheme g_theme = {
 TerminalTheme theme_get(int id) {
     TerminalTheme t;
     if (id == 1) {
-        /* Theme 1 (Amber): Lifted ~20% brightness */
         t.id = 1;
         t.name = "AMBER";
         t.base = (Color){ 255, 200, 80, 255 };
@@ -23,7 +22,6 @@ TerminalTheme theme_get(int id) {
         t.text_info = (Color){ 255, 250, 240, 255 };
         t.text_info_dim = (Color){ 238, 220, 195, 255 };
     } else if (id == 2) {
-        /* Theme 2 (Teal): Lifted ~20% brightness */
         t.id = 2;
         t.name = "TEAL";
         t.base = (Color){ 100, 240, 255, 255 };
@@ -31,7 +29,6 @@ TerminalTheme theme_get(int id) {
         t.text_info = (Color){ 242, 253, 255, 255 };
         t.text_info_dim = (Color){ 200, 232, 240, 255 };
     } else if (id == 3) {
-        /* Theme 3 (Crimson): Lifted ~20% brightness */
         t.id = 3;
         t.name = "CRIMSON";
         t.base = (Color){ 255, 95, 95, 255 };
@@ -39,7 +36,6 @@ TerminalTheme theme_get(int id) {
         t.text_info = (Color){ 255, 242, 242, 255 };
         t.text_info_dim = (Color){ 240, 210, 210, 255 };
     } else if (id == 4) {
-        /* Theme 4 (Violet): Lifted ~20% brightness */
         t.id = 4;
         t.name = "VIOLET";
         t.base = (Color){ 225, 130, 255, 255 };
@@ -47,15 +43,13 @@ TerminalTheme theme_get(int id) {
         t.text_info = (Color){ 250, 242, 255, 255 };
         t.text_info_dim = (Color){ 230, 210, 245, 255 };
     } else if (id == 5) {
-        /* Theme 5 (Dark): Monochromatic Bone-Steel Phosphor & Obsidian Panel */
         t.id = 5;
         t.name = "DARK";
-        t.base = (Color){ 145, 150, 160, 255 };          /* Bone / steel phosphor */
-        t.dim  = (Color){ 75, 80, 90, 255 };             /* Obsidian dim border */
-        t.text_info = (Color){ 225, 230, 235, 255 };     /* High-clarity pale silver */
-        t.text_info_dim = (Color){ 135, 140, 150, 255 }; /* Muted slate */
+        t.base = (Color){ 145, 150, 160, 255 };
+        t.dim  = (Color){ 75, 80, 90, 255 };
+        t.text_info = (Color){ 225, 230, 235, 255 };
+        t.text_info_dim = (Color){ 135, 140, 150, 255 };
     } else {
-        /* Theme 0 (Green): Lifted ~20% brightness */
         t.id = 0;
         t.name = "GREEN";
         t.base = (Color){ 120, 255, 160, 255 };
@@ -95,41 +89,26 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
     /* 1. Base border stroke */
     DrawRectangleLinesEx(r, 1.0f, border_color);
 
-    /* Extremely subtle, almost imperceptible ribbed texture (highly transparent black) */
-    Color scan_dim = (Color){ 0, 0, 0, 40 };
-    for (int y = ry; y < ry + rh; y += 3) {
-        DrawPixel(rx, y, scan_dim);
-        DrawPixel(rx + rw - 1, y, scan_dim);
-    }
-    for (int x = rx; x < rx + rw; x += 3) {
-        DrawPixel(x, ry, scan_dim);
-        DrawPixel(x, ry + rh - 1, scan_dim);
-    }
-
-    /* 2. Barely visible ambient glow & top horizontal crawling streak */
-    BeginBlendMode(BLEND_ADDITIVE);
-
-    /* Very faint ambient glow gradient on top & bottom lines (max alpha 14/255) */
-    int half_w = rw / 2;
+    /* 2. Subtle center highlight on top & bottom lines (drawn in default alpha blend
+          to avoid BeginBlendMode/EndBlendMode render-batch flushes per panel). */
+    int half_w = rw >> 1;
     if (half_w > 0) {
-        Color c_mid = (Color){ border_color.r, border_color.g, border_color.b, 14 };
-        Color c_edge = (Color){ border_color.r, border_color.g, border_color.b, 0 };
+        Color c_mid = (Color){ 255, 255, 255, 18 };
+        Color c_edge = (Color){ 255, 255, 255, 0 };
         DrawRectangleGradientH(rx, ry, half_w, 1, c_edge, c_mid);
         DrawRectangleGradientH(rx + half_w, ry, rw - half_w, 1, c_mid, c_edge);
         DrawRectangleGradientH(rx, ry + rh - 1, half_w, 1, c_edge, c_mid);
         DrawRectangleGradientH(rx + half_w, ry + rh - 1, rw - half_w, 1, c_mid, c_edge);
     }
 
-    /* 3. Horizontal slow crawling faint streaks on top border (max 2-3 globally) */
+    /* 3. Horizontal slow crawling faint streaks on top border (max 3 globally) */
     if (rw >= 40) {
-        float dt = GetFrameTime();
-        if (dt > 0.05f) dt = 0.05f;
-
-        /* Advance all active flares once per frame */
-        static int s_last_frame = -1;
-        int cur_frame = (int)(GetTime() * 120.0);
-        if (s_last_frame != cur_frame) {
-            s_last_frame = cur_frame;
+        static double s_last_time = -1.0;
+        double now = GetTime();
+        if (now != s_last_time) {
+            float dt = GetFrameTime();
+            if (dt > 0.05f) dt = 0.05f;
+            s_last_time = now;
             for (int i = 0; i < MAX_PANEL_FLARES; i++) {
                 if (!s_panel_flares[i].active) continue;
                 s_panel_flares[i].x += s_panel_flares[i].vx * dt;
@@ -142,12 +121,11 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
             }
         }
 
-        /* Spawn chance on top horizontal border if below global cap of 3 */
         int global_active = 0;
         for (int i = 0; i < MAX_PANEL_FLARES; i++) {
             if (s_panel_flares[i].active) global_active++;
         }
-        if (global_active < 3 && (rand() % 100) == 0) {
+        if (global_active < MAX_PANEL_FLARES && (rand() % 100) == 0) {
             for (int i = 0; i < MAX_PANEL_FLARES; i++) {
                 if (!s_panel_flares[i].active) {
                     PanelFlare *f = &s_panel_flares[i];
@@ -155,19 +133,19 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
                     f->y = (float)ry;
                     f->min_x = (float)rx;
                     f->max_x = (float)(rx + rw - 1);
-                    int go_right = rand() % 2;
-                    f->vx = go_right ? (10.0f + (float)(rand() % 9)) : -(10.0f + (float)(rand() % 9));
+                    int go_right = rand() & 1;
+                    float spd = 10.0f + (float)(rand() % 9);
+                    f->vx = go_right ? spd : -spd;
                     f->len = 20.0f + (float)(rand() % 9);
                     f->x = go_right ? f->min_x : f->max_x;
-                    f->life = (f->max_x - f->min_x) / fabsf(f->vx) + 2.0f;
+                    f->life = (f->max_x - f->min_x) / spd + 2.0f;
                     break;
                 }
             }
         }
 
-        /* Render faint 1px elongated streaks crawling along top border (no dots) */
         for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-            PanelFlare *f = &s_panel_flares[i];
+            const PanelFlare *f = &s_panel_flares[i];
             if (!f->active) continue;
             if (fabsf(f->y - (float)ry) < 1.0f && f->min_x == (float)rx && f->max_x == (float)(rx + rw - 1)) {
                 float x_tail = f->x - (f->vx > 0 ? f->len : -f->len);
@@ -175,12 +153,9 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
                 if (x0 < f->min_x) x0 = f->min_x;
                 if (x1 > f->max_x) x1 = f->max_x;
                 if (x1 > x0) {
-                    Color streak_col = (Color){ border_color.r, border_color.g, border_color.b, 14 };
-                    DrawLine((int)x0, ry, (int)x1, ry, streak_col);
+                    DrawLine((int)x0, ry, (int)x1, ry, (Color){ 255, 255, 255, 22 });
                 }
             }
         }
     }
-
-    EndBlendMode();
 }
