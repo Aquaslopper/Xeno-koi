@@ -48,6 +48,14 @@ static void draw_selector_row(float y, const char *lbl, const char *val, int fsz
     draw_btn((Rectangle){ 790, y, 40, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
 }
 
+static void draw_locked_row(float y, const char *lbl, const char *val) {
+    Vector2 off = { -1.0f, -1.0f };
+    draw_text_ex_snapped(font_body, lbl, (Vector2){ 300.0f, y + 4.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+    draw_btn((Rectangle){ 570, y, 40, 26 }, "<", 18, off, COLOR_PHOSPHOR_DIM);
+    draw_option_value((Rectangle){ 614, y, 172, 26 }, val, 14, off, COLOR_PHOSPHOR_DIM);
+    draw_btn((Rectangle){ 790, y, 40, 26 }, ">", 18, off, COLOR_PHOSPHOR_DIM);
+}
+
 static int check_selector_click(Vector2 vm, float y) {
     if (CheckCollisionPointRec(vm, (Rectangle){ 570, y, 40, 26 })) return -1;
     if (CheckCollisionPointRec(vm, (Rectangle){ 614, y, 172, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 790, y, 40, 26 })) return 1;
@@ -55,7 +63,7 @@ static int check_selector_click(Vector2 vm, float y) {
 }
 
 static void draw_bg_if_loaded(const BoardAssets *ba, unsigned char alpha) {
-    if (ba->current_bg >= 0 && ba->current_bg < 5 && ba->bgs[ba->current_bg].id > 0)
+    if (ba->current_bg >= 0 && ba->current_bg < 6 && ba->bgs[ba->current_bg].id > 0)
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){0,0,1280,720}, (Rectangle){0,0,1280,720}, (Vector2){0}, 0, WHITE);
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, alpha });
 }
@@ -83,8 +91,7 @@ static void draw_yaku_cards(const BoardAssets *ba, const int *cards, int count, 
 }
 
 void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, float saved_timer) {
-    (void)st;
-    draw_bg_if_loaded(ba, 140);
+    (void)st; draw_bg_if_loaded(ba, 140);
     draw_centered_text(font_title, "[XENO / KOI]", 640.0f, 78.0f, 52.0f, 2.0f, COLOR_PHOSPHOR);
     draw_centered_text(font_body, "BIOMECHANICAL EDITION", 640.0f, 151.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
     const char *lbls[6] = { "START MATCH", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
@@ -101,8 +108,7 @@ ScreenAction screens_handle_start_click(Vector2 vm) {
 void screens_draw_credits(const BoardAssets *ba, Vector2 vm) {
     draw_bg_if_loaded(ba, 180);
     Rectangle panel = { 320, 80, 640, 540 };
-    DrawRectangleRec(panel, COLOR_PANEL_BG);
-    ui_draw_panel_border(panel, COLOR_PHOSPHOR_DIM);
+    DrawRectangleRec(panel, COLOR_PANEL_BG); ui_draw_panel_border(panel, COLOR_PHOSPHOR_DIM);
     draw_centered_text(font_title, "CREDITS", 640.0f, 100.0f, 32.0f, 1.6f, COLOR_PHOSPHOR);
     draw_centered_text(font_body, "[]", 640.0f, 145.0f, 24.0f, 1.5f, COLOR_PHOSPHOR_DIM);
     draw_centered_text(font_title, "XENO / KOI", 640.0f, 190.0f, 42.0f, 1.8f, COLOR_PHOSPHOR);
@@ -130,6 +136,7 @@ static void draw_slider(int y, float val, const char *lbl, const char *val_txt, 
 }
 
 void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
+    int is_deus = (s->difficulty == DIFFICULTY_DEUS);
     draw_bg_if_loaded(ba, 180);
     Rectangle panel = { 260, 14, 760, 692 };
     DrawRectangleRec(panel, COLOR_PANEL_BG);
@@ -137,52 +144,59 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
 
     draw_centered_text(font_title, "SYSTEM CONFIGURATION", 640.0f, 24.0f, 28.0f, 1.6f, COLOR_PHOSPHOR);
 
-    /* Group the dense controls into clear, title-font sections. */
     draw_section_header("MATCH RULES", 56.0f);
     draw_text_ex_snapped(font_body, "Match Length:", (Vector2){ 300.0f, 96.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 570, 92, 40, 26 }, "-", 18, vm, COLOR_PHOSPHOR);
     draw_centered_text(font_body, TextFormat("%d Rounds", s->rounds), 702.0f, 96.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     draw_btn((Rectangle){ 790, 92, 40, 26 }, "+", 18, vm, COLOR_PHOSPHOR);
 
-    draw_text_ex_snapped(font_body, "Ruleset:", (Vector2){ 300.0f, 132.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 570, 128, 40, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
-    const char *r_names[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
-    Color dbg = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 20, 160, 40, 55 } :
-                (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 210, 140, 20, 55 } : (Color){ 210, 30, 30, 55 };
-    Color dbdr = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 30, 220, 60, 140 } :
-                 (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 240, 160, 30, 140 } : (Color){ 240, 40, 40, 140 };
-    Rectangle rbox = { 614, 128, 172, 26 };
-    DrawRectangleRec(rbox, dbg);
-    DrawRectangleLinesEx(rbox, 1.0f, dbdr);
-    draw_text_in_rect(font_body, r_names[s->ruleset], rbox, 15.0f, 1.0f, COLOR_TEXT_INFO);
-    draw_btn((Rectangle){ 790, 128, 40, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
+    if (is_deus) {
+        draw_locked_row(128.0f, "Ruleset:", "[ YAKUZA (LOCKED) ]");
+    } else {
+        draw_text_ex_snapped(font_body, "Ruleset:", (Vector2){ 300.0f, 132.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_btn((Rectangle){ 570, 128, 40, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
+        const char *r_names[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
+        Color dbg = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 20, 160, 40, 55 } :
+                    (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 210, 140, 20, 55 } : (Color){ 210, 30, 30, 55 };
+        Color dbdr = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 30, 220, 60, 140 } :
+                     (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 240, 160, 30, 140 } : (Color){ 240, 40, 40, 140 };
+        Rectangle rbox = { 614, 128, 172, 26 };
+        DrawRectangleRec(rbox, dbg); DrawRectangleLinesEx(rbox, 1.0f, dbdr);
+        draw_text_in_rect(font_body, r_names[s->ruleset], rbox, 15.0f, 1.0f, COLOR_TEXT_INFO);
+        draw_btn((Rectangle){ 790, 128, 40, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
+    }
 
     draw_section_header("AI DIFFICULTY", 170.0f);
-    const char *d_names[3] = { "EASY", "HARD", "MASTER" };
-    draw_selector_row(206.0f, "Difficulty:", d_names[s->difficulty], 16,
-                      (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 60, 60, 255 } : COLOR_PHOSPHOR, vm);
+    const char *d_names[4] = { "EASY", "HARD", "MASTER", "DEUS" };
+    Color d_col = (s->difficulty == DIFFICULTY_DEUS) ? (Color){ 255, 205, 45, 255 } :
+                  (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 60, 60, 255 } : COLOR_PHOSPHOR;
+    draw_selector_row(206.0f, "Difficulty:", d_names[s->difficulty], 16, d_col, vm);
 
-    draw_text_ex_snapped(font_body, "Master Timer:", (Vector2){ 300.0f, 246.0f }, 18.0f, 1.2f,
+    draw_text_ex_snapped(font_body, is_deus ? "Deus Timer:" : "Master Timer:", (Vector2){ 300.0f, 246.0f }, 18.0f, 1.2f,
                          (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 100, 100, 255 } : COLOR_PHOSPHOR_DIM);
     if (s->difficulty == DIFFICULTY_MASTER) {
         draw_option_value((Rectangle){ 570, 242, 128, 26 }, "15 SEC", 15, vm, (s->master_timer == 15) ? (Color){ 255, 80, 80, 255 } : COLOR_PHOSPHOR_DIM);
         draw_option_value((Rectangle){ 702, 242, 128, 26 }, "30 SEC", 15, vm, (s->master_timer == 30) ? (Color){ 255, 80, 80, 255 } : COLOR_PHOSPHOR_DIM);
     } else {
-        draw_text_ex_snapped(font_body, "[ MASTER ONLY ]", (Vector2){ 570.0f, 246.0f }, 16.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+        draw_text_ex_snapped(font_body, is_deus ? "[ 15 SEC (LOCKED) ]" : "[ MASTER ONLY ]", (Vector2){ 570.0f, 246.0f }, 16.0f, 1.2f, COLOR_PHOSPHOR_DIM);
     }
 
     draw_section_header("AUDIO & VISUAL", 284.0f);
-    const char *cnames[5] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET" };
-    draw_selector_row(320.0f, "Terminal Color:", cnames[s->terminal_color % 5], 15, COLOR_TEXT_INFO, vm);
+    const char *cnames[6] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET", "DARK" };
+    if (is_deus) draw_locked_row(320.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
+    else draw_selector_row(320.0f, "Terminal Color:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
 
-    const char *bg_names[5] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City" };
-    draw_text_ex_snapped(font_body, "Background:", (Vector2){ 300.0f, 360.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 570, 356, 36, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
-    draw_option_value((Rectangle){ 610, 356, 130, 26 }, bg_names[s->background], 15, vm, COLOR_TEXT_INFO);
-    draw_btn((Rectangle){ 744, 356, 36, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
-    if (s->background >= 0 && s->background < 5 && ba->bgs[s->background].id > 0) {
+    const char *bg_names[6] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City", "5: Deus" };
+    Vector2 bg_vm = is_deus ? (Vector2){ -1.0f, -1.0f } : vm;
+    Color bg_c = is_deus ? COLOR_PHOSPHOR_DIM : COLOR_PHOSPHOR;
+    draw_text_ex_snapped(font_body, "Background:", (Vector2){ 300.0f, 360.0f }, 18.0f, 1.2f, bg_c);
+    draw_btn((Rectangle){ 570, 356, 36, 26 }, "<", 18, bg_vm, bg_c);
+    draw_option_value((Rectangle){ 610, 356, 130, 26 }, is_deus ? "[ DEUS (LOCKED) ]" : bg_names[s->background % 6], is_deus ? 13 : 15, bg_vm, is_deus ? COLOR_PHOSPHOR_DIM : COLOR_TEXT_INFO);
+    draw_btn((Rectangle){ 744, 356, 36, 26 }, ">", 18, bg_vm, bg_c);
+    int bg_idx = is_deus ? 5 : s->background;
+    if (bg_idx >= 0 && bg_idx < 6 && ba->bgs[bg_idx].id > 0) {
         Rectangle prev = { 784, 356, 46, 26 };
-        DrawTexturePro(ba->bgs[s->background], (Rectangle){0,0,1280,720}, prev, (Vector2){0}, 0, WHITE);
+        DrawTexturePro(ba->bgs[bg_idx], (Rectangle){0,0,1280,720}, prev, (Vector2){0}, 0, WHITE);
         DrawRectangleLinesEx(prev, 1.0f, COLOR_PHOSPHOR_DIM);
     }
 
@@ -203,14 +217,11 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
 
     float g_frac = fmaxf(0.0f, fminf(1.0f, (s->gamma - 0.5f) / 1.5f));
     draw_slider(608, g_frac, "Display Gamma:", TextFormat("%.2f", s->gamma), vm);
-
     draw_btn((Rectangle){ 510, 656, 260, 38 }, "BACK (SAVE)", 20, vm, COLOR_PHOSPHOR);
 }
 
 ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, AudioAssets *audio, Vector2 vm) {
-    int pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    int down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-
+    int pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT), down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     if (down) {
         if (CheckCollisionPointRec(vm, (Rectangle){ 608, 428, 184, 26 })) {
             s->bgm_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 608.0f) / 184.0f));
@@ -225,16 +236,25 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     }
     if (!pressed) return ACT_NONE;
 
-    int dir;
+    int dir, is_deus = (s->difficulty == DIFFICULTY_DEUS);
     if (CheckCollisionPointRec(vm, (Rectangle){ 570, 92, 40, 26 })) { if (s->rounds > 1) s->rounds--; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 790, 92, 40, 26 })) { if (s->rounds < 12) s->rounds++; if (audio) audio_play_click(audio); }
-    else if ((dir = check_selector_click(vm, 128.0f)) != 0) { s->ruleset = (s->ruleset + 5 + dir) % 5; if (audio) audio_play_click(audio); }
-    else if ((dir = check_selector_click(vm, 206.0f)) != 0) { s->difficulty = (Difficulty)((s->difficulty + 3 + dir) % 3); if (audio) audio_play_click(audio); }
+    else if (!is_deus && (dir = check_selector_click(vm, 128.0f)) != 0) { s->ruleset = (s->ruleset + 5 + dir) % 5; if (audio) audio_play_click(audio); }
+    else if ((dir = check_selector_click(vm, 206.0f)) != 0) {
+        s->difficulty = (Difficulty)((s->difficulty + 4 + dir) % 4);
+        if (s->difficulty == DIFFICULTY_DEUS) {
+            s->ruleset = RULESET_YAKUZA; s->master_timer = 15; s->terminal_color = 5; s->background = 5;
+            theme_set(5); ba->current_bg = 5;
+        } else if (s->terminal_color == 5 || s->background == 5) {
+            s->terminal_color = 2; s->background = 0; theme_set(2); ba->current_bg = 0;
+        }
+        if (audio) audio_play_click(audio);
+    }
     else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 570, 242, 128, 26 })) { s->master_timer = 15; if (audio) audio_play_click(audio); }
     else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 702, 242, 128, 26 })) { s->master_timer = 30; if (audio) audio_play_click(audio); }
-    else if ((dir = check_selector_click(vm, 320.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 570, 356, 36, 26 })) { s->background = (s->background + 4) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 610, 356, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 744, 356, 36, 26 })) { s->background = (s->background + 1) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (!is_deus && (dir = check_selector_click(vm, 320.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
+    else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 570, 356, 36, 26 })) { s->background = (s->background + 4) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 610, 356, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 744, 356, 36, 26 }))) { s->background = (s->background + 1) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 570, 392, 84, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 658, 392, 84, 26 })) { s->anim_speed = 1; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 746, 392, 84, 26 })) { s->anim_speed = 2; if (audio) audio_play_click(audio); }
@@ -313,8 +333,7 @@ ScreenAction screens_handle_stats_click(Vector2 vm, int *confirm_reset) {
 void screens_draw_pause(Vector2 vm, int confirm_restart) {
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle p = { 440, 180, 400, 360 };
-    DrawRectangleRec(p, COLOR_PANEL_BG);
-    ui_draw_panel_border(p, COLOR_PHOSPHOR);
+    DrawRectangleRec(p, COLOR_PANEL_BG); ui_draw_panel_border(p, COLOR_PHOSPHOR);
     draw_centered_text(font_title, "GAME PAUSED", 640.0f, 210.0f, 28.0f, 1.4f, COLOR_PHOSPHOR);
     if (confirm_restart) {
         draw_centered_text(font_body, "Restart this match?", 640.0f, 280.0f, 20.0f, 1.2f, COLOR_PHOSPHOR);
@@ -345,7 +364,7 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const 
     Color tcol = (p0 > p1) ? COLOR_PHOSPHOR : (p0 < p1) ? COLOR_RED : COLOR_PHOSPHOR_DIM;
     draw_centered_text(font_title, "MATCH OVER", 640.0f, 30.0f, 27.0f, 1.4f, COLOR_PHOSPHOR_DIM);
     draw_centered_text(font_title, title, 640.0f, 72.0f, 42.0f, 1.7f, tcol);
-    if (p0 > p1 && s) {
+    if (p0 > p1 && s && s->difficulty != DIFFICULTY_DEUS) {
         int meets_clearance = (s->difficulty == DIFFICULTY_MASTER && s->rounds >= 3) ||
                               (s->difficulty == DIFFICULTY_HARD   && s->rounds >= 6) ||
                               (s->difficulty == DIFFICULTY_EASY   && s->rounds >= 9);
@@ -355,8 +374,7 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const 
             draw_centered_text(font_body, "/// MATCH WON (Clearance Unfulfilled: Requires Master 3+, Hard 6+, or Easy 9+ Rounds) ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_AMBER);
     }
     Rectangle p = { 340, 150, 600, 440 };
-    DrawRectangleRec(p, COLOR_PANEL_BG);
-    ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);
+    DrawRectangleRec(p, COLOR_PANEL_BG); ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_body, TextFormat("FINAL SCORE:   YOU %d  -  CPU %d", p0, p1), (Vector2){ 380.0f, 190.0f }, 24.0f, 1.3f, COLOR_PHOSPHOR);
     DrawLine(380, 230, 900, 230, COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_title, "ROUND LEDGER:", (Vector2){ 380.0f, 245.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
@@ -394,27 +412,19 @@ int screens_check_choice_click(const GameState *g, Vector2 vm, int is_hand, int 
 void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vector2 vm) {
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle panel = { 200, 45, 880, 630 };
-    DrawRectangleRec(panel, COLOR_PANEL_BG);
-    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
-
-    int p = g->current_player;
+    DrawRectangleRec(panel, COLOR_PANEL_BG); ui_draw_panel_border(panel, COLOR_PHOSPHOR);
+    int p = g->current_player, opp = 1 - p;
     ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    int opp = 1 - p;
     int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
-
     draw_centered_text(font_title, "YAKU DETECTED", 640.0f, 56.0f, 25.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_title, "KOI-KOI / SHOBU", 640.0f, 86.0f, 22.0f, 1.2f, COLOR_PHOSPHOR_DIM);
 
-    int y = 122;
-    int max_show = (sr.yaku_count > 6) ? 6 : sr.yaku_count;
-    for (int i = 0; i < max_show; i++) {
+    for (int i = 0, y = 122, max_show = (sr.yaku_count > 6) ? 6 : sr.yaku_count; i < max_show; i++, y += 46) {
         const ScoredYaku *yaku = &sr.yakus[i];
         draw_text_ex_snapped(font_body, TextFormat("- %s", yaku->name), (Vector2){ 240.0f, (float)y + 9.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
         draw_text_ex_snapped(font_body, TextFormat("%d pts", yaku->points), (Vector2){ 600.0f, (float)y + 9.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
-        int ycards[16], ycount = 0;
-        get_yaku_cards(g, p, yaku, ycards, &ycount);
+        int ycards[16], ycount = 0; get_yaku_cards(g, p, yaku, ycards, &ycount);
         draw_yaku_cards(ba, ycards, ycount, 690.0f, (float)y);
-        y += 46;
     }
 
     DrawLine(240, 430, 1040, 430, COLOR_PHOSPHOR_DIM);
@@ -422,7 +432,6 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     if (sr.base_points >= 7) draw_text_ex_snapped(font_body, "x2  7+ Multiplier", (Vector2){ 420.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
     if (g->koi_called[opp] > 0) draw_text_ex_snapped(font_body, "x2  Koi-Koi Multiplier", (Vector2){ 660.0f, 442.0f }, 18.0f, 1.3f, COLOR_TEXT_INFO);
     draw_text_ex_snapped(font_body, TextFormat("IF YOU SHOBU NOW: %d POINTS", award), (Vector2){ 240.0f, 475.0f }, 22.0f, 1.3f, COLOR_PHOSPHOR);
-
     draw_btn((Rectangle){ 280, 520, 320, 60 }, "KOI-KOI (CONTINUE)", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 680, 520, 320, 60 }, "SHOBU (BANK & END)", 20, vm, COLOR_PHOSPHOR);
     draw_text_ex_snapped(font_body, "Continue round to aim for higher combinations.", (Vector2){ 280.0f, 590.0f }, 15.0f, 1.2f, COLOR_TEXT_INFO_DIM);
@@ -438,9 +447,7 @@ int screens_check_decide_click(Vector2 vm, DecisionType *out_decision) {
 void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector2 vm) {
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle panel = { 200, 45, 880, 630 };
-    DrawRectangleRec(panel, COLOR_PANEL_BG);
-    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
-
+    DrawRectangleRec(panel, COLOR_PANEL_BG); ui_draw_panel_border(panel, COLOR_PHOSPHOR);
     const RoundRecord *rec = &g->current_round_record;
     const char *title = (rec->winner == 0) ? "YOU WIN THE ROUND!" : (rec->winner == 1) ? "CPU WINS THE ROUND!" : "ROUND DRAW!";
     Color tcol = (rec->winner == 0) ? COLOR_PHOSPHOR : (rec->winner == 1) ? COLOR_RED : COLOR_PHOSPHOR_DIM;
@@ -455,27 +462,19 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
             draw_text_ex_snapped(font_body, "LUCKY HAND (Teshi / Kuttsuki): 6 pts", (Vector2){ 230.0f, (float)y + 10.0f }, 19.0f, 1.3f, COLOR_TEXT_INFO);
             int lcards[8], lcnt = 0;
             for (int i = 0; i < g->captured_count[rec->winner] && lcnt < 8; i++) lcards[lcnt++] = g->captured[rec->winner][i];
-            draw_yaku_cards(ba, lcards, lcnt, 680.0f, (float)y);
-            y += 48;
+            draw_yaku_cards(ba, lcards, lcnt, 680.0f, (float)y); y += 48;
         } else if (rec->score_result.yaku_count == 0) {
-            draw_text_ex_snapped(font_body, "OYA-KEN (Dealer's Privilege): 6 pts", (Vector2){ 230.0f, (float)y + 10.0f }, 19.0f, 1.3f, COLOR_TEXT_INFO);
-            y += 48;
+            draw_text_ex_snapped(font_body, "OYA-KEN (Dealer's Privilege): 6 pts", (Vector2){ 230.0f, (float)y + 10.0f }, 19.0f, 1.3f, COLOR_TEXT_INFO); y += 48;
         } else {
             const ScoreResult *sr = &rec->score_result;
-            int max_show = (sr->yaku_count > 5) ? 5 : sr->yaku_count;
-            for (int i = 0; i < max_show; i++) {
+            for (int i = 0, max_show = (sr->yaku_count > 5) ? 5 : sr->yaku_count; i < max_show; i++, y += 44) {
                 const ScoredYaku *yaku = &sr->yakus[i];
                 draw_text_ex_snapped(font_body, TextFormat("- %s", yaku->name), (Vector2){ 230.0f, (float)y + 9.0f }, 18.0f, 1.2f, COLOR_TEXT_INFO);
                 draw_text_ex_snapped(font_body, TextFormat("%d pts", yaku->points), (Vector2){ 600.0f, (float)y + 9.0f }, 18.0f, 1.2f, COLOR_TEXT_INFO);
-                int ycards[16], ycount = 0;
-                get_yaku_cards(g, rec->winner, yaku, ycards, &ycount);
+                int ycards[16], ycount = 0; get_yaku_cards(g, rec->winner, yaku, ycards, &ycount);
                 draw_yaku_cards(ba, ycards, ycount, 680.0f, (float)y);
-                y += 44;
             }
-            if (sr->yaku_count > 5) {
-                draw_text_ex_snapped(font_body, TextFormat("+ %d more combos...", sr->yaku_count - 5), (Vector2){ 230.0f, (float)y + 4.0f }, 16.0f, 1.2f, COLOR_TEXT_INFO_DIM);
-                y += 24;
-            }
+            if (sr->yaku_count > 5) { draw_text_ex_snapped(font_body, TextFormat("+ %d more combos...", sr->yaku_count - 5), (Vector2){ 230.0f, (float)y + 4.0f }, 16.0f, 1.2f, COLOR_TEXT_INFO_DIM); y += 24; }
             DrawLine(230, y + 6, 1050, y + 6, COLOR_PHOSPHOR_DIM); y += 16;
             draw_text_ex_snapped(font_body, TextFormat("Base: %d pts", rec->base_points), (Vector2){ 230.0f, (float)y }, 18.0f, 1.2f, COLOR_TEXT_INFO); y += 22;
             if (rec->mult_seven > 1) { draw_text_ex_snapped(font_body, "x2 7+ Points Multiplier", (Vector2){ 230.0f, (float)y }, 16.0f, 1.2f, COLOR_TEXT_INFO); y += 20; }
@@ -485,8 +484,7 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
     }
 
     draw_text_ex_snapped(font_body, TextFormat("MATCH RUNNING SCORE:  YOU %d  -  CPU %d", g->total_score[0], g->total_score[1]), (Vector2){ 230.0f, 565.0f }, 20.0f, 1.2f, COLOR_PHOSPHOR_DIM);
-    const char *btn_text = (g->current_round >= g->total_rounds) ? "MATCH RESULTS" : "NEXT ROUND";
-    draw_btn((Rectangle){ 520, 610, 240, 48 }, btn_text, 20, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 520, 610, 240, 48 }, (g->current_round >= g->total_rounds) ? "MATCH RESULTS" : "NEXT ROUND", 20, vm, COLOR_PHOSPHOR);
 }
 
 int screens_check_round_result_click(Vector2 vm) { return CheckCollisionPointRec(vm, (Rectangle){ 520, 610, 240, 48 }); }
@@ -494,7 +492,6 @@ int screens_check_round_result_click(Vector2 vm) { return CheckCollisionPointRec
 void screens_draw_banner(const char *text) {
     Vector2 ts = MeasureTextEx(font_title, text, 28.0f, 1.4f);
     Rectangle br = { (1280.0f - ts.x) / 2.0f - 30.0f, 320.0f, ts.x + 60.0f, 60.0f };
-    DrawRectangleRec(br, (Color){ 0, 0, 0, 230 });
-    ui_draw_panel_border(br, COLOR_PHOSPHOR);
+    DrawRectangleRec(br, (Color){ 0, 0, 0, 230 }); ui_draw_panel_border(br, COLOR_PHOSPHOR);
     draw_text_ex_snapped(font_title, text, (Vector2){ (1280.0f - ts.x) / 2.0f, 336.0f }, 28.0f, 1.4f, COLOR_PHOSPHOR);
 }

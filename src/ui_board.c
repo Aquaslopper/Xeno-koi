@@ -1,48 +1,32 @@
 #include "ui_board.h"
 #include "ui_motion.h"
 #include "ui_board_status.h"
+#include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
 extern Font font_title;
 extern Font font_body;
+extern GameSettings settings;
 
-static void draw_text_ex_snapped(Font font, const char *text, Vector2 position,
-                                 float font_size, float spacing, Color color) {
-    position.x = floorf(position.x);
-    position.y = floorf(position.y);
-    DrawTextEx(font, text, position, font_size, spacing, color);
+static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
+    DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
 }
 
-static void draw_centered_text(Font font, const char *text, float center_x, float y,
-                               float font_size, float spacing, Color color) {
-    Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
-    draw_text_ex_snapped(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
-               font_size, spacing, color);
+static void draw_centered_text(Font font, const char *text, float cx, float y, float fsz, float sp, Color col) {
+    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    draw_text_ex_snapped(font, text, (Vector2){ cx - ts.x / 2.0f, y }, fsz, sp, col);
 }
 
-static void draw_text_in_rect(Font font, const char *text, Rectangle bounds,
-                              float font_size, float spacing, Color color) {
-    Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
-    draw_text_ex_snapped(font, text,
-               (Vector2){ bounds.x + (bounds.width - text_size.x) / 2.0f,
-                          bounds.y + (bounds.height - font_size) / 2.0f },
-               font_size, spacing, color);
+static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fsz, float sp, Color col) {
+    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    draw_text_ex_snapped(font, text, (Vector2){ b.x + (b.width - ts.x) / 2.0f, b.y + (b.height - fsz) / 2.0f }, fsz, sp, col);
 }
 
 #define ASH_COUNT 50
 
-typedef struct {
-    Vector2 pos;
-    float speed_y;
-    float sway_speed;
-    float sway_amp;
-    float size;
-    float alpha;
-    float phase;
-} AshParticle;
-
+typedef struct { Vector2 pos; float speed_y, sway_speed, sway_amp, size, alpha, phase; } AshParticle;
 static AshParticle g_ash[ASH_COUNT];
 static int g_ash_initialized = 0;
 
@@ -62,14 +46,10 @@ static void ash_draw_and_update(float dt) {
     for (int i = 0; i < ASH_COUNT; i++) {
         AshParticle *p = &g_ash[i];
         p->pos.y -= p->speed_y * dt;
-        if (p->pos.y < -10.0f) {
-            p->pos.y = 730.0f + (float)(rand() % 30);
-            p->pos.x = (float)(rand() % 1280);
-        }
+        if (p->pos.y < -10.0f) { p->pos.y = 730.0f + (float)(rand() % 30); p->pos.x = (float)(rand() % 1280); }
         if (p->alpha <= 0.0f) continue;
         float sway_x = p->pos.x + sinf(p->phase + cur_time * p->sway_speed) * p->sway_amp;
-        Color ash_col = { 5, 5, 5, (unsigned char)(255 * p->alpha) };
-        DrawRectangle((int)sway_x, (int)p->pos.y, (int)p->size, (int)p->size, ash_col);
+        DrawRectangle((int)sway_x, (int)p->pos.y, (int)p->size, (int)p->size, (Color){ 5, 5, 5, (unsigned char)(255 * p->alpha) });
     }
 }
 
@@ -88,6 +68,11 @@ void board_load_assets(BoardAssets *ba) {
     ba->atlas = LoadTexture(get_path("assets/atlas.png"));
     GenTextureMipmaps(&ba->atlas);
     SetTextureFilter(ba->atlas, TEXTURE_FILTER_TRILINEAR);
+    ba->atlas_deus = LoadTexture(get_path("assets/atlas_deus.png"));
+    if (ba->atlas_deus.id > 0) {
+        GenTextureMipmaps(&ba->atlas_deus);
+        SetTextureFilter(ba->atlas_deus, TEXTURE_FILTER_TRILINEAR);
+    }
 
     Image img = LoadImage(get_path("assets/back.png"));
     if (img.data) {
@@ -100,8 +85,11 @@ void board_load_assets(BoardAssets *ba) {
         SetTextureFilter(ba->card_back, TEXTURE_FILTER_TRILINEAR);
     }
 
-    const char *bg_names[5] = { "assets/harvest.jpg", "assets/hole.jpg", "assets/arctic.jpg", "assets/castle.jpg", "assets/city.jpg" };
-    for (int i = 0; i < 5; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
+    const char *bg_names[6] = {
+        "assets/harvest.jpg", "assets/hole.jpg", "assets/arctic.jpg",
+        "assets/castle.jpg",  "assets/city.jpg", "assets/deus.png"
+    };
+    for (int i = 0; i < 6; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
 
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
     ba->has_fog_shader = (ba->fog_shader.id > 0);
@@ -114,7 +102,8 @@ void board_load_assets(BoardAssets *ba) {
 void board_unload_assets(BoardAssets *ba) {
     if (!ba->assets_loaded) return;
     UnloadTexture(ba->atlas); UnloadTexture(ba->card_back);
-    for (int i = 0; i < 5; i++) UnloadTexture(ba->bgs[i]);
+    if (ba->atlas_deus.id > 0) UnloadTexture(ba->atlas_deus);
+    for (int i = 0; i < 6; i++) UnloadTexture(ba->bgs[i]);
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;
 }
@@ -173,7 +162,8 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     if (card_id < 0 || card_id >= 48) return;
     Rectangle src = { (float)((card_id / 4) * ATLAS_CELL_W), (float)((card_id % 4) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-    DrawTexturePro(ba->atlas, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
+    DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
 
@@ -265,7 +255,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &t, SHADER_UNIFORM_FLOAT);
         BeginShaderMode(ba->fog_shader);
     }
-    if (ba->current_bg >= 0 && ba->current_bg < 5 && ba->bgs[ba->current_bg].id > 0) {
+    if (ba->current_bg >= 0 && ba->current_bg < 6 && ba->bgs[ba->current_bg].id > 0) {
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
     } else ClearBackground(BLACK);
     if (ba->has_fog_shader) EndShaderMode();

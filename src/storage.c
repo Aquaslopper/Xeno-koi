@@ -58,7 +58,8 @@ void storage_load_settings(GameSettings *s) {
                 int r = atoi(v);
                 if (r >= 1 && r <= 12) s->rounds = r;
             } else if (strcmp(k, "difficulty") == 0) {
-                if (strcmp(v, "master") == 0) s->difficulty = DIFFICULTY_MASTER;
+                if (strcmp(v, "deus") == 0) s->difficulty = DIFFICULTY_DEUS;
+                else if (strcmp(v, "master") == 0) s->difficulty = DIFFICULTY_MASTER;
                 else if (strcmp(v, "hard") == 0) s->difficulty = DIFFICULTY_HARD;
                 else s->difficulty = DIFFICULTY_EASY;
             } else if (strcmp(k, "master_timer") == 0) {
@@ -72,7 +73,7 @@ void storage_load_settings(GameSettings *s) {
                 else s->ruleset = RULESET_NINTENDO;
             } else if (strcmp(k, "background") == 0) {
                 int bg = atoi(v);
-                if (bg >= 0 && bg < 5) s->background = bg;
+                if (bg >= 0 && bg < 6) s->background = bg;
             } else if (strcmp(k, "bgm_volume") == 0) {
                 float vol = (float)atof(v);
                 if (vol < 0.0f) vol = 0.0f;
@@ -91,6 +92,7 @@ void storage_load_settings(GameSettings *s) {
                 else if (strcmp(v, "teal") == 0 || strcmp(v, "2") == 0) s->terminal_color = 2;
                 else if (strcmp(v, "crimson") == 0 || strcmp(v, "3") == 0) s->terminal_color = 3;
                 else if (strcmp(v, "violet") == 0 || strcmp(v, "4") == 0) s->terminal_color = 4;
+                else if (strcmp(v, "dark") == 0 || strcmp(v, "5") == 0) s->terminal_color = 5;
                 else s->terminal_color = 0;
             } else if (strcmp(k, "fullscreen") == 0) {
                 int fs = atoi(v);
@@ -109,16 +111,23 @@ void storage_load_settings(GameSettings *s) {
                 if (uo >= 1 && uo <= 12) s->unlocked_opponents = uo;
             } else if (strcmp(k, "current_opponent") == 0) {
                 int co = atoi(v);
-                if (co >= 0 && co < 12) s->current_opponent = co;
+                if (co >= 0 && co <= 12) s->current_opponent = co;
             }
         }
     }
     fclose(f);
+    if (s->difficulty == DIFFICULTY_DEUS) {
+        s->ruleset = RULESET_YAKUZA;
+        s->master_timer = 15;
+        s->terminal_color = 5;
+        s->background = 5;
+    }
 }
 
 void storage_save_settings(const GameSettings *s) {
     char buf[512];
-    const char *diff_str = (s->difficulty == DIFFICULTY_MASTER) ? "master" :
+    const char *diff_str = (s->difficulty == DIFFICULTY_DEUS) ? "deus" :
+                           (s->difficulty == DIFFICULTY_MASTER) ? "master" :
                            (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
     const char *rule_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" :
                            (s->ruleset == RULESET_KK_ADD_10) ? "kk_add_10" :
@@ -127,7 +136,8 @@ void storage_save_settings(const GameSettings *s) {
     const char *col_str = (s->terminal_color == 1) ? "amber" :
                           (s->terminal_color == 2) ? "teal" :
                           (s->terminal_color == 3) ? "crimson" :
-                          (s->terminal_color == 4) ? "violet" : "green";
+                          (s->terminal_color == 4) ? "violet" :
+                          (s->terminal_color == 5) ? "dark" : "green";
 
     snprintf(buf, sizeof(buf),
              "rounds=%d\n"
@@ -342,7 +352,7 @@ void storage_save_all(const GameSettings *s, const GameStats *st, const MatchHis
 
 void storage_record_match(const GameState *g, const GameSettings *s, GameStats *st, MatchHistory *h) {
     st->matches_played++;
-    if (s->difficulty == DIFFICULTY_MASTER) st->master_matches++;
+    if (s->difficulty == DIFFICULTY_MASTER || s->difficulty == DIFFICULTY_DEUS) st->master_matches++;
     else if (s->difficulty == DIFFICULTY_HARD) st->hard_matches++;
     else st->easy_matches++;
     int you = g->total_score[0], cpu = g->total_score[1];
@@ -361,7 +371,8 @@ void storage_record_match(const GameState *g, const GameSettings *s, GameStats *
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", localtime(&now));
     const char *r_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" : (s->ruleset == RULESET_KK_ADD_10) ? "kk-add-10" :
                         (s->ruleset == RULESET_TOURNAMENT) ? "tournament" : (s->ruleset == RULESET_YAKUZA) ? "yakuza" : "nintendo";
-    const char *d_str = (s->difficulty == DIFFICULTY_MASTER) ? "master" : (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
+    const char *d_str = (s->difficulty == DIFFICULTY_DEUS) ? "deus" : (s->difficulty == DIFFICULTY_MASTER) ? "master" :
+                        (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
     snprintf(record_line, sizeof(record_line), "%s;rounds=%d;%s;%s;you=%d;cpu=%d;%s", time_str, s->rounds, r_str, d_str, you, cpu, outcome);
     storage_add_history(h, record_line); storage_save_stats(st); storage_write_report(st, h);
 }
