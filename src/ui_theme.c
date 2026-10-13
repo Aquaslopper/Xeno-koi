@@ -46,6 +46,14 @@ TerminalTheme theme_get(int id) {
         t.dim  = (Color){ 165, 85, 200, 255 };
         t.text_info = (Color){ 250, 242, 255, 255 };
         t.text_info_dim = (Color){ 230, 210, 245, 255 };
+    } else if (id == 5) {
+        /* Theme 5 (Dark): Monochromatic Bone-Steel Phosphor & Obsidian Panel */
+        t.id = 5;
+        t.name = "DARK";
+        t.base = (Color){ 145, 150, 160, 255 };          /* Bone / steel phosphor */
+        t.dim  = (Color){ 75, 80, 90, 255 };             /* Obsidian dim border */
+        t.text_info = (Color){ 225, 230, 235, 255 };     /* High-clarity pale silver */
+        t.text_info_dim = (Color){ 135, 140, 150, 255 }; /* Muted slate */
     } else {
         /* Theme 0 (Green): Lifted ~20% brightness */
         t.id = 0;
@@ -56,7 +64,8 @@ TerminalTheme theme_get(int id) {
         t.text_info_dim = (Color){ 205, 235, 212, 255 };
     }
     t.scanline = (Color){ t.base.r, t.base.g, t.base.b, 10 };
-    t.btn_hover_bg = (Color){ (unsigned char)(t.dim.r / 4), (unsigned char)(t.dim.g / 4), (unsigned char)(t.dim.b / 4), 230 };
+    t.btn_hover_bg = (id == 5) ? (Color){ 28, 30, 36, 230 } :
+        (Color){ (unsigned char)(t.dim.r / 4), (unsigned char)(t.dim.g / 4), (unsigned char)(t.dim.b / 4), 230 };
     return t;
 }
 

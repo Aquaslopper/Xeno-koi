@@ -17,7 +17,7 @@ typedef struct {
     const char *koi_taunt;        /* CPU Koi-Koi call taunt */
 } Opponent;
 
-static const Opponent s_opponents[CAMPAIGN_OPPONENT_COUNT] = {
+static const Opponent s_opponents[CAMPAIGN_OPPONENT_COUNT + 1] = {
     {
         0, "01: JANUARY CRANE", "Obsidian Sentinel // Sector 01",
         "Ancient biomechanical sentinel encased in obsidian plating. Hunts divine Brights with relentless precision.",
@@ -101,10 +101,18 @@ static const Opponent s_opponents[CAMPAIGN_OPPONENT_COUNT] = {
         44, YAKU_GOKO, "Brights",
         "ASH TO ASH. DUST TO DUST.",
         "REBORN FROM CRUCIBLE. KOI-KOI!"
+    },
+    {
+        12, "ENTITY 13 // DEUS SUPREMUS", "Omnipresent Machine God // Sector Null",
+        "The apex consciousness. Born from the convergence of all twelve sectors, Deus Supremus operates with pure mathematical perfection. It does not hesitate, does not blunder, and will exploit every vulnerability under ruthless Yakuza rules.",
+        44, YAKU_GOKO, "Brights",
+        "PURE MATHEMATICAL PERFECTION.",
+        "INEVITABILITY CONFIRMED. KOI-KOI!"
     }
 };
 
 static inline const Opponent* campaign_get_opponent(int index) {
+    if (index == 12) return &s_opponents[12];
     if (index < 0 || index >= CAMPAIGN_OPPONENT_COUNT) return &s_opponents[0];
     return &s_opponents[index];
 }

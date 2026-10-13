@@ -7,6 +7,8 @@
 #include <string.h>
 #include <math.h>
 
+#define DEUS_UNLOCKED_FOR_TESTING 1
+
 extern Font font_title;
 extern Font font_body;
 
@@ -57,15 +59,50 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
 
 void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent, Vector2 vm) {
     int unlocked_opponents = settings->unlocked_opponents;
+    if (selected_opponent < 0 || selected_opponent >= CAMPAIGN_OPPONENT_COUNT) selected_opponent = 0;
+
     /* Dim background */
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 225 });
 
     Rectangle p = { 90, 35, 1100, 650 };
     DrawRectangleRec(p, COLOR_PANEL_BG);
     ui_draw_panel_border(p, COLOR_PHOSPHOR);
+    draw_btn_custom((Rectangle){ 1145, 48, 32, 28 }, "X", 18, vm, COLOR_PHOSPHOR);
+
+    if (settings->difficulty == DIFFICULTY_DEUS) {
+        DrawTextEx(font_title, "CAMPAIGN: DEUS SUPREMUS // PRIME INTELLECT", (Vector2){ 295.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
+
+        Rectangle big_box = { 155.0f, 140.0f, 200.0f, 320.0f };
+        DrawRectangleRec((Rectangle){ big_box.x - 4, big_box.y - 4, big_box.width + 8, big_box.height + 8 }, COLOR_PANEL_BG);
+        ui_draw_panel_border((Rectangle){ big_box.x - 2, big_box.y - 2, big_box.width + 4, big_box.height + 4 }, COLOR_PHOSPHOR);
+        Rectangle big_src = { (float)(11 * ATLAS_CELL_W), 0.0f, (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
+        Texture2D tex = (ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
+        DrawTexturePro(tex, big_src, big_box, (Vector2){0,0}, 0.0f, WHITE);
+
+        Rectangle txt_box = { 380.0f, 140.0f, 745.0f, 320.0f };
+        DrawRectangleRec(txt_box, COLOR_PANEL_BG);
+        ui_draw_panel_border(txt_box, COLOR_PHOSPHOR_DIM);
+
+        DrawTextEx(font_title, "ENTITY 13 // DEUS SUPREMUS", (Vector2){ 400.0f, 158.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
+        DrawTextEx(font_body, "Omnipresent Machine God // Sector Null", (Vector2){ 400.0f, 188.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+        DrawLine(400, 212, 1105, 212, COLOR_PHOSPHOR_DIM);
+
+        DrawTextEx(font_body, "RULESET: YAKUZA RULES (LOCKED)", (Vector2){ 400.0f, 224.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, "AI INTELLECT: 100.0% OPTIMAL (ZERO BLUNDERS)", (Vector2){ 400.0f, 248.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, "TURN LIMIT: 15.0 SECONDS", (Vector2){ 400.0f, 272.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, "THREAT LEVEL: TERMINAL", (Vector2){ 400.0f, 296.0f }, 17.0f, 2.0f, COLOR_RED);
+        DrawLine(400, 324, 1105, 324, COLOR_PHOSPHOR_DIM);
+
+        const char *lore = "The apex consciousness. Born from the convergence of all twelve sectors, Deus Supremus operates with pure mathematical perfection. It does not hesitate, does not blunder, and will exploit every vulnerability under ruthless Yakuza rules.";
+        draw_text_wrapped(font_body, lore, 400.0f, 338.0f, 700.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
+
+        int deus_ok = (DEUS_UNLOCKED_FOR_TESTING || unlocked_opponents >= 12);
+        draw_btn_custom((Rectangle){ 460.0f, 570.0f, 240.0f, 48.0f }, "START MATCH", 20, vm, deus_ok ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+        draw_btn_custom((Rectangle){ 720.0f, 570.0f, 180.0f, 48.0f }, "BACK", 20, vm, COLOR_PHOSPHOR);
+        return;
+    }
 
     DrawTextEx(font_title, "CAMPAIGN: SELECT BIO-OPPONENT", (Vector2){ 390.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_btn_custom((Rectangle){ 1145, 48, 32, 28 }, "X", 18, vm, COLOR_PHOSPHOR);
 
     /* Top Row: 12 mini portraits */
     for (int i = 0; i < CAMPAIGN_OPPONENT_COUNT; i++) {
@@ -157,6 +194,19 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
         CheckCollisionPointRec(vm, (Rectangle){ 720.0f, 570.0f, 180.0f, 48.0f })) {
         return -1;
     }
+
+    if (settings->difficulty == DIFFICULTY_DEUS) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 460.0f, 570.0f, 240.0f, 48.0f })) {
+            if (DEUS_UNLOCKED_FOR_TESTING || unlocked_opponents >= 12) {
+                settings->current_opponent = 12;
+                if (out_selected) *out_selected = 12;
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    if (*out_selected < 0 || *out_selected >= CAMPAIGN_OPPONENT_COUNT) *out_selected = 0;
 
     /* Mini portraits */
     for (int i = 0; i < CAMPAIGN_OPPONENT_COUNT; i++) {

@@ -25,6 +25,7 @@
 Font font_title;  // Audiowide for titles, headers, and button labels
 Font font_body;   // Play for data, options, HUD, and supporting text
 Font small_font;  // Legacy alias for modules that still use the old name
+GameSettings settings;
 
 static float transition_alpha = 0.0f;
 static int transition_dir = 0;
@@ -33,23 +34,15 @@ static int transition_action = 0;
 static int transition_track = 1;
 
 static void start_transition(ScreenState target, int action, int track) {
-    transition_dir = 1;
-    transition_target_screen = target;
-    transition_action = action;
-    transition_track = track;
+    transition_dir = 1; transition_target_screen = target; transition_action = action; transition_track = track;
 }
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
 static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.25f : 0.15f; }
 
 static void draw_hover_action_label(const char *label, Rectangle bounds) {
-    const float font_size = 18.0f;
-    const float spacing = 1.2f;
-    Vector2 text_size = MeasureTextEx(font_title, label, font_size, spacing);
-    DrawTextEx(font_title, label,
-               (Vector2){ floorf(bounds.x + (bounds.width - text_size.x) / 2.0f),
-                          floorf(bounds.y + (bounds.height - font_size) / 2.0f) },
-               font_size, spacing, COLOR_PHOSPHOR);
+    Vector2 ts = MeasureTextEx(font_title, label, 18.0f, 1.2f);
+    DrawTextEx(font_title, label, (Vector2){ floorf(bounds.x + (bounds.width - ts.x) / 2.0f), floorf(bounds.y + (bounds.height - 18.0f) / 2.0f) }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
 int main(int argc, char **argv) {
@@ -70,7 +63,6 @@ int main(int argc, char **argv) {
     if (GetApplicationDirectory() && GetApplicationDirectory()[0] != '\0') ChangeDirectory(GetApplicationDirectory());
     SetWindowMinSize(960, 540); SetTargetFPS(60);
 
-    GameSettings settings;
     storage_load_settings(&settings);
     if (settings.fullscreen == 1) ToggleBorderlessWindowed();
     theme_set(settings.terminal_color);
@@ -90,54 +82,36 @@ int main(int argc, char **argv) {
     BoardAssets assets;
     board_load_assets(&assets);
     assets.current_bg = settings.background;
+    if (settings.difficulty == DIFFICULTY_DEUS) {
+        settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5);
+    }
 
-    // Display font: Audiowide keeps major labels and actions on-theme at every scale.
     font_title = LoadFontEx("assets/audiowide.ttf", 48, NULL, 0);
-    if (!IsFontReady(font_title)) {
-        font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 48, NULL, 0);
-    }
+    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 48, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
-    else {
-        GenTextureMipmaps(&font_title.texture);
-        SetTextureFilter(font_title.texture, TEXTURE_FILTER_BILINEAR);
-    }
+    else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_BILINEAR); }
 
-    // Body font: Play stays legible for dense statistics and compact HUD values.
     font_body = LoadFontEx("assets/play.ttf", 36, NULL, 0);
-    if (!IsFontReady(font_body)) {
-        font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
-    }
+    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
     if (!IsFontReady(font_body)) font_body = GetFontDefault();
-    else {
-        GenTextureMipmaps(&font_body.texture);
-        SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR);
-    }
-
+    else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
 
-    GameStats stats;
-    storage_load_stats(&stats);
-    MatchHistory history;
-    storage_load_history(&history);
+    GameStats stats; storage_load_stats(&stats);
+    MatchHistory history; storage_load_history(&history);
 
     ScreenState screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
     GameState g;
     engine_init(&g, settings.ruleset, settings.rounds, seed);
-    motion_init();
-    taunt_init();
-    ai_set_opponent(settings.current_opponent);
+    motion_init(); taunt_init(); ai_set_opponent(settings.current_opponent);
     if (auto_start) {
-        engine_start_round(&g);
-        motion_deal_round(&g, 0.45f);
-        cinematic_start(g.current_round);
+        engine_start_round(&g); motion_deal_round(&g, 0.45f); cinematic_start(g.current_round);
         audio_start_match_music(&audio, (rand() % 5) + 1);
         taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.0f);
     }
 
-    AnimState anim;
-    anim_init(&anim);
-    DragState drag;
-    memset(&drag, 0, sizeof(drag));
+    AnimState anim; anim_init(&anim);
+    DragState drag; memset(&drag, 0, sizeof(drag));
 
     uint32_t ai_rng = seed + 999;
     int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = auto_campaign;
@@ -155,6 +129,9 @@ int main(int argc, char **argv) {
             if (transition_alpha >= 1.0f) {
                 transition_alpha = 1.0f; transition_dir = -1; screen = transition_target_screen;
                 if (transition_action == 1) {
+                    if (settings.difficulty == DIFFICULTY_DEUS) {
+                        settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5);
+                    }
                     anim_init(&anim); memset(&drag, 0, sizeof(drag)); hovered_idx = -1; is_paused = 0;
                     confirm_restart = 0; human_turn_started = 0;
                     engine_init(&g, settings.ruleset, settings.rounds, (uint32_t)time(NULL));
@@ -349,8 +326,11 @@ int main(int argc, char **argv) {
 
                     if (g.current_player == 0 && input_unlocked) {
                         if (g.phase == PHASE_TURN_HAND) {
-                            if (settings.difficulty == DIFFICULTY_MASTER) {
-                                if (!human_turn_started) { g.player_timer = (settings.master_timer == 30) ? 30.0f : 15.0f; human_turn_started = 1; }
+                            if (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS) {
+                                if (!human_turn_started) {
+                                    g.player_timer = (settings.difficulty == DIFFICULTY_DEUS || settings.master_timer == 15) ? 15.0f : 30.0f;
+                                    human_turn_started = 1;
+                                }
                                 g.player_timer -= dt;
                                 if (g.player_timer <= 0.0f) {
                                     g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
@@ -393,18 +373,12 @@ int main(int argc, char **argv) {
                                 storage_record_match(&g, &settings, &stats, &history);
                                 if (g.total_score[0] > g.total_score[1]) {
                                     audio_play_win(&audio);
-
                                     bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
                                                            (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
                                                            (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
-
-                                    if (settings.current_opponent == settings.unlocked_opponents - 1) {
-                                        if (meets_clearance) {
-                                            if (settings.unlocked_opponents < 12) {
-                                                settings.unlocked_opponents++;
-                                                storage_save_settings(&settings);
-                                            }
-                                        }
+                                    if (settings.current_opponent == settings.unlocked_opponents - 1 && meets_clearance && settings.unlocked_opponents < 12) {
+                                        settings.unlocked_opponents++;
+                                        storage_save_settings(&settings);
                                     }
                                 } else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
                                 start_transition(SCREEN_MATCH_RESULT, 2, 0);

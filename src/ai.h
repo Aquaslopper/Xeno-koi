@@ -7,7 +7,8 @@
 typedef enum {
     DIFFICULTY_EASY = 0,
     DIFFICULTY_HARD = 1,
-    DIFFICULTY_MASTER = 2
+    DIFFICULTY_MASTER = 2,
+    DIFFICULTY_DEUS = 3
 } Difficulty;
 
 /* PRNG for AI (kept separate from engine deal PRNG) */

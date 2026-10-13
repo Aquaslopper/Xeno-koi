@@ -6,7 +6,7 @@
 static int s_current_opponent = 0;
 
 void ai_set_opponent(int opp_id) {
-    if (opp_id >= 0 && opp_id < 12) s_current_opponent = opp_id;
+    if (opp_id >= 0 && opp_id <= 12) s_current_opponent = opp_id;
 }
 
 int ai_get_opponent(void) {
@@ -89,7 +89,15 @@ static int eval_card_value(const GameState *g, int card_id, const int *new_cards
         val += 15;
     }
 
-    if (diff == DIFFICULTY_MASTER) {
+    if (diff == DIFFICULTY_DEUS) {
+        if (blocks_opponent_set(g, card_id, opp)) val += 100;
+        for (int i = 0; i < new_count; i++) {
+            if (new_cards[i] != card_id && blocks_opponent_set(g, new_cards[i], opp)) {
+                val += 100;
+                break;
+            }
+        }
+    } else if (diff == DIFFICULTY_MASTER) {
         /* Master AI: massive +50 priority to block player major yaku */
         if (blocks_opponent_set(g, card_id, opp)) val += 50;
         for (int i = 0; i < new_count; i++) {
@@ -132,6 +140,7 @@ static int eval_card_value(const GameState *g, int card_id, const int *new_cards
 }
 
 static int ai_get_accuracy(Difficulty diff, int boss_id) {
+    if (diff == DIFFICULTY_DEUS) return 100;
     if (boss_id < 0) boss_id = 0;
     if (boss_id > 11) boss_id = 11;
 
@@ -222,6 +231,10 @@ void ai_choose_hand(const GameState *g, Difficulty diff, uint32_t *ai_rng, int *
             int score = -val;
             if (unseen_in_month(g, CARDS[card].month, me)) score -= 4;
             if (diff == DIFFICULTY_MASTER && blocks_opponent_set(g, card, 1 - me)) score -= 100;
+            if (diff == DIFFICULTY_DEUS) {
+                if (blocks_opponent_set(g, card, 1 - me)) score -= 150;
+                if (unseen_in_month(g, CARDS[card].month, me)) score -= 8;
+            }
             if (score > best_score) { best_score = score; best_card = card; best_target = -1; }
         } else if (mc == 1) {
             int bundle[2] = { card, matches[0] };
@@ -271,6 +284,17 @@ DecisionType ai_choose_decision(const GameState *g, Difficulty diff, uint32_t *a
             return DECISION_KOI_KOI;
         }
         return DECISION_SHOBU;
+    }
+
+    if (diff == DIFFICULTY_DEUS) {
+        ScoreResult sr_opp = score_captures(g->ruleset, g->captured[opp], g->captured_count[opp]);
+        if (sr_opp.base_points > 0) return DECISION_SHOBU; /* Never allow opponent comeback */
+        for (int i = 0; i < 48; i++) {
+            if (blocks_opponent_set(g, i, opp)) return DECISION_SHOBU; /* Opponent 1 card from yaku */
+        }
+        ScoreResult sr_me = score_captures(g->ruleset, g->captured[me], g->captured_count[me]);
+        if (sr_me.base_points >= 7 || g->hand_count[me] < 3) return DECISION_SHOBU;
+        return DECISION_KOI_KOI;
     }
 
     if (diff == DIFFICULTY_MASTER) {
