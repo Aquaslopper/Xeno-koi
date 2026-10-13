@@ -54,7 +54,7 @@ void screens_draw_pause(Vector2 vm, int confirm_restart);
 ScreenAction screens_handle_pause_click(Vector2 vm, int *confirm_restart);
 
 /* Match Result Screen */
-void screens_draw_match_result(const BoardAssets *ba, const GameState *g, Vector2 vm);
+void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const GameSettings *s, Vector2 vm);
 ScreenAction screens_handle_match_result_click(Vector2 vm);
 
 /* In-game Choice / Decision / Round Overlays */

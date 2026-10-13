@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -200,12 +201,12 @@ int main(int argc, char **argv) {
         if (transition_dir == 0) {
             if (screen == SCREEN_START) {
                 if (campaign_overlay_open) {
-                    int cres = campaign_handle_click(settings.unlocked_opponents, &settings.current_opponent, vm);
+                    int cres = campaign_handle_click(&settings, &settings.current_opponent, vm);
                     if (cres == -1) { campaign_overlay_open = 0; audio_play_click(&audio); }
                     else if (cres == 1) {
                         campaign_overlay_open = 0; ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
                         int trk = (rand() % 5) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk);
-                    } else if (cres == 2) audio_play_click(&audio);
+                    } else if (cres == 2 || cres == 3) audio_play_click(&audio);
                 } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     ScreenAction act = screens_handle_start_click(vm);
                     if (act != ACT_NONE) audio_play_click(&audio);
@@ -392,9 +393,18 @@ int main(int argc, char **argv) {
                                 storage_record_match(&g, &settings, &stats, &history);
                                 if (g.total_score[0] > g.total_score[1]) {
                                     audio_play_win(&audio);
+
+                                    bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
+                                                           (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
+                                                           (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
+
                                     if (settings.current_opponent == settings.unlocked_opponents - 1) {
-                                        if (settings.unlocked_opponents < 12) settings.unlocked_opponents++;
-                                        storage_save_settings(&settings);
+                                        if (meets_clearance) {
+                                            if (settings.unlocked_opponents < 12) {
+                                                settings.unlocked_opponents++;
+                                                storage_save_settings(&settings);
+                                            }
+                                        }
                                     }
                                 } else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
                                 start_transition(SCREEN_MATCH_RESULT, 2, 0);
@@ -431,12 +441,12 @@ int main(int argc, char **argv) {
         BeginTextureMode(canvas);
         if (screen == SCREEN_START) {
             screens_draw_start(&assets, &stats, vm, saved_timer);
-            if (campaign_overlay_open) campaign_draw_overlay(&assets, settings.unlocked_opponents, settings.current_opponent, vm);
+            if (campaign_overlay_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, vm);
         }
         else if (screen == SCREEN_OPTIONS) screens_draw_options(&assets, &settings, vm);
         else if (screen == SCREEN_STATS) screens_draw_stats(&assets, &stats, &history, vm, confirm_reset, log_timer);
         else if (screen == SCREEN_CREDITS) screens_draw_credits(&assets, vm);
-        else if (screen == SCREEN_MATCH_RESULT) screens_draw_match_result(&assets, &g, vm);
+        else if (screen == SCREEN_MATCH_RESULT) screens_draw_match_result(&assets, &g, &settings, vm);
         else if (screen == SCREEN_GAME) {
             const char *status = ""; char cpu_status[64];
             if (cinematic_is_active()) status = "";
