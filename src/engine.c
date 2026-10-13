@@ -119,12 +119,31 @@ void engine_start_round(GameState *g) {
     engine_check_lucky_hands(g);
 }
 
+/* YAKUZA (Oya-ken) = TOURNAMENT + dealer privilege: every draw (exhaustion or
+   both-lucky) pays the dealer a flat 6 points. */
+static int apply_dealer_privilege(GameState *g) {
+    int d = g->dealer;
+    g->total_score[d] += 6;
+    g->current_round_record.winner = d;
+    g->current_round_record.draw_reason = 0;
+    g->current_round_record.lucky_hand = 0;
+    g->current_round_record.base_points = 6;
+    g->current_round_record.mult_seven = 1;
+    g->current_round_record.mult_koi = 1;      /* flat 6, no multipliers */
+    g->current_round_record.award = 6;
+    memset(&g->current_round_record.score_result, 0, sizeof(ScoreResult));
+    g->dealer = d;                             /* the dealer keeps the deal */
+    g->phase = PHASE_ROUND_END;
+    return 1;
+}
+
 void engine_check_lucky_hands(GameState *g) {
     if (g->phase != PHASE_LUCKY_CHECK) return;
     int lucky0 = check_hand_lucky(g->hand[0], 8);
     int lucky1 = check_hand_lucky(g->hand[1], 8);
 
     if (lucky0 && lucky1) {
+        if (g->ruleset == RULESET_YAKUZA) { apply_dealer_privilege(g); return; }
         g->current_round_record.winner = -1;
         g->current_round_record.draw_reason = 2; /* Both lucky */
         g->current_round_record.lucky_hand = 1;
@@ -306,22 +325,7 @@ int engine_timeout_autoplay(GameState *g) {
 }
 
 static int apply_exhaustion(GameState *g) {
-    if (g->ruleset == RULESET_YAKUZA && g->koi_called[0] == 0 && g->koi_called[1] == 0) {
-        int d = g->dealer;
-        int opp = 1 - d;
-        int award = calculate_award(6, g->koi_called[opp] > 0);
-        g->total_score[d] += award;
-        g->current_round_record.winner = d;
-        g->current_round_record.draw_reason = 0;
-        g->current_round_record.base_points = 6;
-        g->current_round_record.mult_seven = 1;
-        g->current_round_record.mult_koi = (g->koi_called[opp] > 0) ? 2 : 1;
-        g->current_round_record.award = award;
-        memset(&g->current_round_record.score_result, 0, sizeof(ScoreResult));
-        g->dealer = d;
-        g->phase = PHASE_ROUND_END;
-        return 1;
-    }
+    if (g->ruleset == RULESET_YAKUZA) return apply_dealer_privilege(g);
     g->current_round_record.winner = -1;
     g->current_round_record.draw_reason = 1; /* Exhaustion */
     g->phase = PHASE_ROUND_END;
@@ -462,6 +466,7 @@ int engine_decide(GameState *g, DecisionType decision) {
         ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         g->last_base[p] = sr.base_points;
         g->koi_called[p]++;
+        g->match_koi_calls[p]++;
         return advance_after_turn(g);
     }
 }

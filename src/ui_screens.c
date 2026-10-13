@@ -79,7 +79,11 @@ static void get_yaku_cards(const GameState *g, int winner, const ScoredYaku *y, 
         CardType t = (y->id == YAKU_TANE) ? CARD_TYPE_ANIMAL : (y->id == YAKU_TANZAKU) ? CARD_TYPE_RIBBON : CARD_TYPE_PLAIN;
         for (int i = 0; i < g->captured_count[winner] && cnt < 10; i++) {
             int cid = g->captured[winner][i];
-            if (CARDS[cid].type == t || (y->id == YAKU_KASU && cid == 32)) out[cnt++] = cid;
+            /* The sake cup only counts as a plain in the KK-ADD-10 ruleset (see score_captures);
+               in every other ruleset it belongs to Tane/viewings and must not be shown as Kasu */
+            int counts_as_plain = (CARDS[cid].type == t) ||
+                                  (y->id == YAKU_KASU && cid == 32 && g->ruleset == RULESET_KK_ADD_10);
+            if (counts_as_plain) out[cnt++] = cid;
         }
     }
     *out_cnt = cnt;
@@ -378,10 +382,17 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const 
     draw_text_ex_snapped(font_body, TextFormat("FINAL SCORE:   YOU %d  -  CPU %d", p0, p1), (Vector2){ 380.0f, 190.0f }, 24.0f, 1.3f, COLOR_PHOSPHOR);
     DrawLine(380, 230, 900, 230, COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_title, "ROUND LEDGER:", (Vector2){ 380.0f, 245.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    for (int i = 0, ly = 275; i < g->ledger_count && i < 6; i++, ly += 26) {
+    /* All rounds are listed (a full match is 12). Short matches keep the single column; longer ones
+       split into two columns so the rows never reach the PLAY AGAIN / MAIN MENU buttons below */
+    int lc = (g->ledger_count > 12) ? 12 : g->ledger_count;
+    int two_col = (lc > 6);
+    int col_size = two_col ? (lc + 1) / 2 : lc;
+    for (int i = 0; i < lc; i++) {
         const RoundRecord *r = &g->ledger[i];
         const char *w = (r->winner == 0) ? "YOU" : (r->winner == 1) ? "CPU" : "DRAW";
-        draw_text_ex_snapped(font_body, TextFormat("Round %d: %s (%d pts)", r->round_number, w, r->award), (Vector2){ 400.0f, (float)ly }, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        float lx = two_col ? ((i < col_size) ? 370.0f : 660.0f) : 400.0f;
+        float ly = 275.0f + (float)(two_col ? ((i < col_size) ? i : i - col_size) : i) * 26.0f;
+        draw_text_ex_snapped(font_body, TextFormat("Round %d: %s (%d pts)", r->round_number, w, r->award), (Vector2){ lx, ly }, 18.0f, 1.2f, COLOR_TEXT_INFO);
     }
     draw_btn((Rectangle){ 490, 470, 300, 46 }, "PLAY AGAIN", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20, vm, COLOR_PHOSPHOR);
@@ -419,12 +430,21 @@ void screens_draw_decide_overlay(const BoardAssets *ba, const GameState *g, Vect
     draw_centered_text(font_title, "YAKU DETECTED", 640.0f, 56.0f, 25.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_title, "KOI-KOI / SHOBU", 640.0f, 86.0f, 22.0f, 1.2f, COLOR_PHOSPHOR_DIM);
 
-    for (int i = 0, y = 122, max_show = (sr.yaku_count > 6) ? 6 : sr.yaku_count; i < max_show; i++, y += 46) {
+    /* Every detected combination must be listed: KK-ADD-10 can stack more than six, so tighten the
+       row step when needed to keep the last row above the totals divider at y=430 */
+    int max_show = sr.yaku_count;
+    float row_step = 46.0f;
+    if (max_show > 6) {
+        row_step = (430.0f - 122.0f - 40.0f) / (float)(max_show - 1);
+        if (row_step > 46.0f) row_step = 46.0f;
+    }
+    for (int i = 0; i < max_show; i++) {
         const ScoredYaku *yaku = &sr.yakus[i];
-        draw_text_ex_snapped(font_body, TextFormat("- %s", yaku->name), (Vector2){ 240.0f, (float)y + 9.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
-        draw_text_ex_snapped(font_body, TextFormat("%d pts", yaku->points), (Vector2){ 600.0f, (float)y + 9.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
+        float y = 122.0f + (float)i * row_step;
+        draw_text_ex_snapped(font_body, TextFormat("- %s", yaku->name), (Vector2){ 240.0f, y + 9.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
+        draw_text_ex_snapped(font_body, TextFormat("%d pts", yaku->points), (Vector2){ 600.0f, y + 9.0f }, 20.0f, 1.3f, COLOR_TEXT_INFO);
         int ycards[16], ycount = 0; get_yaku_cards(g, p, yaku, ycards, &ycount);
-        draw_yaku_cards(ba, ycards, ycount, 690.0f, (float)y);
+        draw_yaku_cards(ba, ycards, ycount, 690.0f, y);
     }
 
     DrawLine(240, 430, 1040, 430, COLOR_PHOSPHOR_DIM);
@@ -460,8 +480,12 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
         int y = 110;
         if (rec->lucky_hand) {
             draw_text_ex_snapped(font_body, "LUCKY HAND (Teshi / Kuttsuki): 6 pts", (Vector2){ 230.0f, (float)y + 10.0f }, 19.0f, 1.3f, COLOR_TEXT_INFO);
+            /* The lucky hand is still sitting in the winner's hand - a lucky round ends at the deal,
+               so the capture pile is empty and the row used to stay blank. */
             int lcards[8], lcnt = 0;
-            for (int i = 0; i < g->captured_count[rec->winner] && lcnt < 8; i++) lcards[lcnt++] = g->captured[rec->winner][i];
+            if (rec->winner == 0 || rec->winner == 1) {
+                for (int i = 0; i < g->hand_count[rec->winner] && lcnt < 8; i++) lcards[lcnt++] = g->hand[rec->winner][i];
+            }
             draw_yaku_cards(ba, lcards, lcnt, 680.0f, (float)y); y += 48;
         } else if (rec->score_result.yaku_count == 0) {
             draw_text_ex_snapped(font_body, "OYA-KEN (Dealer's Privilege): 6 pts", (Vector2){ 230.0f, (float)y + 10.0f }, 19.0f, 1.3f, COLOR_TEXT_INFO); y += 48;

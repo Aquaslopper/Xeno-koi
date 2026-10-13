@@ -72,18 +72,18 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                                cap_starts, player_cap_dest, 0.50f);
         }
     } else if (mc == 2) {
-        /* Check if dropped directly onto one matching card */
+        /* Check if dropped directly onto one matching card (hit-test against the slot each card is
+           actually painted in, not its position in the field array) */
         int hit0 = 0, hit1 = 0;
-        for (int i = 0; i < g->field_count; i++) {
-            if (g->field[i] == matches[0]) {
-                Rectangle r = board_get_field_card_rect(i, g->field_count);
-                Rectangle rg = { r.x - 10, r.y - 10, r.width + 20, r.height + 20 };
-                if (CheckCollisionPointRec(c, rg)) hit0 = 1;
-            } else if (g->field[i] == matches[1]) {
-                Rectangle r = board_get_field_card_rect(i, g->field_count);
-                Rectangle rg = { r.x - 10, r.y - 10, r.width + 20, r.height + 20 };
-                if (CheckCollisionPointRec(c, rg)) hit1 = 1;
-            }
+        Rectangle r0 = board_get_field_card_rect_of(g, matches[0]);
+        Rectangle r1 = board_get_field_card_rect_of(g, matches[1]);
+        if (r0.width > 0.0f) {
+            Rectangle rg = { r0.x - 10, r0.y - 10, r0.width + 20, r0.height + 20 };
+            if (CheckCollisionPointRec(c, rg)) hit0 = 1;
+        }
+        if (r1.width > 0.0f) {
+            Rectangle rg = { r1.x - 10, r1.y - 10, r1.width + 20, r1.height + 20 };
+            if (CheckCollisionPointRec(c, rg)) hit1 = 1;
         }
 
         if (hit0 && !hit1) {

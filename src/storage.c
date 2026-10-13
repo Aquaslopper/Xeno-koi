@@ -366,7 +366,7 @@ void storage_record_match(const GameState *g, const GameSettings *s, GameStats *
         if (g->ledger[i].award > st->best_award) st->best_award = g->ledger[i].award;
     }
     for (int y = 0; y < YAKU_COUNT; y++) st->yaku_counts[y] += g->human_yaku_counts[y];
-    st->koi_calls_you += g->koi_called[0]; st->koi_calls_cpu += g->koi_called[1];
+    st->koi_calls_you += g->match_koi_calls[0]; st->koi_calls_cpu += g->match_koi_calls[1];
     time_t now = time(NULL); char time_str[32], record_line[160];
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", localtime(&now));
     const char *r_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" : (s->ruleset == RULESET_KK_ADD_10) ? "kk-add-10" :
