@@ -21,7 +21,9 @@
 #define IsFontReady(f) ((f).texture.id > 0)
 #endif
 
-Font small_font;
+Font font_title;  // Audiowide for titles, headers, and button labels
+Font font_body;   // Play for data, options, HUD, and supporting text
+Font small_font;  // Legacy alias for modules that still use the old name
 
 static float transition_alpha = 0.0f;
 static int transition_dir = 0;
@@ -38,6 +40,16 @@ static void start_transition(ScreenState target, int action, int track) {
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
 static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.25f : 0.15f; }
+
+static void draw_hover_action_label(const char *label, Rectangle bounds) {
+    const float font_size = 18.0f;
+    const float spacing = 1.2f;
+    Vector2 text_size = MeasureTextEx(font_title, label, font_size, spacing);
+    DrawTextEx(font_title, label,
+               (Vector2){ bounds.x + (bounds.width - text_size.x) / 2.0f,
+                          bounds.y + (bounds.height - font_size) / 2.0f },
+               font_size, spacing, COLOR_PHOSPHOR);
+}
 
 int main(int argc, char **argv) {
     uint32_t seed = 7;
@@ -77,10 +89,29 @@ int main(int argc, char **argv) {
     board_load_assets(&assets);
     assets.current_bg = settings.background;
 
-    small_font = LoadFont("assets/small_font.ttf");
-    if (!IsFontReady(small_font)) small_font = LoadFont(TextFormat("%s/assets/small_font.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""));
-    if (!IsFontReady(small_font)) small_font = GetFontDefault();
-    else SetTextureFilter(small_font.texture, TEXTURE_FILTER_BILINEAR);
+    // Display font: Audiowide keeps major labels and actions on-theme at every scale.
+    font_title = LoadFontEx("assets/audiowide.ttf", 48, NULL, 0);
+    if (!IsFontReady(font_title)) {
+        font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 48, NULL, 0);
+    }
+    if (!IsFontReady(font_title)) font_title = GetFontDefault();
+    else {
+        GenTextureMipmaps(&font_title.texture);
+        SetTextureFilter(font_title.texture, TEXTURE_FILTER_BILINEAR);
+    }
+
+    // Body font: Play stays legible for dense statistics and compact HUD values.
+    font_body = LoadFontEx("assets/play.ttf", 36, NULL, 0);
+    if (!IsFontReady(font_body)) {
+        font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
+    }
+    if (!IsFontReady(font_body)) font_body = GetFontDefault();
+    else {
+        GenTextureMipmaps(&font_body.texture);
+        SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR);
+    }
+
+    small_font = font_body;
 
     GameStats stats;
     storage_load_stats(&stats);
@@ -158,7 +189,7 @@ int main(int argc, char **argv) {
         int cur_w = GetScreenWidth(), cur_h = GetScreenHeight();
         if (cur_w < 960 || cur_h < 540) {
             BeginDrawing(); ClearBackground(BLACK);
-            DrawText("Enlarge the window to play (minimum 960x540)", 20, 20, 20, COLOR_PHOSPHOR);
+            DrawTextEx(font_body, "Enlarge the window to play (minimum 960x540)", (Vector2){ 20.0f, 20.0f }, 20.0f, 1.5f, COLOR_PHOSPHOR);
             EndDrawing(); continue;
         }
 
@@ -421,10 +452,16 @@ int main(int argc, char **argv) {
 
             if (!is_paused) {
                 if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) {
-                    DrawRectangleRec((Rectangle){ 1160, 560, 112, 40 }, COLOR_BTN_HOVER_BG); ui_draw_panel_border((Rectangle){ 1160, 560, 112, 40 }, COLOR_PHOSPHOR); DrawText("PAUSE", 1192, 572, 16, COLOR_PHOSPHOR);
+                    Rectangle pause_button = { 1160, 560, 112, 40 };
+                    DrawRectangleRec(pause_button, COLOR_BTN_HOVER_BG);
+                    ui_draw_panel_border(pause_button, COLOR_PHOSPHOR);
+                    draw_hover_action_label("PAUSE", pause_button);
                 }
                 if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) {
-                    DrawRectangleRec((Rectangle){ 1160, 610, 112, 40 }, COLOR_BTN_HOVER_BG); ui_draw_panel_border((Rectangle){ 1160, 610, 112, 40 }, COLOR_PHOSPHOR); DrawText("RESTART", 1180, 622, 16, COLOR_PHOSPHOR);
+                    Rectangle restart_button = { 1160, 610, 112, 40 };
+                    DrawRectangleRec(restart_button, COLOR_BTN_HOVER_BG);
+                    ui_draw_panel_border(restart_button, COLOR_PHOSPHOR);
+                    draw_hover_action_label("RESTART", restart_button);
                 }
             }
             if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
@@ -465,7 +502,8 @@ int main(int argc, char **argv) {
     }
 
     audio_close(&audio);
-    if (small_font.texture.id != GetFontDefault().texture.id) UnloadFont(small_font);
+    if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
+    if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
     board_unload_assets(&assets);
     if (post_shader.id > 0) UnloadShader(post_shader);
     UnloadRenderTexture(overlay_canvas); UnloadRenderTexture(canvas);

@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-extern Font small_font;
+extern Font font_title;
+extern Font font_body;
 
 static void draw_text_wrapped(Font font, const char *text, float x, float y, float max_width, float font_size, float spacing, Color color) {
     if (!text || text[0] == '\0') return;
@@ -41,8 +42,13 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
     DrawRectangleLinesEx(r, 1.0f, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    int tw = MeasureText(txt, fsz);
-    DrawText(txt, (int)(r.x + (r.width - tw) / 2.0f), (int)(r.y + (r.height - fsz) / 2.0f), fsz, col);
+    const float font_size = (float)fsz;
+    const float spacing = 1.2f;
+    Vector2 text_size = MeasureTextEx(font_title, txt, font_size, spacing);
+    DrawTextEx(font_title, txt,
+               (Vector2){ r.x + (r.width - text_size.x) / 2.0f,
+                          r.y + (r.height - font_size) / 2.0f },
+               font_size, spacing, col);
     return hov;
 }
 
@@ -54,7 +60,7 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
     DrawRectangleRec(p, COLOR_PANEL_BG);
     ui_draw_panel_border(p, COLOR_PHOSPHOR);
 
-    DrawText("CAMPAIGN: SELECT BIO-OPPONENT", 390, 52, 24, COLOR_PHOSPHOR);
+    DrawTextEx(font_title, "CAMPAIGN: SELECT BIO-OPPONENT", (Vector2){ 390.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
     draw_btn_custom((Rectangle){ 1145, 48, 32, 28 }, "X", 18, vm, COLOR_PHOSPHOR);
 
     /* Top Row: 12 mini portraits */
@@ -78,9 +84,9 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
             DrawTexturePro(ba->atlas, src, slot, (Vector2){0,0}, 0.0f, (Color){ 15, 15, 15, 255 });
             DrawRectangleRec(slot, (Color){ 0, 0, 0, 210 });
             DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
-            DrawTextEx(small_font, "LOCKED", (Vector2){ slot.x + 8.0f, slot.y + 45.0f }, 13.0f, 2.0f, (Color){ 160, 160, 160, 255 });
+            DrawTextEx(font_body, "LOCKED", (Vector2){ slot.x + 8.0f, slot.y + 45.0f }, 13.0f, 2.0f, (Color){ 160, 160, 160, 255 });
         }
-        DrawTextEx(small_font, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f }, 14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
+        DrawTextEx(font_body, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f }, 14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
     }
 
     const Opponent *opp = campaign_get_opponent(selected_opponent);
@@ -98,19 +104,19 @@ void campaign_draw_overlay(const BoardAssets *ba, int unlocked_opponents, int se
     ui_draw_panel_border(txt_box, COLOR_PHOSPHOR_DIM);
 
     if (selected_opponent < unlocked_opponents) {
-        DrawText(opp->name, 385, 260, 24, COLOR_PHOSPHOR);
-        DrawTextEx(small_font, opp->title, (Vector2){ 385.0f, 290.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+        DrawTextEx(font_title, opp->name, (Vector2){ 385.0f, 260.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
+        DrawTextEx(font_body, opp->title, (Vector2){ 385.0f, 290.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         DrawLine(385, 312, 1105, 312, COLOR_PHOSPHOR_DIM);
-        DrawTextEx(small_font, TextFormat("PRIORITY YAKU:   %s", opp->favorite_combo), (Vector2){ 385.0f, 324.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-        DrawTextEx(small_font, TextFormat("SIGNATURE TARGET: %s (#%02d)", CARDS[opp->favorite_card_id].name, opp->favorite_card_id + 1), (Vector2){ 385.0f, 348.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-        DrawTextEx(small_font, TextFormat("CPU TAUNT:        \"%s\"", opp->taunt_text), (Vector2){ 385.0f, 372.0f }, 15.0f, 2.0f, COLOR_RED);
+        DrawTextEx(font_body, TextFormat("PRIORITY YAKU:   %s", opp->favorite_combo), (Vector2){ 385.0f, 324.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, TextFormat("SIGNATURE TARGET: %s (#%02d)", CARDS[opp->favorite_card_id].name, opp->favorite_card_id + 1), (Vector2){ 385.0f, 348.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, TextFormat("CPU TAUNT:        \"%s\"", opp->taunt_text), (Vector2){ 385.0f, 372.0f }, 15.0f, 2.0f, COLOR_RED);
         DrawLine(385, 396, 1105, 396, COLOR_PHOSPHOR_DIM);
-        draw_text_wrapped(small_font, opp->lore_text, 385.0f, 408.0f, 720.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
+        draw_text_wrapped(font_body, opp->lore_text, 385.0f, 408.0f, 720.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
     } else {
-        DrawText("[ LOCKED SECTOR ]", 385, 260, 24, COLOR_RED);
-        DrawTextEx(small_font, "DEFEAT PRECEDING TARGETS TO UNLOCK TRANSMISSION", (Vector2){ 385.0f, 295.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+        DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 385.0f, 260.0f }, 24.0f, 1.2f, COLOR_RED);
+        DrawTextEx(font_body, "DEFEAT PRECEDING TARGETS TO UNLOCK TRANSMISSION", (Vector2){ 385.0f, 295.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         DrawLine(385, 325, 1105, 325, COLOR_PHOSPHOR_DIM);
-        draw_text_wrapped(small_font, opp->lore_text, 385.0f, 350.0f, 720.0f, 17.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+        draw_text_wrapped(font_body, opp->lore_text, 385.0f, 350.0f, 720.0f, 17.0f, 2.0f, COLOR_TEXT_INFO_DIM);
     }
 
     /* Bottom Buttons */

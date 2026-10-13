@@ -5,6 +5,25 @@
 #include <stdlib.h>
 #include <math.h>
 
+extern Font font_title;
+extern Font font_body;
+
+static void draw_centered_text(Font font, const char *text, float center_x, float y,
+                               float font_size, float spacing, Color color) {
+    Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
+    DrawTextEx(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
+               font_size, spacing, color);
+}
+
+static void draw_text_in_rect(Font font, const char *text, Rectangle bounds,
+                              float font_size, float spacing, Color color) {
+    Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
+    DrawTextEx(font, text,
+               (Vector2){ bounds.x + (bounds.width - text_size.x) / 2.0f,
+                          bounds.y + (bounds.height - font_size) / 2.0f },
+               font_size, spacing, color);
+}
+
 #define ASH_COUNT 50
 
 typedef struct {
@@ -181,7 +200,7 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             if (CARDS[cid].type == types[t]) lc[count++] = cid;
         }
         const char *cnt_str = TextFormat((t == 1 && cup) ? "%s %d*" : "%s %d", labels[t], count);
-        DrawTextEx(small_font, cnt_str, (Vector2){ 16.0f, y + 8.5f }, 20.0f, 2.0f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, cnt_str, (Vector2){ 16.0f, y + 8.5f }, 20.0f, 1.4f, COLOR_TEXT_INFO);
         float fa = CAPTURE_PANEL_W - 54.0f - card_w, step = (count > 1) ? fminf(24.0f, fa / (count - 1)) : 0.0f;
         float card_y = y + (CAPTURE_PANEL_H - card_h) / 2.0f;
         for (int c = 0; c < count; c++) {
@@ -203,25 +222,27 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
     int max_yakus = (s->yaku_count > 5) ? 5 : s->yaku_count;
     for (int i = 0; i < max_yakus; i++) {
         char full[64]; snprintf(full, sizeof(full), "%s: %d", s->yakus[i].name, s->yakus[i].points);
-        content_h += (MeasureTextEx(small_font, full, 17.0f, 2.0f).x > 96.0f) ? 34.0f : 18.0f;
+        content_h += (MeasureTextEx(font_body, full, 16.0f, 1.2f).x > 96.0f) ? 34.0f : 18.0f;
     }
     float total_h = base_h + content_h + (max_yakus > 0 ? 6.0f : 0.0f);
     Rectangle r = { 1160, y, 112, total_h };
     DrawRectangleRec(r, COLOR_PANEL_BG);
     ui_draw_panel_border(r, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    DrawText(title, 1168, (int)y + 8, 12, COLOR_PHOSPHOR);
-    DrawTextEx(small_font, TextFormat("Base: %d%s", s->base_points, (koi_called > 0) ? " [KOI]" : ""), (Vector2){ 1168.0f, y + 25.0f }, 16.0f, 2.0f, (koi_called > 0) ? COLOR_RED : COLOR_TEXT_INFO_DIM);
+    DrawTextEx(font_title, title, (Vector2){ 1168.0f, y + 8.0f }, 11.0f, 0.8f, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, TextFormat("Base: %d%s", s->base_points, (koi_called > 0) ? " [KOI]" : ""),
+               (Vector2){ 1168.0f, y + 25.0f }, 15.0f, 1.0f,
+               (koi_called > 0) ? COLOR_RED : COLOR_TEXT_INFO_DIM);
 
     if (max_yakus > 0) {
         DrawLine(1164, (int)y + 44, 1268, (int)y + 44, COLOR_PHOSPHOR_DIM);
         float cy = y + 49.0f;
         for (int i = 0; i < max_yakus; i++) {
             char full[64]; snprintf(full, sizeof(full), "%s: %d", s->yakus[i].name, s->yakus[i].points);
-            if (MeasureTextEx(small_font, full, 17.0f, 2.0f).x > 96.0f) {
-                DrawTextEx(small_font, s->yakus[i].name, (Vector2){ 1168.0f, cy }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-                DrawTextEx(small_font, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + 17.0f }, 15.0f, 2.0f, COLOR_TEXT_INFO_DIM); cy += 34.0f;
+            if (MeasureTextEx(font_body, full, 16.0f, 1.2f).x > 96.0f) {
+                DrawTextEx(font_body, s->yakus[i].name, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO);
+                DrawTextEx(font_body, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + 17.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM); cy += 34.0f;
             } else {
-                DrawTextEx(small_font, full, (Vector2){ 1168.0f, cy }, 17.0f, 2.0f, COLOR_TEXT_INFO); cy += 18.0f;
+                DrawTextEx(font_body, full, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO); cy += 18.0f;
             }
         }
     }
@@ -287,7 +308,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 4. Stock Pile */
     int st_off = g->stock_count / 4;
     for (int i = 0; i <= st_off; i++) board_draw_card_back(ba, (Rectangle){ 330.0f - i, 262.0f - i, FIELD_CARD_W, FIELD_CARD_H });
-    DrawText(TextFormat("%d", g->stock_count), 356, 392, 18, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 
     /* 5. Field Cards */
     int sf[48];
@@ -389,10 +410,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             int flash = ((int)(g->player_timer * 6.0f)) % 2;
             Color tcol = flash ? (Color){ 255, 30, 30, 255 } : (Color){ 255, 230, 230, 255 };
             snprintf(t_str, sizeof(t_str), "! TIME: %.1fS !", g->player_timer);
-            DrawText(t_str, (1280 - MeasureText(t_str, 24)) / 2, 502, 24, tcol);
+            draw_centered_text(font_body, t_str, 640.0f, 502.0f, 24.0f, 1.2f, tcol);
         } else {
             snprintf(t_str, sizeof(t_str), "TIME: %.1fS", g->player_timer);
-            DrawText(t_str, (1280 - MeasureText(t_str, 22)) / 2, 505, 22, COLOR_PHOSPHOR);
+            draw_centered_text(font_body, t_str, 640.0f, 505.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
         }
     }
     board_draw_status_message(status_msg);
@@ -400,24 +421,29 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 11. Right Column */
     Rectangle cp = { 1160, 12, 112, 54 };
     DrawRectangleRec(cp, COLOR_PANEL_BG); ui_draw_panel_border(cp, COLOR_PHOSPHOR_DIM);
-    DrawText(TextFormat("RND %d/%d", g->current_round, g->total_rounds), 1168, 20, 14, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, TextFormat("RND %d/%d", g->current_round, g->total_rounds), (Vector2){ 1168.0f, 20.0f }, 14.0f, 1.0f, COLOR_PHOSPHOR);
     const char *rnames[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
-    DrawText(rnames[g->ruleset], 1168, 38, 11, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(font_body, rnames[g->ruleset], (Vector2){ 1168.0f, 38.0f }, 11.0f, 0.7f, COLOR_PHOSPHOR_DIM);
 
     ScoreResult s0 = score_captures(g->ruleset, g->captured[0], g->captured_count[0]), s1 = score_captures(g->ruleset, g->captured[1], g->captured_count[1]);
     float cpu_h = draw_combo_panel(74.0f, "CPU COMBOS", &s1, g->koi_called[1]);
     draw_combo_panel(74.0f + cpu_h + 10.0f, "YOU COMBOS", &s0, g->koi_called[0]);
 
-    DrawRectangleRec((Rectangle){ 1160, 560, 112, 40 }, COLOR_PANEL_BG); ui_draw_panel_border((Rectangle){ 1160, 560, 112, 40 }, COLOR_PHOSPHOR); DrawText("PAUSE", 1192, 572, 16, COLOR_PHOSPHOR);
-    DrawRectangleRec((Rectangle){ 1160, 610, 112, 40 }, COLOR_PANEL_BG); ui_draw_panel_border((Rectangle){ 1160, 610, 112, 40 }, COLOR_PHOSPHOR); DrawText("RESTART", 1180, 622, 16, COLOR_PHOSPHOR);
+    Rectangle pause_button = { 1160, 560, 112, 40 };
+    DrawRectangleRec(pause_button, COLOR_PANEL_BG);
+    ui_draw_panel_border(pause_button, COLOR_PHOSPHOR);
+    draw_text_in_rect(font_title, "PAUSE", pause_button, 16.0f, 1.0f, COLOR_PHOSPHOR);
+    Rectangle restart_button = { 1160, 610, 112, 40 };
+    DrawRectangleRec(restart_button, COLOR_PANEL_BG);
+    ui_draw_panel_border(restart_button, COLOR_PHOSPHOR);
+    draw_text_in_rect(font_title, "RESTART", restart_button, 16.0f, 1.0f, COLOR_PHOSPHOR);
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 245 });
 
     const char *title = "PICK A CARD TO DETERMINE DEALER (EARLIEST MONTH WINS)";
-    int tw = MeasureText(title, 26);
-    DrawText(title, (1280 - tw) / 2, 85, 26, COLOR_PHOSPHOR);
+    draw_centered_text(font_title, title, 640.0f, 85.0f, 26.0f, 1.2f, COLOR_PHOSPHOR);
 
     Rectangle r[2] = { { 400, 180, 176, 286 }, { 704, 180, 176, 286 } };
 
@@ -427,8 +453,8 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
             int hov = CheckCollisionPointRec(vm, r[i]);
             if (hov) board_draw_card_glow(r[i], 1.0f);
             const char *hint = "CLICK TO PICK";
-            int hw = MeasureText(hint, 18);
-            DrawText(hint, (int)(r[i].x + (r[i].width - hw) / 2.0f), 485, 18, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+            draw_centered_text(font_body, hint, r[i].x + r[i].width / 2.0f, 485.0f,
+                               18.0f, 1.2f, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         }
     } else {
         int pc = g->oya_player_choice, cc = 1 - pc;
@@ -444,18 +470,18 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
         Rectangle cr = { r[cc].x + (r[cc].width - cw) / 2.0f, r[cc].y, cw, r[cc].height };
         if (ct < 0.5f) board_draw_card_back(ba, cr); else board_draw_card(ba, c_cid, cr);
 
-        DrawText("YOUR CARD", (int)(r[pc].x + (r[pc].width - MeasureText("YOUR CARD", 20)) / 2.0f), 480, 20, COLOR_PHOSPHOR);
-        DrawText("CPU'S CARD", (int)(r[cc].x + (r[cc].width - MeasureText("CPU'S CARD", 20)) / 2.0f), 480, 20, COLOR_PHOSPHOR_DIM);
+        draw_centered_text(font_body, "YOUR CARD", r[pc].x + r[pc].width / 2.0f, 480.0f, 20.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_centered_text(font_body, "CPU'S CARD", r[cc].x + r[cc].width / 2.0f, 480.0f, 20.0f, 1.2f, COLOR_PHOSPHOR_DIM);
 
         if (g->oya_timer >= 0.9f) {
             const char *ptxt = TextFormat("Month %d", CARDS[p_cid].month);
-            DrawText(ptxt, (int)(r[pc].x + (r[pc].width - MeasureText(ptxt, 18)) / 2.0f), 510, 18, COLOR_PHOSPHOR);
+            draw_centered_text(font_body, ptxt, r[pc].x + r[pc].width / 2.0f, 510.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
             const char *ctxt = TextFormat("Month %d", CARDS[c_cid].month);
-            DrawText(ctxt, (int)(r[cc].x + (r[cc].width - MeasureText(ctxt, 18)) / 2.0f), 510, 18, COLOR_PHOSPHOR_DIM);
+            draw_centered_text(font_body, ctxt, r[cc].x + r[cc].width / 2.0f, 510.0f, 18.0f, 1.2f, COLOR_PHOSPHOR_DIM);
 
             const char *res = (g->oya_winner == 0) ? "YOU ARE DEALER" : "CPU IS DEALER";
             Color res_col = (g->oya_winner == 0) ? COLOR_PHOSPHOR : COLOR_RED;
-            DrawText(res, (1280 - MeasureText(res, 32)) / 2, 565, 32, res_col);
+            draw_centered_text(font_title, res, 640.0f, 565.0f, 32.0f, 1.5f, res_col);
             board_draw_card_glow(r[(g->oya_winner == 0) ? pc : cc], 1.0f);
         }
     }

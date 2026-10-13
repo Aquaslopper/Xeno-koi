@@ -6,6 +6,9 @@
 #include <string.h>
 #include <math.h>
 
+extern Font font_title;
+extern Font font_body;
+
 static CardMotion g_cards[48];
 
 static float s_cinematic_timer = 0.0f;
@@ -302,12 +305,14 @@ void cinematic_draw(void) {
         title = buf;
     }
 
-    int font_size = 42;
-    int tw = MeasureText(title, font_size);
+    const float font_size = 42.0f;
+    const float spacing = 1.8f;
+    Vector2 title_size = MeasureTextEx(font_title, title, font_size, spacing);
+    int tw = (int)ceilf(title_size.x);
     int pad_x = 54;
     int pad_y = 24;
     int box_w = tw + pad_x * 2;
-    int box_h = font_size + pad_y * 2;
+    int box_h = (int)font_size + pad_y * 2;
     int box_x = (CANVAS_W - box_w) / 2;
     int box_y = (CANVAS_H - box_h) / 2 - 20;
 
@@ -345,12 +350,17 @@ void cinematic_draw(void) {
     /* Text */
     Color text_col = col_base;
     text_col.a = (unsigned char)(255 * alpha);
-    DrawText(title, box_x + pad_x, box_y + pad_y, font_size, text_col);
+    DrawTextEx(font_title, title, (Vector2){ (float)(box_x + pad_x), (float)(box_y + pad_y) },
+               font_size, spacing, text_col);
 
     /* Subtitle prompt */
     const char *sub = (s_cinematic_round <= 1) ? "// NEURAL LINK ESTABLISHED //" : "// DECK SHUFFLED & DEALT //";
-    int sub_w = MeasureText(sub, 14);
+    const float sub_size = 14.0f;
+    const float sub_spacing = 1.2f;
+    Vector2 sub_measure = MeasureTextEx(font_body, sub, sub_size, sub_spacing);
     Color sub_col = col_dim;
     sub_col.a = (unsigned char)(210 * alpha);
-    DrawText(sub, (CANVAS_W - sub_w) / 2, box_y + box_h + 10, 14, sub_col);
+    DrawTextEx(font_body, sub,
+               (Vector2){ (CANVAS_W - sub_measure.x) / 2.0f, (float)(box_y + box_h + 10) },
+               sub_size, sub_spacing, sub_col);
 }
