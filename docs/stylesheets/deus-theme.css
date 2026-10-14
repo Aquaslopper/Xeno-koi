@@ -1,0 +1,56 @@
+/* Deus banner at the top of every page, fading into the dark page.
+   The banner is a real element inserted by overrides/main.html
+   (Material's "hero" block), so it is always visible.
+   Image: docs/assets/deus-bg.webp, cut from assets/deus.png by
+   tools/make_card_images.py. The art itself is unchanged. */
+
+/* The page below the banner: near-black with a faint green tint,
+   instead of the slate theme's blue-grey. */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0b0e0b;
+  --md-default-bg-color--light: #141814;
+  --md-default-bg-color--lighter: #1d211d;
+  --md-default-bg-color--lightest: #262b26;
+}
+
+.deus-hero {
+  height: 300px;
+  /* background under the image (fallback while it loads) */
+  background-color: #0b0e0b;
+  background-image:
+    linear-gradient(to bottom, rgba(11, 14, 11, 0) 55%, var(--md-default-bg-color) 100%),
+    url("../assets/deus-bg.webp");
+  background-size: cover;
+  background-position: center 22%;
+  background-repeat: no-repeat;
+}
+
+/* Small screens: a shorter banner. */
+@media screen and (max-width: 760px) {
+  .deus-hero {
+    height: 180px;
+  }
+}
+
+/* Header and tabs: solid dark, so the banner starts cleanly below them. */
+.md-header,
+.md-tabs {
+  background-color: rgba(6, 9, 6, 0.97);
+}
+
+/* The banner image itself: full width, cropped, fading at the bottom. */
+.deus-hero img {
+  display: block;
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+  object-position: center 22%;
+  -webkit-mask-image: linear-gradient(to bottom, black 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 72%, transparent 100%);
+}
+
+@media screen and (max-width: 760px) {
+  .deus-hero img {
+    height: 180px;
+  }
+}

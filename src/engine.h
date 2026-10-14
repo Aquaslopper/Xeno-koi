@@ -70,6 +70,10 @@ typedef struct {
 
     /* Round tracking */
     int last_base[2];
+    /* KK-ADD-10 only: points per yaku at the player's last Koi-Koi decision
+       (0 = yaku absent). The Koi-Koi screen opens when a yaku is new or its
+       points have grown past this snapshot. See finish_stock_turn(). */
+    int last_yaku_points[2][YAKU_COUNT];
     int koi_called[2];      /* number of times koi-koi called this round */
     int match_koi_calls[2]; /* number of times koi-koi called this match (koi_called resets every round) */
     int human_yaku_counts[YAKU_COUNT]; /* human yaku tracking */

@@ -27,7 +27,10 @@ Compare this with Nintendo, where after one call you can only Shobu on your next
 
 ## Example
 
-You capture all five Brights. Under FudaWiki that is Goko for 15 base points. The base is 7 or more, so the 7+ multiplier applies, giving 15 × 2 = 30 before any Koi-Koi call. Under Nintendo the same capture is 10 base, which is 20 before any Koi-Koi call.
+You capture all five Brights:
+
+![01-B Crane](../assets/cards/card-00.webp){ .card-thumb } ![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![11-B Rainman](../assets/cards/card-40.webp){ .card-thumb } ![12-B Phoenix](../assets/cards/card-44.webp){ .card-thumb }
+ Under FudaWiki that is Goko for 15 base points. The base is 7 or more, so the 7+ multiplier applies, giving 15 × 2 = 30 before any Koi-Koi call. Under Nintendo the same capture is 10 base, which is 20 before any Koi-Koi call.
 
 ## Not implemented
 

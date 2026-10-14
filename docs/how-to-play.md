@@ -20,6 +20,16 @@ The deck has 48 cards in 12 months of 4 cards each. Cards come in four types:
 | Ribbons | 10 | Some are Poetry (red) or Blue ribbons, which form special sets. |
 | Plains | 24 | Mostly worth points only in bulk (Kasu). |
 
+Here is one full month — January (Pine). All four share the same month, so any of them matches any other January card on the field:
+
+![01-B Crane](assets/cards/card-00.webp){ .card-thumb } ![01-RP Poetry](assets/cards/card-01.webp){ .card-thumb } ![01-P1 Plain](assets/cards/card-02.webp){ .card-thumb } ![01-P2 Plain](assets/cards/card-03.webp){ .card-thumb }
+
+*January: Crane (Bright), Poetry ribbon, and two Plains.*
+
+Face-down cards (your opponent's hand and the stock) show the card back:
+
+![Card back](assets/cards/back.webp){ .card-thumb }
+
 **Matching is by month only.** A card matches any field card of the same month. Card art, type, and name never decide a match. The Rain Man, Sake Cup, and Lightning cards are not wild.
 
 Full card list: [Cards](reference/cards.md).
@@ -79,6 +89,7 @@ If the stock card has **two** matches, you must choose one. You cannot cancel.
 After both stages, the game scores the cards you have captured this round.
 
 - If your score has **gone up** since your last call this round, you are asked to choose:
+    - In **KK-ADD-10**, the question opens when a combo is **new or has grown in points** instead — see [KK-ADD-10](rulesets/kk-add-10.md#when-the-koi-koi-screen-opens).
   - **Shobu** (stop): the round ends and you score the award.
   - **Koi-Koi** (continue): play carries on, and you aim to score more. Your Koi-Koi call is recorded for the round.
 - If your score has **not** gone up, there is no prompt and play passes to the other player.

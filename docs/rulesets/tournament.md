@@ -26,7 +26,10 @@ Piles without a Viewing score identically under both rule sets.
 
 ## Example
 
-You capture Curtain, Moon, and the Sake Cup. Under Nintendo that is Hanami-zake and Tsukimi-zake, 10 points. Under Tournament the three cards score **0** as a combo. The Sake Cup still counts as one animal toward Tane.
+You capture Curtain, Moon, and the Sake Cup:
+
+![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-thumb }
+ Under Nintendo that is Hanami-zake and Tsukimi-zake, 10 points. Under Tournament the three cards score **0** as a combo. The Sake Cup still counts as one animal toward Tane.
 
 ## Related
 

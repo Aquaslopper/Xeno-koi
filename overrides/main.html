@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{# Deus banner at the top of every page. It is a plain <img> on purpose:
+   it shows even if the stylesheets are cached or fail to load.
+   Style: docs/stylesheets/deus-theme.css.
+   Image: docs/assets/deus-bg.webp (from assets/deus.png). #}
+{% block hero %}
+<div class="deus-hero"><img src="{{ 'assets/deus-bg.webp' | url }}" alt="" width="1280" height="720"></div>
+{% endblock %}

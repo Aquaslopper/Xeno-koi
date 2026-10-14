@@ -36,6 +36,17 @@ The generator compiles `tools/wiki_tables.c` against the real `src/cards.c` and 
 
 Run the generator whenever you change scoring, cards, or opponents. CI runs `--check` and fails if the docs are stale.
 
+## Card images
+
+The card pictures come from the game's own art (`assets/atlas.png`). They are cut into one small file per card by:
+
+```bash
+python3 tools/make_card_images.py          # needs Pillow
+python3 tools/make_card_images.py --check  # exit 1 if an image is missing
+```
+
+The images live in `docs/assets/cards/` and are named by card ID (`card-00.webp` to `card-47.webp`, plus `back.webp`). Generated tables link them automatically; hand-written pages link them with the `card-thumb`, `card-mini`, or `card-tiny` styles from `docs/stylesheets/cards.css`. Never edit the thumbnails by hand — rerun the script.
+
 ## Previewing locally
 
 ```bash

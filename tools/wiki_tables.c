@@ -64,10 +64,25 @@ static int find_yaku_points(const ScoreResult *sr, YakuId id) {
     return -1;
 }
 
+/* One card thumbnail. Images are cut from assets/atlas.png by
+ * tools/make_card_images.py into docs/assets/cards/card-<id>.webp.
+ * `prefix` is the relative path from the page using the fragment. */
+static void print_card_img(const char *prefix, int id, const char *cls) {
+    printf("![%s](%scard-%02d.webp){ .%s }", CARDS[id].name, prefix, id, cls);
+}
+
+/* A row of card thumbnails for a capture pile. */
+static void print_pile_imgs(const char *prefix, const int *pile, int n, const char *cls) {
+    for (int i = 0; i < n; i++) {
+        if (i) putchar(' ');
+        print_card_img(prefix, pile[i], cls);
+    }
+}
+
 static void frag_cards(void) {
     puts("@@FRAGMENT cards");
-    puts("| ID | Month | Card | Type | Special |");
-    puts("|---:|---|---|---|---|");
+    puts("| ID | Card image | Month | Card | Type | Special |");
+    puts("|---:|---|---|---|---|---|");
     for (int i = 0; i < 48; i++) {
         const Card *c = &CARDS[i];
         const char *sp = "";
@@ -75,8 +90,10 @@ static void frag_cards(void) {
         if (c->flags & CARD_FLAG_CUP)    sp = "Sake Cup";
         if (c->flags & CARD_FLAG_POETRY) sp = "Poetry ribbon";
         if (c->flags & CARD_FLAG_BLUE)   sp = "Blue ribbon";
-        printf("| %d | %s | %s | %s | %s |\n",
-               c->id, MONTH_NAMES[c->month - 1], c->name, TYPE_NAMES[c->type], sp);
+        printf("| %d | ", c->id);
+        print_card_img("../assets/cards/", i, "card-thumb");
+        printf(" | %s | %s | %s | %s |\n",
+               MONTH_NAMES[c->month - 1], c->name, TYPE_NAMES[c->type], sp);
     }
     puts("");
     printf("**Composition check (from `cards_validate()` invariants):** 5 Brights, 9 Animals, 10 Ribbons, 24 Plains = 48 cards.\n");
@@ -118,10 +135,12 @@ static void frag_yaku_values(void) {
     puts("@@FRAGMENT yaku-values");
     puts("Points each yaku scores **with the exact capture pile listed** (evaluated by the engine's own `score_captures()`):");
     puts("");
-    puts("| Yaku | Capture pile | Nintendo | FudaWiki | KK-ADD-10 | Tournament | Yakuza |");
-    puts("|---|---|---:|---:|---:|---:|---:|");
+    puts("| Yaku | Capture pile | Cards | Nintendo | FudaWiki | KK-ADD-10 | Tournament | Yakuza |");
+    puts("|---|---|---|---:|---:|---:|---:|---:|");
     for (unsigned r = 0; r < sizeof(rows) / sizeof(rows[0]); r++) {
         printf("| **%s** | %s | ", yaku_name_of(rows[r].id), rows[r].pile_desc);
+        print_pile_imgs("../assets/cards/", rows[r].pile, rows[r].n, "card-mini");
+        printf(" | ");
         for (int rs = 0; rs < 5; rs++) {
             ScoreResult sr = score_captures((Ruleset)rs, rows[r].pile, rows[r].n);
             int pts = find_yaku_points(&sr, rows[r].id);
@@ -166,10 +185,12 @@ static void frag_stacking(void) {
     puts("@@FRAGMENT stacking");
     puts("How counting yaku and special sets stack, per ruleset (same engine evaluation):");
     puts("");
-    puts("| Capture pile | Nintendo | FudaWiki | KK-ADD-10 | Tournament | Yakuza |");
-    puts("|---|---|---|---|---|---|");
+    puts("| Capture pile | Cards | Nintendo | FudaWiki | KK-ADD-10 | Tournament | Yakuza |");
+    puts("|---|---|---|---|---|---|---|");
     for (unsigned r = 0; r < sizeof(rows) / sizeof(rows[0]); r++) {
         printf("| %s | ", rows[r].desc);
+        print_pile_imgs("../assets/cards/", rows[r].pile, rows[r].n, "card-tiny");
+        printf(" | ");
         for (int rs = 0; rs < 5; rs++) {
             print_score_cell((Ruleset)rs, rows[r].pile, rows[r].n);
         }
@@ -287,8 +308,9 @@ static void frag_opponents(void) {
     for (int i = 0; i <= 12; i++) {
         const Opponent *o = campaign_get_opponent(i);
         const Card *fc = &CARDS[o->favorite_card_id];
-        printf("| %d | **%s** | %s | %s (id %d) | %s |\n",
-               i, o->name, o->title, fc->name, o->favorite_card_id, o->favorite_combo);
+        printf("| %d | **%s** | %s | ", i, o->name, o->title);
+        print_card_img("../assets/cards/", o->favorite_card_id, "card-mini");
+        printf(" %s (id %d) | %s |\n", fc->name, o->favorite_card_id, o->favorite_combo);
     }
     puts("");
     puts("Taunt lines:");

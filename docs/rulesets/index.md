@@ -26,6 +26,10 @@ The Options screen changes the ruleset for future matches. Deus Supremus always 
 | Koi-Koi calls per player per round | 1 (then forced Shobu) | Unlimited | Unlimited | 1 (then forced Shobu) | 1 (then forced Shobu) |
 | Dealer's Privilege (draw pays dealer 6) | No | No | No | No | **Yes** |
 
+The five Brights that the Goko / Sanko rows above are about:
+
+![01-B Crane](../assets/cards/card-00.webp){ .card-thumb } ![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![11-B Rainman](../assets/cards/card-40.webp){ .card-thumb } ![12-B Phoenix](../assets/cards/card-44.webp){ .card-thumb }
+
 *"Replaced by sets" means the set score and the counted score are never added together. The higher one is used.*
 
 ## How the differences were verified

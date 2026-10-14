@@ -101,6 +101,7 @@ void engine_start_round(GameState *g) {
         g->pending_card = -1;
         g->last_base[0] = 0;
         g->last_base[1] = 0;
+        memset(g->last_yaku_points, 0, sizeof(g->last_yaku_points));
         g->koi_called[0] = 0;
         g->koi_called[1] = 0;
         memset(&g->current_round_record, 0, sizeof(g->current_round_record));
@@ -368,10 +369,15 @@ static int apply_shobu(GameState *g) {
     return 1;
 }
 
+/* KK-ADD-10: Koi-Koi screen triggered by combos, not total score (rules.c). */
+static int combo_triggered(GameState *g, int p) {
+    if (g->ruleset == RULESET_KK_ADD_10) return yaku_new_or_grown(g->ruleset, g->captured[p], g->captured_count[p], g->last_yaku_points[p]);
+    return score_captures_base(g->ruleset, g->captured[p], g->captured_count[p]) > g->last_base[p];
+}
+
 static int finish_stock_turn(GameState *g) {
     int p = g->current_player;
-    int base = score_captures_base(g->ruleset, g->captured[p], g->captured_count[p]);
-    if (base > g->last_base[p]) {
+    if (combo_triggered(g, p)) {
         if (g->hand_count[p] == 0) {
             return apply_shobu(g);
         }
@@ -472,6 +478,7 @@ int engine_decide(GameState *g, DecisionType decision) {
     } else {
         int p = g->current_player;
         g->last_base[p] = score_captures_base(g->ruleset, g->captured[p], g->captured_count[p]);
+        yaku_snapshot(g->ruleset, g->captured[p], g->captured_count[p], g->last_yaku_points[p]);
         g->koi_called[p]++;
         g->match_koi_calls[p]++;
         return advance_after_turn(g);
