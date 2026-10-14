@@ -1,3 +1,4 @@
+/* Guard live-verification marker: owner PR touching a protected file. */
 #include "rules.h"
 #include <string.h>
 
