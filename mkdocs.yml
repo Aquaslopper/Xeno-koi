@@ -48,6 +48,8 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  # Standalone WASM output, added by docs.yml after the wiki build.
+  - Play: /Xeno-koi/play/
   - How to Play: how-to-play.md
   - Rulesets:
       - Overview: rulesets/index.md
