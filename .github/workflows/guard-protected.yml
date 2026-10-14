@@ -8,15 +8,14 @@ name: Guard protected mechanics
 #   * pull_request_target — GitHub runs the copy of this workflow that lives on
 #     the base branch (trusted) with a read/write token. This is the run that
 #     produces the required check name "guard", and the only one that may block
-#     a merge. It also posts the sticky comment on fork pull requests.
-#   * pull_request — runs the copy of this workflow that lives in the pull
-#     request (untrusted, a PR can rewrite it) and reports "guard-preview".
-#     Informational only: it can never satisfy the required check, so editing
-#     this file in a fork cannot switch the guard off.
-#
-# No PR code is checked out or executed: the workflow checks out the reviewed
-# base commit, and tools/guard_protected.sh only runs git commands against git
-# objects (see that script for the details).
+#     a merge. It checks out the reviewed base commit and never the pull request
+#     head, so no code from a fork is executed or modified. It also posts the
+#     sticky comment on fork pull requests.
+#   * pull_request — reports "guard-preview" from the pull request's own tree
+#     (the workflow file and the script come from the pull request, so the run
+#     is untrusted and informational only). It gives contributors feedback
+#     before the trusted run finishes and can never satisfy the required check:
+#     editing the guard in a fork cannot switch enforcement off.
 
 on:
   pull_request:
@@ -36,10 +35,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout base commit (never the pull request head)
+      - name: Checkout reviewed base commit (trusted run, never the PR head)
+        if: github.event_name == 'pull_request_target'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Checkout pull request tree (preview run, untrusted)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
           fetch-depth: 0
 
       - name: Audit protected mechanics
@@ -54,7 +60,17 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REPO: ${{ github.repository }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-        run: bash tools/guard_protected.sh
+        run: |
+          if [ -f tools/guard_protected.sh ]; then
+            bash tools/guard_protected.sh
+          elif [ "$EVENT_NAME" = "pull_request_target" ]; then
+            echo "::error::tools/guard_protected.sh is missing from the reviewed base commit — the guard cannot run."
+            echo "fail=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::tools/guard_protected.sh is missing from this pull request — preview audit skipped."
+            echo "fail=false" >> "$GITHUB_OUTPUT"
+            echo "comment=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Sticky comment (protected zones, non-owner)
         if: steps.guard.outputs.comment == 'true'

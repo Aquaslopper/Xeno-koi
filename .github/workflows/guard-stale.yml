@@ -10,11 +10,10 @@ name: Guard stale protected revert
 #
 #   * pull_request_target — the base-branch copy of this workflow and of
 #     tools/guard_stale.sh (trusted) with a read/write token; produces the
-#     required check name "stale".
-#   * pull_request — the pull request's own copy; reports "stale-preview"
-#     (informational only, never satisfies the required check).
-#
-# Only git objects are read: no PR code is checked out or executed.
+#     required check name "stale". It checks out the reviewed base commit and
+#     only reads git objects, never pull request code.
+#   * pull_request — reports "stale-preview" from the pull request's own tree
+#     (untrusted, informational only, never satisfies the required check).
 
 on:
   pull_request:
@@ -34,10 +33,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout base commit (never the pull request head)
+      - name: Checkout reviewed base commit (trusted run, never the PR head)
+        if: github.event_name == 'pull_request_target'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Checkout pull request tree (preview run, untrusted)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
           fetch-depth: 0
 
       - name: Compare protected files against main
@@ -50,7 +56,17 @@ jobs:
           BASE_REPO: ${{ github.repository }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           MAIN_REF: origin/main
-        run: bash tools/guard_stale.sh
+        run: |
+          if [ -f tools/guard_stale.sh ]; then
+            bash tools/guard_stale.sh
+          elif [ "$EVENT_NAME" = "pull_request_target" ]; then
+            echo "::error::tools/guard_stale.sh is missing from the reviewed base commit — the guard cannot run."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::tools/guard_stale.sh is missing from this pull request — preview audit skipped."
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+            echo "comment=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Sticky comment (stale branch)
         if: steps.stale.outputs.comment == 'true'
