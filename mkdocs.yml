@@ -1,0 +1,62 @@
+site_name: Xeno Koi Wiki
+site_description: Rules, rule sets, scoring and reference for Xeno Koi, a Koi-Koi (Hanafuda) game.
+site_url: https://aquaslopper.github.io/Xeno-koi/
+repo_url: https://github.com/Aquaslopper/Xeno-koi
+repo_name: Aquaslopper/Xeno-koi
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+strict: true
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: black
+      accent: green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: teal
+      accent: green
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - How to Play: how-to-play.md
+  - Rulesets:
+      - Overview: rulesets/index.md
+      - Nintendo: rulesets/nintendo.md
+      - FudaWiki: rulesets/fudawiki.md
+      - KK-ADD-10: rulesets/kk-add-10.md
+      - Tournament: rulesets/tournament.md
+      - Yakuza: rulesets/yakuza.md
+  - Scoring:
+      - Yaku & Scoring: scoring/yaku.md
+      - Multipliers & Awards: scoring/multipliers.md
+  - Reference:
+      - Cards: reference/cards.md
+      - Opponents: reference/opponents.md
+      - Modes, Difficulty & Settings: reference/modes.md
+  - Errata & Known Issues: errata.md
+  - About these docs: about-the-docs.md
