@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 extern Font font_title;
 extern Font font_body;
@@ -212,8 +215,17 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     draw_slider(428, s->bgm_volume, "BGM Volume:", TextFormat("%d%%", (int)(s->bgm_volume * 100.0f + 0.5f)), vm);
     draw_slider(464, s->sfx_volume, "SFX Volume:", TextFormat("%d%%", (int)(s->sfx_volume * 100.0f + 0.5f)), vm);
 
+#ifdef __EMSCRIPTEN__
+    /* The web shell owns fullscreen in the browser build, so show the browser's
+       real state here rather than the saved desktop preference (which is
+       ignored there, see ui_main.c). */
+    int fs_active = EM_ASM_INT({ return (window.XenoKoiFullscreen && window.XenoKoiFullscreen.active()) ? 1 : 0; });
+    const char *fs_names[2] = { "WINDOWED", "FULLSCREEN" };
+    draw_selector_row(500.0f, "Fullscreen:", fs_names[fs_active ? 1 : 0], 15, COLOR_TEXT_INFO, vm);
+#else
     const char *fs_names[2] = { "WINDOWED", "BORDERLESS" };
     draw_selector_row(500.0f, "Fullscreen:", fs_names[s->fullscreen ? 1 : 0], 15, COLOR_TEXT_INFO, vm);
+#endif
     const char *bl_names[3] = { "OFF", "MID", "FULL" };
     draw_selector_row(536.0f, "Bloom Effect:", bl_names[s->bloom % 3], 15, (s->bloom > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM, vm);
     const char *crt_names[4] = { "0: OFF", "1: LOW", "2: MID", "3: HIGH" };
@@ -266,7 +278,16 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 428, 34, 26 })) { s->bgm_volume = fminf(1.0f, s->bgm_volume + 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 464, 34, 26 })) { s->sfx_volume = fmaxf(0.0f, s->sfx_volume - 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 464, 34, 26 })) { s->sfx_volume = fminf(1.0f, s->sfx_volume + 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
-    else if (check_selector_click(vm, 500.0f) != 0) { s->fullscreen = 1 - s->fullscreen; ToggleBorderlessWindowed(); if (audio) audio_play_click(audio); }
+    else if (check_selector_click(vm, 500.0f) != 0) {
+#ifdef __EMSCRIPTEN__
+        /* Same switch as the page's [ FULLSCREEN ] button. Works while the game
+           is fullscreen too, which is the only in-game way back out. */
+        EM_ASM({ if (window.XenoKoiFullscreen) window.XenoKoiFullscreen.toggle(); });
+#else
+        s->fullscreen = 1 - s->fullscreen; ToggleBorderlessWindowed();
+#endif
+        if (audio) audio_play_click(audio);
+    }
     else if ((dir = check_selector_click(vm, 536.0f)) != 0) { s->bloom = (s->bloom + 3 + dir) % 3; if (audio) audio_play_click(audio); }
     else if ((dir = check_selector_click(vm, 572.0f)) != 0) { s->crt_filter = (s->crt_filter + 4 + dir) % 4; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 608, 34, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }

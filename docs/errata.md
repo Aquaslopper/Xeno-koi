@@ -32,6 +32,8 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 3. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
 4. **Repository test step.** `build.sh test` expects `tests/test_engine.c`, which is not in this repository, so the engine test step is skipped.
 5. **Deus logic.** The Deus difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
+6. **The browser build hands fullscreen to the page, not the game.** On desktop, Options → Fullscreen calls raylib's `ToggleBorderlessWindowed()`. On web that call resolves to Emscripten's `Module.requestFullscreen()`, which moves the canvas into a throwaway parent `<div>`, resizes it towards monitor device pixels and leaves its inline CSS size set. The canvas CSS box then no longer matches the size raylib sizes to the window, so the game is drawn offset and clicks land in the wrong place. The web shell now owns fullscreen: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas through `XenoKoiFullscreen` in `web/shell.html`, and `settings.fullscreen` is ignored and cleared on load in the browser build. A `fullscreen=1` saved by an earlier web session is therefore harmless.
+   Browsers only grant fullscreen from a user gesture: the page button always qualifies, the in-game row works in Chrome, Firefox and Edge, and Safari may ignore the in-game row (the page button still works). `docs/reference/modes.md` describes the player-facing behaviour.
 
 ## README differences
 

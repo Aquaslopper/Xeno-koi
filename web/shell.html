@@ -56,6 +56,11 @@
             gap: 12px;
             align-items: center;
         }
+        .hud-hint {
+            color: var(--phosphor-dim);
+            font-size: 10px;
+            letter-spacing: 1.5px;
+        }
         .crt-btn {
             background: #081210;
             color: var(--phosphor);
@@ -157,6 +162,7 @@
         <div class="hud-title">[XENO // KOI] — BIOMECHANICAL TERMINAL v1.979</div>
         <div class="hud-controls">
             <span id="audio-indicator" style="color: var(--phosphor-dim);">AUDIO: STANDBY</span>
+            <span class="hud-hint">ESC TO EXIT FULLSCREEN</span>
             <button class="crt-btn" id="fullscreen-btn" type="button">[ FULLSCREEN ]</button>
         </div>
     </div>
@@ -195,13 +201,60 @@
             window.addEventListener(evt, unlockWebAudio, { passive: true });
         });
 
-        document.getElementById('fullscreen-btn').addEventListener('click', function() {
-            var elem = document.documentElement;
-            if (!document.fullscreenElement) {
-                if (elem.requestFullscreen) elem.requestFullscreen();
-            } else {
-                if (document.exitFullscreen) document.exitFullscreen();
+        /* Fullscreen owner for the browser build.
+           The game itself must never request fullscreen: raylib's web
+           ToggleBorderlessWindowed() calls Module.requestFullscreen(), which
+           moves the canvas into a new parent div and then resizes it to monitor
+           device pixels. The canvas CSS box no longer matches the backing store
+           raylib sizes to the window, so the picture is drawn offset and clicks
+           land in the wrong place (see docs/errata.md). Everything here
+           fullscreens the canvas itself, which leaves the DOM alone, so the
+           canvas box keeps matching the window and raylib's own resize
+           callback keeps the two in step. */
+        var XenoKoiFullscreen = {
+            active: function() {
+                return !!document.fullscreenElement;
+            },
+            toggle: function() {
+                var canvas = document.getElementById('canvas');
+                if (!canvas) return;
+                if (document.fullscreenElement) {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                    return;
+                }
+                if (canvas.requestFullscreen) {
+                    var p = canvas.requestFullscreen();
+                    /* A browser can refuse the request (no user gesture, most
+                       likely). Nothing breaks: the game stays windowed. */
+                    if (p && p.catch) p.catch(function(err) {
+                        console.warn('[XENO/KOI] fullscreen request refused: ' + err);
+                    });
+                }
             }
+        };
+        window.XenoKoiFullscreen = XenoKoiFullscreen;
+
+        document.getElementById('fullscreen-btn').addEventListener('click', function() {
+            XenoKoiFullscreen.toggle();
+        });
+
+        document.addEventListener('fullscreenchange', function() {
+            var canvas = document.getElementById('canvas');
+            var frame = document.getElementById('viewport-container');
+            /* Defensive only: if anything out there re-parented the canvas (an
+               older build calling Module.requestFullscreen did), put it back and
+               drop the inline size so the stylesheet rules apply again. Never
+               touch a canvas that is itself the fullscreen element: moving a
+               fullscreen element exits fullscreen. */
+            if (canvas && frame && document.fullscreenElement !== canvas && canvas.parentNode !== frame) {
+                frame.insertBefore(canvas, frame.firstChild);
+                canvas.style.removeProperty('width');
+                canvas.style.removeProperty('height');
+            }
+            /* The viewport just changed. Nudge raylib so it re-reads the window
+               size and sizes its canvas backing store to match. */
+            window.dispatchEvent(new Event('resize'));
+            if (canvas) canvas.focus();
         });
 
         var Module = {

@@ -438,7 +438,19 @@ int main(int argc, char **argv) {
     SetWindowMinSize(960, 540); SetTargetFPS(60);
 
     storage_load_settings(&settings);
+#ifdef __EMSCRIPTEN__
+    /* The browser build does not use raylib's fullscreen mode. On web,
+       ToggleBorderlessWindowed() resolves to Module.requestFullscreen(), which
+       re-parents the canvas and resizes its CSS box to monitor device pixels,
+       leaving it out of step with the backing store raylib sizes to the window:
+       the game is drawn offset and clicks land in the wrong place. The web
+       shell owns fullscreen instead (see web/shell.html, docs/errata.md), so
+       ignore whatever the settings file says. This also self-heals a
+       fullscreen=1 saved by an earlier web session. */
+    settings.fullscreen = 0;
+#else
     if (settings.fullscreen == 1) ToggleBorderlessWindowed();
+#endif
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
     canvas = LoadRenderTexture(CANVAS_W, CANVAS_H); SetTextureFilter(canvas.texture, TEXTURE_FILTER_BILINEAR);
