@@ -166,7 +166,7 @@ const Card CARDS[48] = {
     { 44, 12, 0, CARD_TYPE_BRIGHT, CARD_FLAG_NONE,  20, "12-B Phoenix" },
     { 45, 12, 1, CARD_TYPE_PLAIN,  CARD_FLAG_NONE,   1, "12-P1 Plain" },
     { 46, 12, 2, CARD_TYPE_PLAIN,  CARD_FLAG_NONE,   1, "12-P2 Plain" },
-    { 47, 12, 3, CARD_TYPE_PLAIN,  CARD_FLAG_NONE,   1, "12-P2 Plain" }
+    { 47, 12, 3, CARD_TYPE_PLAIN,  CARD_FLAG_NONE,   1, "12-P3 Plain" }
 };
 
 int cards_validate(void) {

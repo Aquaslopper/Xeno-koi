@@ -177,7 +177,8 @@ void storage_load_stats(GameStats *st) {
             else if (strcmp(k, "rounds_won_cpu") == 0) st->rounds_won_cpu = val;
             else if (strcmp(k, "points_for") == 0) st->points_for = val;
             else if (strcmp(k, "points_against") == 0) st->points_against = val;
-            else if (strcmp(k, "best_award") == 0 || strcmp(k, "highest_round_score") == 0) st->best_award = val;
+            else if (strcmp(k, "highest_round_score") == 0) st->highest_round_score = val;
+            else if (strcmp(k, "best_award") == 0) st->best_award = val;
             else if (strcmp(k, "koi_calls_you") == 0) st->koi_calls_you = val;
             else if (strcmp(k, "koi_calls_cpu") == 0) st->koi_calls_cpu = val;
             else if (strcmp(k, "easy_matches") == 0) st->easy_matches = val;
@@ -235,7 +236,7 @@ void storage_save_stats(const GameStats *st) {
              "favorite_combo=%s\n",
              st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
              st->rounds_won_you, st->rounds_won_cpu, st->points_for, st->points_against,
-             st->best_award, st->best_award,
+             st->highest_round_score, st->best_award,
              st->koi_calls_you, st->koi_calls_cpu,
              st->easy_matches, st->hard_matches,
              st->current_streak, st->best_streak, st->best_streak,
@@ -316,6 +317,7 @@ void storage_write_report(const GameStats *st, const MatchHistory *h) {
              "  Rounds Won:          YOU %d | CPU %d\n"
              "  Total Points:        FOR %d | AGAINST %d\n"
              "  Highest Round Score: %d pts\n"
+             "  Best Award (Best Win): %d pts\n"
              "  Koi-Koi Calls:       YOU %d | CPU %d\n\n"
              "DIFFICULTY & STREAKS\n"
              "  Easy / Hard:         %d / %d\n"
@@ -325,7 +327,7 @@ void storage_write_report(const GameStats *st, const MatchHistory *h) {
              "LAST 10 MATCHES\n",
              st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
              win_rate, st->rounds_won_you, st->rounds_won_cpu,
-             st->points_for, st->points_against, st->best_award,
+             st->points_for, st->points_against, st->highest_round_score, st->best_award,
              st->koi_calls_you, st->koi_calls_cpu,
              st->easy_matches, st->hard_matches,
              st->current_streak, st->best_streak,
@@ -358,10 +360,11 @@ void storage_record_match(const GameState *g, const GameSettings *s, GameStats *
     const char *outcome = (you > cpu) ? (st->matches_won++, st->current_streak++, "WIN") :
                           (you < cpu) ? (st->matches_lost++, st->current_streak = 0, "LOSS") : (st->matches_drawn++, "DRAW");
     if (st->current_streak > st->best_streak) st->best_streak = st->current_streak;
+    if (you > cpu && you > st->best_award) st->best_award = you;
     for (int i = 0; i < g->ledger_count; i++) {
         if (g->ledger[i].winner == 0) st->rounds_won_you++;
         else if (g->ledger[i].winner == 1) st->rounds_won_cpu++;
-        if (g->ledger[i].award > st->best_award) st->best_award = g->ledger[i].award;
+        if (g->ledger[i].award > st->highest_round_score) st->highest_round_score = g->ledger[i].award;
     }
     for (int y = 0; y < YAKU_COUNT; y++) st->yaku_counts[y] += g->human_yaku_counts[y];
     st->koi_calls_you += g->match_koi_calls[0]; st->koi_calls_cpu += g->match_koi_calls[1];

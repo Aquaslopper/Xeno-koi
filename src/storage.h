@@ -31,7 +31,8 @@ typedef struct {
     int rounds_won_cpu;
     int points_for;
     int points_against;
-    int best_award;
+    int best_award;        /* Best win (highest total score in a match won) */
+    int highest_round_score; /* Highest single-round awarded score */
     int koi_calls_you;
     int koi_calls_cpu;
     int easy_matches;

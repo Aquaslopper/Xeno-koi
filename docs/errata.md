@@ -28,19 +28,14 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 ## Known issues
 
 1. **Deus Supremus is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.
-2. **Card 47 has the same label as card 46** (`12-P2 Plain`). The card is a plain, so scoring is correct, but the label is wrong and should probably read `12-P3 Plain`. The cards table on the [Cards](reference/cards.md) page shows the current label.
+2. **Card 47 label fixed.** It now reads `12-P3 Plain` (was `12-P2 Plain`, duplicating card 46). Scoring was never affected.
 3. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
 4. **Repository test step.** `build.sh test` expects `tests/test_engine.c`, which is not in this repository, so the engine test step is skipped.
 5. **Deus logic.** The Deus difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
 
 ## README differences
 
-The README's ruleset summary is mostly accurate, with two gaps:
-
-- The **Yakuza** entry does not mention that Viewings are disabled. Yakuza uses Tournament scoring.
-- The **Tournament** entry does not mention that Yakuza also disables Viewings.
-
-The README's description of the streak multiplier matches the code.
+The README's ruleset summary now states that Viewings are disabled in both Tournament and Yakuza, and that Yakuza uses Tournament scoring. The README's description of the streak multiplier matches the code.
 
 ## Verified against the code
 
