@@ -7,6 +7,8 @@ Built in pure C99 and Raylib, featuring custom GLSL shaders, procedural particle
 
 <img width="1920" height="1080" alt="des" src="https://github.com/user-attachments/assets/bb6ee598-940e-46f9-ab39-6cf9941d9260" />
 
+📖 **Wiki:** how to play, every rule set, scoring tables, cards and opponents. Read it at [aquaslopper.github.io/Xeno-koi](https://aquaslopper.github.io/Xeno-koi/) or browse the source in [`docs/`](docs/).
+
 ## Overview
 **Xeno Koi** is a digital adaptation of the traditional Japanese card game Koi-Koi, wrapped in a dark, HR Giger-inspired biomechanical aesthetic and a 1979 CRT terminal UI. 
 
