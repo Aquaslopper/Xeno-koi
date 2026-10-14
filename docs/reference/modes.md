@@ -45,7 +45,14 @@ These settings are saved in `settings.txt` next to the game:
 | Gamma | 0.5 to 2.0 |
 | Music and effects volume | 0.0 to 1.0 |
 | Animation speed | Slow, Normal, Fast |
-| Fullscreen | Windowed, Borderless |
+| Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) |
+
+### Fullscreen
+
+- **Desktop builds:** the Options row switches the game between Windowed and Borderless, and the choice is saved with your other settings.
+- **Browser build:** fullscreen belongs to the **page**, not the game. Use the **[ FULLSCREEN ]** button in the bar above the game, or the Options row inside the game — both do the same thing and both read back the browser's real state. The game canvas fills the screen with no browser chrome around it.
+- To leave fullscreen, press **Esc**. The in-game Options row works as an exit too, which matters because the page bar is not visible while the canvas is fullscreen.
+- While fullscreen is active, **Esc leaves fullscreen instead of opening the pause menu.** Leave fullscreen first, then press Esc again to pause.
 
 ## Stats and history
 
