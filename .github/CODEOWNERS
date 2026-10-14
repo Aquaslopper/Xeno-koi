@@ -1,0 +1,46 @@
+# Core game protection - owner must review
+# Rules, scoring, points & multiplier, Koi-Koi trigger
+/src/rules.c @Aquaslopper
+/src/rules.h @Aquaslopper
+/src/engine.c @Aquaslopper
+/src/engine.h @Aquaslopper
+/src/cards.c @Aquaslopper
+/src/cards.h @Aquaslopper
+/tools/wiki_tables.c @Aquaslopper
+/tools/test_koikoi_trigger.c @Aquaslopper
+/tools/make_card_images.py @Aquaslopper
+
+# Settings, Deus, difficulties (Easy/Hard/Master/Deus)
+/src/campaign.c @Aquaslopper
+/src/campaign.h @Aquaslopper
+/src/storage.c @Aquaslopper
+/src/storage.h @Aquaslopper
+/src/ai.c @Aquaslopper
+/src/ai.h @Aquaslopper
+
+# Cards, Atlas, art source
+/assets/atlas.png @Aquaslopper
+/assets/atlas_deus.png @Aquaslopper
+/assets/back.png @Aquaslopper
+/assets/deus.png @Aquaslopper
+/assets/*.jpg @Aquaslopper
+/src/cards.* @Aquaslopper
+/docs/assets/cards/ @Aquaslopper
+/docs/assets/deus-bg.webp @Aquaslopper
+
+# Rulesets, scoring, wiki, docs
+/docs/rulesets/ @Aquaslopper
+/docs/scoring/ @Aquaslopper
+/docs/reference/ @Aquaslopper
+/docs/how-to-play.md @Aquaslopper
+/docs/index.md @Aquaslopper
+/docs/about-the-docs.md @Aquaslopper
+/mkdocs.yml @Aquaslopper
+/overrides/ @Aquaslopper
+/docs/stylesheets/ @Aquaslopper
+
+# Base core mechanic - Koi-Koi screen, points, multiplier UI
+/src/ui_screens.c @Aquaslopper
+/src/ui_board_status.c @Aquaslopper
+/src/board_layout.c @Aquaslopper
+/src/board_layout.h @Aquaslopper

@@ -1,0 +1,124 @@
+name: Guard protected mechanics
+
+on:
+  pull_request:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    # Owner can bypass - only check non-owners
+    if: github.actor != 'Aquaslopper'
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect protected file changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          list-files: shell
+          filters: |
+            rules:
+              - 'src/rules.*'
+              - 'src/engine.*'
+              - 'src/cards.*'
+              - 'tools/wiki_tables.c'
+              - 'tools/test_koikoi_trigger.c'
+              - 'docs/rulesets/**'
+              - 'docs/scoring/**'
+            settings:
+              - 'src/campaign.*'
+              - 'src/storage.*'
+              - 'src/ai.*'
+            cards_atlas:
+              - 'assets/atlas.png'
+              - 'assets/atlas_deus.png'
+              - 'assets/back.png'
+              - 'assets/deus.png'
+              - 'assets/*.jpg'
+              - 'docs/assets/cards/**'
+              - 'docs/assets/deus-bg.webp'
+              - 'tools/make_card_images.py'
+            wiki:
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'overrides/**'
+            core_mechanic:
+              - 'src/ui_screens.c'
+              - 'src/ui_board_status.c'
+              - 'src/board_layout.*'
+              - 'src/rules.c'
+              - 'src/engine.c'
+
+      - name: Build protected summary
+        id: summary
+        if: steps.filter.outputs.rules == 'true' || steps.filter.outputs.settings == 'true' || steps.filter.outputs.cards_atlas == 'true' || steps.filter.outputs.wiki == 'true' || steps.filter.outputs.core_mechanic == 'true'
+        run: |
+          echo "protected=true" >> $GITHUB_OUTPUT
+          {
+            echo "### ⚠️ Protected areas touched"
+            echo ""
+            echo "This PR modifies files locked per \`AGENTS.md\` and \`CODEOWNERS\`. Core rules, settings, cards/atlas, rulesets, wiki and Koi-Koi/points/multiplier mechanics require owner review."
+            echo ""
+            if [ "${{ steps.filter.outputs.rules }}" == "true" ]; then
+              echo "**Rules / Scoring:**"
+              echo '```'
+              echo "${{ steps.filter.outputs.rules_files }}"
+              echo '```'
+            fi
+            if [ "${{ steps.filter.outputs.settings }}" == "true" ]; then
+              echo "**Settings / Deus / Easy-Hard:**"
+              echo '```'
+              echo "${{ steps.filter.outputs.settings_files }}"
+              echo '```'
+            fi
+            if [ "${{ steps.filter.outputs.cards_atlas }}" == "true" ]; then
+              echo "**Cards / Atlas:**"
+              echo '```'
+              echo "${{ steps.filter.outputs.cards_atlas_files }}"
+              echo '```'
+            fi
+            if [ "${{ steps.filter.outputs.wiki }}" == "true" ]; then
+              echo "**Wiki / Rulesets:**"
+              echo '```'
+              echo "${{ steps.filter.outputs.wiki_files }}"
+              echo '```'
+            fi
+            if [ "${{ steps.filter.outputs.core_mechanic }}" == "true" ]; then
+              echo "**Core mechanic (Koi-Koi screen, points, multiplier):**"
+              echo '```'
+              echo "${{ steps.filter.outputs.core_mechanic_files }}"
+              echo '```'
+            fi
+            echo ""
+            echo "If your change is WASM-only, please rebase onto latest \`main\` and keep \`src/rules.c\`, \`src/engine.c\`, \`src/cards.c\`, \`src/campaign.c\`, \`src/storage.c\`, \`src/ai.c\`, \`docs/rulesets/\`, \`assets/atlas.png\`, \`docs/\` intact."
+          } > /tmp/body.md
+          cat /tmp/body.md
+
+      - name: Comment on PR
+        if: steps.summary.outputs.protected == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: guard-protected
+          path: /tmp/body.md
+
+      - name: Fail if protected touched
+        if: steps.summary.outputs.protected == 'true'
+        run: |
+          echo "::error::Protected mechanics changed. See comment for list. Needs owner approval per AGENTS.md / CODEOWNERS."
+          echo "Rules files: ${{ steps.filter.outputs.rules_files }}"
+          echo "Settings files: ${{ steps.filter.outputs.settings_files }}"
+          echo "Cards/Atlas files: ${{ steps.filter.outputs.cards_atlas_files }}"
+          echo "Wiki files: ${{ steps.filter.outputs.wiki_files }}"
+          echo "Core mechanic files: ${{ steps.filter.outputs.core_mechanic_files }}"
+          exit 1
