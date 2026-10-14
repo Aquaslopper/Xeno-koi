@@ -73,7 +73,7 @@ jobs:
             if [ "${{ steps.filter.outputs.core_mechanic }}" == "true" ]; then echo "**Core:**"; echo '```'; echo "${{ steps.filter.outputs.core_mechanic_files }}"; echo '```'; fi
           } > /tmp/body.md
       - name: Comment
-        if: steps.summary.outputs.protected == 'true' && github.actor != 'Aquaslopper'
+        if: steps.summary.outputs.protected == 'true' && github.actor != 'Aquaslopper' && (github.event_name == 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: guard-protected
@@ -83,5 +83,6 @@ jobs:
         run: |
           echo "::error::Protected mechanics changed by non-owner"
           exit 1
+      - name: Pass for owner or no protected changes
         if: steps.summary.outputs.protected != 'true' || github.actor == 'Aquaslopper'
         run: echo "No protected changes by non-owner, or owner bypass — OK"
