@@ -3,9 +3,9 @@
 **A Biomechanical, Atmospheric Hanafuda (Koi-Koi) Engine.**
 Built in pure C99 and Raylib, featuring custom GLSL shaders, procedural particle effects, and a rigorous state-machine architecture.
 
-<img <img width="1920" height="1080" alt="gameplay" src="https://github.com/user-attachments/assets/052da3fa-ed94-4e25-93ef-65a273144701" /> />(gameplay.png) 
+<img width="1920" height="1080" alt="es" src="https://github.com/user-attachments/assets/c48a1bdd-9f0c-4530-ba30-5332710876fd" /> 
 
-<img <img width="1920" height="1080" alt="gameplay2" src="https://github.com/user-attachments/assets/660dfe4b-fbef-4d55-8394-02667299f825" /> />(gameplay2.png)
+<img width="1920" height="1080" alt="des" src="https://github.com/user-attachments/assets/bb6ee598-940e-46f9-ab39-6cf9941d9260" />
 
 ## Overview
 **Xeno Koi** is a digital adaptation of the traditional Japanese card game Koi-Koi, wrapped in a dark, HR Giger-inspired biomechanical aesthetic and a 1979 CRT terminal UI. 
