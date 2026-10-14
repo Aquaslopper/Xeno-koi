@@ -13,8 +13,6 @@ permissions:
 jobs:
   guard:
     runs-on: ubuntu-latest
-    # Owner can bypass - only check non-owners
-    if: github.actor != 'Aquaslopper'
     steps:
       - name: Checkout base
         uses: actions/checkout@v4
@@ -106,14 +104,14 @@ jobs:
           cat /tmp/body.md
 
       - name: Comment on PR
-        if: steps.summary.outputs.protected == 'true'
+        if: steps.summary.outputs.protected == 'true' && github.actor != 'Aquaslopper'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: guard-protected
           path: /tmp/body.md
 
-      - name: Fail if protected touched
-        if: steps.summary.outputs.protected == 'true'
+      - name: Fail if protected touched by non-owner
+        if: steps.summary.outputs.protected == 'true' && github.actor != 'Aquaslopper'
         run: |
           echo "::error::Protected mechanics changed. See comment for list. Needs owner approval per AGENTS.md / CODEOWNERS."
           echo "Rules files: ${{ steps.filter.outputs.rules_files }}"
@@ -122,3 +120,7 @@ jobs:
           echo "Wiki files: ${{ steps.filter.outputs.wiki_files }}"
           echo "Core mechanic files: ${{ steps.filter.outputs.core_mechanic_files }}"
           exit 1
+
+      - name: Pass for owner or no protected changes
+        if: steps.summary.outputs.protected != 'true' || github.actor == 'Aquaslopper'
+        run: echo "No protected changes by non-owner, or owner bypass — OK"
