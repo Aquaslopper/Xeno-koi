@@ -1,0 +1,74 @@
+name: Guard protected mechanics
+
+# Enforcement for the protected zones listed in .github/CODEOWNERS and
+# AGENTS.md — see docs/reference/protected-mechanics.md.
+#
+# Two triggers, on purpose:
+#
+#   * pull_request_target — GitHub runs the copy of this workflow that lives on
+#     the base branch (trusted) with a read/write token. This is the run that
+#     produces the required check name "guard", and the only one that may block
+#     a merge. It also posts the sticky comment on fork pull requests.
+#   * pull_request — runs the copy of this workflow that lives in the pull
+#     request (untrusted, a PR can rewrite it) and reports "guard-preview".
+#     Informational only: it can never satisfy the required check, so editing
+#     this file in a fork cannot switch the guard off.
+#
+# No PR code is checked out or executed: the workflow checks out the reviewed
+# base commit, and tools/guard_protected.sh only runs git commands against git
+# objects (see that script for the details).
+
+on:
+  pull_request:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guard:
+    # The trusted event gets the required check name "guard"; the PR-owned copy
+    # of this workflow only ever reports "guard-preview".
+    name: ${{ github.event_name == 'pull_request_target' && 'guard' || 'guard-preview' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout base commit (never the pull request head)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Audit protected mechanics
+        id: guard
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          TRIGGER_ACTOR: ${{ github.actor }}
+          OWNER_LOGIN: Aquaslopper
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REPO: ${{ github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: bash tools/guard_protected.sh
+
+      - name: Sticky comment (protected zones, non-owner)
+        if: steps.guard.outputs.comment == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: ${{ steps.guard.outputs.comment_header }}
+          path: ${{ steps.guard.outputs.body }}
+
+      - name: Fail on protected changes by a non-owner
+        if: steps.guard.outputs.fail == 'true'
+        env:
+          PROTECTED_FILES: ${{ steps.guard.outputs.files }}
+        run: |
+          echo "Protected files changed:"
+          printf '%s\n' "$PROTECTED_FILES" | tr ' ' '\n' | sed '/^$/d'
+          echo "::error::Protected mechanics changed by a non-owner — owner review required (.github/CODEOWNERS). See docs/reference/protected-mechanics.md."
+          exit 1
