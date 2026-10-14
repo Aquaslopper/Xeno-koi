@@ -85,7 +85,7 @@ The deck has **48 cards** in **12 months** of four cards each. The table below i
 | 44 | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-thumb } | December (Paulownia) | 12-B Phoenix | Bright |  |
 | 45 | ![12-P1 Plain](../assets/cards/card-45.webp){ .card-thumb } | December (Paulownia) | 12-P1 Plain | Plain |  |
 | 46 | ![12-P2 Plain](../assets/cards/card-46.webp){ .card-thumb } | December (Paulownia) | 12-P2 Plain | Plain |  |
-| 47 | ![12-P2 Plain](../assets/cards/card-47.webp){ .card-thumb } | December (Paulownia) | 12-P2 Plain | Plain |  |
+| 47 | ![12-P3 Plain](../assets/cards/card-47.webp){ .card-thumb } | December (Paulownia) | 12-P3 Plain | Plain |  |
 
 **Composition check (from `cards_validate()` invariants):** 5 Brights, 9 Animals, 10 Ribbons, 24 Plains = 48 cards.
 

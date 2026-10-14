@@ -296,7 +296,8 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     draw_stat_row(2, "Win Rate", TextFormat("%.1f%%", wr), 1);
     draw_stat_row(3, "Rounds Won", TextFormat("YOU %d | CPU %d", st->rounds_won_you, st->rounds_won_cpu), 0);
     draw_stat_row(4, "Total Points", TextFormat("FOR %d | AGAINST %d", st->points_for, st->points_against), 0);
-    draw_stat_row(5, "Highest Round Score", TextFormat("%d pts", st->best_award), 1);
+    draw_stat_row(5, "Highest Round Score", TextFormat("%d pts", st->highest_round_score), 1);
+    draw_stat_row(11, "Best Award", TextFormat("%d pts", st->best_award), 0);
     draw_stat_row(6, "Koi Calls", TextFormat("YOU %d | CPU %d", st->koi_calls_you, st->koi_calls_cpu), 0);
     draw_stat_row(7, "Difficulty", TextFormat("Easy %d | Hard %d | Master %d", st->easy_matches, st->hard_matches, st->master_matches), 1);
     draw_stat_row(8, "Current Streak", TextFormat("%d", st->current_streak), 0);
