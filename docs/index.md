@@ -2,6 +2,12 @@
 
 **Xeno Koi** is a digital Koi-Koi (Hanafuda) game with five rule variations, a CPU opponent campaign, and a biomechanical CRT presentation. This wiki explains how to play, what each ruleset changes, and how every point is scored.
 
+The five **Brights** — the most valuable cards in the deck:
+
+![01-B Crane](assets/cards/card-00.webp){ .card-thumb } ![03-B Curtain](assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](assets/cards/card-28.webp){ .card-thumb } ![11-B Rainman](assets/cards/card-40.webp){ .card-thumb } ![12-B Phoenix](assets/cards/card-44.webp){ .card-thumb }
+
+*Left to right: Crane (January), Curtain (March), Moon (August), Rain Man (November), Phoenix (December). Combos of these are on the [Yaku & Scoring](scoring/yaku.md) page.*
+
 ## Start here
 
 - **New to Koi-Koi?** Read [How to Play](how-to-play.md) first. It covers the deal, a turn, calling Koi-Koi or Shobu, and how a round ends.

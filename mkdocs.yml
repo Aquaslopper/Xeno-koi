@@ -8,8 +8,13 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 strict: true
 
+extra_css:
+  - stylesheets/cards.css
+  - stylesheets/deus-theme.css
+
 theme:
   name: material
+  custom_dir: overrides
   palette:
     - scheme: slate
       primary: black

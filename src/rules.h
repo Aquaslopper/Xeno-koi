@@ -62,6 +62,13 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n);
 /* Fast-path calculation of base points only (no struct formatting overhead). */
 int score_captures_base(Ruleset ruleset, const int *cards, int n);
 
+/* KK-ADD-10 Koi-Koi trigger, in combo terms: yaku_snapshot() records the
+   points per yaku at a decision point, and yaku_new_or_grown() returns 1
+   when the pile now holds a yaku that is new, or whose points have grown
+   past the snapshot (e.g. Sanko 5 -> Shiko 8). 0 points = yaku absent. */
+void yaku_snapshot(Ruleset ruleset, const int *cards, int n, int out_points[YAKU_COUNT]);
+int yaku_new_or_grown(Ruleset ruleset, const int *cards, int n, const int last_points[YAKU_COUNT]);
+
 /* Escalating Koi-Koi streak multiplier for the player who CALLED Koi-Koi.
    Every call made in the round adds +1 to the caller's own multiplier:
      0 calls -> x1, 1 call -> x2, 2 calls -> x3, 3 calls -> x4 ...

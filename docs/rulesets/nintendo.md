@@ -39,7 +39,10 @@ The exact values, with examples generated from the engine, are on the [Yaku & Sc
 
 ## Example
 
-You capture Curtain, Moon, Sake Cup, and two Plains. That is Hanami-zake and Tsukimi-zake, which is 10 points total. Nintendo allows both Viewings, so this scores 10.
+You capture Curtain, Moon, and Sake Cup (plus two Plains):
+
+![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-thumb }
+ That is Hanami-zake and Tsukimi-zake, which is 10 points total. Nintendo allows both Viewings, so this scores 10.
 
 ## Related
 

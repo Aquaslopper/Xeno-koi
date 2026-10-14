@@ -1,0 +1,32 @@
+/* Card thumbnails cut from assets/atlas.png by tools/make_card_images.py.
+   Sizes: thumb = card list, mini = combo / favourite-card tables,
+   tiny = stacking table (piles of up to 12 cards). */
+img.card-thumb {
+  height: 110px;
+  width: auto;
+  border-radius: 4px;
+}
+
+img.card-mini {
+  height: 72px;
+  width: auto;
+  border-radius: 3px;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+img.card-tiny {
+  height: 48px;
+  width: auto;
+  border-radius: 2px;
+  margin-right: 1px;
+  vertical-align: middle;
+}
+
+/* A labelled row of cards in hand-written prose. */
+.card-strip img {
+  height: 120px;
+  width: auto;
+  border-radius: 4px;
+  margin-right: 4px;
+}

@@ -10,6 +10,12 @@
 - The dealer keeps the deal after a Dealer's Privilege round.
 - **One Koi-Koi call per player per round**, then a forced Shobu, as in Nintendo and Tournament.
 
+The two Viewings that score nothing under Yakuza (and Tournament) — Curtain + Sake Cup and Moon + Sake Cup:
+
+![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-thumb }
+
+*Curtain (March), Moon (August), Sake Cup (September).*
+
 ## Dealer's Privilege in detail
 
 | Situation | Normal rule sets | Yakuza |

@@ -288,6 +288,24 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n) {
     return res;
 }
 
+void yaku_snapshot(Ruleset ruleset, const int *cards, int n, int out_points[YAKU_COUNT]) {
+    ScoreResult sr = score_captures(ruleset, cards, n);
+    for (int i = 0; i < YAKU_COUNT; i++) out_points[i] = 0;
+    for (int i = 0; i < sr.yaku_count; i++) {
+        YakuId id = sr.yakus[i].id;
+        if (id >= 0 && id < YAKU_COUNT) out_points[id] = sr.yakus[i].points;
+    }
+}
+
+int yaku_new_or_grown(Ruleset ruleset, const int *cards, int n, const int last_points[YAKU_COUNT]) {
+    int now[YAKU_COUNT];
+    yaku_snapshot(ruleset, cards, n, now);
+    for (int i = 0; i < YAKU_COUNT; i++) {
+        if (now[i] > last_points[i]) return 1;
+    }
+    return 0;
+}
+
 int koi_caller_multiplier(int self_koi_calls) {
     if (self_koi_calls <= 0) return 1;
     int mult = 1 + self_koi_calls;
