@@ -11,12 +11,16 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head
+      - name: Checkout base
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
+      - name: Checkout PR head (fork-safe)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
+            git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-${{ github.event.pull_request.number }}
+            git checkout pr-${{ github.event.pull_request.number }}
+          fi
       - name: Fetch main
         run: git fetch origin main
       - name: Check protected changed on main since base
@@ -29,12 +33,10 @@ jobs:
             echo "$CHANGED" > /tmp/stale.txt
             {
               echo "### ⚠️ Stale branch — would revert protected mechanics"
-              echo ""
-              echo "Base: \`$BASE\` — protected files changed on main since then:"
+              echo "Base: \`$BASE\` — protected changed on main since then:"
               echo '```'
               cat /tmp/stale.txt
               echo '```'
-              echo "Please rebase onto latest main."
             } > /tmp/body.md
           else
             echo "stale=false" >> $GITHUB_OUTPUT
@@ -49,8 +51,5 @@ jobs:
         if: steps.check.outputs.stale == 'true'
         run: |
           echo "::error::Stale branch would revert protected files"
-          cat /tmp/stale.txt
-          exit 1
-          echo "::error::Stale branch - protected files changed on main"
           cat /tmp/stale.txt
           exit 1
