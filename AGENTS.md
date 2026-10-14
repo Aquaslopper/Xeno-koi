@@ -48,6 +48,31 @@ CI runs the same checks (`.github/workflows/docs.yml`) and fails if the generate
 
 The wiki is deployed to GitHub Pages from `main` by `.github/workflows/docs.yml`. Any other workflow that deploys to the same Pages site replaces the whole site, so coordinate before adding one.
 
+## Protected mechanics (read this before touching rules, cards or settings)
+
+A set of zones is protected: rules/scoring, settings/Deus/difficulties,
+cards/atlas art, docs/wiki, the core Koi-Koi screen + points + multiplier code
+and the guard configuration itself. They may still change — they just cannot
+change *silently*. Two checks enforce that on every PR to `main`:
+
+- **`guard`** (Guard protected mechanics) — red if a non-owner changes a
+  protected file, with a sticky comment listing the files per zone. Green for
+  the maintainer's own PRs.
+- **`stale`** (Guard stale protected revert) — red if protected files changed on
+  `main` after your branch's merge base, because merging as-is risks dropping
+  that newer work. Fix it by merging or rebasing `main`.
+
+The full zone list, the required checks and the local commands are documented in
+[`docs/reference/protected-mechanics.md`](docs/reference/protected-mechanics.md).
+The three copies of the zone list (`.github/CODEOWNERS`,
+`tools/guard_protected.sh`, `tools/guard_stale.sh`) must agree:
+`python3 tools/check_protected_zones.py` fails if they drift, and
+`bash tools/test_guards.sh` simulates every guard scenario locally.
+
 ## Pull requests
 
 Open PRs against `main`. Include the rule change, the docs updated, and the checks you ran.
+Keep `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c`, `src/storage.c`,
+`src/ai.c`, `assets/atlas.png`, `assets/*.png`, `docs/` and the guard files intact
+unless the change deliberately touches them; a WASM/UI/build-only PR must not
+rewrite them.

@@ -63,5 +63,6 @@ nav:
       - Cards: reference/cards.md
       - Opponents: reference/opponents.md
       - Modes, Difficulty & Settings: reference/modes.md
+      - Protected Mechanics: reference/protected-mechanics.md
   - Errata & Known Issues: errata.md
   - About these docs: about-the-docs.md

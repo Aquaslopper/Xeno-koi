@@ -1,4 +1,11 @@
 # Core game protection - owner must review
+#
+# Every path below is also enforced by .github/workflows/guard-protected.yml and
+# .github/workflows/guard-stale.yml. See docs/reference/protected-mechanics.md.
+# Keep this file, the zones in tools/guard_protected.sh, the zones in
+# tools/guard_stale.sh and that page in sync: python3 tools/check_protected_zones.py
+# fails if they drift apart.
+
 # Rules, scoring, points & multiplier, Koi-Koi trigger
 /src/rules.c @Aquaslopper
 /src/rules.h @Aquaslopper
@@ -29,15 +36,17 @@
 /docs/assets/deus-bg.webp @Aquaslopper
 
 # Rulesets, scoring, wiki, docs
+/docs/*.md @Aquaslopper
 /docs/rulesets/ @Aquaslopper
 /docs/scoring/ @Aquaslopper
 /docs/reference/ @Aquaslopper
-/docs/how-to-play.md @Aquaslopper
-/docs/index.md @Aquaslopper
-/docs/about-the-docs.md @Aquaslopper
+/docs/stylesheets/ @Aquaslopper
 /mkdocs.yml @Aquaslopper
 /overrides/ @Aquaslopper
-/docs/stylesheets/ @Aquaslopper
+
+# Guard configuration itself: a change here changes what is protected
+/.github/CODEOWNERS @Aquaslopper
+/.github/workflows/ @Aquaslopper
 
 # Base core mechanic - Koi-Koi screen, points, multiplier UI
 /src/ui_screens.c @Aquaslopper

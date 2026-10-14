@@ -1,55 +1,70 @@
 name: Guard stale protected revert
+
+# Fails a pull request whose branch base predates protected changes that landed
+# on main: such a branch risks dropping the newer rules/scoring/combo/cards/docs
+# work when it is merged or when conflicts are resolved. The guard lists the
+# protected files that changed on main since the branch's merge base.
+# See docs/reference/protected-mechanics.md.
+#
+# Two triggers, on purpose:
+#
+#   * pull_request_target — the base-branch copy of this workflow and of
+#     tools/guard_stale.sh (trusted) with a read/write token; produces the
+#     required check name "stale".
+#   * pull_request — the pull request's own copy; reports "stale-preview"
+#     (informational only, never satisfies the required check).
+#
+# Only git objects are read: no PR code is checked out or executed.
+
 on:
   pull_request:
     branches: [main]
   pull_request_target:
     branches: [main]
+
 permissions:
   contents: read
   pull-requests: write
+
 jobs:
   stale:
+    # The trusted event gets the required check name "stale"; the PR-owned copy
+    # of this workflow only ever reports "stale-preview".
+    name: ${{ github.event_name == 'pull_request_target' && 'stale' || 'stale-preview' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout base
+      - name: Checkout base commit (never the pull request head)
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
-      - name: Checkout PR head (fork-safe)
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-${{ github.event.pull_request.number }}
-            git checkout pr-${{ github.event.pull_request.number }}
-          fi
-      - name: Fetch main
-        run: git fetch origin main
-      - name: Check protected changed on main since base
-        id: check
-        run: |
-          BASE=$(git merge-base HEAD origin/main)
-          CHANGED=$(git diff --name-only $BASE..origin/main -- src/rules.* src/engine.* src/cards.* src/campaign.* src/storage.* src/ai.* docs/rulesets/ docs/scoring/ docs/assets/cards/ assets/atlas.png assets/atlas_deus.png tools/wiki_tables.c tools/test_koikoi_trigger.c tools/make_card_images.py mkdocs.yml | sort -u)
-          if [ -n "$CHANGED" ]; then
-            echo "stale=true" >> $GITHUB_OUTPUT
-            echo "$CHANGED" > /tmp/stale.txt
-            {
-              echo "### ⚠️ Stale branch — would revert protected mechanics"
-              echo "Base: \`$BASE\` — protected changed on main since then:"
-              echo '```'
-              cat /tmp/stale.txt
-              echo '```'
-            } > /tmp/body.md
-          else
-            echo "stale=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Comment
-        if: steps.check.outputs.stale == 'true'
+
+      - name: Compare protected files against main
+        id: stale
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER_LOGIN: Aquaslopper
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REPO: ${{ github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          MAIN_REF: origin/main
+        run: bash tools/guard_stale.sh
+
+      - name: Sticky comment (stale branch)
+        if: steps.stale.outputs.comment == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          header: guard-stale
-          path: /tmp/body.md
-      - name: Fail if stale
-        if: steps.check.outputs.stale == 'true'
+          header: ${{ steps.stale.outputs.comment_header }}
+          path: ${{ steps.stale.outputs.body }}
+
+      - name: Fail on a stale protected branch
+        if: steps.stale.outputs.stale == 'true'
+        env:
+          STALE_FILES: ${{ steps.stale.outputs.files }}
         run: |
-          echo "::error::Stale branch would revert protected files"
-          cat /tmp/stale.txt
+          echo "Protected files changed on main since this branch was based on it:"
+          printf '%s\n' "$STALE_FILES" | tr ' ' '\n' | sed '/^$/d'
+          echo "::error::Stale branch — merging as-is risks reverting protected mechanics. Merge or rebase origin/main."
           exit 1

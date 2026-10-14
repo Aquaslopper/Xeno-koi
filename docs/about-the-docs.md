@@ -11,6 +11,8 @@ This wiki is built with [MkDocs](https://www.mkdocs.org/) and the [Material them
 
 When you change a rule, update the code, the wiki page for that rule, and the generated tables in the same change. Keep [`AGENTS.md`](https://github.com/Aquaslopper/Xeno-koi/blob/main/AGENTS.md) in mind too: it gives future contributors and coding agents the same instructions.
 
+Rules, scoring, cards/art, settings and the wiki itself are [protected mechanics](reference/protected-mechanics.md): they can change, but only on purpose and with the maintainer's review — the `guard` and `stale` checks on every pull request spell out what happened and what to do.
+
 ## Two kinds of content
 
 **Hand-written pages** explain rules, strategy, and concepts. Edit these directly.
