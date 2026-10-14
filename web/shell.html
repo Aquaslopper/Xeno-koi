@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>[XENO / KOI] — Biomechanical CRT Edition</title>
+    <style>
+        :root {
+            --phosphor: #00ffd2;
+            --phosphor-dim: #007a64;
+            --bg-dark: #050608;
+            --chassis: #0d1014;
+            --border: #1a2826;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        html, body {
+            width: 100%; height: 100%;
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(circle at 50% 50%, #0b1615 0%, #030406 85%),
+                repeating-linear-gradient(0deg, rgba(0, 255, 210, 0.015) 0px, rgba(0, 255, 210, 0.015) 1px, transparent 1px, transparent 3px);
+            color: var(--phosphor);
+            font-family: "Courier New", Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .hud-bar {
+            width: min(96vw, calc(90vh * 16 / 9));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            background: rgba(10, 15, 18, 0.9);
+            border: 1px solid var(--phosphor-dim);
+            border-bottom: none;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(0, 255, 210, 0.08);
+        }
+        .hud-title {
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 255, 210, 0.5);
+        }
+        .hud-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .crt-btn {
+            background: #081210;
+            color: var(--phosphor);
+            border: 1px solid var(--phosphor-dim);
+            padding: 4px 10px;
+            font-family: inherit;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .crt-btn:hover {
+            background: var(--phosphor);
+            color: #020404;
+            border-color: var(--phosphor);
+            box-shadow: 0 0 10px rgba(0, 255, 210, 0.6);
+        }
+        .viewport-frame {
+            position: relative;
+            width: min(96vw, calc(90vh * 16 / 9));
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border: 1px solid var(--phosphor-dim);
+            box-shadow:
+                0 0 35px rgba(0, 0, 0, 0.95),
+                0 0 18px rgba(0, 255, 210, 0.12),
+                inset 0 0 24px rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        canvas.emscripten {
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+            background: #000;
+        }
+        #loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(4, 6, 8, 0.94);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: opacity 0.4s ease;
+        }
+        #loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .boot-title {
+            font-size: 22px;
+            letter-spacing: 5px;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px rgba(0, 255, 210, 0.6);
+        }
+        .boot-sub {
+            font-size: 11px;
+            color: var(--phosphor-dim);
+            letter-spacing: 2.5px;
+            margin-bottom: 24px;
+        }
+        .progress-shell {
+            width: 320px;
+            height: 14px;
+            border: 1px solid var(--phosphor-dim);
+            padding: 2px;
+            background: #040808;
+        }
+        #progress-fill {
+            width: 15%;
+            height: 100%;
+            background: var(--phosphor);
+            box-shadow: 0 0 8px var(--phosphor);
+            transition: width 0.15s ease;
+        }
+        #status-text {
+            margin-top: 12px;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            color: var(--phosphor);
+        }
+    </style>
+</head>
+<body>
+    <div class="hud-bar">
+        <div class="hud-title">[XENO // KOI] — BIOMECHANICAL TERMINAL v1.979</div>
+        <div class="hud-controls">
+            <span id="audio-indicator" style="color: var(--phosphor-dim);">AUDIO: STANDBY</span>
+            <button class="crt-btn" id="fullscreen-btn" type="button">[ FULLSCREEN ]</button>
+        </div>
+    </div>
+    <div class="viewport-frame" id="viewport-container">
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+        <div id="loading-overlay">
+            <div class="boot-title">[XENO / KOI]</div>
+            <div class="boot-sub">INITIALIZING BIOMECHANICAL NEURAL CORTEX...</div>
+            <div class="progress-shell">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="status-text">MOUNTING VIRTUAL ARCHIVES...</div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var statusElement = document.getElementById('status-text');
+        var progressFill = document.getElementById('progress-fill');
+        var loadingOverlay = document.getElementById('loading-overlay');
+        var audioIndicator = document.getElementById('audio-indicator');
+
+        function unlockWebAudio() {
+            try {
+                if (typeof Module !== 'undefined' && Module.miniaudio && Module.miniaudio.context) {
+                    if (Module.miniaudio.context.state === 'suspended') {
+                        Module.miniaudio.context.resume();
+                    }
+                }
+                if (window.AudioContext || window.webkitAudioContext) {
+                    audioIndicator.textContent = 'AUDIO: ONLINE';
+                    audioIndicator.style.color = 'var(--phosphor)';
+                }
+            } catch (e) {}
+        }
+        ['pointerdown', 'keydown', 'touchstart', 'mousedown'].forEach(function(evt) {
+            window.addEventListener(evt, unlockWebAudio, { passive: true });
+        });
+
+        document.getElementById('fullscreen-btn').addEventListener('click', function() {
+            var elem = document.getElementById('viewport-container');
+            if (!document.fullscreenElement) {
+                if (elem.requestFullscreen) elem.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        });
+
+        var Module = {
+            preRun: [function() {
+                try {
+                    var files = ['settings.txt', 'stats.txt', 'history.txt', 'stats_report.txt'];
+                    files.forEach(function(fn) {
+                        var val = window.localStorage.getItem('xenokoi_' + fn);
+                        if (val !== null) FS.writeFile('/' + fn, val);
+                    });
+                    var origRename = FS.rename;
+                    FS.rename = function(old_path, new_path) {
+                        var r = origRename.apply(FS, arguments);
+                        try {
+                            var base = new_path.replace(/^(\.\/|\/)+/, '');
+                            if (files.indexOf(base) !== -1) {
+                                window.localStorage.setItem('xenokoi_' + base, FS.readFile(new_path, { encoding: 'utf8' }));
+                            }
+                        } catch (e) {}
+                        return r;
+                    };
+                    var origUnlink = FS.unlink;
+                    FS.unlink = function(path) {
+                        var r = origUnlink.apply(FS, arguments);
+                        try {
+                            var base = path.replace(/^(\.\/|\/)+/, '');
+                            if (base === 'history.txt' || base === 'stats_report.txt') {
+                                window.localStorage.removeItem('xenokoi_' + base);
+                            }
+                        } catch (e) {}
+                        return r;
+                    };
+                } catch (e) {}
+            }],
+            postRun: [function() {
+                loadingOverlay.classList.add('hidden');
+                document.getElementById('canvas').focus();
+            }],
+            canvas: (function() {
+                var canvas = document.getElementById('canvas');
+                canvas.addEventListener("webglcontextlost", function(e) {
+                    alert('WebGL context lost. Reload the page to reinitialize.');
+                    e.preventDefault();
+                }, false);
+                return canvas;
+            })(),
+            setStatus: function(text) {
+                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+                if (text === Module.setStatus.last.text) return;
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var now = Date.now();
+                if (m && now - Module.setStatus.last.time < 30) return;
+                Module.setStatus.last.time = now;
+                Module.setStatus.last.text = text;
+                if (m) {
+                    var pct = Math.min(100, Math.round((parseInt(m[2]) / parseInt(m[4])) * 100));
+                    progressFill.style.width = pct + '%';
+                    statusElement.textContent = m[1].trim().toUpperCase() + ' (' + pct + '%)';
+                } else if (text) {
+                    statusElement.textContent = text.toUpperCase();
+                } else {
+                    progressFill.style.width = '100%';
+                    loadingOverlay.classList.add('hidden');
+                }
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function(left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? 'SYNCHRONIZING ASSETS (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '');
+            }
+        };
+        Module.setStatus('DOWNLOADING TELEMETRY...');
+        window.onerror = function() {
+            statusElement.textContent = 'SYSTEM FAULT — CHECK BROWSER CONSOLE';
+        };
+    </script>
+    {{{ SCRIPT }}}
+</body>
+</html>

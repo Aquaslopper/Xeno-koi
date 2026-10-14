@@ -31,14 +31,29 @@ fi
 # Engine tests (no graphics)
 if [ "$1" = "test" ]; then
     gcc -std=c99 -O2 -Wall -Wextra -Isrc tests/test_engine.c src/cards.c src/rules.c src/engine.c src/ai.c \
-        -o test_engine && ./test_engine
+        -o /tmp/test_engine && /tmp/test_engine
+    exit 0
+fi
+
+# WebAssembly (Emscripten / HTML5)
+if [ "$1" = "wasm" ]; then
+    RAYLIB_SRC="${RAYLIB_SRC:-/tmp/raylib/src}"
+    RAYLIB_WEB_A="${RAYLIB_WEB_A:-/tmp/libraylib_web.a}"
+    if [ ! -f "$RAYLIB_WEB_A" ] && [ -f "$RAYLIB_SRC/libraylib.a" ]; then
+        RAYLIB_WEB_A="$RAYLIB_SRC/libraylib.a"
+    fi
+    mkdir -p dist/web
+    emcc -Os -Wall -std=gnu99 -DPLATFORM_WEB src/*.c -Isrc -I"$RAYLIB_SRC" "$RAYLIB_WEB_A" \
+        -sUSE_GLFW=3 -sASYNCIFY -sALLOW_MEMORY_GROWTH=1 -sTOTAL_MEMORY=134217728 \
+        -sEXPORTED_RUNTIME_METHODS='["UTF8ToString","FS"]' \
+        --preload-file assets --shell-file web/shell.html -o dist/web/index.html
     exit 0
 fi
 
 # Default: run test if exists, or build available targets
 if [ -f tests/test_engine.c ]; then
     gcc -std=c99 -O2 -Wall -Wextra -Isrc tests/test_engine.c src/cards.c src/rules.c src/engine.c src/ai.c \
-        -o test_engine && ./test_engine
+        -o /tmp/test_engine && /tmp/test_engine
 fi
 if ls src/*.c 1> /dev/null 2>&1; then
     gcc -std=c99 -O2 -Wall -Wextra src/*.c -I/tmp/raylib/src /tmp/libraylib_linux.a \
