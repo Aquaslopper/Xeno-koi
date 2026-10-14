@@ -94,18 +94,21 @@ static void draw_yaku_cards(const BoardAssets *ba, const int *cards, int count, 
     for (int c = 0; c < count; c++) board_draw_card(ba, cards[c], (Rectangle){ x + c * step, y, MINI_CARD_W, MINI_CARD_H });
 }
 
+/* Start menu buttons: below the enlarged logo, 46px pitch */
+static Rectangle start_btn_rect(int i) { return (Rectangle){ 490, 255 + i * 46, 300, 40 }; }
+
 void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, float saved_timer) {
     (void)st; draw_bg_if_loaded(ba, 140);
-    draw_centered_text(font_title, "[XENO / KOI]", 640.0f, 78.0f, 52.0f, 2.0f, COLOR_PHOSPHOR);
-    draw_centered_text(font_body, "BIOMECHANICAL EDITION", 640.0f, 151.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
+    draw_centered_text(font_title, "[XENO / KOI]", 640.0f, 48.0f, 88.0f, 2.0f, COLOR_PHOSPHOR);
+    draw_centered_text(font_body, "BIOMECHANICAL EDITION", 640.0f, 150.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
     const char *lbls[6] = { "START MATCH", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
-    for (int i = 0; i < 6; i++) draw_btn((Rectangle){ 490, 235 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
+    for (int i = 0; i < 6; i++) draw_btn(start_btn_rect(i), lbls[i], 18, vm, COLOR_PHOSPHOR);
     if (saved_timer > 0.0f) draw_centered_text(font_body, "ALL FILES SAVED", 640.0f, 555.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
 }
 
 ScreenAction screens_handle_start_click(Vector2 vm) {
     ScreenAction acts[6] = { ACT_START_GAME, ACT_GOTO_OPTIONS, ACT_GOTO_STATS, ACT_SAVE, ACT_GOTO_CREDITS, ACT_QUIT };
-    for (int i = 0; i < 6; i++) if (CheckCollisionPointRec(vm, (Rectangle){ 490, 235 + i * 50, 300, 40 })) return acts[i];
+    for (int i = 0; i < 6; i++) if (CheckCollisionPointRec(vm, start_btn_rect(i))) return acts[i];
     return ACT_NONE;
 }
 
