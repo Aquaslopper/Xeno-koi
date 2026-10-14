@@ -13,6 +13,7 @@
 #include "storage.h"
 #include "ui_theme.h"
 #include "ui_board.h"
+#include "ui_card_tooltip.h"
 #include "ui_anim.h"
 #include "ui_motion.h"
 #include "ui_audio.h"
@@ -61,11 +62,16 @@ static void draw_hover_action_label(const char *label, Rectangle bounds) {
 }
 
 static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs, Vector2 vm, int paused, int c_restart) {
+    /* Only cards in the foreground overlay may be inspected. */
+    card_tooltip_clear();
     if (gs->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(ba, gs, vm);
     else if (gs->phase == PHASE_HAND_CHOICE || gs->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(ba, gs, vm, gs->phase == PHASE_HAND_CHOICE);
     else if (gs->phase == PHASE_DECIDE && gs->current_player == 0) screens_draw_decide_overlay(ba, gs, vm);
     else if (gs->phase == PHASE_ROUND_END) screens_draw_round_result(ba, gs, vm);
-    if (paused) screens_draw_pause(vm, c_restart);
+    if (paused) {
+        card_tooltip_clear();
+        screens_draw_pause(vm, c_restart);
+    }
 }
 
 static void update_draw_frame(void) {
@@ -113,6 +119,8 @@ static void update_draw_frame(void) {
 
     int cur_w = GetScreenWidth(), cur_h = GetScreenHeight();
     if (cur_w < 960 || cur_h < 540) {
+        card_tooltip_begin(0, (Vector2){ 0, 0 });
+        card_tooltip_draw();
         BeginDrawing(); ClearBackground(BLACK);
         DrawTextEx(font_body, "Enlarge the window to play (minimum 960x540)", (Vector2){ 20.0f, 20.0f }, 20.0f, 1.5f, COLOR_PHOSPHOR);
         EndDrawing(); return;
@@ -364,6 +372,11 @@ static void update_draw_frame(void) {
 
     if (screen == SCREEN_GAME) taunt_update(dt);
 
+    card_tooltip_begin(screen == SCREEN_GAME && settings.difficulty == DIFFICULTY_EASY &&
+                       !is_paused && !drag.on && !cinematic_is_active() &&
+                       transition_dir == 0 && transition_alpha <= 0.0f &&
+                       !(anim.active && anim.type == ANIM_BANNER) &&
+                       IsCursorOnScreen() && IsWindowFocused(), vm);
     BeginTextureMode(canvas);
     if (screen == SCREEN_START) {
         screens_draw_start(&assets, &stats, vm, saved_timer);
@@ -428,6 +441,10 @@ static void update_draw_frame(void) {
         DrawTextEx(font_title, msg, (Vector2){ floorf((CANVAS_W - ts.x) / 2.0f), 330.0f }, 56.0f, 1.6f, (Color){ 0xFF, 0x30, 0x30, a });
         EndTextureMode();
     }
+
+    BeginTextureMode(canvas);
+    card_tooltip_draw();
+    EndTextureMode();
 
     BeginDrawing(); ClearBackground(BLACK);
     int use_post = (post_shader.id > 0) && (b_val > 0.001f || c_val > 0.001f || fabsf(g_val - 1.0f) > 0.005f);

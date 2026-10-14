@@ -119,6 +119,20 @@
             z-index: 10;
             transition: opacity 0.4s ease;
         }
+        #card-tooltip {
+            color: #fff;
+            position: fixed;
+            z-index: 30;
+            pointer-events: none;
+            padding: 10px 12px;
+            background: rgba(5, 8, 10, 0.96);
+            border: 1px solid currentColor;
+            font-size: 13px;
+            line-height: 1.5;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        #card-tooltip[hidden] { display: none; }
         #loading-overlay.hidden {
             opacity: 0;
             pointer-events: none;
@@ -178,7 +192,26 @@
         </div>
     </div>
 
+    <div id="card-tooltip" role="tooltip" hidden>
+        <div></div><div class="tooltip-type"></div><div class="tooltip-name"></div>
+    </div>
+
     <script type="text/javascript">
+        var tooltipCanvas = document.getElementById("canvas");
+        function hideCardTooltip() {
+            document.getElementById("card-tooltip").hidden = true;
+            window.XenoKoiTooltipPointer = null;
+        }
+        tooltipCanvas.addEventListener("pointermove", function(event) {
+            if (event.pointerType === "touch") { hideCardTooltip(); return; }
+            window.XenoKoiTooltipPointer = { x: event.clientX, y: event.clientY };
+        });
+        tooltipCanvas.addEventListener("pointerleave", hideCardTooltip);
+        tooltipCanvas.addEventListener("pointercancel", hideCardTooltip);
+        tooltipCanvas.addEventListener("pointerdown", hideCardTooltip);
+        window.addEventListener("blur", hideCardTooltip);
+        document.addEventListener("fullscreenchange", hideCardTooltip);
+
         var statusElement = document.getElementById('status-text');
         var progressFill = document.getElementById('progress-fill');
         var loadingOverlay = document.getElementById('loading-overlay');
