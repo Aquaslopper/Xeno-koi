@@ -99,12 +99,15 @@ void board_load_assets(BoardAssets *ba) {
     };
     for (int i = 0; i < 6; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
 
+#ifdef __EMSCRIPTEN__
+    ba->fog_shader = LoadShader(0, get_path("assets/depth_fog_web.fs"));
+#else
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
+#endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
     if (ba->has_fog_shader) ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
 
-    ba->current_bg = 0;
-    ba->assets_loaded = 1;
+    ba->current_bg = 0; ba->assets_loaded = 1;
 }
 
 void board_unload_assets(BoardAssets *ba) {

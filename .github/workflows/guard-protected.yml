@@ -83,5 +83,6 @@ jobs:
         run: |
           echo "::error::Protected mechanics changed by non-owner"
           exit 1
+      - name: Pass for owner or no protected changes
         if: steps.summary.outputs.protected != 'true' || github.actor == 'Aquaslopper'
         run: echo "No protected changes by non-owner, or owner bypass — OK"
