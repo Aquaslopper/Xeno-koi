@@ -59,9 +59,12 @@ through `refs/pull/<number>/head`, which works for fork pull requests too.
 * **Stale branch** — the `stale` check is red and the comment lists the protected
   files that changed on `main` since your base. Merge or rebase `main`
   (`git fetch origin main && git merge origin/main`) and push again.
-* **Owner pull requests** — green, no comment. The ruleset bypass for the
-  maintainer is deliberate; the CODEOWNERS review is still required for everyone
-  else.
+* **Owner pull requests** — green, no comment. The bypass is decided by one
+  thing only: **who opened the pull request** (`pull_request.user.login`).
+  GitHub sets that from the pull request itself, so a contributor can never make
+  their change look like the owner's, and re-running a contributor's pull
+  request — by anyone — leaves it red. The ruleset bypass for the maintainer is
+  deliberate; the CODEOWNERS review is still required for everyone else.
 * **No protected files touched** — both checks are green and silent.
 
 ## Check it locally before you push

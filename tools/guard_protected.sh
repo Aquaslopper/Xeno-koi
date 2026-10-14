@@ -22,7 +22,8 @@
 #   BASE_SHA, HEAD_SHA   commit ids from the pull_request payload
 #   PR_NUMBER            pull request number (used to fetch refs/pull/<n>/head)
 #   PR_AUTHOR            github.event.pull_request.user.login
-#   TRIGGER_ACTOR        github.actor (who started this run)
+#                        (who started the workflow run is deliberately not an
+#                        input: it changes on a re-run and must not matter)
 #   OWNER_LOGIN          the maintainer allowed to bypass (default Aquaslopper)
 #   EVENT_NAME           pull_request_target | pull_request
 #   BASE_REPO, HEAD_REPO  head.repo.full_name == BASE_REPO means same repository
@@ -42,7 +43,6 @@ BASE_SHA="${BASE_SHA:-}"
 HEAD_SHA="${HEAD_SHA:-}"
 PR_NUMBER="${PR_NUMBER:-}"
 PR_AUTHOR="${PR_AUTHOR:-unknown}"
-TRIGGER_ACTOR="${TRIGGER_ACTOR:-unknown}"
 EVENT_NAME="${EVENT_NAME:-unknown}"
 BASE_REPO="${BASE_REPO:-}"
 HEAD_REPO="${HEAD_REPO:-}"
@@ -183,10 +183,13 @@ FILES_ONE_LINE=$(printf '%s' "$PROTECTED_FILES" | tr '\n' ' ')
 say "protected files changed ($FILE_COUNT): $FILES_ONE_LINE"
 
 # -------------------------------------------------------------- who is this?
-# Only a PR that the maintainer opened *and* runs keeps the bypass: a re-run of
-# a contributor's PR by the maintainer must stay red until it is reviewed.
+# One rule, easy to predict: the guard is bypassed when the maintainer opened
+# the pull request, and only then. Who started the workflow run is deliberately
+# not part of it — GitHub sets PR_AUTHOR from the pull request itself, so a
+# contributor cannot make their change look like the owner's, and re-running a
+# contributor's pull request (by anyone) leaves it red.
 OWNER_EXEMPT=false
-if [ "$PR_AUTHOR" = "$OWNER_LOGIN" ] && [ "$TRIGGER_ACTOR" = "$OWNER_LOGIN" ]; then
+if [ "$PR_AUTHOR" = "$OWNER_LOGIN" ]; then
   OWNER_EXEMPT=true
 fi
 

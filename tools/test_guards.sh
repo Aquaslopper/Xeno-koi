@@ -93,12 +93,14 @@ git checkout -q "$MAIN" >/dev/null 2>&1 || true
 export REMOTE=origin
 
 # ---------------------------------------------------------------- helpers
-run_guard_protected() { # <out> <pr|-> <base> <head> <author> <actor> <event> <head-repo>
-  local out=$1 pr=$2 base=$3 head=$4 author=$5 actor=$6 event=$7 head_repo=$8
+run_guard_protected() { # <out> <pr|-> <base> <head> <author> <event> <head-repo>
+  # PR_AUTHOR is the only input that decides the owner bypass; the workflow does
+  # not pass github.actor at all, so who started the run cannot matter.
+  local out=$1 pr=$2 base=$3 head=$4 author=$5 event=$6 head_repo=$7
   : >"$out"
   GITHUB_OUTPUT="$out" \
     BASE_SHA="$base" HEAD_SHA="$head" PR_NUMBER="$pr" \
-    PR_AUTHOR="$author" TRIGGER_ACTOR="$actor" OWNER_LOGIN=Aquaslopper \
+    PR_AUTHOR="$author" OWNER_LOGIN=Aquaslopper \
     EVENT_NAME="$event" BASE_REPO=Aquaslopper/Xeno-koi HEAD_REPO="$head_repo" \
     bash tools/guard_protected.sh >/dev/null 2>&1
 }
@@ -132,7 +134,7 @@ say "main=$MAIN  old main=$OLD_MAIN"
 say ""
 say "guard-protected: non-owner PR touching src/rules.c"
 O="$TMP/protected-nonowner.out"
-run_guard_protected "$O" 201 "$MAIN" "$PROTECTED_HEAD" sneed-and-feed sneed-and-feed pull_request_target Aquaslopper/Xeno-koi
+run_guard_protected "$O" 201 "$MAIN" "$PROTECTED_HEAD" sneed-and-feed pull_request_target Aquaslopper/Xeno-koi
 expect "$O" protected true "protected zone detected"
 expect "$O" fail true "fails for a non-owner"
 expect "$O" comment true "posts a sticky comment"
@@ -142,7 +144,7 @@ expect_contains "$O" src/rules.c "file list names src/rules.c"
 say ""
 say "guard-protected: fork PR (read-only token), head only reachable via refs/pull"
 O="$TMP/protected-fork.out"
-run_guard_protected "$O" "$FORK_PROTECTED" "$MAIN" "" sneed-and-feed sneed-and-feed pull_request sneed-and-feed/Xeno-koi
+run_guard_protected "$O" "$FORK_PROTECTED" "$MAIN" "" sneed-and-feed pull_request sneed-and-feed/Xeno-koi
 expect "$O" fail true "fails for a fork PR"
 expect "$O" comment false "does not comment with the read-only fork token"
 expect_contains "$O" src/rules.c "file list names src/rules.c"
@@ -150,7 +152,7 @@ expect_contains "$O" src/rules.c "file list names src/rules.c"
 say ""
 say "guard-protected: non-owner PR touching the guard configuration"
 O="$TMP/protected-config.out"
-run_guard_protected "$O" 202 "$MAIN" "$CONFIG_HEAD" sneed-and-feed sneed-and-feed pull_request_target Aquaslopper/Xeno-koi
+run_guard_protected "$O" 202 "$MAIN" "$CONFIG_HEAD" sneed-and-feed pull_request_target Aquaslopper/Xeno-koi
 expect "$O" fail true "fails when a non-owner edits .github/workflows"
 expect "$O" categories protection_config "reports the protection_config zone"
 expect_contains "$O" .github/workflows/build.yml "file list names the workflow"
@@ -158,28 +160,29 @@ expect_contains "$O" .github/workflows/build.yml "file list names the workflow"
 say ""
 say "guard-protected: PR without protected changes"
 O="$TMP/protected-clean.out"
-run_guard_protected "$O" 205 "$MAIN" "$CLEAN_HEAD" sneed-and-feed sneed-and-feed pull_request_target sneed-and-feed/Xeno-koi
+run_guard_protected "$O" 205 "$MAIN" "$CLEAN_HEAD" sneed-and-feed pull_request_target sneed-and-feed/Xeno-koi
 expect "$O" protected false "nothing protected touched"
 expect "$O" fail false "green"
 
 say ""
 say "guard-protected: owner PR touching src/rules.c (bypass)"
 O="$TMP/protected-owner.out"
-run_guard_protected "$O" 203 "$MAIN" "$PROTECTED_HEAD" Aquaslopper Aquaslopper pull_request_target Aquaslopper/Xeno-koi
+run_guard_protected "$O" 203 "$MAIN" "$PROTECTED_HEAD" Aquaslopper pull_request_target Aquaslopper/Xeno-koi
 expect "$O" protected true "protected zone detected"
 expect "$O" fail false "green for the owner"
 expect "$O" comment false "no comment for the owner"
 
 say ""
-say "guard-protected: maintainer re-running a contributor PR stays red"
+say "guard-protected: contributor PR stays red however the run was started"
 O="$TMP/protected-rerun.out"
-run_guard_protected "$O" 204 "$MAIN" "$PROTECTED_HEAD" sneed-and-feed Aquaslopper pull_request_target Aquaslopper/Xeno-koi
-expect "$O" fail true "a maintainer re-run does not turn a contributor PR green"
+run_guard_protected "$O" 204 "$MAIN" "$PROTECTED_HEAD" sneed-and-feed pull_request_target Aquaslopper/Xeno-koi
+expect "$O" fail true "a contributor PR never goes green (no actor input exists)"
+expect "$O" comment true "and keeps its explaining comment"
 
 say ""
 say "guard-protected: same-repo pull_request run is labelled as a preview"
 O="$TMP/protected-preview.out"
-run_guard_protected "$O" 206 "$MAIN" "$PROTECTED_HEAD" sneed-and-feed sneed-and-feed pull_request Aquaslopper/Xeno-koi
+run_guard_protected "$O" 206 "$MAIN" "$PROTECTED_HEAD" sneed-and-feed pull_request Aquaslopper/Xeno-koi
 expect "$O" comment_header guard-protected-preview "preview runs never use the required-guard header"
 
 say ""

@@ -55,7 +55,6 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          TRIGGER_ACTOR: ${{ github.actor }}
           OWNER_LOGIN: Aquaslopper
           EVENT_NAME: ${{ github.event_name }}
           BASE_REPO: ${{ github.repository }}
