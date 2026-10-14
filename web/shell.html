@@ -22,12 +22,18 @@
             color: var(--phosphor);
             font-family: "Courier New", Courier, monospace;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            /* Block layout, not flex: the game canvas must fill the window exactly,
+               so its CSS size matches the backing store raylib sizes to the window.
+               Any CSS scaling of the canvas skews where clicks land. */
+            display: block;
         }
+        /* HUD: an overlay across the top of the window, not a row that pushes the canvas. */
         .hud-bar {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
             width: min(96vw, calc(90vh * 16 / 9));
             display: flex;
             justify-content: space-between;
@@ -67,24 +73,26 @@
             border-color: var(--phosphor);
             box-shadow: 0 0 10px rgba(0, 255, 210, 0.6);
         }
+        /* The viewport fills the window. There is no border or 16:9 box here:
+           raylib letterboxes the 1280x720 game inside the canvas itself
+           (see input_get_letterbox() in src/ui_input.c). */
         .viewport-frame {
             position: relative;
-            width: min(96vw, calc(90vh * 16 / 9));
-            aspect-ratio: 16 / 9;
+            width: 100vw;
+            height: 100vh;
+            aspect-ratio: auto;
             background: #000;
-            border: 1px solid var(--phosphor-dim);
-            box-shadow:
-                0 0 35px rgba(0, 0, 0, 0.95),
-                0 0 18px rgba(0, 255, 210, 0.12),
-                inset 0 0 24px rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: none;
+            box-shadow: none;
+            display: block;
             overflow: hidden;
         }
         canvas.emscripten {
-            width: 100%;
-            height: 100%;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0;
+            padding: 0;
+            border: 0;
             display: block;
             outline: none;
             background: #000;
