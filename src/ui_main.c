@@ -31,7 +31,7 @@ Font small_font;  // Legacy alias for modules that still use the old name
 GameSettings settings;
 
 static float transition_alpha = 0.0f, cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
-static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f;
+static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0, human_turn_started = 0, shot_frame = -1, quit_requested = 0;
@@ -78,7 +78,7 @@ static void update_draw_frame(void) {
             transition_alpha = 1.0f; transition_dir = -1; screen = transition_target_screen;
             if (transition_action == 1) {
                 if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
-                anim_init(&anim); memset(&drag, 0, sizeof(drag)); hovered_idx = -1; is_paused = 0; confirm_restart = 0; human_turn_started = 0;
+                anim_init(&anim); memset(&drag, 0, sizeof(drag)); hovered_idx = -1; is_paused = 0; confirm_restart = 0; human_turn_started = 0; deus_banner_timer = 0.0f;
                 engine_init(&g, settings.ruleset, settings.rounds, (uint32_t)time(NULL));
                 ai_set_opponent(settings.current_opponent); taunt_init();
                 taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.0f);
@@ -109,6 +109,7 @@ static void update_draw_frame(void) {
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
+    if (deus_banner_timer > 0.0f) deus_banner_timer -= dt;
 
     int cur_w = GetScreenWidth(), cur_h = GetScreenHeight();
     if (cur_w < 960 || cur_h < 540) {
@@ -278,10 +279,19 @@ static void update_draw_frame(void) {
                                 }
                                 g.player_timer -= dt;
                                 if (g.player_timer <= 0.0f) {
-                                    g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
-                                    engine_timeout_autoplay(&g);
-                                    if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
-                                    anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
+                                    if (settings.difficulty == DIFFICULTY_DEUS) {
+                                        /* DEUS SUPREMUS only: timer 0 = GAME OVER. No points, no win,
+                                           no stats, no record - straight back to the start screen. */
+                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; human_turn_started = 0;
+                                        audio_play_lose(&audio);
+                                        deus_banner_timer = 3.0f;
+                                        start_transition(SCREEN_START, 3, 0);
+                                    } else {
+                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
+                                        engine_timeout_autoplay(&g);
+                                        if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
+                                        anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
+                                    }
                                 }
                             }
                             if (g.phase == PHASE_TURN_HAND) {
@@ -405,6 +415,17 @@ static void update_draw_frame(void) {
     if (transition_alpha > 0.0f) {
         BeginTextureMode(canvas);
         DrawRectangle(0, 0, CANVAS_W, CANVAS_H, (Color){ 0, 0, 0, (unsigned char)(fminf(1.0f, fmaxf(0.0f, transition_alpha)) * 255.0f) });
+        EndTextureMode();
+    }
+    /* DEUS timeout banner: big red transparent text, drawn above everything so it
+       hits the match field and rides the fade back to the start screen */
+    if (deus_banner_timer > 0.0f) {
+        BeginTextureMode(canvas);
+        float t = fminf(1.0f, deus_banner_timer / 0.6f);              /* fade-out tail */
+        unsigned char a = (unsigned char)(t * 200.0f);                /* ~78% - transparent */
+        const char *msg = "/// TIME EXPIRED ///";
+        Vector2 ts = MeasureTextEx(font_title, msg, 56.0f, 1.6f);
+        DrawTextEx(font_title, msg, (Vector2){ floorf((CANVAS_W - ts.x) / 2.0f), 330.0f }, 56.0f, 1.6f, (Color){ 0xFF, 0x30, 0x30, a });
         EndTextureMode();
     }
 
