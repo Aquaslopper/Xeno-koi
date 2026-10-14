@@ -17,17 +17,15 @@ jobs:
           fetch-depth: 0
       - name: Checkout PR head (fork-safe)
         run: |
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-${{ github.event.pull_request.number }}
-            git checkout pr-${{ github.event.pull_request.number }}
-          fi
+          git fetch --force origin pull/${{ github.event.pull_request.number }}/head:pr-${{ github.event.pull_request.number }}
+          git checkout pr-${{ github.event.pull_request.number }}
       - name: Fetch main
         run: git fetch origin main
       - name: Check protected changed on main since base
         id: check
         run: |
           BASE=$(git merge-base HEAD origin/main)
-          CHANGED=$(git diff --name-only $BASE..origin/main -- src/rules.* src/engine.* src/cards.* src/campaign.* src/storage.* src/ai.* docs/rulesets/ docs/scoring/ docs/assets/cards/ assets/atlas.png assets/atlas_deus.png tools/wiki_tables.c tools/test_koikoi_trigger.c tools/make_card_images.py mkdocs.yml | sort -u)
+          CHANGED=$(git diff --name-only $BASE..origin/main -- src/rules.* src/engine.* src/cards.* src/campaign.* src/storage.* src/ai.* src/ui_screens.c src/ui_board_status.c src/board_layout.* tools/wiki_tables.c tools/test_koikoi_trigger.c tools/make_card_images.py assets/atlas.png assets/atlas_deus.png assets/back.png assets/deus.png assets/*.jpg docs/rulesets/ docs/scoring/ docs/reference/ docs/*.md docs/stylesheets/ docs/assets/cards/ docs/assets/deus-bg.webp overrides/ mkdocs.yml | sort -u)
           if [ -n "$CHANGED" ]; then
             echo "stale=true" >> $GITHUB_OUTPUT
             echo "$CHANGED" > /tmp/stale.txt
@@ -42,7 +40,7 @@ jobs:
             echo "stale=false" >> $GITHUB_OUTPUT
           fi
       - name: Comment
-        if: steps.check.outputs.stale == 'true'
+        if: steps.check.outputs.stale == 'true' && (github.event_name == 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: guard-stale
