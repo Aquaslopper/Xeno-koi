@@ -1,8 +1,9 @@
 # Errata & Known Issues
 
-The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf` (11 Oct 2026), was the contract for the first version of the game. The rules have changed since then. This page lists where the handoff and the current code disagree, so nobody has to trust either one blindly.
+!!! warning "The handoff is legacy"
+    `HANDOFF_KoiKoi_Giger_v2.pdf` (11 Oct 2026) was the original build spec for the first version of the game. **It is no longer the rulebook.** The rules have been changed and extended since, and the handoff has not been updated.
 
-**The wiki follows the code.** Where a row below says "Code", the wiki page describes the code's behaviour.
+    This page lists where the handoff and the current game disagree. **Where they differ, the wiki and the code are correct.** Do not follow the handoff's rules.
 
 ## Rules that changed since the handoff
 
@@ -20,13 +21,13 @@ The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf` (11 Oct 2026), was the co
 | Setting | Handoff says | Code does now | Note |
 |---|---|---|---|
 | Rounds | 6 | `storage_load_settings()` sets **2** rounds when there is no `settings.txt`. | Fresh installs start at 2 rounds. |
-| Ruleset | Nintendo | `storage_load_settings()` sets **KK-ADD-10** when there is no `settings.txt`. | Fresh installs start on KK-ADD-10. |
+| Ruleset | Nintendo | `storage_load_settings()` sets **KK-ADD-10** when there is no `settings.txt`. | Fresh installs start on KK-ADD-10, the maintainer's house rule. |
 
 Both defaults only apply when `settings.txt` is missing. Once the file is saved, your chosen values are used.
 
 ## Known issues
 
-1. **Deus Supremus is open to everyone.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. Set it to `0` before a release.
+1. **Deus Supremus is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.
 2. **Card 47 has the same label as card 46** (`12-P2 Plain`). The card is a plain, so scoring is correct, but the label is wrong and should probably read `12-P3 Plain`. The cards table on the [Cards](reference/cards.md) page shows the current label.
 3. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
 4. **Repository test step.** `build.sh test` expects `tests/test_engine.c`, which is not in this repository, so the engine test step is skipped.

@@ -23,7 +23,7 @@ The CPU's Koi-Koi decision compares the **banked award now** with the **projecte
   | Master | 3 or more |
 
 - A win with fewer rounds still counts as a match win, but it does **not** unlock the next opponent. The results screen tells you so.
-- **Deus Supremus** requires all twelve opponents to be cleared. See [Errata & Known Issues](../errata.md): at the moment Deus is open to everyone for testing.
+- **Deus Supremus** normally requires all twelve opponents to be cleared. The maintainer currently keeps it **open to everyone on purpose**, while the mode is being tested. See [Errata & Known Issues](../errata.md).
 
 ## Rounds
 

@@ -2,6 +2,15 @@
 
 This wiki is built with [MkDocs](https://www.mkdocs.org/) and the [Material theme](https://squidfunk.github.io/mkdocs-material/). The Markdown lives in the repository's `docs/` folder, so every rule change and its documentation can go into the same pull request.
 
+## Which documents are authoritative
+
+1. **The code** in `src/` decides what the game does.
+2. **This wiki** (`docs/`) explains the current rules and is the reference for players and contributors.
+3. **`HANDOFF_KoiKoi_Giger_v2.pdf`** is the legacy build spec. It is kept for history only. Where it disagrees with the code or the wiki, the handoff is wrong. [Errata & Known Issues](errata.md) lists the differences.
+4. **`STATUS.md`** is a legacy snapshot of one earlier session.
+
+When you change a rule, update the code, the wiki page for that rule, and the generated tables in the same change. Keep [`AGENTS.md`](https://github.com/Aquaslopper/Xeno-koi/blob/main/AGENTS.md) in mind too: it gives future contributors and coding agents the same instructions.
+
 ## Two kinds of content
 
 **Hand-written pages** explain rules, strategy, and concepts. Edit these directly.
