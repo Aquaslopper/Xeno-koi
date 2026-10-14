@@ -1,0 +1,65 @@
+name: Guard stale protected revert
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch main
+        run: git fetch origin main
+
+      - name: Check protected files changed on main since PR base
+        id: check
+        run: |
+          BASE=$(git merge-base HEAD origin/main)
+          echo "Merge-base: $BASE"
+          CHANGED=$(git diff --name-only $BASE..origin/main -- \
+            src/rules.* src/engine.* src/cards.* \
+            src/campaign.* src/storage.* src/ai.* \
+            docs/rulesets/ docs/scoring/ docs/assets/cards/ \
+            assets/atlas.png assets/atlas_deus.png assets/back.png assets/deus.png \
+            tools/wiki_tables.c tools/test_koikoi_trigger.c tools/make_card_images.py \
+            mkdocs.yml | sort -u)
+          echo "$CHANGED"
+          if [ -n "$CHANGED" ]; then
+            echo "stale=true" >> $GITHUB_OUTPUT
+            echo "$CHANGED" > /tmp/stale.txt
+            {
+              echo "### ⚠️ Stale branch — would revert protected mechanics"
+              echo ""
+              echo "This PR is based on old commit \`$BASE\`. Since then, protected files changed on \`main\`:"
+              echo '```'
+              cat /tmp/stale.txt
+              echo '```'
+              echo "Merging as-is would revert them (e.g. #14 KK-ADD-10 combo trigger)."
+              echo "Please rebase: \`git fetch origin main && git rebase origin/main\` and keep protected files."
+            } > /tmp/body.md
+            cat /tmp/body.md
+          else
+            echo "stale=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment
+        if: steps.check.outputs.stale == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: guard-stale
+          path: /tmp/body.md
+
+      - name: Fail if stale
+        if: steps.check.outputs.stale == 'true'
+        run: |
+          echo "::error::Stale branch - protected files changed on main"
+          cat /tmp/stale.txt
+          exit 1
