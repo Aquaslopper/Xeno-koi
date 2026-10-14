@@ -318,23 +318,28 @@ DecisionType ai_choose_decision(const GameState *g, Difficulty diff, uint32_t *a
     CaptureSummary opp_cs = rules_summarize_captures(g->captured[opp], g->captured_count[opp]);
     int opp_base = score_summary_base(g->ruleset, opp_cs);
 
+    /* Cards left in hand == turns left to improve. Never gamble without a runway. */
+    int runway = (diff == DIFFICULTY_HARD) ? 4 : 3;
+    if (g->hand_count[me] < runway) return DECISION_SHOBU;
+
+    /* The opponent is already sitting on points and can bank at any moment. */
+    if (opp_base > 0) return DECISION_SHOBU;
+
     if (diff == DIFFICULTY_DEUS || diff == DIFFICULTY_MASTER) {
-        if (opp_base > 0) return DECISION_SHOBU;
         static const int SPECIAL_CARDS[15] = {
             0, 1, 5, 8, 9, 20, 21, 24, 28, 32, 33, 36, 37, 40, 44
         };
         for (int i = 0; i < 15; i++) {
             if (blocks_opponent_mask(opp_cs.mask, SPECIAL_CARDS[i])) return DECISION_SHOBU;
         }
-        int me_base = score_captures_base(g->ruleset, g->captured[me], g->captured_count[me]);
-        if (me_base >= 7 || g->hand_count[me] < 3) return DECISION_SHOBU;
-        return DECISION_KOI_KOI;
     }
 
-    /* Hard: Koi-Koi only if base < 7, computer hand >= 4 and opponent base = 0; otherwise SHOBU */
+    /* Streak economics: every Koi-Koi call raises the caller's own multiplier by +1,
+       so continuing is correct while the projected award (assume the combo grows by
+       ~2 points on the next improvement) clearly beats banking the safe award now.
+       Once the multiplier is capped there is no streak upside left, so the CPU banks. */
     int me_base = score_captures_base(g->ruleset, g->captured[me], g->captured_count[me]);
-    if (me_base < 7 && g->hand_count[me] >= 4 && opp_base == 0) {
-        return DECISION_KOI_KOI;
-    }
-    return DECISION_SHOBU;
+    int bank_now = calculate_award(me_base, g->koi_called[me], g->koi_called[opp]);
+    int projected = calculate_award(me_base + 2, g->koi_called[me] + 1, g->koi_called[opp]);
+    return (projected >= bank_now * 2) ? DECISION_KOI_KOI : DECISION_SHOBU;
 }

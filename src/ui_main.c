@@ -326,7 +326,8 @@ int main(int argc, char **argv) {
                         if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
                             DecisionType dec = ai_choose_decision(&g, settings.difficulty, &ai_rng);
                             if (dec == DECISION_KOI_KOI) {
-                                audio_play_koi(&audio); anim_start_banner(&anim, "CPU: KOI-KOI", 1.5f);
+                                int cpu_streak = koi_caller_multiplier(g.koi_called[1] + 1); /* streak after this call */
+                                audio_play_koi(&audio); anim_start_banner(&anim, TextFormat("CPU: KOI-KOI  x%d", cpu_streak), 1.5f);
                                 taunt_trigger(campaign_get_opponent(settings.current_opponent)->koi_taunt, 4.0f);
                             }
                             engine_decide(&g, dec);

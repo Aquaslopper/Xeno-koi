@@ -137,7 +137,10 @@ static int apply_dealer_privilege(GameState *g) {
     g->current_round_record.lucky_hand = 0;
     g->current_round_record.base_points = 6;
     g->current_round_record.mult_seven = 1;
-    g->current_round_record.mult_koi = 1;      /* flat 6, no multipliers */
+    g->current_round_record.mult_opp_koi = 1;  /* flat 6, no multipliers */
+    g->current_round_record.mult_self_koi = 1;
+    g->current_round_record.self_koi_calls = 0;
+    g->current_round_record.opp_koi_calls = 0;
     g->current_round_record.award = 6;
     memset(&g->current_round_record.score_result, 0, sizeof(ScoreResult));
     g->dealer = d;                             /* the dealer keeps the deal */
@@ -164,7 +167,10 @@ void engine_check_lucky_hands(GameState *g) {
         g->current_round_record.lucky_hand = 1;
         g->current_round_record.base_points = 6;
         g->current_round_record.mult_seven = 1;
-        g->current_round_record.mult_koi = 1;
+        g->current_round_record.mult_opp_koi = 1;
+        g->current_round_record.mult_self_koi = 1;
+        g->current_round_record.self_koi_calls = 0;
+        g->current_round_record.opp_koi_calls = 0;
         g->current_round_record.award = 6;
         g->total_score[w] += 6;
         g->dealer = w;
@@ -338,13 +344,18 @@ static int advance_after_turn(GameState *g) {
 static int apply_shobu(GameState *g) {
     int p = g->current_player;
     int opp = 1 - p;
+    int self_koi = g->koi_called[p];
+    int opp_koi = g->koi_called[opp];
     ScoreResult sr = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-    int award = calculate_award(sr.base_points, g->koi_called[opp] > 0);
+    int award = calculate_award(sr.base_points, self_koi, opp_koi);
     g->total_score[p] += award;
     g->current_round_record.winner = p;
     g->current_round_record.base_points = sr.base_points;
     g->current_round_record.mult_seven = (sr.base_points >= 7) ? 2 : 1;
-    g->current_round_record.mult_koi = (g->koi_called[opp] > 0) ? 2 : 1;
+    g->current_round_record.mult_opp_koi = (opp_koi > 0) ? 2 : 1;
+    g->current_round_record.mult_self_koi = koi_caller_multiplier(self_koi);
+    g->current_round_record.self_koi_calls = self_koi;
+    g->current_round_record.opp_koi_calls = opp_koi;
     g->current_round_record.award = award;
     g->current_round_record.score_result = sr;
     if (p == 0) {

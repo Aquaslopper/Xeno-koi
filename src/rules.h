@@ -62,7 +62,19 @@ ScoreResult score_captures(Ruleset ruleset, const int *cards, int n);
 /* Fast-path calculation of base points only (no struct formatting overhead). */
 int score_captures_base(Ruleset ruleset, const int *cards, int n);
 
-/* Calculates the final round award given the base and opponent koi status. */
-int calculate_award(int base, int opponent_called_koi);
+/* Escalating Koi-Koi streak multiplier for the player who CALLED Koi-Koi.
+   Every call made in the round adds +1 to the caller's own multiplier:
+     0 calls -> x1, 1 call -> x2, 2 calls -> x3, 3 calls -> x4 ...
+   Capped by KOI_CALLER_MULT_MAX so a lucky round cannot run away completely. */
+#define KOI_CALLER_MULT_MAX 6
+
+/* Multiplier earned by the round winner for their own Koi-Koi calls. */
+int koi_caller_multiplier(int self_koi_calls);
+
+/* Calculates the final round award from the base points and both Koi-Koi tallies:
+     - base >= 7            -> x2
+     - opponent called koi   -> x2 (the loser pushed their luck and lost)
+     - caller's own calls    -> x(1 + calls), capped at KOI_CALLER_MULT_MAX */
+int calculate_award(int base, int self_koi_calls, int opponent_koi_calls);
 
 #endif /* RULES_H */

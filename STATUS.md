@@ -21,8 +21,18 @@
    - All legacy software-loop scanlines removed from both board and screens.
    - Clean analog CRT beam shader active with selectable in-menu filter strength (`0: OFF`, `1: LOW`, `2: MID`, `3: HIGH`).
 
-4. **Deliverables**
+4. **Koi-Koi Streak Multiplier (Caller-Side)**
+   - `calculate_award()` now takes both Koi-Koi tallies: the winner's own calls drive an escalating
+     multiplier (`koi_caller_multiplier()`, +1 per call, capped at `KOI_CALLER_MULT_MAX = 6`), while the
+     loser's calls still grant the flat `x2` Opponent Koi-Koi multiplier.
+   - `RoundRecord` carries `mult_opp_koi` (was `mult_koi`), `mult_self_koi`, `self_koi_calls` and
+     `opp_koi_calls`, so the ledger and round-result screen can break the award down per multiplier.
+   - Decide overlay, round-result screen, side combo panels and the CPU banner all display the live streak.
+   - AI decision-making now compares the banked award against the projected streak award instead of using
+     a fixed "base < 7" threshold, so the CPU chases (and stops chasing) streaks correctly.
+
+5. **Deliverables**
    - All C source files strictly under 500 lines.
-   - 15,000 engine test matches passed.
+   - 15,000 engine test matches passed (post-change: AI-vs-AI sweep over all 5 rulesets, award/multiplier fields verified against the engine, zero zone violations).
    - Windows 64-bit release binary compiled to `dist/KoiKoi.exe`.
    - Archive packaged at `/home/user/koikoi_project.zip`.
