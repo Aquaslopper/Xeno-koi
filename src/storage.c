@@ -41,7 +41,7 @@ void storage_load_settings(GameSettings *s) {
     s->fullscreen = 0;
     s->bloom = 0;
     s->crt_filter = 2;
-    s->gamma = 1.0f;
+    s->gamma = 1.40f;
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
 
