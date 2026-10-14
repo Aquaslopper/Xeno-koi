@@ -87,6 +87,12 @@
             display: block;
             overflow: hidden;
         }
+        /* Keep the frame and canvas sized to the viewport when the page enters fullscreen. */
+        html:fullscreen .viewport-frame,
+        .viewport-frame:fullscreen {
+            width: 100vw;
+            height: 100vh;
+        }
         canvas.emscripten {
             width: 100% !important;
             height: 100% !important;
@@ -190,7 +196,7 @@
         });
 
         document.getElementById('fullscreen-btn').addEventListener('click', function() {
-            var elem = document.getElementById('viewport-container');
+            var elem = document.documentElement;
             if (!document.fullscreenElement) {
                 if (elem.requestFullscreen) elem.requestFullscreen();
             } else {
