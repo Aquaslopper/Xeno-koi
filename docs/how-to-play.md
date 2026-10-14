@@ -146,7 +146,7 @@ After a round, the results screen shows each yaku, the base points, every multip
 - **Play a card:** click and drag a card from your hand onto the table.
 - **Choose a target:** when a choice appears, click the card you want to capture. Some choices can be cancelled, and the stock choice cannot.
 - **Pause:** `Esc` or `P`.
-- **Easy difficulty:** hand cards that can capture glow, and while you drag a card, field cards of the same month glow to help you match.
+- **Easy difficulty:** hand cards that can capture glow, and while you drag a card, field cards of the same month glow to help you match. Hover over a face-up card for half a second to see its month/suit, type (including its Japanese name), and card name beside the cursor. This also works on captured cards and cards in choice overlays; face-down cards never reveal metadata. Tooltips disappear when you leave the card, drag, pause, or switch away from Easy difficulty.
 
 ## Winning
 

@@ -1,4 +1,5 @@
 #include "ui_board.h"
+#include "ui_card_tooltip.h"
 #include "board_layout.h"
 #include "ui_motion.h"
 #include "ui_board_status.h"
@@ -174,6 +175,7 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
 
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     if ((unsigned)card_id >= 48u) return;
+    card_tooltip_record(card_id, dest);
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
@@ -181,6 +183,7 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
 }
 
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
+    card_tooltip_record(-1, dest);
     Rectangle src = { 0, 0, (float)ba->card_back.width, (float)ba->card_back.height };
     DrawTexturePro(ba->card_back, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     Color bo = g_theme.dim; bo.a = 100; Color bi = g_theme.base; bi.a = 180;
