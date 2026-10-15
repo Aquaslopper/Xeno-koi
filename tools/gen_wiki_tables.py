@@ -232,21 +232,24 @@ def card_data_uri(card_id: int) -> str:
 def render_chart_svg(curves: dict, roster: list) -> str:
     """One column per opponent: his card, his three bands. Deus sits above the whole roster."""
     easy, hard, master, deus = curves["EASY"], curves["HARD"], curves["MASTER"], curves["DEUS"]
-    bands = (("EASY", easy, "ring", 3.4), ("HARD", hard, "dot", 4.2), ("MASTER", master, "diamond", 5.2))
+    # Weight and outline carry the difference, not hue alone: a hollow capsule, a solid capsule,
+    # a solid block. Dots at this size were two same-brightness blobs, which told you nothing.
+    bands = (("EASY", easy, (22, 6, "hollow")),
+             ("HARD", hard, (28, 7, "solid")),
+             ("MASTER", master, (34, 9, "block")))
     colour = {"EASY": CHART_INK, "HARD": CHART_AMBER, "MASTER": CHART_CRIMSON}
     card_y = CHART_AXIS_Y + 12
     out = []
     add = out.append
 
-    def marker(cx, cy, shape, band, r):
-        """Ring for Easy, filled dot for Hard, diamond for Master: colour and shape carry it."""
-        fill = CHART_BG if shape == "ring" else colour[band]
-        if shape == "diamond":
-            s = r + 0.8
-            return (f'<path d="M{cx:.1f} {cy - s:.1f} L{cx + s:.1f} {cy:.1f} L{cx:.1f} {cy + s:.1f} '
-                    f'L{cx - s:.1f} {cy:.1f} Z" fill="{fill}" stroke="{colour[band]}" stroke-width="1.7"/>')
-        return (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{fill}" stroke="{colour[band]}" '
-                f'stroke-width="1.7"/>')
+    def marker(cx, cy, spec, band):
+        w, h, shape = spec
+        fill = CHART_BG if shape == "hollow" else colour[band]
+        edge = "#ffffff" if shape == "block" else colour[band]
+        rx = h / 2 if shape != "block" else 1.0
+        return (f'<rect x="{cx - w / 2:.1f}" y="{cy - h / 2:.1f}" width="{w}" height="{h}" rx="{rx:.1f}" '
+                f'fill="{fill}" stroke="{edge}" stroke-width="{1.7 if shape == "hollow" else 1.2}" '
+                f'stroke-opacity="{1 if shape != "block" else 0.75}"/>')
 
     art = {}
     for _n, _name, card_id, _cn, _f in roster:
@@ -284,18 +287,18 @@ def render_chart_svg(curves: dict, roster: list) -> str:
     for n, name, card_id, _card_name, _focus in roster:
         cx = chart_x(n)
         if n < CHART_NODES:
-            add(f'<rect x="{cx - 15:.1f}" y="{chart_y(master[n]):.1f}" width="30" '
-                f'height="{chart_y(easy[n]) - chart_y(master[n]):.1f}" fill="{CHART_INK}" fill-opacity="0.08"/>')
+            add(f'<rect x="{cx - 19:.1f}" y="{chart_y(master[n]):.1f}" width="38" '
+                f'height="{chart_y(easy[n]) - chart_y(master[n]):.1f}" fill="{CHART_INK}" fill-opacity="0.07"/>')
             add(f'<line x1="{cx:.1f}" y1="{chart_y(easy[n]):.1f}" x2="{cx:.1f}" '
                 f'y2="{chart_y(master[n]):.1f}" stroke="{CHART_INK_DIM}" stroke-opacity="0.55" '
                 'stroke-width="1.5"/>')
-            for band, values, shape, r in bands:
-                add(marker(cx, chart_y(values[n]), shape, band, r))
+            for band, values, spec in bands:
+                add(marker(cx, chart_y(values[n]), spec, band))
         else:
             add(f'<line x1="{cx:.1f}" y1="{chart_y(deus) + 7:.1f}" x2="{cx:.1f}" y2="{CHART_AXIS_Y}" '
                 f'stroke="{CHART_DEUS}" stroke-opacity="0.3" stroke-dasharray="3 5"/>')
-            add(f'<rect x="{cx - 22:.1f}" y="{chart_y(deus) - 5:.1f}" width="44" height="10" rx="2" '
-                f'fill="{CHART_DEUS}"/>')
+            add(f'<rect x="{cx - 22:.1f}" y="{chart_y(deus) - 5:.1f}" width="44" height="10" rx="1" '
+                f'fill="{CHART_DEUS}" stroke="#ffffff" stroke-opacity="0.5" stroke-width="1.2"/>')
         grey = ' style="filter:grayscale(1)"' if n == CHART_NODES else ""
         add(f'<use x="{cx:.1f}" y="{card_y}" href="#chart-card-{card_id:02d}"{grey}/>')
         add(f'<rect x="{cx - CHART_CARD_W / 2 - 1:.1f}" y="{card_y - 1}" width="{CHART_CARD_W + 2}" '
@@ -323,11 +326,11 @@ def render_chart_svg(curves: dict, roster: list) -> str:
         f'{CHART_MT - 18} Z" fill="{CHART_INK_DIM}" fill-opacity="0.6"/>')
 
     lx, ly = float(CHART_ML), CHART_H - 76
-    for band, _values, shape, r in bands:
-        add(marker(lx + 6, ly - 4, shape, band, r))
+    for band, _values, spec in bands:
+        add(marker(lx + 22, ly - 4, spec, band))
         add(f'<text x="{lx + 16:.1f}" y="{ly}" fill="{colour[band]}" font-size="11">'
             f"{band.lower()}</text>")
-        lx += 16 + 6.6 * (len(band) + 2) + 24
+        lx += 6.6 * (len(band) + 2) + 62
     add(f'<rect x="{lx:.1f}" y="{ly - 12:.1f}" width="12" height="14" fill="{CHART_INK}" '
         'fill-opacity="0.12"/>')
     add(f'<text x="{lx + 18:.1f}" y="{ly}" fill="{CHART_INK_DIM}" font-size="11">'

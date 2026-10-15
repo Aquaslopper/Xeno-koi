@@ -21,122 +21,122 @@
 <text x="970" y="235.2" fill="#64f0ff" font-size="11" text-anchor="end">Easy max 60%</text>
 <line x1="70" y1="168.0" x2="974" y2="168.0" stroke="#ff5f5f" stroke-opacity="0.35" stroke-dasharray="5 5"/>
 <text x="970" y="160.0" fill="#ff5f5f" font-size="11" text-anchor="end">Master min 78%</text>
-<rect x="89.8" y="168.0" width="30" height="242.4" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="85.8" y="168.0" width="38" height="242.4" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="104.8" y1="410.4" x2="104.8" y2="168.0" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="104.8" cy="410.4" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="104.8" cy="285.0" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M104.8 162.0 L110.8 168.0 L104.8 174.0 L98.8 168.0 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="93.8" y="407.4" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="90.8" y="281.5" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="87.8" y="163.5" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="104.8" y="506" href="#chart-card-00"/>
 <rect x="81.3" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="104.8" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">01</text>
 <text x="104.8" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">JANUARY</text>
 <text x="104.8" y="624" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">CRANE</text>
-<rect x="159.3" y="159.6" width="30" height="238.3" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="155.3" y="159.6" width="38" height="238.3" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="174.3" y1="397.9" x2="174.3" y2="159.6" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="174.3" cy="397.9" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="174.3" cy="276.6" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M174.3 153.6 L180.3 159.6 L174.3 165.6 L168.3 159.6 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="163.3" y="394.9" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="160.3" y="273.1" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="157.3" y="155.1" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="174.3" y="506" href="#chart-card-04"/>
 <rect x="150.8" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="174.3" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">02</text>
 <text x="174.3" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">FEB.</text>
 <text x="174.3" y="624" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">WARBLER</text>
-<rect x="228.8" y="151.2" width="30" height="229.9" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="224.8" y="151.2" width="38" height="229.9" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="243.8" y1="381.1" x2="243.8" y2="151.2" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="243.8" cy="381.1" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="243.8" cy="264.1" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M243.8 145.2 L249.8 151.2 L243.8 157.2 L237.8 151.2 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="232.8" y="378.1" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="229.8" y="260.6" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="226.8" y="146.7" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="243.8" y="506" href="#chart-card-08"/>
 <rect x="220.3" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="243.8" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">03</text>
 <text x="243.8" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">MARCH</text>
 <text x="243.8" y="624" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">CURTAIN</text>
-<rect x="298.4" y="142.9" width="30" height="225.7" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="294.4" y="142.9" width="38" height="225.7" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="313.4" y1="368.6" x2="313.4" y2="142.9" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="313.4" cy="368.6" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="313.4" cy="251.6" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M313.4 136.9 L319.4 142.9 L313.4 148.9 L307.4 142.9 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="302.4" y="365.6" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="299.4" y="248.1" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="296.4" y="138.4" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="313.4" y="506" href="#chart-card-12"/>
 <rect x="289.9" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="313.4" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">04</text>
 <text x="313.4" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">APRIL</text>
 <text x="313.4" y="624" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">CUCKOO</text>
-<rect x="367.9" y="134.5" width="30" height="217.4" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="363.9" y="134.5" width="38" height="217.4" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="382.9" y1="351.9" x2="382.9" y2="134.5" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="382.9" cy="351.9" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="382.9" cy="243.2" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M382.9 128.5 L388.9 134.5 L382.9 140.5 L376.9 134.5 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="371.9" y="348.9" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="368.9" y="239.7" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="365.9" y="130.0" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="382.9" y="506" href="#chart-card-16"/>
 <rect x="359.4" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="382.9" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">05</text>
 <text x="382.9" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">MAY BRIDGE</text>
-<rect x="437.5" y="126.2" width="30" height="209.0" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="433.5" y="126.2" width="38" height="209.0" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="452.5" y1="335.2" x2="452.5" y2="126.2" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="452.5" cy="335.2" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="452.5" cy="230.7" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M452.5 120.2 L458.5 126.2 L452.5 132.2 L446.5 126.2 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="441.5" y="332.2" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="438.5" y="227.2" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="435.5" y="121.7" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="452.5" y="506" href="#chart-card-20"/>
 <rect x="429.0" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="452.5" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">06</text>
 <text x="452.5" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">JUNE SWARM</text>
-<rect x="507.0" y="117.8" width="30" height="204.8" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="503.0" y="117.8" width="38" height="204.8" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="522.0" y1="322.6" x2="522.0" y2="117.8" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="522.0" cy="322.6" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="522.0" cy="218.1" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M522.0 111.8 L528.0 117.8 L522.0 123.8 L516.0 117.8 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="511.0" y="319.6" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="508.0" y="214.6" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="505.0" y="113.3" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="522.0" y="506" href="#chart-card-24"/>
 <rect x="498.5" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="522.0" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">07</text>
 <text x="522.0" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">JULY BOAR</text>
-<rect x="576.5" y="109.4" width="30" height="196.5" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="572.5" y="109.4" width="38" height="196.5" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="591.5" y1="305.9" x2="591.5" y2="109.4" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="591.5" cy="305.9" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="591.5" cy="205.6" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M591.5 103.4 L597.5 109.4 L591.5 115.4 L585.5 109.4 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="580.5" y="302.9" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="577.5" y="202.1" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="574.5" y="104.9" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="591.5" y="506" href="#chart-card-28"/>
 <rect x="568.0" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="591.5" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">08</text>
 <text x="591.5" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">AUGUST</text>
 <text x="591.5" y="624" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">MOON</text>
-<rect x="646.1" y="101.1" width="30" height="188.1" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="642.1" y="101.1" width="38" height="188.1" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="661.1" y1="289.2" x2="661.1" y2="101.1" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="661.1" cy="289.2" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="661.1" cy="197.2" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M661.1 95.1 L667.1 101.1 L661.1 107.1 L655.1 101.1 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="650.1" y="286.2" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="647.1" y="193.7" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="644.1" y="96.6" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="661.1" y="506" href="#chart-card-32"/>
 <rect x="637.6" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="661.1" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">09</text>
 <text x="661.1" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">SEPT. SAKE</text>
-<rect x="715.6" y="92.7" width="30" height="183.9" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="711.6" y="92.7" width="38" height="183.9" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="730.6" y1="276.6" x2="730.6" y2="92.7" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="730.6" cy="276.6" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="730.6" cy="184.7" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M730.6 86.7 L736.6 92.7 L730.6 98.7 L724.6 92.7 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="719.6" y="273.6" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="716.6" y="181.2" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="713.6" y="88.2" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="730.6" y="506" href="#chart-card-36"/>
 <rect x="707.1" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="730.6" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">10</text>
 <text x="730.6" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">OCT. DEER</text>
-<rect x="785.2" y="84.4" width="30" height="175.6" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="781.2" y="84.4" width="38" height="175.6" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="800.2" y1="259.9" x2="800.2" y2="84.4" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="800.2" cy="259.9" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="800.2" cy="172.1" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M800.2 78.4 L806.2 84.4 L800.2 90.4 L794.2 84.4 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="789.2" y="256.9" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="786.2" y="168.6" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="783.2" y="79.9" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="800.2" y="506" href="#chart-card-40"/>
 <rect x="776.7" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="800.2" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">11</text>
 <text x="800.2" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">NOV. RAIN</text>
-<rect x="854.7" y="76.0" width="30" height="167.2" fill="#64f0ff" fill-opacity="0.08"/>
+<rect x="850.7" y="76.0" width="38" height="167.2" fill="#64f0ff" fill-opacity="0.07"/>
 <line x1="869.7" y1="243.2" x2="869.7" y2="76.0" stroke="#2dafc3" stroke-opacity="0.55" stroke-width="1.5"/>
-<circle cx="869.7" cy="243.2" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
-<circle cx="869.7" cy="159.6" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<path d="M869.7 70.0 L875.7 76.0 L869.7 82.0 L863.7 76.0 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
+<rect x="858.7" y="240.2" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
+<rect x="855.7" y="156.1" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<rect x="852.7" y="71.5" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
 <use x="869.7" y="506" href="#chart-card-44"/>
 <rect x="846.2" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="869.7" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">12</text>
 <text x="869.7" y="613" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">DEC.</text>
 <text x="869.7" y="624" fill="#ffffff" fill-opacity="0.62" font-size="9" text-anchor="middle">PHOENIX</text>
 <line x1="939.2" y1="83.0" x2="939.2" y2="494" stroke="#9aa0a6" stroke-opacity="0.3" stroke-dasharray="3 5"/>
-<rect x="917.2" y="71.0" width="44" height="10" rx="2" fill="#9aa0a6"/>
+<rect x="917.2" y="71.0" width="44" height="10" rx="1" fill="#9aa0a6" stroke="#ffffff" stroke-opacity="0.5" stroke-width="1.2"/>
 <use x="939.2" y="506" href="#chart-card-44" style="filter:grayscale(1)"/>
 <rect x="915.7" y="505" width="47" height="76" fill="none" stroke="#2dafc3" stroke-opacity="0.3"/>
 <text x="939.2" y="600" fill="#2dafc3" font-size="11" text-anchor="middle">13</text>
@@ -148,14 +148,14 @@
 <path d="M986 488 L996 494 L986 500 Z" fill="#2dafc3" fill-opacity="0.6"/>
 <line x1="70" y1="58" x2="70" y2="494" stroke="#2dafc3" stroke-opacity="0.6" stroke-width="1.5"/>
 <path d="M64 58 L70 48 L76 58 Z" fill="#2dafc3" fill-opacity="0.6"/>
-<circle cx="76.0" cy="650.0" r="3.4" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7"/>
+<rect x="81.0" y="647.0" width="22" height="6" rx="3.0" fill="#0b0e0b" stroke="#64f0ff" stroke-width="1.7" stroke-opacity="1"/>
 <text x="86.0" y="654" fill="#64f0ff" font-size="11">easy</text>
-<circle cx="155.6" cy="650.0" r="4.2" fill="#ffc850" stroke="#ffc850" stroke-width="1.7"/>
-<text x="165.6" y="654" fill="#ffc850" font-size="11">hard</text>
-<path d="M235.2 644.0 L241.2 650.0 L235.2 656.0 L229.2 650.0 Z" fill="#ff5f5f" stroke="#ff5f5f" stroke-width="1.7"/>
-<text x="245.2" y="654" fill="#ff5f5f" font-size="11">master</text>
-<rect x="322.0" y="642.0" width="12" height="14" fill="#64f0ff" fill-opacity="0.12"/>
-<text x="340.0" y="654" fill="#2dafc3" font-size="11">spread across that opponent</text>
+<rect x="179.6" y="646.5" width="28" height="7" rx="3.5" fill="#ffc850" stroke="#ffc850" stroke-width="1.2" stroke-opacity="1"/>
+<text x="187.6" y="654" fill="#ffc850" font-size="11">hard</text>
+<rect x="278.2" y="645.5" width="34" height="9" rx="1.0" fill="#ff5f5f" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.75"/>
+<text x="289.2" y="654" fill="#ff5f5f" font-size="11">master</text>
+<rect x="388.0" y="642.0" width="12" height="14" fill="#64f0ff" fill-opacity="0.12"/>
+<text x="406.0" y="654" fill="#2dafc3" font-size="11">spread across that opponent</text>
 <text x="70" y="680" fill="#2dafc3" fill-opacity="0.85" font-size="11">the art under each column is his signature target, from the roster in src/cards.c</text>
 <text x="70" y="696" fill="#2dafc3" fill-opacity="0.85" font-size="11">the 15s/30s timer, the ruleset and the mono Deus atlas change your pressure, not his accuracy</text>
 </svg>
