@@ -90,7 +90,3 @@ The deck has **48 cards** in **12 months** of four cards each. The table below i
 **Composition check (from `cards_validate()` invariants):** 5 Brights, 9 Animals, 10 Ribbons, 24 Plains = 48 cards.
 
 <!-- END GENERATED: cards -->
-
-## Notes
-
-- Card **47** is named `12-P2 Plain` in the source, the same as card 46. It is only a label, so scoring is not affected. See [Errata & Known Issues](../errata.md).

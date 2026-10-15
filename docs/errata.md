@@ -34,16 +34,9 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 ## Known issues
 
 1. **Deus Supremus is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.
-2. **Card 47 label fixed.** It now reads `12-P3 Plain` (was `12-P2 Plain`, duplicating card 46). Scoring was never affected.
-3. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
-4. **Repository test step.** `build.sh test` expects `tests/test_engine.c`, which is not in this repository, so the engine test step is skipped.
-5. **Deus logic.** The Deus difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
-6. **The browser build hands fullscreen to the page, not the game.** On desktop, Options → Fullscreen calls raylib's `ToggleBorderlessWindowed()`. On web that call resolves to Emscripten's `Module.requestFullscreen()`, which moves the canvas into a throwaway parent `<div>`, resizes it towards monitor device pixels and leaves its inline CSS size set. The canvas CSS box then no longer matches the size raylib sizes to the window, so the game is drawn offset and clicks land in the wrong place. The web shell now owns fullscreen: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas through `XenoKoiFullscreen` in `web/shell.html`, and `settings.fullscreen` is ignored and cleared on load in the browser build. A `fullscreen=1` saved by an earlier web session is therefore harmless.
-   Browsers only grant fullscreen from a user gesture: the page button always qualifies, the in-game row works in Chrome, Firefox and Edge, and Safari may ignore the in-game row (the page button still works). `docs/reference/modes.md` describes the player-facing behaviour.
-
-## README differences
-
-The README's ruleset summary now states that Viewings are disabled in both Tournament and Yakuza, and that Yakuza uses Tournament scoring. The README's description of the streak multiplier matches the code.
+2. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
+3. **Deus logic.** The Deus difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
+4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes, Difficulty & Settings](reference/modes.md).
 
 ## Verified against the code
 
