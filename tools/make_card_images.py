@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """
-Cut per-card thumbnails out of assets/atlas.png for the wiki.
+Cut per-card thumbnails out of the atlases for the wiki.
 
-The atlas holds 48 cards in a 12 x 4 grid, each cell 176 x 286 px.
+Each atlas holds 48 cards in a 12 x 4 grid, cell 176 x 286 px.
 Card id maps to column id >> 2 (month - 1) and row id & 3 (slot) --
 the same mapping board_draw_card() uses in src/ui_board.c.
 
-Output: docs/assets/cards/card-00.webp ... card-47.webp, plus back.webp
-(from assets/back.png) and docs/assets/deus-bg.webp (from assets/deus.png,
-the Deus background used at the top of the wiki). The owner's art is only
-cropped, resized and compressed, never recoloured or redrawn.
+assets/atlas_deus.png is the same grid with the mono art, because that
+is what the game draws when the difficulty is DEUS (see the atlas choice
+in board_draw_card). So the same card id is cut from both, and the pages
+about Entity 13 use the deus/ set instead of the coloured one.
+
+Output: docs/assets/cards/card-00.webp ... card-47.webp, the same 48 under
+docs/assets/cards/deus/, plus back.webp (from assets/back.png) and
+docs/assets/deus-bg.webp (from assets/deus.png, the DEUS SUPREMUS background
+used at the top of the wiki). The owner's art is only cropped, resized and
+compressed, never recoloured or redrawn.
 
 Usage:
   python3 tools/make_card_images.py           # write images
@@ -24,9 +30,11 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ATLAS = ROOT / "assets" / "atlas.png"
+ATLAS_DEUS = ROOT / "assets" / "atlas_deus.png"
 BACK = ROOT / "assets" / "back.png"
 DEUS = ROOT / "assets" / "deus.png"
 OUT = ROOT / "docs" / "assets" / "cards"
+OUT_DEUS = OUT / "deus"
 DEUS_OUT = ROOT / "docs" / "assets" / "deus-bg.webp"
 
 COLS, ROWS = 12, 4
@@ -43,7 +51,9 @@ def card_box(card_id: int):
 
 def main() -> int:
     check_only = "--check" in sys.argv[1:]
-    expected = [OUT / f"card-{i:02d}.webp" for i in range(48)] + [OUT / "back.webp", DEUS_OUT]
+    cards = [OUT / f"card-{i:02d}.webp" for i in range(48)]
+    expected = cards + [OUT_DEUS / f"card-{i:02d}.webp" for i in range(48)]
+    expected += [OUT / "back.webp", DEUS_OUT]
 
     if check_only:
         missing = [p.name for p in expected if not p.exists()]
@@ -51,17 +61,19 @@ def main() -> int:
             print(f"missing card images: {', '.join(missing)}")
             print("Run: python3 tools/make_card_images.py")
             return 1
-        print("card images present (48 cards + back).")
+        print(f"card images present ({len(expected)} files, both atlases + back + hero).")
         return 0
 
-    atlas = Image.open(ATLAS).convert("RGB")
-    if atlas.size != (COLS * CELL_W, ROWS * CELL_H):
-        raise SystemExit(f"atlas size {atlas.size} != expected {(COLS * CELL_W, ROWS * CELL_H)}")
-
-    OUT.mkdir(parents=True, exist_ok=True)
-    for card_id in range(48):
-        thumb = atlas.crop(card_box(card_id)).resize((THUMB_W, THUMB_H), Image.LANCZOS)
-        thumb.save(OUT / f"card-{card_id:02d}.webp", "WEBP", quality=QUALITY)
+    for atlas_path, out_dir in ((ATLAS, OUT), (ATLAS_DEUS, OUT_DEUS)):
+        atlas = Image.open(atlas_path).convert("RGB")
+        if atlas.size != (COLS * CELL_W, ROWS * CELL_H):
+            raise SystemExit(
+                f"{atlas_path.name} size {atlas.size} != expected {(COLS * CELL_W, ROWS * CELL_H)}"
+            )
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for card_id in range(48):
+            thumb = atlas.crop(card_box(card_id)).resize((THUMB_W, THUMB_H), Image.LANCZOS)
+            thumb.save(out_dir / f"card-{card_id:02d}.webp", "WEBP", quality=QUALITY)
 
     back = Image.open(BACK).convert("RGB")
     back.resize((THUMB_W, THUMB_H), Image.LANCZOS).save(

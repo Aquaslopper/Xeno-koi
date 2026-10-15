@@ -301,6 +301,14 @@ static void frag_ruleset_facts(void) {
     puts("@@END");
 }
 
+/* Which atlas an opponent's art comes from: Entity 13 draws from assets/atlas_deus.png, the
+   same choice board_draw_card() makes in src/ui_board.c. Returns the subdirectory under
+   docs/assets/cards/, empty for the twelve months. Keeps the roster, the difficulty chart and
+   the image files agreeing on whose art is whose. */
+static const char *card_subdir_for_opponent(int i) {
+    return (i == CAMPAIGN_OPPONENT_COUNT) ? "deus/" : "";
+}
+
 static void frag_opponents(void) {
     puts("@@FRAGMENT opponents");
     puts("| # | Opponent | Unit classification | Favorite card | Focus |");
@@ -309,7 +317,8 @@ static void frag_opponents(void) {
         const Opponent *o = campaign_get_opponent(i);
         const Card *fc = &CARDS[o->favorite_card_id];
         printf("| %d | **%s** | %s | ", i, o->name, o->title);
-        print_card_img("../assets/cards/", o->favorite_card_id, "card-mini");
+        printf("![%s](../assets/cards/%scard-%02d.webp){ .card-mini }", fc->name,
+               card_subdir_for_opponent(i), o->favorite_card_id);
         printf(" %s (id %d) | %s |\n", fc->name, o->favorite_card_id, o->favorite_combo);
     }
     puts("");
@@ -330,8 +339,8 @@ static void frag_roster_meta(void) {
     puts("@@FRAGMENT roster-meta");
     for (int i = 0; i <= 12; i++) {
         const Opponent *o = campaign_get_opponent(i);
-        printf("%d | %s | %d | %s | %s\n", i, o->name, o->favorite_card_id,
-               CARDS[o->favorite_card_id].name, o->favorite_combo);
+        printf("%d | %s | %d | %s | %s | %s\n", i, o->name, o->favorite_card_id,
+               CARDS[o->favorite_card_id].name, o->favorite_combo, card_subdir_for_opponent(i));
     }
     puts("@@END");
 }
