@@ -14,10 +14,6 @@ TerminalTheme g_theme = {
 
 TerminalTheme theme_get(int id) {
     TerminalTheme t;
-    /* Unknown id -> TEAL. The TEAL default is what a fresh install gets, so a
-       corrupt or stale settings.txt must not fall through to the legacy GREEN
-       below (id 0). GREEN stays reachable when it is asked for by name. */
-    if (id < 0 || id > 5) id = 2;
     if (id == 1) {
         t.id = 1;
         t.name = "AMBER";
