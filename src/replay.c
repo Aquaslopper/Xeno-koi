@@ -44,8 +44,6 @@ void replay_rec_begin(uint32_t seed, uint32_t ai_rng, int ruleset, int rounds, i
     rec_overflow = 0;
 }
 
-int replay_rec_active(void) { return rec_active; }
-
 static void rec_push(const char *line) {
     if (!rec_active || rec_overflow) return;
     if (rec_count >= REPLAY_MAX_EVENTS) { rec_overflow = 1; return; }
