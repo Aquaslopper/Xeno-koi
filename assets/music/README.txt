@@ -1,1 +1,1 @@
-Place optional custom audio tracks (menu.mp3, game1.mp3 to game5.mp3) in this folder.
+Place optional custom audio tracks (menu.mp3, game1.mp3 to game10.mp3) in this folder.
