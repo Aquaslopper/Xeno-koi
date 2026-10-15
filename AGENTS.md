@@ -44,6 +44,15 @@ CI runs the same checks (`.github/workflows/docs.yml`) and fails if the generate
 - `build.sh test` expects `tests/test_engine.c`, which is not in this repository.
 - Do not commit build output: `koikoi_linux`, `test_engine`, `dist/`, `site/`, or compiled tool binaries. Build tools to `/tmp`.
 
+## Code changes
+- Keep a change to the smallest diff that solves the problem. If a fix
+  needs more than ~80 lines, stop and describe the plan first.
+- Never bundle a refactor with a feature. Separate commits.
+- Do not add a parameter to a shared function to pass a mode flag
+  without saying so in the summary.
+- Before finishing, list what you touched and what you deliberately
+  did not touch.
+
 ## Pages site
 
 The wiki is deployed to GitHub Pages from `main` by `.github/workflows/docs.yml`. Any other workflow that deploys to the same Pages site replaces the whole site, so coordinate before adding one.
