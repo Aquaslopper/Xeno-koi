@@ -19,7 +19,11 @@
 
 #define REPLAY_MAX_EVENTS 1024
 #define REPLAY_EVENT_LEN  24
-#define REPLAY_PACE       0.50f         /* seconds between two playback steps */
+/* Seconds between two playback steps. Only steps without a flight wait this
+   out - a flight is released into its step the moment it lands, and the caller
+   adds its own beat after that - so this is the pace of the Koi-Koi decisions,
+   the choice picks and the round ends. */
+#define REPLAY_PACE       0.85f
 
 /* ---------------- recording ---------------- */
 

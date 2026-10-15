@@ -265,7 +265,7 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
 
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
-                      int easy_mode, const char *status_msg) {
+                      int easy_mode, int replay_mode, const char *status_msg) {
     float cur_time = (float)GetTime();
     float frame_dt = GetFrameTime();
 
@@ -467,7 +467,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);
     draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
     DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
-    draw_text_in_rect(font_title, "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+    /* A replay cannot be restarted: the second button ends it instead. */
+    draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

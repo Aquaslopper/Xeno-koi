@@ -30,7 +30,8 @@ typedef enum {
     ACT_ABANDON_MATCH,
     ACT_RESET_STATS,
     ACT_SAVE_LOG,
-    ACT_NEXT_ROUND
+    ACT_NEXT_ROUND,
+    ACT_STOP_REPLAY
 } ScreenAction;
 
 /* Start Screen */
@@ -50,8 +51,10 @@ void screens_draw_credits(const BoardAssets *ba, Vector2 vm);
 ScreenAction screens_handle_credits_click(Vector2 vm);
 
 /* Pause Screen */
-void screens_draw_pause(Vector2 vm, int confirm_restart);
-ScreenAction screens_handle_pause_click(Vector2 vm, int *confirm_restart);
+/* Replay variant: "REPLAY PAUSED" with RESUME / STOP REPLAY instead of the
+   match actions, because a replay cannot be restarted or abandoned. */
+void screens_draw_pause(Vector2 vm, int confirm_restart, int replay);
+ScreenAction screens_handle_pause_click(Vector2 vm, int *confirm_restart, int replay);
 
 /* Match Result Screen */
 void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const GameSettings *s, Vector2 vm);
