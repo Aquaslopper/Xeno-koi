@@ -1,6 +1,6 @@
 # Opponents
 
-The campaign has **twelve CPU opponents**, one per month, plus the final boss **Entity 13 // DEUS SUPREMUS**. Each opponent has a favourite card, a favourite yaku, and their own taunts. Their names and text are generated from `src/cards.c`.
+The campaign has **twelve CPU opponents**, one per month, plus the final boss **[Entity 13 // DEUS SUPREMUS](deus-supremus.md)**. Each opponent has a favourite card, a favourite yaku, and their own taunts. Their names and text are generated from `src/cards.c`.
 
 Opponents unlock in order. You win a match against the newest opponent to unlock the next one. See [Modes](modes.md) for the unlock rules.
 
@@ -22,7 +22,7 @@ Opponents unlock in order. You win a match against the newest opponent to unlock
 | 9 | **10: OCT. DEER** | Sensory-Stealth Unit // Sector 10 | ![10-A Deer](../assets/cards/card-36.webp){ .card-mini } 10-A Deer (id 36) | Ino-Shika-Cho |
 | 10 | **11: NOV. RAIN** | Atmospheric Anomaly // Sector 11 | ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } 11-B Rainman (id 40) | Ribbons |
 | 11 | **12: DEC. PHOENIX** | The Apex Biomech // Sector 12 | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
-| 12 | **ENTITY 13 // DEUS SUPREMUS** | Omnipresent Machine God // Sector Null | ![12-B Phoenix](../assets/cards/deus/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
+| 12 | **ENTITY 13 // DEUS SUPREMUS** ([dossier](deus-supremus.md)) | Omnipresent Machine God // Sector Null | ![12-B Phoenix](../assets/cards/deus/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
 
 Taunt lines:
 
@@ -53,6 +53,6 @@ Each opponent sets how accurately the CPU plays. This is the chance, on each dec
 | Easy | 20% | 60% |
 | Hard | 50% | 80% |
 | Master | 78% | 100% |
-| DEUS SUPREMUS | 100% | 100% |
+| [DEUS SUPREMUS](deus-supremus.md) | 100% | 100% |
 
 The favourite card and favourite yaku also make the CPU prefer those cards and combinations. See [Difficulty](difficulty.md).

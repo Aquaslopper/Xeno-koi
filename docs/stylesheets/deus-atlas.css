@@ -1,0 +1,210 @@
+/* =============================================================================
+   DEUS SUPREMUS - the study page.
+ 
+   Two things live here: his name set in a display face, and his own mono atlas as
+   ONE sheet with a grid over it, so a player can blow the map up and learn where
+   everything sits instead of clicking through 48 thumbnails.
+ 
+   No JavaScript, and no Material Insiders features: the paid image-zoom plugin is
+   not available to us, so zooming is :target - the cells are anchors that set the
+   hash, the sheet re-renders at its native 2112 x 1144, and a scroll box pans it.
+   In-place rather than position:fixed, because a transformed ancestor would turn
+   "fixed" into "relative to that ancestor" and the overlay would land mid-page.
+ 
+   The grid is 12 columns x 4 rows because a card's cell is (id >> 2, id & 3) -
+   see board_draw_card() in src/ui_board.c and the same mapping in
+   tools/make_card_images.py. Which cells get the red frame is decided by the
+   generator, from SPECIAL_CARDS[] in src/ai.c; nothing is hardcoded here.
+ 
+   Font: Metal Mania, SIL OFL 1.1, docs/assets/fonts/ (licence text alongside it).
+   Same words as the game's own subtitle, and a spiky display face that sits next
+   to the owner's banner art without pretending to be it.
+   ============================================================================= */
+@font-face {
+    font-family: "Metal Mania";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../assets/fonts/metal-mania-latin-400-normal.woff2") format("woff2"),
+         url("../assets/fonts/metal-mania-latin-ext-400-normal.woff2") format("woff2");
+}
+
+/* His name, big: the first thing on the page. */
+.md-typeset h1.deus-title {
+    font-family: "Metal Mania", "Segoe UI", sans-serif;
+    font-weight: 400;
+    font-size: clamp(3.4rem, 13vw, 9rem);
+    line-height: 0.9;
+    letter-spacing: 0.045em;
+    margin: 0.15em 0 0.3em;
+    color: #ff0000;
+    text-shadow: 0 0 26px rgba(255, 0, 0, 0.4);
+    border-bottom: 1px solid rgba(255, 0, 0, 0.3);
+    padding-bottom: 0.16em;
+}
+
+.md-typeset .deus-tagline {
+    color: var(--md-default-fg-color--light);
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 1.4em;
+}
+
+/* The sheet, with its frame and its axis labels. */
+.md-typeset .deus-map {
+    position: relative;
+    margin: 1.5em 0 0.5em;
+}
+
+.md-typeset .deus-map-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7em;
+    align-items: baseline;
+    font-size: 0.68rem;
+    color: var(--md-default-fg-color--light);
+    margin-bottom: 0.5em;
+}
+
+.md-typeset .deus-map-btn {
+    border: 1px solid rgba(45, 175, 195, 0.55);
+    padding: 0.12em 0.6em;
+    color: var(--md-accent-fg-color);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.md-typeset .deus-map-btn:hover {
+    border-color: var(--md-accent-fg-color);
+    background: rgba(45, 175, 195, 0.12);
+}
+
+.md-typeset .deus-map-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+}
+
+.md-typeset .deus-map-key i {
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    box-shadow: inset 0 0 0 2px #ff0000;
+    background: rgba(255, 0, 0, 0.07);
+}
+
+.md-typeset .deus-map-scroll {
+    overflow: hidden;
+}
+
+.md-typeset .deus-map-body {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 0.15em 0.4em;
+}
+
+.md-typeset .deus-map-x {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    color: var(--md-default-fg-color--lighter);
+    text-align: center;
+}
+
+.md-typeset .deus-map-y {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-rows: repeat(4, 1fr);
+    font-size: 0.6rem;
+    color: var(--md-default-fg-color--lighter);
+    text-align: right;
+    align-items: center;
+    justify-items: right;
+    padding-right: 0.35em;
+    white-space: nowrap;
+}
+
+.md-typeset .deus-map-cells {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+}
+
+.md-typeset .deus-map-open {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    display: block;
+    background: #0b0e0b;
+    cursor: zoom-in;
+}
+
+.md-typeset .deus-map-open img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.md-typeset .deus-map-cell {
+    z-index: 1;
+    display: block;
+    border: 1px solid rgba(45, 175, 195, 0.1);
+    text-decoration: none;
+}
+
+.md-typeset .deus-map-cell:hover {
+    background: rgba(100, 240, 255, 0.1);
+}
+
+.md-typeset .deus-map-cell.denial {
+    box-shadow: inset 0 0 0 2px #ff0000;
+    background: rgba(255, 0, 0, 0.06);
+}
+
+.md-typeset .deus-map-cell.denial:hover {
+    background: rgba(255, 0, 0, 0.16);
+}
+
+/* Zoomed: the sheet at native size inside a scroll box, so pan and study. */
+.md-typeset .deus-map:target .deus-map-scroll {
+    overflow: auto;
+    max-height: 82vh;
+    outline: 1px solid rgba(45, 175, 195, 0.45);
+    padding: 0.6em;
+    background: rgba(11, 14, 11, 0.6);
+}
+
+.md-typeset .deus-map:target .deus-map-body {
+    width: 2112px;
+}
+
+.md-typeset .deus-map:target .deus-map-open {
+    cursor: zoom-out;
+}
+
+.md-typeset .deus-map .deus-map-close {
+    display: none;
+}
+
+.md-typeset .deus-map:target .deus-map-close {
+    display: inline-block;
+}
+
+.md-typeset .deus-map:target .deus-map-zoom {
+    display: none;
+}
+
+@media (max-width: 44.99em) {
+    .md-typeset h1.deus-title {
+        font-size: 2.9rem;
+        line-height: 1;
+    }
+}

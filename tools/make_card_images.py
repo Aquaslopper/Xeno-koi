@@ -12,7 +12,8 @@ in board_draw_card). So the same card id is cut from both, and the pages
 about Entity 13 use the deus/ set instead of the coloured one.
 
 Output: docs/assets/cards/card-00.webp ... card-47.webp, the same 48 under
-docs/assets/cards/deus/, plus back.webp (from assets/back.png) and
+docs/assets/cards/deus/, the whole mono sheet as
+docs/assets/deus-atlas.webp, plus back.webp (from assets/back.png) and
 docs/assets/deus-bg.webp (from assets/deus.png, the DEUS SUPREMUS background
 used at the top of the wiki). The owner's art is only cropped, resized and
 compressed, never recoloured or redrawn.
@@ -36,6 +37,9 @@ DEUS = ROOT / "assets" / "deus.png"
 OUT = ROOT / "docs" / "assets" / "cards"
 OUT_DEUS = OUT / "deus"
 DEUS_OUT = ROOT / "docs" / "assets" / "deus-bg.webp"
+# The whole mono sheet, for the study page: one file, so the player can zoom into the
+# map itself instead of clicking through 48 thumbs.
+DEUS_ATLAS_OUT = ROOT / "docs" / "assets" / "deus-atlas.webp"
 
 COLS, ROWS = 12, 4
 CELL_W, CELL_H = 176, 286
@@ -53,7 +57,7 @@ def main() -> int:
     check_only = "--check" in sys.argv[1:]
     cards = [OUT / f"card-{i:02d}.webp" for i in range(48)]
     expected = cards + [OUT_DEUS / f"card-{i:02d}.webp" for i in range(48)]
-    expected += [OUT / "back.webp", DEUS_OUT]
+    expected += [OUT / "back.webp", DEUS_OUT, DEUS_ATLAS_OUT]
 
     if check_only:
         missing = [p.name for p in expected if not p.exists()]
@@ -82,6 +86,10 @@ def main() -> int:
 
     # Wiki top background: kept at its native 1280 x 720, WebP-compressed.
     Image.open(DEUS).convert("RGB").save(DEUS_OUT, "WEBP", quality=78)
+
+    # The mono sheet at native resolution - the study page zooms into this one image,
+    # so it must stay 2112 x 1144 and never be resampled down.
+    Image.open(ATLAS_DEUS).convert("RGB").save(DEUS_ATLAS_OUT, "WEBP", quality=82)
 
     total = sum(p.stat().st_size for p in expected)
     print(f"wrote {len(expected)} images ({total / 1024:.0f} KiB total)")

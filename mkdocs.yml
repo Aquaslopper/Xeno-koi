@@ -11,6 +11,7 @@ strict: true
 extra_css:
   - stylesheets/cards.css
   - stylesheets/deus-theme.css
+  - stylesheets/deus-atlas.css
 
 theme:
   name: material
@@ -65,6 +66,7 @@ nav:
       - Cards: reference/cards.md
       - Opponents: reference/opponents.md
       - Difficulty: reference/difficulty.md
+      - DEUS SUPREMUS: reference/deus-supremus.md
       - Modes & Settings: reference/modes.md
   - Errata & Known Issues: errata.md
   - About these docs: about-the-docs.md

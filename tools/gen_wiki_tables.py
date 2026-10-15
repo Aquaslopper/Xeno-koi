@@ -79,6 +79,7 @@ def parse_fragments(output: str) -> dict:
 AI_SRC = ROOT / "src" / "ai.c"
 CHART_ASSET = DOCS / "assets" / "difficulty-curve.svg"
 CHART_FRAGMENT = "difficulty-curve"
+DEUS_MAP_FRAGMENT = "deus-atlas-map"
 CHART_NODES = 12          # campaign opponents; ai_get_accuracy() clamps boss_id to 0..11
 CHART_TOP = 100
 CHART_ELSE_BAND = "MASTER"  # the branch with no DIFFICULTY_ constant is the one left over
@@ -100,7 +101,7 @@ CHART_CRIMSON = "#ff0000"      # pure red: Master should never be mistaken for a
 CHART_CARD_H = 74
 CHART_CARD_W = 45
 # Fragments that feed the generators instead of a page.
-DATA_ONLY_FRAGMENTS = {"roster-meta"}
+DATA_ONLY_FRAGMENTS = {"roster-meta", "card-cells"}
 
 BRANCH_RE = re.compile(
     r"else\s+if\s*\(\s*diff\s*==\s*DIFFICULTY_(?P<elif>\w+)\s*\)"
@@ -239,6 +240,85 @@ def card_data_uri(sub: str, card_id: int) -> str:
     return "data:image/webp;base64," + base64.b64encode(path.read_bytes()).decode()
 
 
+SPECIAL_RE = re.compile(r"static const int SPECIAL_CARDS\[(\d+)\]\s*=\s*\{(.*?)\}\s*;", re.S)
+
+
+def chart_denial_set() -> list:
+    """The cards he weighs before raising, read live from ai_call_koi_koi() in src/ai.c.
+
+    This list is data, not decoration. If it changes while the page still claims fifteen cards,
+    the page is lying to a player who is about to lose to it - so a missing or reshaped array
+    stops the build instead of quietly falling back to a number.
+    """
+    body = AI_SRC.read_text(encoding="utf-8", errors="replace")
+    m = SPECIAL_RE.search(body)
+    if not m:
+        raise SystemExit(
+            "generator: SPECIAL_CARDS[] not found in src/ai.c - the Koi-Koi gate moved, update "
+            "this parser before the wiki says something false about it"
+        )
+    declared = int(m.group(1))
+    ids = [int(x) for x in m.group(2).replace("\n", " ").split(",") if x.strip()]
+    if len(ids) != declared:
+        raise SystemExit(f"generator: SPECIAL_CARDS declares {declared} ids, parsed {len(ids)}")
+    if len(set(ids)) != declared or any(i < 0 or i > 47 for i in ids):
+        raise SystemExit("generator: SPECIAL_CARDS has a duplicate or an id outside 0..47")
+    return sorted(ids)
+
+
+def chart_card_cells(fragments: dict) -> dict:
+    """id -> (name, column, row), straight from CARDS[] in src/cards.c."""
+    cells = {}
+    for line in fragments.get("card-cells", "").strip().splitlines():
+        parts = [q.strip() for q in line.split("|")]
+        if len(parts) != 4:
+            raise SystemExit(f"generator: malformed card-cells row {line!r}")
+        cells[int(parts[0])] = (parts[1], int(parts[2]), int(parts[3]))
+    if len(cells) != 48:
+        raise SystemExit(f"generator: card-cells has {len(cells)} rows, expected 48")
+    return cells
+
+
+def render_deus_map_markdown(denial: list, cells: dict) -> str:
+    """His atlas as one sheet, framed by the grid the engine actually uses.
+
+    Raw HTML, written without blank lines, because markdown would end the block mid-grid. The
+    cells are anchors rather than a script: clicking one sets the hash, deus-atlas.css does the
+    rest. Which cells are framed comes from SPECIAL_CARDS[], so the marking follows the AI.
+    """
+    framed = set(denial)
+    cols = "".join(f"<span>{m + 1:02d}</span>" for m in range(12))
+    rows = "".join(f"<span>slot {r}</span>" for r in range(4))
+    marks = []
+    for cid in range(48):
+        name, col, row = cells[cid]
+        klass = "deus-map-cell denial" if cid in framed else "deus-map-cell"
+        tip = f"{name} - id {cid}, column {col + 1}, row {row}"
+        if cid in framed:
+            tip += " - he counts this one"
+        marks.append(f'<a class="{klass}" style="grid-area:{row + 1}/{col + 1}" '
+                     f'href="#deus-atlas-study" title="{tip}"></a>')
+    return (
+        '<div class="deus-map" id="deus-atlas-study">\n'
+        '<div class="deus-map-bar">'
+        '<a class="deus-map-btn deus-map-zoom" href="#deus-atlas-study">zoom the sheet</a>'
+        '<a class="deus-map-btn deus-map-close" href="#">close</a>'
+        '<span class="deus-map-key"><i></i> '
+        f"{len(denial)} cards he counts before calling Koi-Koi</span>"
+        '<span>hover a cell for the card, click to blow it up</span></div>\n'
+        '<div class="deus-map-scroll"><div class="deus-map-body">\n'
+        f'<div class="deus-map-x">{cols}</div>\n'
+        f'<div class="deus-map-y">{rows}</div>\n'
+        '<div class="deus-map-cells">'
+        '<a class="deus-map-open" href="#deus-atlas-study">'
+        '<img src="../assets/deus-atlas.webp" width="2112" height="1144" loading="lazy" alt="'
+        "The whole DEUS SUPREMUS atlas: 48 mono cards in twelve month columns and four slot "
+        f'rows, with {len(denial)} of them framed in red"></a>'
+        + "".join(marks)
+        + "</div>\n</div></div>\n</div>"
+    )
+
+
 def render_chart_svg(curves: dict, roster: list) -> str:
     """One column per opponent: his card, his three bands. Deus sits above the whole roster."""
     easy, hard, master, deus = curves["EASY"], curves["HARD"], curves["MASTER"], curves["DEUS"]
@@ -353,7 +433,7 @@ def render_chart_markdown(curves: dict, roster: list) -> str:
     easy, hard, master, deus = curves["EASY"], curves["HARD"], curves["MASTER"], curves["DEUS"]
     lines = [
         "![Chart: for every opponent, his signature card and the chance of an optimal CPU move on "
-        "Easy, Hard and Master, with Deus above them all](../assets/difficulty-curve.svg)",
+        "Easy, Hard and Master, with DEUS SUPREMUS above them all](../assets/difficulty-curve.svg)",
         "",
         "| # | Opponent | Signature target | Priority yaku | Easy | Hard | Master |",
         "|---:|---|---|---|---:|---:|---:|",
@@ -363,12 +443,15 @@ def render_chart_markdown(curves: dict, roster: list) -> str:
         trio = (f"- | - | **{deus}%** always" if n == CHART_NODES
                 else f"{easy[n]}% | {hard[n]}% | {master[n]}%")
         art = f"![{card_name}](../{card_path(sub, card_id)}){{ .card-mini }}"
+        if n == CHART_NODES:
+            label = f"{label} ([dossier](deus-supremus.md))"
         lines.append(f"| {n + 1:02d} | **{label}** | {art} {card_name} | {focus} | {trio} |")
     ramps = [max(v) - min(v) for v in (easy, hard, master)]
     lines.append(f"| | *Ramp, 01 to 12* | | | +{ramps[0]} | +{ramps[1]} | +{ramps[2]} |")
     lines.append("")
-    lines.append("*Easy, Hard and Master are not picked against Deus: he overrides the band and "
-                 "plays optimally on every turn.*")
+    lines.append("*Easy, Hard and Master are not picked against "
+                 "[DEUS SUPREMUS](deus-supremus.md): he overrides the band and plays optimally on "
+                 "every turn.*")
     return "\n".join(lines)
 
 
@@ -394,6 +477,8 @@ def main() -> int:
         fragments = parse_fragments(build_and_run(pathlib.Path(tmp)))
     curves = chart_curves()
     roster = chart_roster(fragments)
+    fragments[DEUS_MAP_FRAGMENT] = render_deus_map_markdown(chart_denial_set(),
+                                                             chart_card_cells(fragments))
     fragments[CHART_FRAGMENT] = render_chart_markdown(curves, roster)
 
     seen = set()

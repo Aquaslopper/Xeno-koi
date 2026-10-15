@@ -15,7 +15,7 @@ around the match itself - unlocks, rounds, options and the records the game keep
   | Master | 3 or more |
 
 - A win with fewer rounds still counts as a match win, but it does **not** unlock the next opponent. The results screen tells you so.
-- **DEUS SUPREMUS** normally requires all twelve opponents to be cleared. The maintainer currently keeps it **open to everyone on purpose**, while the mode is being tested. See [Errata & Known Issues](../errata.md).
+- **[DEUS SUPREMUS](deus-supremus.md)** normally requires all twelve opponents to be cleared. The maintainer currently keeps it **open to everyone on purpose**, while the mode is being tested. See [Errata & Known Issues](../errata.md).
 
 ## Rounds
 
@@ -28,9 +28,9 @@ These settings are saved in `settings.txt` next to the game:
 | Setting | Options |
 |---|---|
 | Rounds | 1 to 12 |
-| [Difficulty](difficulty.md) | Easy, Hard, Master, DEUS SUPREMUS |
-| Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza (locked to Yakuza on DEUS SUPREMUS) |
-| Background | Seven selectable backgrounds: Harvest, Hole, Arctic, Castle, City, Face, Realm (DEUS SUPREMUS has his own locked background) |
+| [Difficulty](difficulty.md) | Easy, Hard, Master, [DEUS SUPREMUS](deus-supremus.md) |
+| Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza (locked to Yakuza on [DEUS SUPREMUS](deus-supremus.md)) |
+| Background | Seven selectable backgrounds: Harvest, Hole, Arctic, Castle, City, Face, Realm ([DEUS SUPREMUS](deus-supremus.md) has his own locked background) |
 | Terminal colour | Green, Amber, Teal, Crimson, Violet |
 | CRT filter | Off, Low, Mid, High |
 | Bloom | Off, Mid, Full |
@@ -77,7 +77,7 @@ Records are written to the `replays/` folder next to the game as plain `.txt` fi
 - The ten most recent matches are kept automatically and named after the date and time they finished, for example `2026-10-15_1548.txt`. A second match finishing in the same minute is stored as `..._2.txt`. When an eleventh match arrives, the oldest automatic record is deleted.
 - Files made with **[SAVE]** are never deleted by the game. Give them the names you want.
 - A record holds the match seed, the AI RNG starting state, the ruleset, round count, difficulty, master timer and opponent, plus the card choices and decisions from both sides. Playing it back feeds those choices into the same engine again, so the deals, captures and scores are the same.
-- A record can only be made while the match is played. Existing log entries from before this feature, matches that were never finished (restarted, abandoned or closed), and DEUS SUPREMUS matches lost on the turn timer have no record. A replay never counts towards statistics, streaks or unlocks, and the game never changes a record.
+- A record can only be made while the match is played. Existing log entries from before this feature, matches that were never finished (restarted, abandoned or closed), and [DEUS SUPREMUS](deus-supremus.md) matches lost on the turn timer have no record. A replay never counts towards statistics, streaks or unlocks, and the game never changes a record.
 - While a replay runs, the status line shows `REPLAY - P TO PAUSE   ESC TO STOP`, or `REPLAY PAUSED` once it is frozen. **Esc** leaves the replay and returns to the Stats screen, and so do the **STOP** button - the lower of the two board buttons, which reads **RESTART** in a live match - and **STOP REPLAY** in the pause overlay. **P** or the **PAUSE** button freezes the board; the overlay then offers **RESUME** and **STOP REPLAY** rather than the match actions, because a replay cannot be restarted or abandoned.
 - The choice, decision and round-result windows are not shown during a replay - the board, the capture piles and the combo panels are.
 - A replay is watched, not skimmed: every round is dealt out from the stock pile with the round-start banner, and every hand card and stock card flies to the table before the engine takes the step. The flight is a little slower than a live turn and is followed by a beat to read the board, and it follows the animation speed set in Options. The engine step itself waits for the flight to land, so the board never gets ahead of what is drawn.

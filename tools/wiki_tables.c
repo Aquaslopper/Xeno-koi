@@ -316,7 +316,10 @@ static void frag_opponents(void) {
     for (int i = 0; i <= 12; i++) {
         const Opponent *o = campaign_get_opponent(i);
         const Card *fc = &CARDS[o->favorite_card_id];
-        printf("| %d | **%s** | %s | ", i, o->name, o->title);
+        if (i == CAMPAIGN_OPPONENT_COUNT)
+            printf("| %d | **%s** ([dossier](deus-supremus.md)) | %s | ", i, o->name, o->title);
+        else
+            printf("| %d | **%s** | %s | ", i, o->name, o->title);
         printf("![%s](../assets/cards/%scard-%02d.webp){ .card-mini }", fc->name,
                card_subdir_for_opponent(i), o->favorite_card_id);
         printf(" %s (id %d) | %s |\n", fc->name, o->favorite_card_id, o->favorite_combo);
@@ -330,6 +333,39 @@ static void frag_opponents(void) {
         const Opponent *o = campaign_get_opponent(i);
         printf("| %d | *%s* | *%s* |\n", i, o->taunt_text, o->koi_taunt);
     }
+    puts("@@END");
+}
+
+/* Card names and their atlas cells, for the DEUS SUPREMUS study grid. Data only - the generator
+   places no part of it on a page, it just must not guess where a card sits. Cell mapping is
+   board_draw_card()'s: column id >> 2 (month - 1), row id & 3 (slot). */
+static void frag_card_cells(void) {
+    puts("@@FRAGMENT card-cells");
+    for (int id = 0; id < 48; id++)
+        printf("%d | %s | %d | %d\n", id, CARDS[id].name, id >> 2, id & 3);
+    puts("@@END");
+}
+
+/* His own dossier, quoted from the roster instead of paraphrased: while the mode is being tuned,
+   the wiki should show what the game actually says. */
+static void frag_deus_dossier(void) {
+    const Opponent *o = campaign_get_opponent(CAMPAIGN_OPPONENT_COUNT);
+    const Card *fc = &CARDS[o->favorite_card_id];
+    puts("@@FRAGMENT deus-dossier");
+    puts("| | DEUS SUPREMUS |");
+    puts("|---|---|");
+    printf("| **Designation** | %s |\n", o->name);
+    printf("| **Classification** | %s |\n", o->title);
+    printf("| **Priority yaku** | %s |\n", o->favorite_combo);
+    printf("| **Signature target** | ![%s](../assets/cards/%scard-%02d.webp){ .card-mini } "
+           "%s (id %d) |\n", fc->name, card_subdir_for_opponent(CAMPAIGN_OPPONENT_COUNT),
+           o->favorite_card_id, fc->name, o->favorite_card_id);
+    printf("| **Match taunt** | *%s* |\n", o->taunt_text);
+    printf("| **On a Koi-Koi call** | *%s* |\n", o->koi_taunt);
+    puts("");
+    printf("> %s\n", o->lore_text);
+    puts("");
+    puts("*(generated from `g_opponents[12]` in `src/cards.c` - his text, not a paraphrase)*");
     puts("@@END");
 }
 
@@ -368,6 +404,8 @@ int main(void) {
     frag_award_grid();
     frag_ruleset_facts();
     frag_opponents();
+    frag_deus_dossier();
+    frag_card_cells();
     frag_roster_meta();
     return 0;
 }
