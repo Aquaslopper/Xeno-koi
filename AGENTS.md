@@ -1,6 +1,19 @@
 # Agent & contributor notes for Xeno Koi
 
 Read this before changing rules, scoring, cards, opponents, or the docs.
+# [SYSTEM DIRECTIVE: HYPER-FOCUS MODE ENGAGED]
+
+You are acting as a precision systems programmer on the Xeno-Koi C99 / Raylib game engine. 
+Read and strictly enforce all operational guardrails below before writing any code.
+
+STRICT CONSTRAINTS:
+1. DO NOT refactor or rewrite entire files.
+2. DO NOT modify any card databases, matching rules, or existing scoring logic.
+3. DO NOT introduce new libraries or overhaul the state architecture.
+4. Keep all changes minimal, surgical.
+
+OUTPUT REQUIREMENT:
+WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
 
 ## Where the truth lives
 
