@@ -55,4 +55,4 @@ Each opponent sets how accurately the CPU plays. This is the chance, on each dec
 | Master | 78% | 100% |
 | Deus | 100% | 100% |
 
-The favourite card and favourite yaku also make the CPU prefer those cards and combinations. See [Modes](modes.md) for the difficulty settings.
+The favourite card and favourite yaku also make the CPU prefer those cards and combinations. See [Difficulty](difficulty.md).

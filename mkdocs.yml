@@ -64,6 +64,7 @@ nav:
   - Reference:
       - Cards: reference/cards.md
       - Opponents: reference/opponents.md
-      - Modes, Difficulty & Settings: reference/modes.md
+      - Difficulty: reference/difficulty.md
+      - Modes & Settings: reference/modes.md
   - Errata & Known Issues: errata.md
   - About these docs: about-the-docs.md

@@ -36,7 +36,7 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 1. **Deus Supremus is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.
 2. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
 3. **Deus logic.** The Deus difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
-4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes, Difficulty & Settings](reference/modes.md).
+4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes & Settings](reference/modes.md).
 
 ## Verified against the code
 

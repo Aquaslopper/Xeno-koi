@@ -32,7 +32,7 @@ Because a draw pays the dealer and the dealer keeps the deal, being the dealer i
 
 ## Deus Supremus
 
-The final CPU opponent, **Entity 13 // Deus Supremus**, always plays under Yakuza rules. The ruleset selector is locked for that difficulty. See [Modes](../reference/modes.md).
+The final CPU opponent, **Entity 13 // Deus Supremus**, always plays under Yakuza rules. The ruleset selector is locked for that difficulty. See [Difficulty](../reference/difficulty.md).
 
 ## Related
 
