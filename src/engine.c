@@ -27,6 +27,12 @@ int engine_determine_first_dealer(uint32_t *rng_state) {
     }
 }
 
+int engine_oya_winner(int card_a, int card_b) {
+    int ma = CARDS[card_a].month, mb = CARDS[card_b].month;
+    if (ma != mb) return (ma < mb) ? 0 : 1;
+    return (CARDS[card_a].dealer_rank >= CARDS[card_b].dealer_rank) ? 0 : 1;
+}
+
 static int has_four_of_month_or_four_pairs(const int *cards, int n) {
     if (n != 8) return 0;
     int mc[13] = {0}, pairs = 0;

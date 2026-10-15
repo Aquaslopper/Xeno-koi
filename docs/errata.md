@@ -25,6 +25,12 @@
 
 Both defaults only apply when `settings.txt` is missing. Once the file is saved, your chosen values are used.
 
+## Files that changed since the handoff
+
+| Topic | Handoff says | Code does now | Where in code |
+|---|---|---|---|
+| Saved files | "Saving: Settings and stats only, in text files next to the exe. No mid-match save." | Finished matches are recorded as well, in a `replays/` folder next to the exe (the ten newest automatic records plus copies the player saved by name). There is still **no mid-match save** - a match has to be played to the end to get a record, and unfinished matches get none. | `src/replay.c`, `src/ui_replay.c` |
+
 ## Known issues
 
 1. **Deus Supremus is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.

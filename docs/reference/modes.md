@@ -71,3 +71,21 @@ Tracked statistics include:
 - Yaku counts, which feed the favourite combo shown on the main menu
 
 Match history is written to `history.txt`, and a report is written to `stats_report.txt`. Both are next to the game.
+
+### Replays
+
+Every finished match is recorded while it is played, so it can be watched again later. The Stats screen lists the last ten matches on the right; click a line to select it and use the three buttons underneath:
+
+- **[START REPLAY]** plays the selected match back on the board.
+- **[SAVE REPLAY]** asks for a name and copies the selected match to that name, so you can keep it or pass it on.
+- **[LOAD REPLAY]** lists the files in the `replays/` folder; pick one and press **PLAY**.
+
+Records are written to the `replays/` folder next to the game as plain `.txt` files:
+
+- The ten most recent matches are kept automatically and named after the date and time they finished, for example `2026-10-15_1548.txt`. A second match finishing in the same minute is stored as `..._2.txt`. When an eleventh match arrives, the oldest automatic record is deleted.
+- **[SAVE REPLAY]** copies are never deleted by the game. Give them the names you want.
+- A record holds the match seed, the settings of that match and every card played by both sides. Playing it back runs the same match through the engine again, so the cards, the captures and the scores are the same.
+- A record can only be made while the match is played. Matches that were never finished - restarted, abandoned, closed - and Deus matches lost on the turn timer have no record and no line in the list. A replay never counts towards statistics, streaks or unlocks, and the game never changes a record.
+- While a replay runs, the status line shows `REPLAY - ESC TO STOP`; **Esc** leaves the replay and returns to the Stats screen. The pause and restart buttons are not shown. The choice, decision and round-result windows are not shown either - the board, the capture piles and the combo panels are.
+- A record from a different game version is refused with a short message instead of being played back.
+- **The browser build has no replay buttons.** It cannot read or write files next to the game, so the Stats screen there shows the log list without the replay controls and without selection.
