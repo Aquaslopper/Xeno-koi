@@ -66,7 +66,7 @@ static int check_selector_click(Vector2 vm, float y) {
 }
 
 static void draw_bg_if_loaded(const BoardAssets *ba, unsigned char alpha) {
-    if (ba->current_bg >= 0 && ba->current_bg < 6 && ba->bgs[ba->current_bg].id > 0)
+    if (ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0)
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){0,0,1280,720}, (Rectangle){0,0,1280,720}, (Vector2){0}, 0, WHITE);
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, alpha });
 }
@@ -193,15 +193,15 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     if (is_deus) draw_locked_row(320.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
     else draw_selector_row(320.0f, "Terminal Color:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
 
-    const char *bg_names[6] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City", "5: Deus" };
+    const char *bg_names[8] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City", "5: Deus", "6: Face", "7: Realm" };
     Vector2 bg_vm = is_deus ? (Vector2){ -1.0f, -1.0f } : vm;
     Color bg_c = is_deus ? COLOR_PHOSPHOR_DIM : COLOR_PHOSPHOR;
     draw_text_ex_snapped(font_body, "Background:", (Vector2){ 300.0f, 360.0f }, 18.0f, 1.2f, bg_c);
     draw_btn((Rectangle){ 650, 356, 36, 26 }, "<", 18, bg_vm, bg_c);
-    draw_option_value((Rectangle){ 690, 356, 130, 26 }, is_deus ? "[ DEUS (LOCKED) ]" : bg_names[s->background % 6], is_deus ? 13 : 15, bg_vm, is_deus ? COLOR_PHOSPHOR_DIM : COLOR_TEXT_INFO);
+    draw_option_value((Rectangle){ 690, 356, 130, 26 }, is_deus ? "[ DEUS (LOCKED) ]" : bg_names[s->background % 8], is_deus ? 13 : 15, bg_vm, is_deus ? COLOR_PHOSPHOR_DIM : COLOR_TEXT_INFO);
     draw_btn((Rectangle){ 824, 356, 36, 26 }, ">", 18, bg_vm, bg_c);
     int bg_idx = is_deus ? 5 : s->background;
-    if (bg_idx >= 0 && bg_idx < 6 && ba->bgs[bg_idx].id > 0) {
+    if (bg_idx >= 0 && bg_idx < 8 && ba->bgs[bg_idx].id > 0) {
         Rectangle prev = { 864, 356, 46, 26 };
         DrawTexturePro(ba->bgs[bg_idx], (Rectangle){0,0,1280,720}, prev, (Vector2){0}, 0, WHITE);
         DrawRectangleLinesEx(prev, 1.0f, COLOR_PHOSPHOR_DIM);
@@ -269,8 +269,8 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 650, 242, 128, 26 })) { s->master_timer = 15; if (audio) audio_play_click(audio); }
     else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 782, 242, 128, 26 })) { s->master_timer = 30; if (audio) audio_play_click(audio); }
     else if (!is_deus && (dir = check_selector_click(vm, 320.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
-    else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 650, 356, 36, 26 })) { s->background = (s->background + 4) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
-    else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 690, 356, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 824, 356, 36, 26 }))) { s->background = (s->background + 1) % 5; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 650, 356, 36, 26 })) { s->background = (s->background == 0) ? 7 : (s->background == 6) ? 4 : s->background - 1; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 690, 356, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 824, 356, 36, 26 }))) { s->background = (s->background == 4) ? 6 : (s->background + 1) % 8; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 392, 84, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 738, 392, 84, 26 })) { s->anim_speed = 1; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 826, 392, 84, 26 })) { s->anim_speed = 2; if (audio) audio_play_click(audio); }

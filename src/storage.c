@@ -73,7 +73,7 @@ void storage_load_settings(GameSettings *s) {
                 else s->ruleset = RULESET_NINTENDO;
             } else if (strcmp(k, "background") == 0) {
                 int bg = atoi(v);
-                if (bg >= 0 && bg < 6) s->background = bg;
+                if (bg >= 0 && bg < 8) s->background = bg;
             } else if (strcmp(k, "bgm_volume") == 0) {
                 float vol = (float)atof(v);
                 s->bgm_volume = (vol < 0.0f) ? 0.0f : (vol > 1.0f) ? 1.0f : vol;

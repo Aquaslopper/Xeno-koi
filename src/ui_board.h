@@ -10,7 +10,7 @@ typedef struct {
     Texture2D atlas;
     Texture2D atlas_deus;
     Texture2D card_back;
-    Texture2D bgs[6];
+    Texture2D bgs[8];
     int current_bg;
     int assets_loaded;
     Shader fog_shader;
