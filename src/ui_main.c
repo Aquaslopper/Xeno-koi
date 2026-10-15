@@ -184,6 +184,7 @@ static void update_draw_frame(void) {
 #ifndef __EMSCRIPTEN__
             if (ui_replay_take_start(&g)) {
                 anim_init(&anim); motion_init(); memset(&drag, 0, sizeof(drag)); hovered_idx = -1;
+                motion_deal_round(&g, 0.45f); /* the replay's opening deal, same as a live round start */
                 taunt_init(); deus_banner_timer = 0.0f;
                 is_paused = 0; confirm_restart = 0;
                 screen = SCREEN_GAME;
