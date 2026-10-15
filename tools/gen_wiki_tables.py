@@ -96,7 +96,7 @@ CHART_DEUS = "#9aa0a6"      # desaturated: Deus brings its own mono atlas
 # for colour-blind readers and in a faded print. Colours are the game's own
 # terminal themes - TEAL, AMBER, CRIMSON from the table next to ai_get_accuracy().
 CHART_AMBER = "#ffc850"
-CHART_CRIMSON = "#ff5f5f"
+CHART_CRIMSON = "#ff0000"      # pure red: Master should never be mistaken for anything else
 CHART_CARD_H = 74
 CHART_CARD_W = 45
 # Fragments that feed the generators instead of a page.
@@ -236,7 +236,7 @@ def render_chart_svg(curves: dict, roster: list) -> str:
     # a solid block. Dots at this size were two same-brightness blobs, which told you nothing.
     bands = (("EASY", easy, (22, 6, "hollow")),
              ("HARD", hard, (28, 7, "solid")),
-             ("MASTER", master, (34, 9, "block")))
+             ("MASTER", master, (36, 10, "block")))
     colour = {"EASY": CHART_INK, "HARD": CHART_AMBER, "MASTER": CHART_CRIMSON}
     card_y = CHART_AXIS_Y + 12
     out = []
@@ -245,7 +245,7 @@ def render_chart_svg(curves: dict, roster: list) -> str:
     def marker(cx, cy, spec, band):
         w, h, shape = spec
         fill = CHART_BG if shape == "hollow" else colour[band]
-        edge = "#ffffff" if shape == "block" else colour[band]
+        edge = colour[band]
         rx = h / 2 if shape != "block" else 1.0
         return (f'<rect x="{cx - w / 2:.1f}" y="{cy - h / 2:.1f}" width="{w}" height="{h}" rx="{rx:.1f}" '
                 f'fill="{fill}" stroke="{edge}" stroke-width="{1.7 if shape == "hollow" else 1.2}" '
