@@ -12,10 +12,11 @@
    this module only writes decisions down and repeats them.
    Storage, listing and the stats-screen widgets live in ui_replay.c. */
 
+/* Bump when the replay file grammar or engine behavior becomes incompatible. */
 #define REPLAY_FORMAT 1
 
 /* ---- recording a live match (no-op while recording is inactive) ---- */
-void replay_rec_begin(uint32_t seed, int ruleset, int rounds, int difficulty, int opponent);
+void replay_rec_begin(uint32_t seed, uint32_t ai_rng, int ruleset, int rounds, int difficulty, int master_timer, int opponent);
 int  replay_rec_active(void);
 void replay_rec_play(int player, int card, int target);
 void replay_rec_pick(int player, int target);
@@ -37,6 +38,7 @@ int  replay_pb_load(const char *text);          /* 1 = ok, 0 = unsupported or co
 void replay_pb_begin(GameState *g);
 int  replay_pb_tick(GameState *g, float dt);    /* 0 running, 1 finished, -1 diverged */
 int  replay_pb_active(void);
+int  replay_pb_difficulty(void);
 void replay_pb_stop(void);
 const char *replay_pb_error(void);
 

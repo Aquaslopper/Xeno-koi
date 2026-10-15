@@ -3,13 +3,13 @@
 #include "ui_theme.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 extern Font font_title;
 extern Font font_body;
 
-#define REPLAY_DIR       "replays"
-#define REPLAY_LIST_MAX  12                 /* rows shown in the load window */
+#define REPLAY_PAGE_SIZE 10                 /* ten files per load-list page */
 #define REPLAY_NAME_MAX  24
 
 /* Log lines: the ten rows under "LAST 10 MATCHES". */
@@ -28,10 +28,10 @@ static int   sel = -1;                      /* selected log line, -1 = none */
 static int   save_open, load_open;
 static char  save_name[REPLAY_NAME_MAX + 1];
 static int   save_len;
-static char  file_names[REPLAY_LIST_MAX][64];
-static int   file_count, load_sel;
+static char (*file_names)[256];
+static int   file_count, file_page, load_sel;
 static int   start_req;                     /* [START REPLAY] or [PLAY] was pressed */
-static char  start_path[160];
+static char  start_path[512];
 static char  status[64];
 static float status_timer;
 
@@ -58,8 +58,25 @@ static int button(Rectangle r, const char *label, float size, Vector2 vm, Color 
 
 /* ---- files ---- */
 
+static void replay_dir_path(char *out, size_t max) {
+    const char *base = GetApplicationDirectory();
+    if (base && base[0]) {
+        size_t n = strlen(base);
+        const char *sep = (base[n - 1] == '/' || base[n - 1] == '\\') ? "" : "/";
+        snprintf(out, max, "%s%sreplays", base, sep);
+    } else snprintf(out, max, "replays");
+}
+
+static void replay_file_path(const char *name, char *out, size_t max) {
+    char dir[512];
+    replay_dir_path(dir, sizeof(dir));
+    snprintf(out, max, "%s/%s", dir, name);
+}
+
 static void ensure_dir(void) {
-    if (!DirectoryExists(REPLAY_DIR)) MakeDirectory(REPLAY_DIR);
+    char dir[512];
+    replay_dir_path(dir, sizeof(dir));
+    if (!DirectoryExists(dir)) MakeDirectory(dir);
 }
 
 static int is_txt(const char *path) {
@@ -75,52 +92,135 @@ static int is_auto_file(const char *path) {
     return is_auto;
 }
 
-/* Names of the records in replays/, oldest first (automatic names are timestamps). */
+/* Names of every .txt replay in the folder, shown ten at a time. */
 static void refresh_files(void) {
-    file_count = 0; load_sel = -1;
+    free(file_names);
+    file_names = NULL;
+    file_count = 0; file_page = 0; load_sel = -1;
     ensure_dir();
-    FilePathList list = LoadDirectoryFiles(REPLAY_DIR);
-    for (unsigned i = 0; i < list.count && file_count < REPLAY_LIST_MAX; i++) {
+    char dir[512];
+    replay_dir_path(dir, sizeof(dir));
+    FilePathList list = LoadDirectoryFiles(dir);
+    for (unsigned i = 0; i < list.count; i++)
+        if (is_txt(list.paths[i]) && !DirectoryExists(list.paths[i])) file_count++;
+    if (file_count > 0) {
+        file_names = (char (*)[256])calloc((size_t)file_count, sizeof(*file_names));
+        if (!file_names) file_count = 0;
+    }
+    int out = 0;
+    for (unsigned i = 0; i < list.count && out < file_count; i++) {
         if (!is_txt(list.paths[i]) || DirectoryExists(list.paths[i])) continue;
-        snprintf(file_names[file_count], sizeof(file_names[0]), "%s", GetFileName(list.paths[i]));
-        file_count++;
+        snprintf(file_names[out++], sizeof(file_names[0]), "%s", GetFileName(list.paths[i]));
     }
     UnloadDirectoryFiles(list);
     for (int i = 1; i < file_count; i++) {
-        char key[64];
+        char key[256];
         int j = i - 1;
         snprintf(key, sizeof(key), "%s", file_names[i]);
         while (j >= 0 && strcmp(file_names[j], key) > 0) {
-            snprintf(file_names[j + 1], sizeof(file_names[0]), "%s", file_names[j]);
+            memcpy(file_names[j + 1], file_names[j], strlen(file_names[j]) + 1);
             j--;
         }
         snprintf(file_names[j + 1], sizeof(file_names[0]), "%s", key);
     }
 }
 
-/* The record of log line `idx`: automatic files are named after the line's
-   timestamp, "YYYY-MM-DD_HHMM.txt", and a second match in the same minute gets
-   "_2", "_3" and so on - so the nth line of a minute reads the nth file. */
+static void replay_base_from_line(const char *line, char *base, size_t max) {
+    if (max) base[0] = '\0';
+    if (strlen(line) < 17 || line[4] != '-' || line[7] != '-' || line[10] != ' ' ||
+        line[13] != ':' || line[16] != ';') return;
+    for (int i = 0; i < 16; i++) {
+        if (i == 4 || i == 7 || i == 10 || i == 13) continue;
+        if (line[i] < '0' || line[i] > '9') return;
+    }
+    snprintf(base, max, "%.10s_%.2s%.2s", line, line + 11, line + 14);
+}
+
+static int auto_name_matches_base(const char *name, const char *base) {
+    if (strncmp(name, base, 15) != 0) return 0;
+    size_t len = strlen(name);
+    if (len == 19 && name[15] == '.' && strcmp(name + 15, ".txt") == 0) return 1;
+    if (name[15] != '_' || name[16] < '0' || name[16] > '9') return 0;
+    const char *dot = strrchr(name, '.');
+    if (!dot || strcmp(dot, ".txt") != 0) return 0;
+    for (const char *p = name + 16; p < dot; p++)
+        if (*p < '0' || *p > '9') return 0;
+    return atoi(name + 16) >= 2;
+}
+
+static int auto_name_suffix(const char *name) {
+    return (strlen(name) > 16 && name[15] == '_') ? atoi(name + 16) : 1;
+}
+
+static int auto_name_compare(const char *a, const char *b) {
+    size_t an = strlen(a), bn = strlen(b);
+    if (an < 15 || bn < 15) return strcmp(a, b);
+    int base_cmp = strncmp(a, b, 15);
+    if (base_cmp != 0) return base_cmp;
+    int as = auto_name_suffix(a), bs = auto_name_suffix(b);
+    return (as > bs) - (as < bs);
+}
+
+static void sort_auto_names(char names[][64], int count) {
+    for (int i = 1; i < count; i++) {
+        char key[64];
+        int j = i - 1;
+        snprintf(key, sizeof(key), "%s", names[i]);
+        while (j >= 0 && auto_name_compare(names[j], key) > 0) {
+            memcpy(names[j + 1], names[j], strlen(names[j]) + 1);
+            j--;
+        }
+        snprintf(names[j + 1], sizeof(names[0]), "%s", key);
+    }
+}
+
+/* Find the automatic records matching one minute, in numeric suffix order. */
+static int auto_names_for_base(const char *base, char names[][64], int max_names) {
+    int n = 0;
+    char dir[512];
+    replay_dir_path(dir, sizeof(dir));
+    FilePathList list = LoadDirectoryFiles(dir);
+    for (unsigned i = 0; i < list.count && n < max_names; i++) {
+        const char *name = GetFileName(list.paths[i]);
+        if (!is_txt(name) || DirectoryExists(list.paths[i]) || !auto_name_matches_base(name, base)) continue;
+        if (!is_auto_file(list.paths[i])) continue;
+        snprintf(names[n++], sizeof(names[0]), "%s", name);
+    }
+    UnloadDirectoryFiles(list);
+    sort_auto_names(names, n);
+    return n;
+}
+
+/* The history has no record key, so same-minute collisions are matched by
+   order. If auto records outlive a reset or some older records are missing,
+   align the available files with the newest visible lines for that minute. */
 static int auto_path_for_line(const MatchHistory *h, int idx, char *out, size_t max) {
     if (!h || idx < 0 || idx >= h->count) return 0;
     const char *line = h->lines[idx];
-    if (strlen(line) < 16) return 0;
-    char base[32];
-    snprintf(base, sizeof(base), "%.10s_%.2s%.2s", line, line + 11, line + 14);
-    int nth = 0;
-    for (int i = 0; i < idx; i++) if (strncmp(h->lines[i], line, 16) == 0) nth++;
-    for (int n = 1; n <= nth + 1; n++) {
-        if (n == 1) snprintf(out, max, "%s/%s.txt", REPLAY_DIR, base);
-        else snprintf(out, max, "%s/%s_%d.txt", REPLAY_DIR, base, n);
+    char base[32], names[64][64];
+    replay_base_from_line(line, base, sizeof(base));
+    if (!base[0]) return 0;
+
+    int ordinal = 0, rows = 0;
+    for (int i = 0; i < h->count; i++) {
+        if (strncmp(h->lines[i], line, 16) == 0) {
+            if (i < idx) ordinal++;
+            rows++;
+        }
     }
+    int files = auto_names_for_base(base, names, 64);
+    int file_idx = files - rows + ordinal;
+    if (file_idx < 0 || file_idx >= files) return 0;
+    replay_file_path(names[file_idx], out, max);
     return FileExists(out);
 }
-
 /* Keep only the ten newest automatic records; player-saved files are never touched. */
 static void rotate_auto_files(void) {
     char autos[64][64];
     int n = 0;
-    FilePathList list = LoadDirectoryFiles(REPLAY_DIR);
+    char dir[512];
+    replay_dir_path(dir, sizeof(dir));
+    FilePathList list = LoadDirectoryFiles(dir);
     for (unsigned i = 0; i < list.count && n < 64; i++) {
         if (!is_txt(list.paths[i]) || DirectoryExists(list.paths[i])) continue;
         if (!is_auto_file(list.paths[i])) continue;
@@ -128,59 +228,61 @@ static void rotate_auto_files(void) {
         n++;
     }
     UnloadDirectoryFiles(list);
-    for (int i = 1; i < n; i++) {
-        char key[64];
-        int j = i - 1;
-        snprintf(key, sizeof(key), "%s", autos[i]);
-        while (j >= 0 && strcmp(autos[j], key) > 0) {
-            snprintf(autos[j + 1], sizeof(autos[0]), "%s", autos[j]);
-            j--;
-        }
-        snprintf(autos[j + 1], sizeof(autos[0]), "%s", key);
-    }
-    char path[160];
+    sort_auto_names(autos, n);
+    char path[512];
     for (int i = 0; i < n - 10; i++) {
-        snprintf(path, sizeof(path), "%s/%s", REPLAY_DIR, autos[i]);
+        replay_file_path(autos[i], path, sizeof(path));
         remove(path);
     }
 }
 
 void ui_replay_commit_auto(const MatchHistory *h) {
+    sel = -1;
     const char *blob = replay_rec_blob();
-    if (!blob || !h || h->count < 1) { replay_rec_abort(); return; }
+    if (!blob || !h || h->count < 1) { set_status("REPLAY RECORD UNAVAILABLE"); replay_rec_abort(); return; }
     ensure_dir();
 
     const char *line = h->lines[h->count - 1];
-    if (strlen(line) < 16) { replay_rec_abort(); return; }
-    char base[32], path[160];
-    snprintf(base, sizeof(base), "%.10s_%.2s%.2s", line, line + 11, line + 14);
-    for (int n = 1;; n++) {
-        if (n == 1) snprintf(path, sizeof(path), "%s/%s.txt", REPLAY_DIR, base);
-        else snprintf(path, sizeof(path), "%s/%s_%d.txt", REPLAY_DIR, base, n);
-        if (!FileExists(path)) break;
+    if (strlen(line) < 17) { set_status("REPLAY LOG ENTRY INVALID"); replay_rec_abort(); return; }
+    char base[32], name[64], path[512], autos[64][64];
+    replay_base_from_line(line, base, sizeof(base));
+    if (!base[0]) { set_status("REPLAY LOG ENTRY INVALID"); replay_rec_abort(); return; }
+    int auto_count = auto_names_for_base(base, autos, 64);
+    int n = auto_count > 0 ? auto_name_suffix(autos[auto_count - 1]) + 1 : 1;
+    for (;;) {
+        if (n == 1) snprintf(name, sizeof(name), "%s.txt", base);
+        else snprintf(name, sizeof(name), "%s_%d.txt", base, n);
+        replay_file_path(name, path, sizeof(path));
+        if (!FileExists(path)) break; /* do not replace a player-saved file */
+        n++;
     }
     char *text = replay_build_file(blob, 1);
-    if (text) SaveFileText(path, text);
-    rotate_auto_files();
+    if (text && SaveFileText(path, text)) {
+        rotate_auto_files();
+        status_timer = 0.0f;
+        status[0] = '\0';
+    } else set_status("COULD NOT SAVE AUTO REPLAY");
     replay_rec_abort();
 }
 
 static void save_as_copy(const MatchHistory *h) {
     if (sel < 0) { set_status("SELECT A MATCH FIRST"); return; }
-    char src[160];
+    if (save_len == 0) { set_status("ENTER A NAME FIRST"); return; }
+    char src[512];
     if (!auto_path_for_line(h, sel, src, sizeof(src))) { set_status("NO REPLAY FOR THIS MATCH"); return; }
     char *text = LoadFileText(src);
     if (!text) { set_status("COULD NOT READ THE RECORD"); return; }
     char *flag = strstr(text, "auto=1");
     if (flag) flag[5] = '0';                        /* a saved copy is never rotated away */
-    char dst[200];
-    snprintf(dst, sizeof(dst), "%s/%s.txt", REPLAY_DIR, save_name);
+    char name[64], dst[512];
+    snprintf(name, sizeof(name), "%s.txt", save_name);
+    replay_file_path(name, dst, sizeof(dst));
     if (FileExists(dst)) { set_status("NAME ALREADY EXISTS"); UnloadFileText(text); return; }
     int ok = SaveFileText(dst, text);
     UnloadFileText(text);
     if (ok) {
         char msg[64];
-        snprintf(msg, sizeof(msg), "SAVED TO %s/%s.txt", REPLAY_DIR, save_name);
+        snprintf(msg, sizeof(msg), "SAVED TO replays/%s.txt", save_name);
         set_status(msg);
     } else set_status("SAVE FAILED");
 }
@@ -194,12 +296,23 @@ int ui_replay_click(const MatchHistory *h, Vector2 vm) {
         return 1;
     }
     if (load_open) {
-        for (int i = 0; i < file_count; i++) {
-            if (CheckCollisionPointRec(vm, (Rectangle){ 420, 200 + i * 26, 440, 22 })) { load_sel = i; return 1; }
+        int first = file_page * REPLAY_PAGE_SIZE;
+        int shown = file_count - first;
+        if (shown > REPLAY_PAGE_SIZE) shown = REPLAY_PAGE_SIZE;
+        for (int i = 0; i < shown; i++) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 420, 200 + i * 26, 440, 22 })) { load_sel = first + i; return 1; }
+        }
+        if (CheckCollisionPointRec(vm, (Rectangle){ 420, 470, 90, 32 })) {
+            if (file_page > 0) { file_page--; load_sel = -1; }
+            return 1;
+        }
+        if (CheckCollisionPointRec(vm, (Rectangle){ 790, 470, 90, 32 })) {
+            if ((file_page + 1) * REPLAY_PAGE_SIZE < file_count) { file_page++; load_sel = -1; }
+            return 1;
         }
         if (CheckCollisionPointRec(vm, (Rectangle){ 420, 520, 160, 38 })) {
-            if (load_sel >= 0) {
-                snprintf(start_path, sizeof(start_path), "%s/%s", REPLAY_DIR, file_names[load_sel]);
+            if (load_sel >= 0 && load_sel < file_count) {
+                replay_file_path(file_names[load_sel], start_path, sizeof(start_path));
                 start_req = 1; load_open = 0;
             } else set_status("SELECT A REPLAY FILE");
         } else if (CheckCollisionPointRec(vm, (Rectangle){ 600, 520, 160, 38 })) load_open = 0;
@@ -280,8 +393,8 @@ void ui_replay_draw_controls(Vector2 vm) {
     }
 
     button((Rectangle){ ROW_X, BTN_Y, BTN_W, BTN_H }, "START REPLAY", 13.0f, vm, COLOR_PHOSPHOR);
-    button((Rectangle){ ROW_X + BTN_W + 10.0f, BTN_Y, BTN_W, BTN_H }, "SAVE REPLAY", 13.0f, vm, COLOR_PHOSPHOR);
-    button((Rectangle){ ROW_X + 2 * (BTN_W + 10.0f), BTN_Y, BTN_W, BTN_H }, "LOAD REPLAY", 13.0f, vm, COLOR_PHOSPHOR);
+    button((Rectangle){ ROW_X + BTN_W + 10.0f, BTN_Y, BTN_W, BTN_H }, "SAVE", 13.0f, vm, COLOR_PHOSPHOR);
+    button((Rectangle){ ROW_X + 2 * (BTN_W + 10.0f), BTN_Y, BTN_W, BTN_H }, "LOAD", 13.0f, vm, COLOR_PHOSPHOR);
 
     if (save_open) {
         Rectangle p = { 440, 240, 400, 200 };
@@ -303,12 +416,23 @@ void ui_replay_draw_controls(Vector2 vm) {
         draw_text_snapped(font_title, "LOAD REPLAY", 640.0f - MeasureTextEx(font_title, "LOAD REPLAY", 20.0f, 1.1f).x / 2.0f,
                           166.0f, 20.0f, 1.1f, COLOR_PHOSPHOR);
         if (file_count == 0) draw_text_snapped(font_body, "replays/ IS EMPTY", 420.0f, 205.0f, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-        for (int i = 0; i < file_count; i++) {
+        int first = file_page * REPLAY_PAGE_SIZE;
+        int shown = file_count - first;
+        if (shown > REPLAY_PAGE_SIZE) shown = REPLAY_PAGE_SIZE;
+        for (int i = 0; i < shown; i++) {
+            int idx = first + i;
             Rectangle r = { 420, 200 + i * 26, 440, 22 };
-            if (i == load_sel) DrawRectangleRec(r, COLOR_BTN_HOVER_BG);
-            draw_text_snapped(font_body, file_names[i], 424.0f, 202.0f + i * 26, 16.0f, 1.0f,
-                              (i == load_sel) ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
+            if (idx == load_sel) DrawRectangleRec(r, COLOR_BTN_HOVER_BG);
+            draw_text_snapped(font_body, file_names[idx], 424.0f, 202.0f + i * 26, 16.0f, 1.0f,
+                              (idx == load_sel) ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
         }
+        button((Rectangle){ 420, 470, 90, 32 }, "PREV", 14.0f, vm, COLOR_PHOSPHOR);
+        char page_label[48];
+        snprintf(page_label, sizeof(page_label), "%d / %d", file_count ? file_page + 1 : 0,
+                 file_count ? (file_count + REPLAY_PAGE_SIZE - 1) / REPLAY_PAGE_SIZE : 0);
+        draw_text_snapped(font_body, page_label, 620.0f - MeasureTextEx(font_body, page_label, 16.0f, 1.0f).x / 2.0f,
+                          478.0f, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        button((Rectangle){ 790, 470, 90, 32 }, "NEXT", 14.0f, vm, COLOR_PHOSPHOR);
         button((Rectangle){ 420, 520, 160, 38 }, "PLAY", 16.0f, vm, COLOR_PHOSPHOR);
         button((Rectangle){ 600, 520, 160, 38 }, "CANCEL", 16.0f, vm, COLOR_PHOSPHOR);
     }

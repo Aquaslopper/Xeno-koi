@@ -1,4 +1,6 @@
 #include "replay.h"
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,10 +31,10 @@ static char rec_events[REPLAY_MAX_EVENTS][REPLAY_EVENT_LEN];
 static char rec_blob[REPLAY_MAX_EVENTS * REPLAY_EVENT_LEN + 256];
 static char rec_file[REPLAY_MAX_EVENTS * REPLAY_EVENT_LEN + 320];
 
-void replay_rec_begin(uint32_t seed, int ruleset, int rounds, int difficulty, int opponent) {
+void replay_rec_begin(uint32_t seed, uint32_t ai_rng, int ruleset, int rounds, int difficulty, int master_timer, int opponent) {
     snprintf(rec_header, sizeof(rec_header),
-             "seed=%u\nruleset=%d\nrounds=%d\ndifficulty=%d\nopponent=%d\n",
-             (unsigned)seed, ruleset, rounds, difficulty, opponent);
+             "seed=%u\nai_rng=%u\nruleset=%d\nrounds=%d\ndifficulty=%d\nmaster_timer=%d\nopponent=%d\n",
+             (unsigned)seed, (unsigned)ai_rng, ruleset, rounds, difficulty, master_timer, opponent);
     rec_active = 1;
     rec_count = 0;
     rec_overflow = 0;
@@ -124,6 +126,7 @@ static int  pb_i;
 static uint32_t pb_seed;
 static int  pb_ruleset;
 static int  pb_rounds;
+static int  pb_difficulty;
 static int  pb_active;
 static int  pb_status;
 static float pb_delay;
@@ -137,29 +140,57 @@ static int pb_fail(const char *why) {
 }
 
 static int ev_ok(const char *e) {
-    int p = 0, a = 0, b = 0;
-    if (sscanf(e, "OYA %d", &p) == 1) return (p == 0 || p == 1);
-    if (sscanf(e, "PLAY %d %d %d", &p, &a, &b) == 3) return (p == 0 || p == 1) && a >= 0 && a < 48;
-    if (sscanf(e, "PICK %d %d", &p, &a) == 2) return (p == 0 || p == 1) && a >= 0 && a < 48;
-    if (sscanf(e, "CANCEL %d", &p) == 1) return (p == 0 || p == 1);
-    if (sscanf(e, "KOI %d", &p) == 1) return (p == 0 || p == 1);
-    if (sscanf(e, "SHOBU %d", &p) == 1) return (p == 0 || p == 1);
-    if (sscanf(e, "TIMEOUT %d", &p) == 1) return (p == 0 || p == 1);
+    int p = 0, a = 0, b = 0, end = 0;
+    if (sscanf(e, "OYA %d%n", &p, &end) == 1 && e[end] == '\0') return (p == 0 || p == 1);
+    end = 0;
+    if (sscanf(e, "PLAY %d %d %d%n", &p, &a, &b, &end) == 3 && e[end] == '\0')
+        return (p == 0 || p == 1) && a >= 0 && a < 48 && b >= -1 && b < 48;
+    end = 0;
+    if (sscanf(e, "PICK %d %d%n", &p, &a, &end) == 2 && e[end] == '\0')
+        return (p == 0 || p == 1) && a >= 0 && a < 48;
+    end = 0;
+    if (sscanf(e, "CANCEL %d%n", &p, &end) == 1 && e[end] == '\0') return (p == 0 || p == 1);
+    end = 0;
+    if (sscanf(e, "KOI %d%n", &p, &end) == 1 && e[end] == '\0') return (p == 0 || p == 1);
+    end = 0;
+    if (sscanf(e, "SHOBU %d%n", &p, &end) == 1 && e[end] == '\0') return (p == 0 || p == 1);
+    end = 0;
+    if (sscanf(e, "TIMEOUT %d%n", &p, &end) == 1 && e[end] == '\0') return (p == 0 || p == 1);
     return 0;
+}
+
+static int parse_int(const char *text, int *out) {
+    char *end = NULL;
+    errno = 0;
+    long value = strtol(text, &end, 10);
+    if (errno == ERANGE || end == text || *end != '\0' || value < INT_MIN || value > INT_MAX) return 0;
+    *out = (int)value;
+    return 1;
+}
+
+static int parse_u32(const char *text, uint32_t *out) {
+    char *end = NULL;
+    errno = 0;
+    unsigned long value = strtoul(text, &end, 10);
+    if (errno == ERANGE || end == text || *end != '\0' || value > UINT32_MAX) return 0;
+    *out = (uint32_t)value;
+    return 1;
 }
 
 int replay_pb_load(const char *text) {
     pb_count = 0; pb_i = 0; pb_active = 0; pb_status = 0; pb_error = "";
     if (!text) { pb_error = "REPLAY FILE IS EMPTY"; return 0; }
 
-    int version_ok = 0, have_seed = 0, ruleset = -1, rounds = 0, bad_line = 0;
-    uint32_t seed = 0;
+    int version_ok = 0, have_seed = 0, have_ai_rng = 0, have_master_timer = 0;
+    int have_difficulty = 0, have_opponent = 0, ruleset = -1, rounds = 0, difficulty = -1;
+    int master_timer = 0, opponent = -1, bad_line = 0;
+    uint32_t seed = 0, ai_rng = 0;
     const char *p = text;
     while (*p) {
         const char *nl = strchr(p, '\n');
         size_t len = nl ? (size_t)(nl - p) : strlen(p);
         char line[REPLAY_EVENT_LEN];
-        if (len > sizeof(line) - 1) len = sizeof(line) - 1;
+        if (len >= sizeof(line)) { bad_line = 1; len = sizeof(line) - 1; }
         memcpy(line, p, len);
         line[len] = '\0';
         p = nl ? nl + 1 : p + strlen(p);
@@ -171,10 +202,13 @@ int replay_pb_load(const char *text) {
             continue;
         }
         if (!strncmp(line, "auto=", 5)) continue;
-        if (!strncmp(line, "seed=", 5)) { seed = (uint32_t)strtoul(line + 5, NULL, 10); have_seed = 1; continue; }
-        if (!strncmp(line, "ruleset=", 8)) { ruleset = atoi(line + 8); continue; }
-        if (!strncmp(line, "rounds=", 7)) { rounds = atoi(line + 7); continue; }
-        if (!strncmp(line, "difficulty=", 11) || !strncmp(line, "opponent=", 9)) continue;
+        if (!strncmp(line, "seed=", 5)) { if (!parse_u32(line + 5, &seed)) bad_line = 1; else have_seed = 1; continue; }
+        if (!strncmp(line, "ai_rng=", 7)) { if (!parse_u32(line + 7, &ai_rng)) bad_line = 1; else have_ai_rng = 1; continue; }
+        if (!strncmp(line, "ruleset=", 8)) { if (!parse_int(line + 8, &ruleset)) bad_line = 1; continue; }
+        if (!strncmp(line, "rounds=", 7)) { if (!parse_int(line + 7, &rounds)) bad_line = 1; continue; }
+        if (!strncmp(line, "difficulty=", 11)) { if (!parse_int(line + 11, &difficulty)) bad_line = 1; else have_difficulty = 1; continue; }
+        if (!strncmp(line, "master_timer=", 13)) { if (!parse_int(line + 13, &master_timer)) bad_line = 1; else have_master_timer = 1; continue; }
+        if (!strncmp(line, "opponent=", 9)) { if (!parse_int(line + 9, &opponent)) bad_line = 1; else have_opponent = 1; continue; }
         if (pb_count < REPLAY_MAX_EVENTS && ev_ok(line)) {
             snprintf(pb_events[pb_count], REPLAY_EVENT_LEN, "%s", line);
             pb_count++;
@@ -183,15 +217,20 @@ int replay_pb_load(const char *text) {
 
     if (!version_ok) { pb_error = "REPLAY VERSION NOT SUPPORTED"; return 0; }
     if (bad_line) { pb_error = "REPLAY FILE IS CORRUPT"; return 0; }
-    if (!have_seed || ruleset < 0 || ruleset > RULESET_YAKUZA || rounds < 1 || rounds > 12) {
+    if (!have_seed || !have_ai_rng || !have_difficulty || !have_master_timer || !have_opponent ||
+        ruleset < 0 || ruleset > RULESET_YAKUZA || rounds < 1 || rounds > 12 ||
+        difficulty < 0 || difficulty > 3 || (master_timer != 15 && master_timer != 30) ||
+        opponent < 0 || opponent >= 12) {
         pb_error = "REPLAY HEADER IS INCOMPLETE";
         return 0;
     }
+    (void)ai_rng; /* recorded as part of the settings snapshot; decisions are replayed verbatim */
     if (pb_count < 1 || strncmp(pb_events[0], "OYA ", 4)) { pb_error = "REPLAY HAS NO DEALER DRAW"; return 0; }
 
     pb_seed = seed;
     pb_ruleset = ruleset;
     pb_rounds = rounds;
+    pb_difficulty = difficulty;
     return 1;
 }
 
@@ -256,6 +295,7 @@ int replay_pb_tick(GameState *g, float dt) {
 }
 
 int replay_pb_active(void) { return pb_active; }
+int replay_pb_difficulty(void) { return pb_difficulty; }
 
 void replay_pb_stop(void) {
     if (pb_active) pb_status = 0;
