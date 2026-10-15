@@ -37,6 +37,7 @@ static float transition_alpha = 0.0f, cached_bloom = -1.0f, cached_crt = -1.0f, 
 static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
+static int last_replay_round = 0;   /* replay only: last round the deal was shown for */
 static int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0, human_turn_started = 0, shot_frame = -1, quit_requested = 0;
 static ScreenState transition_target_screen = SCREEN_START, screen = SCREEN_START;
 static GamePhase last_overlay_phase = PHASE_NONE;
@@ -57,6 +58,54 @@ static void start_transition(ScreenState target, int action, int track) {
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
 static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.25f : 0.15f; }
+
+/* --- replay flight geometry ---------------------------------------------
+   A replay has no drag and no CPU think step, so the take-off and landing
+   points a live match gets for free have to be worked out from the board
+   layout: the slot the card sits in now, and the slot the engine will put it
+   in once the step is applied. board_get_field_card_rect_of() already answers
+   the second question for a card that is not on the field yet. */
+
+/* Slot of a card still in its owner's hand. Returns x = -1 when the card is
+   not in that hand, which means the record has drifted: no flight is shown
+   and the engine call below reports the divergence as usual. */
+static Vector2 replay_hand_card_pos(const GameState *gs, int player, int card) {
+    for (int i = 0; i < gs->hand_count[player]; i++) {
+        if (gs->hand[player][i] != card) continue;
+        if (player == 0) {
+            Rectangle r = board_get_hand_card_rect(i, gs->hand_count[0], 0);
+            return (Vector2){ r.x, r.y };
+        }
+        float step = 62.0f;                                     /* same layout as board_draw_table */
+        float w = (gs->hand_count[1] - 1) * step + CPU_CARD_W;
+        return (Vector2){ 710.0f - w * 0.5f + i * step, 12.0f };
+    }
+    return (Vector2){ -1.0f, -1.0f };
+}
+
+/* Where a played card comes to rest: on the field card it takes, or in the
+   slot the field will give it. */
+static Vector2 replay_play_landing(const GameState *gs, int card, int target) {
+    if (target >= 0) {
+        Vector2 p = board_get_card_field_pos(gs, target);
+        if (p.x > 0.0f || p.y > 0.0f) return p;
+    }
+    Rectangle r = board_get_field_card_rect_of(gs, card);
+    if (r.width > 0.0f) return (Vector2){ r.x, r.y };
+    return (Vector2){ 710.0f, 240.0f };
+}
+
+/* Where a revealed stock card comes to rest: on the field card it takes, or in
+   the slot the field will give it. */
+static Vector2 replay_draw_landing(const GameState *gs, int card) {
+    int match_target = -1;
+    for (int i = 0; i < gs->field_count; i++) {
+        if (CARDS[gs->field[i]].month == CARDS[card].month) { match_target = gs->field[i]; break; }
+    }
+    Rectangle land = board_get_field_card_rect_of(gs, (match_target >= 0) ? match_target : card);
+    if (land.width > 0.0f) return (Vector2){ land.x, land.y };
+    return (Vector2){ 710.0f, 240.0f };
+}
 
 static void draw_hover_action_label(const char *label, Rectangle bounds) {
     Vector2 ts = MeasureTextEx(font_title, label, 18.0f, 1.2f);
@@ -186,6 +235,9 @@ static void update_draw_frame(void) {
                 anim_init(&anim); motion_init(); memset(&drag, 0, sizeof(drag)); hovered_idx = -1;
                 taunt_init(); deus_banner_timer = 0.0f;
                 is_paused = 0; confirm_restart = 0;
+                motion_deal_round(&g, 0.45f);           /* the deal is shown, not snapped */
+                cinematic_start(g.current_round);
+                last_replay_round = g.current_round;
                 screen = SCREEN_GAME;
             }
 #endif
@@ -196,13 +248,62 @@ static void update_draw_frame(void) {
             else if (act == ACT_GOTO_MENU) start_transition(SCREEN_START, 3, 0);
         } else if (screen == SCREEN_GAME && replay_pb_active()) {
             /* A replay feeds the recorded decisions straight into the engine; there is no
-               input, no pause and no clock, and nothing here may touch stats or unlocks. */
-            if (IsKeyPressed(KEY_ESCAPE)) { replay_pb_stop(); start_transition(SCREEN_STATS, 2, 0); }
+               input, no pause and no clock, and nothing here may touch stats or unlocks.
+               Cards still travel the way they do live: replay_pb_want() names the next
+               step, the flight is played, and only when it lands is the engine allowed
+               to apply it (replay_pb_hold / replay_pb_release). */
+            if (IsKeyPressed(KEY_ESCAPE)) { replay_pb_stop(); anim_init(&anim); start_transition(SCREEN_STATS, 2, 0); }
             else {
                 motion_update(dt, -1);
-                int pb_state = replay_pb_tick(&g, dt);
-                if (pb_state == -1) ui_replay_set_status(replay_pb_error());
-                if (pb_state != 0) { replay_pb_stop(); start_transition(SCREEN_STATS, 2, 0); }
+                cinematic_update(dt);
+                anim_update(&anim, dt);
+
+                /* 1. A flight that has just landed frees the step it was holding. */
+                if (anim.active && (anim.type == ANIM_CPU_FLY || anim.type == ANIM_STOCK_FLY) &&
+                    anim.elapsed >= anim.duration) {
+                    int card = (anim.type == ANIM_CPU_FLY) ? anim.cpu_card : anim.card_id;
+                    Vector2 landed = anim.target_pos;
+                    anim.active = 0;
+                    audio_play_drop(&audio);
+                    motion_set_instant(card, landed, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
+                    replay_pb_release();
+                }
+
+                /* 2. Nothing in the air and the table is settled: take the next step. */
+                if (!anim.active && !cinematic_is_active() && !motion_is_reflowing(&g)) {
+                    int pb_state = replay_pb_tick(&g, dt);
+                    if (pb_state == -1) ui_replay_set_status(replay_pb_error());
+                    if (pb_state != 0) { replay_pb_stop(); anim_init(&anim); start_transition(SCREEN_STATS, 2, 0); }
+                }
+
+                /* 3. The next step wants a flight: start it and hold the engine.
+                      Same gate as the step above, so a card never leaves a hand
+                      that is still being dealt. */
+                if (!anim.active && !cinematic_is_active() && !motion_is_reflowing(&g)) {
+                    int wp = -1, wc = -1, wt = -1;
+                    PbWant want = replay_pb_want(&g, &wp, &wc, &wt);
+                    if (want == PB_WANT_PLAY) {
+                        Vector2 from = replay_hand_card_pos(&g, wp, wc);
+                        if (from.x >= 0.0f) {
+                            anim_start_cpu_fly(&anim, wc, wt, from, replay_play_landing(&g, wc, wt),
+                                               get_flight_duration(settings.anim_speed));
+                            replay_pb_hold();
+                        }
+                    } else if (want == PB_WANT_DRAW) {
+                        audio_play_flip(&audio);
+                        anim_start_stock_fly(&anim, wc, (Vector2){ 330.0f, 262.0f },
+                                             replay_draw_landing(&g, wc),
+                                             get_flight_duration(settings.anim_speed));
+                        replay_pb_hold();
+                    }
+                }
+
+                /* 4. A new round was dealt: show it the way a live match does. */
+                if (g.current_round != last_replay_round) {
+                    last_replay_round = g.current_round;
+                    motion_deal_round(&g, 0.45f);
+                    cinematic_start(g.current_round);
+                }
             }
         } else if (screen == SCREEN_GAME) {
             int pause_toggled = 0;
@@ -436,7 +537,16 @@ static void update_draw_frame(void) {
     else if (screen == SCREEN_MATCH_RESULT) screens_draw_match_result(&assets, &g, &settings, vm);
     else if (screen == SCREEN_GAME) {
         const char *status = ""; char cpu_status[64];
-        if (replay_pb_active()) status = "REPLAY - ESC TO STOP";
+        if (replay_pb_active()) {
+            status = "REPLAY - ESC TO STOP";
+            if (anim.active && (anim.type == ANIM_CPU_FLY || anim.type == ANIM_STOCK_FLY)) {
+                int fc = (anim.type == ANIM_CPU_FLY) ? anim.cpu_card : anim.card_id;
+                if (fc >= 0 && fc < 48) {
+                    snprintf(cpu_status, sizeof(cpu_status), "REPLAY - %s", CARDS[fc].name);
+                    status = cpu_status;
+                }
+            }
+        }
         else if (cinematic_is_active()) status = "";
         else if (anim.active && anim.type == ANIM_STOCK_FLY) {
             snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
@@ -462,7 +572,7 @@ static void update_draw_frame(void) {
             }
         }
         if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
-        if (!replay_pb_active()) cinematic_draw();
+        cinematic_draw();   /* a replay shows the round deal too */
         if (overlay_active && overlay_alpha >= 0.999f) draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart);
     }
     EndTextureMode();

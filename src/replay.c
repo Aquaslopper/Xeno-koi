@@ -130,6 +130,8 @@ static int  pb_difficulty;
 static int  pb_active;
 static int  pb_status;
 static float pb_delay;
+static int  pb_hold;        /* a flight is in the air: apply nothing until released */
+static int  pb_shown;       /* the step at pb_i has already been handed to the caller */
 static const char *pb_error = "";
 
 static int pb_fail(const char *why) {
@@ -178,7 +180,7 @@ static int parse_u32(const char *text, uint32_t *out) {
 }
 
 int replay_pb_load(const char *text) {
-    pb_count = 0; pb_i = 0; pb_active = 0; pb_status = 0; pb_error = "";
+    pb_count = 0; pb_i = 0; pb_active = 0; pb_status = 0; pb_error = ""; pb_hold = 0; pb_shown = 0;
     if (!text) { pb_error = "REPLAY FILE IS EMPTY"; return 0; }
 
     int version_ok = 0, have_seed = 0, have_ai_rng = 0, have_master_timer = 0;
@@ -251,18 +253,58 @@ void replay_pb_begin(GameState *g) {
     pb_delay = REPLAY_PACE;
     pb_active = 1;
     pb_status = 0;
+    pb_hold = 0;
+    pb_shown = 0;
 }
+
+PbWant replay_pb_want(const GameState *g, int *player, int *card, int *target) {
+    if (player) *player = g ? g->current_player : -1;
+    if (card)   *card = -1;
+    if (target) *target = -1;
+    if (!pb_active || pb_hold || pb_shown || !g) return PB_WANT_NONE;
+
+    PbWant w = PB_WANT_NONE;
+
+    if (g->phase == PHASE_TURN_DRAW) {
+        /* engine_reveal_stock() is the deterministic step the live game shows as
+           a flip out of the stock pile. */
+        int top = (g->stock_count > 0) ? g->stock[g->stock_count - 1] : -1;
+        if (top >= 0) {
+            if (card) *card = top;
+            w = PB_WANT_DRAW;
+        }
+    } else if ((g->phase == PHASE_TURN_HAND || g->phase == PHASE_HAND_CHOICE) && pb_i < pb_count) {
+        /* Same test the tick applies below: anything else is a divergence and
+           must stay the tick's job to report. */
+        int p = 0, a = 0, b = 0;
+        if (sscanf(pb_events[pb_i], "PLAY %d %d %d", &p, &a, &b) == 3 && p == g->current_player) {
+            if (player) *player = p;
+            if (card)   *card = a;
+            if (target) *target = b;
+            w = PB_WANT_PLAY;
+        }
+    }
+
+    /* Handed over once and only once: the tick clears the flag when it applies
+       the step, so a flight can never be shown twice for the same event. */
+    if (w != PB_WANT_NONE) pb_shown = 1;
+    return w;
+}
+
+void replay_pb_hold(void)    { pb_hold = 1; }
+void replay_pb_release(void) { pb_hold = 0; }
 
 int replay_pb_tick(GameState *g, float dt) {
     if (!pb_active) return pb_status;
+    if (pb_hold) return 0;            /* a card is still in the air */
     if (pb_delay > 0.0f) {
         pb_delay -= dt;
         if (pb_delay > 0.0f) return 0;
     }
 
     if (g->phase == PHASE_MATCH_END) { pb_active = 0; pb_status = 1; return 1; }
-    if (g->phase == PHASE_ROUND_END) { engine_next_round(g); pb_delay = REPLAY_PACE; return 0; }
-    if (g->phase == PHASE_TURN_DRAW)  { engine_reveal_stock(g); pb_delay = REPLAY_PACE; return 0; }
+    if (g->phase == PHASE_ROUND_END) { engine_next_round(g); pb_shown = 0; pb_delay = REPLAY_PACE; return 0; }
+    if (g->phase == PHASE_TURN_DRAW)  { engine_reveal_stock(g); pb_shown = 0; pb_delay = REPLAY_PACE; return 0; }
     if (pb_i >= pb_count) return pb_fail("REPLAY ENDED WITHOUT A RESULT");
 
     const char *ev = pb_events[pb_i];
@@ -290,6 +332,7 @@ int replay_pb_tick(GameState *g, float dt) {
     }
 
     pb_i++;
+    pb_shown = 0;       /* the step is spent: the next one may be shown */
     pb_delay = REPLAY_PACE;
     return 0;
 }
@@ -300,6 +343,8 @@ int replay_pb_difficulty(void) { return pb_difficulty; }
 void replay_pb_stop(void) {
     if (pb_active) pb_status = 0;
     pb_active = 0;
+    pb_hold = 0;
+    pb_shown = 0;
 }
 
 const char *replay_pb_error(void) { return pb_error; }

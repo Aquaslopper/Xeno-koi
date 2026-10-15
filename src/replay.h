@@ -42,4 +42,29 @@ int  replay_pb_difficulty(void);
 void replay_pb_stop(void);
 const char *replay_pb_error(void);
 
+/* ---- showing the step before it is applied ----
+   A replay is a list of engine calls, so on its own every card would simply
+   appear in its new place. To show the flight a live match shows, the caller
+   asks what the next step is before it happens, holds the engine, plays the
+   flight and then releases it:
+     want  = replay_pb_want(&g, &player, &card, &target);
+     ... start the flight ...            replay_pb_hold();
+     ... the flight landed ...           replay_pb_release();
+   Nothing is applied while the engine is held, and the step is only ever
+   applied once, so the playback cannot drift or double up. */
+typedef enum {
+    PB_WANT_NONE = 0,   /* no flight needed - apply the next step now */
+    PB_WANT_PLAY,       /* a hand card is about to be played onto the table */
+    PB_WANT_DRAW        /* the top stock card is about to be revealed */
+} PbWant;
+
+/* What the next step needs, or PB_WANT_NONE when the engine is free to run.
+   Safe to call every frame: a step is handed over once only, and never while
+   another one is still in the air. */
+PbWant replay_pb_want(const GameState *g, int *player, int *card, int *target);
+
+/* Freeze / unfreeze the engine side while a flight is in the air. */
+void replay_pb_hold(void);
+void replay_pb_release(void);
+
 #endif /* REPLAY_H */
