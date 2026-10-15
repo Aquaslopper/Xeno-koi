@@ -38,7 +38,7 @@ These settings are saved in `settings.txt` next to the game:
 | Rounds | 1 to 12 |
 | Difficulty | Easy, Hard, Master, Deus |
 | Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza (locked to Yakuza on Deus) |
-| Background | Five selectable backgrounds |
+| Background | Seven selectable backgrounds: Harvest, Hole, Arctic, Castle, City, Face, Realm (Deus has its own locked background) |
 | Terminal colour | Green, Amber, Teal, Crimson, Violet |
 | CRT filter | Off, Low, Mid, High |
 | Bloom | Off, Mid, Full |

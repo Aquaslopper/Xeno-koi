@@ -94,11 +94,12 @@ void board_load_assets(BoardAssets *ba) {
         SetTextureFilter(ba->card_back, TEXTURE_FILTER_TRILINEAR);
     }
 
-    const char *bg_names[6] = {
+    const char *bg_names[8] = {
         "assets/harvest.jpg", "assets/hole.jpg", "assets/arctic.jpg",
-        "assets/castle.jpg",  "assets/city.jpg", "assets/deus.png"
+        "assets/castle.jpg",  "assets/city.jpg", "assets/deus.png",
+        "assets/face.jpg", "assets/realm.jpg"
     };
-    for (int i = 0; i < 6; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
+    for (int i = 0; i < 8; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
 
 #ifdef __EMSCRIPTEN__
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog_web.fs"));
@@ -115,7 +116,7 @@ void board_unload_assets(BoardAssets *ba) {
     if (!ba->assets_loaded) return;
     UnloadTexture(ba->atlas); UnloadTexture(ba->card_back);
     if (ba->atlas_deus.id > 0) UnloadTexture(ba->atlas_deus);
-    for (int i = 0; i < 6; i++) UnloadTexture(ba->bgs[i]);
+    for (int i = 0; i < 8; i++) UnloadTexture(ba->bgs[i]);
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;
 }
@@ -273,7 +274,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
         BeginShaderMode(ba->fog_shader);
     }
-    if (ba->current_bg >= 0 && ba->current_bg < 6 && ba->bgs[ba->current_bg].id > 0) {
+    if (ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0) {
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
     } else ClearBackground(BLACK);
     if (ba->has_fog_shader) EndShaderMode();
