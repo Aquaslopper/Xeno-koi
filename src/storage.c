@@ -89,7 +89,10 @@ void storage_load_settings(GameSettings *s) {
                 else if (strcmp(v, "crimson") == 0 || strcmp(v, "3") == 0) s->terminal_color = 3;
                 else if (strcmp(v, "violet") == 0 || strcmp(v, "4") == 0) s->terminal_color = 4;
                 else if (strcmp(v, "dark") == 0 || strcmp(v, "5") == 0) s->terminal_color = 5;
-                else s->terminal_color = 0;
+                else if (strcmp(v, "green") == 0 || strcmp(v, "0") == 0) s->terminal_color = 0;
+                /* Unparseable or out-of-range: the TEAL default, never the
+                   legacy GREEN at id 0. */
+                else s->terminal_color = 2;
             } else if (strcmp(k, "fullscreen") == 0) {
                 s->fullscreen = (atoi(v) == 1) ? 1 : 0;
             } else if (strcmp(k, "bloom") == 0) {

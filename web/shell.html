@@ -6,8 +6,10 @@
     <title>[XENO / KOI] — Biomechanical CRT Edition</title>
     <style>
         :root {
-            --phosphor: #00ffd2;
-            --phosphor-dim: #007a64;
+            /* Matched to the game's TEAL terminal theme (src/ui_theme.c, id 2)
+               so the shell around the canvas and the HUD inside it agree. */
+            --phosphor: #64f0ff;
+            --phosphor-dim: #2dafc3;
             --bg-dark: #050608;
             --chassis: #0d1014;
             --border: #1a2826;
@@ -18,7 +20,7 @@
             background-color: var(--bg-dark);
             background-image:
                 radial-gradient(circle at 50% 50%, #0b1615 0%, #030406 85%),
-                repeating-linear-gradient(0deg, rgba(0, 255, 210, 0.015) 0px, rgba(0, 255, 210, 0.015) 1px, transparent 1px, transparent 3px);
+                repeating-linear-gradient(0deg, rgba(100, 240, 255, 0.015) 0px, rgba(100, 240, 255, 0.015) 1px, transparent 1px, transparent 3px);
             color: var(--phosphor);
             font-family: "Courier New", Courier, monospace;
             overflow: hidden;
@@ -45,11 +47,11 @@
             font-size: 12px;
             letter-spacing: 2px;
             text-transform: uppercase;
-            box-shadow: 0 0 15px rgba(0, 255, 210, 0.08);
+            box-shadow: 0 0 15px rgba(100, 240, 255, 0.08);
         }
         .hud-title {
             font-weight: bold;
-            text-shadow: 0 0 8px rgba(0, 255, 210, 0.5);
+            text-shadow: 0 0 8px rgba(100, 240, 255, 0.5);
         }
         .hud-controls {
             display: flex;
@@ -76,7 +78,7 @@
             background: var(--phosphor);
             color: #020404;
             border-color: var(--phosphor);
-            box-shadow: 0 0 10px rgba(0, 255, 210, 0.6);
+            box-shadow: 0 0 10px rgba(100, 240, 255, 0.6);
         }
         /* The viewport fills the window. There is no border or 16:9 box here:
            raylib letterboxes the 1280x720 game inside the canvas itself
@@ -141,7 +143,7 @@
             font-size: 22px;
             letter-spacing: 5px;
             margin-bottom: 8px;
-            text-shadow: 0 0 10px rgba(0, 255, 210, 0.6);
+            text-shadow: 0 0 10px rgba(100, 240, 255, 0.6);
         }
         .boot-sub {
             font-size: 11px;
