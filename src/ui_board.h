@@ -40,7 +40,7 @@ void board_draw_card_shadow(Rectangle dest, float lift_amount);
 /* Full table drawing */
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
-                      int easy_mode, const char *status_msg);
+                      int easy_mode, int replay_mode, const char *status_msg);
 
 /* Pre-match Oya-gime dealer selection */
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm);

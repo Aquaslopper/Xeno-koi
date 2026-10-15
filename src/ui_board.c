@@ -265,7 +265,7 @@ static float draw_combo_panel(float y, const char *title, const ScoreResult *s, 
 
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
-                      int easy_mode, const char *status_msg) {
+                      int easy_mode, int replay_mode, const char *status_msg) {
     float cur_time = (float)GetTime();
     float frame_dt = GetFrameTime();
 
@@ -342,6 +342,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (easy_mode && drag_m > 0 && CARDS[cid].month == drag_m) board_draw_card_glow(dr, pulse);
     }
 
+    /* 5b. A hand card waiting on a choice (it matched two field cards): it has
+           left the hand and is not on the field yet, so nothing else draws it. */
+    if (g->phase == PHASE_HAND_CHOICE && g->played_hand_card >= 0) {
+        Rectangle hr = motion_get_rect(g->played_hand_card);
+        if (hr.width > 0.0f) board_draw_card(ba, g->played_hand_card, hr);
+    }
+
     /* 6. Pending Stock Card */
     if (g->has_pending && g->pending_card >= 0 && (!anim->active || anim->type != ANIM_STOCK_FLY)) {
         Rectangle pr = motion_get_rect(g->pending_card);
@@ -355,6 +362,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (i == dragging_idx) continue;
         int cid = g->hand[0][i];
         if (anim && anim->active && anim->type == ANIM_GLIDE_RETURN && anim->card_id == cid) continue;
+        /* A replay flies both players' cards, so the human hand has to let go of a
+           card that is in the air as well. */
+        if (anim && anim->active && anim->type == ANIM_CPU_FLY && anim->cpu_card == cid) continue;
         Rectangle r = board_get_hand_card_rect(i, g->hand_count[0], i == hovered_hand_idx);
         motion_set_target(cid, (Vector2){ r.x, r.y }, (Vector2){ r.width, r.height }, (i == hovered_hand_idx ? 0.15f : 0.30f));
         Rectangle dr = motion_get_rect(cid);
@@ -386,7 +396,16 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         board_draw_card_shadow(ar, lift);
         board_draw_card(ba, anim->card_id, ar);
     } else if (anim->active && anim->type == ANIM_CPU_FLY) {
-        Rectangle ar = { anim->current_pos.x, anim->current_pos.y, FIELD_CARD_W, FIELD_CARD_H };
+        /* A card leaves a hand at hand size and settles at field size, so it
+           grows or shrinks over the flight instead of popping on take-off. */
+        float t = (anim->duration > 0.0f) ? (anim->elapsed / anim->duration) : 1.0f;
+        if (t < 0.0f) t = 0.0f;
+        if (t > 1.0f) t = 1.0f;
+        float from_bottom = (anim->start_pos.y > 300.0f) ? 1.0f : 0.0f;   /* human hand sits low */
+        float sw = from_bottom ? HAND_CARD_W : CPU_CARD_W;
+        float sh = from_bottom ? HAND_CARD_H : CPU_CARD_H;
+        Rectangle ar = { anim->current_pos.x, anim->current_pos.y,
+                         sw + (FIELD_CARD_W - sw) * t, sh + (FIELD_CARD_H - sh) * t };
         float lift = sinf((anim->elapsed / anim->duration) * 3.14159265f);
         board_draw_card_shadow(ar, lift);
         board_draw_card(ba, anim->cpu_card, ar);
@@ -448,7 +467,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);
     draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
     DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
-    draw_text_in_rect(font_title, "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+    /* A replay cannot be restarted: the second button ends it instead. */
+    draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

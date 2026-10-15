@@ -365,11 +365,17 @@ ScreenAction screens_handle_stats_click(Vector2 vm, int *confirm_reset) {
     return CheckCollisionPointRec(vm, (Rectangle){ 860, 610, 200, 44 }) ? ACT_GOTO_MENU : ACT_NONE;
 }
 
-void screens_draw_pause(Vector2 vm, int confirm_restart) {
+void screens_draw_pause(Vector2 vm, int confirm_restart, int replay) {
     DrawRectangle(0, 0, 1280, 720, COLOR_OVERLAY_BG);
     Rectangle p = { 440, 180, 400, 360 };
     DrawRectangleRec(p, COLOR_PANEL_BG); ui_draw_panel_border(p, COLOR_PHOSPHOR);
-    draw_centered_text(font_title, "GAME PAUSED", 640.0f, 210.0f, 28.0f, 1.4f, COLOR_PHOSPHOR);
+    draw_centered_text(font_title, replay ? "REPLAY PAUSED" : "GAME PAUSED", 640.0f, 210.0f, 28.0f, 1.4f, COLOR_PHOSPHOR);
+    if (replay) {
+        draw_centered_text(font_body, "Nothing here counts towards stats.", 640.0f, 262.0f, 16.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+        draw_btn((Rectangle){ 490, 300, 300, 50 }, "RESUME", 20, vm, COLOR_PHOSPHOR);
+        draw_btn((Rectangle){ 490, 380, 300, 50 }, "STOP REPLAY", 20, vm, COLOR_RED);
+        return;
+    }
     if (confirm_restart) {
         draw_centered_text(font_body, "Restart this match?", 640.0f, 280.0f, 20.0f, 1.2f, COLOR_PHOSPHOR);
         draw_btn((Rectangle){ 480, 350, 140, 40 }, "YES", 18, vm, COLOR_RED);
@@ -381,7 +387,11 @@ void screens_draw_pause(Vector2 vm, int confirm_restart) {
     }
 }
 
-ScreenAction screens_handle_pause_click(Vector2 vm, int *confirm_restart) {
+ScreenAction screens_handle_pause_click(Vector2 vm, int *confirm_restart, int replay) {
+    if (replay) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 490, 300, 300, 50 })) return ACT_RESUME;
+        return CheckCollisionPointRec(vm, (Rectangle){ 490, 380, 300, 50 }) ? ACT_STOP_REPLAY : ACT_NONE;
+    }
     if (*confirm_restart) {
         if (CheckCollisionPointRec(vm, (Rectangle){ 480, 350, 140, 40 })) { *confirm_restart = 0; return ACT_RESTART_MATCH; }
         if (CheckCollisionPointRec(vm, (Rectangle){ 660, 350, 140, 40 })) { *confirm_restart = 0; return ACT_RESUME; }
