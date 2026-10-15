@@ -26,24 +26,26 @@ accuracy. See [Errata & Known Issues](../errata.md) for what the rulesets do cha
 
 <!-- BEGIN GENERATED: difficulty-curve -->
 
-![Chart: chance of an optimal CPU move for each opponent on Easy, Hard and Master, with Deus above them all](../assets/difficulty-curve.svg)
+![Chart: for every opponent, his signature card and the chance of an optimal CPU move on Easy, Hard and Master, with Deus above them all](../assets/difficulty-curve.svg)
 
-| Opponent | Easy | Hard | Master |
-|---|---:|---:|---:|
-| 01 | 20% | 50% | 78% |
-| 02 | 23% | 52% | 80% |
-| 03 | 27% | 55% | 82% |
-| 04 | 30% | 58% | 84% |
-| 05 | 34% | 60% | 86% |
-| 06 | 38% | 63% | 88% |
-| 07 | 41% | 66% | 90% |
-| 08 | 45% | 69% | 92% |
-| 09 | 49% | 71% | 94% |
-| 10 | 52% | 74% | 96% |
-| 11 | 56% | 77% | 98% |
-| 12 | 60% | 80% | 100% |
-| **13 · Deus** | 100% | 100% | 100% |
-| *Ramp, 01 to 12* | +40 | +30 | +22 |
+| # | Opponent | Signature target | Priority yaku | Easy | Hard | Master |
+|---:|---|---|---|---:|---:|---:|
+| 01 | **JANUARY CRANE** | ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } 01-B Crane | Brights | 20% | 50% | 78% |
+| 02 | **FEB. WARBLER** | ![02-A Warbler](../assets/cards/card-04.webp){ .card-mini } 02-A Warbler | Ribbons | 23% | 52% | 80% |
+| 03 | **MARCH CURTAIN** | ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } 03-B Curtain | Brights | 27% | 55% | 82% |
+| 04 | **APRIL CUCKOO** | ![04-A Cuckoo](../assets/cards/card-12.webp){ .card-mini } 04-A Cuckoo | Plains/Kasu | 30% | 58% | 84% |
+| 05 | **MAY BRIDGE** | ![05-A Bridge](../assets/cards/card-16.webp){ .card-mini } 05-A Bridge | Animals | 34% | 60% | 86% |
+| 06 | **JUNE SWARM** | ![06-A Butterflies](../assets/cards/card-20.webp){ .card-mini } 06-A Butterflies | Animals | 38% | 63% | 88% |
+| 07 | **JULY BOAR** | ![07-A Boar](../assets/cards/card-24.webp){ .card-mini } 07-A Boar | Ino-Shika-Cho | 41% | 66% | 90% |
+| 08 | **AUGUST MOON** | ![08-B Moon](../assets/cards/card-28.webp){ .card-mini } 08-B Moon | Brights | 45% | 69% | 92% |
+| 09 | **SEPT. SAKE** | ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-mini } 09-A Sake Cup | Animals | 49% | 71% | 94% |
+| 10 | **OCT. DEER** | ![10-A Deer](../assets/cards/card-36.webp){ .card-mini } 10-A Deer | Ino-Shika-Cho | 52% | 74% | 96% |
+| 11 | **NOV. RAIN** | ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } 11-B Rainman | Ribbons | 56% | 77% | 98% |
+| 12 | **DEC. PHOENIX** | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix | Brights | 60% | 80% | 100% |
+| 13 | **ENTITY 13 // DEUS SUPREMUS** | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix | Brights | - | - | **100%** always |
+| | *Ramp, 01 to 12* | | | +40 | +30 | +22 |
+
+*Easy, Hard and Master are not picked against Deus: he overrides the band and plays optimally on every turn.*
 <!-- END GENERATED: difficulty-curve -->
 
 ## Where else difficulty shows up

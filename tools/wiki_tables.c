@@ -324,6 +324,18 @@ static void frag_opponents(void) {
     puts("@@END");
 }
 
+/* Data for the difficulty chart in gen_wiki_tables.py: which card belongs to which
+   opponent. Kept here so the chart cannot drift from the roster it draws. */
+static void frag_roster_meta(void) {
+    puts("@@FRAGMENT roster-meta");
+    for (int i = 0; i <= 12; i++) {
+        const Opponent *o = campaign_get_opponent(i);
+        printf("%d | %s | %d | %s | %s\n", i, o->name, o->favorite_card_id,
+               CARDS[o->favorite_card_id].name, o->favorite_combo);
+    }
+    puts("@@END");
+}
+
 int main(void) {
     if (!cards_validate()) {
         fprintf(stderr, "cards_validate() failed - refusing to generate tables\n");
@@ -347,5 +359,6 @@ int main(void) {
     frag_award_grid();
     frag_ruleset_facts();
     frag_opponents();
+    frag_roster_meta();
     return 0;
 }

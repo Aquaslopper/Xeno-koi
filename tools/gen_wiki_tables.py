@@ -26,6 +26,7 @@ Usage:
 
 Requires gcc. The binary is built in a temp directory and never committed.
 """
+import base64
 import pathlib
 import re
 import subprocess
@@ -81,8 +82,8 @@ CHART_FRAGMENT = "difficulty-curve"
 CHART_NODES = 12          # campaign opponents; ai_get_accuracy() clamps boss_id to 0..11
 CHART_TOP = 100
 CHART_ELSE_BAND = "MASTER"  # the branch with no DIFFICULTY_ constant is the one left over
-CHART_W, CHART_H = 1000, 620
-CHART_ML, CHART_MR, CHART_MT, CHART_MB = 70, 26, 76, 170
+CHART_W, CHART_H = 1000, 730
+CHART_ML, CHART_MR, CHART_MT, CHART_MB = 70, 26, 76, 236
 CHART_PLOT_W = CHART_W - CHART_ML - CHART_MR
 CHART_PLOT_H = CHART_H - CHART_MT - CHART_MB
 CHART_SLOT = CHART_PLOT_W / float(CHART_NODES + 1)
@@ -91,6 +92,15 @@ CHART_INK = "#64f0ff"       # the game's TEAL base
 CHART_INK_DIM = "#2dafc3"   # ... and its dim
 CHART_BG = "#0b0e0b"
 CHART_DEUS = "#9aa0a6"      # desaturated: Deus brings its own mono atlas
+# Each band gets a colour AND a shape: two channels, so the dots stay tellable
+# for colour-blind readers and in a faded print. Colours are the game's own
+# terminal themes - TEAL, AMBER, CRIMSON from the table next to ai_get_accuracy().
+CHART_AMBER = "#ffc850"
+CHART_CRIMSON = "#ff5f5f"
+CHART_CARD_H = 74
+CHART_CARD_W = 45
+# Fragments that feed the generators instead of a page.
+DATA_ONLY_FRAGMENTS = {"roster-meta"}
 
 BRANCH_RE = re.compile(
     r"else\s+if\s*\(\s*diff\s*==\s*DIFFICULTY_(?P<elif>\w+)\s*\)"
@@ -167,31 +177,95 @@ def chart_curves() -> dict:
     return curves
 
 
-def chart_desc(curves: dict) -> str:
-    """The numbers as prose, so the chart reads without being seen."""
-    parts = [f"{band.lower()} " + ", ".join(f"{v}%" for v in curves[band])
-             for band in ("EASY", "HARD", "MASTER")]
-    parts.append(f"deus {curves['DEUS']}% for every opponent")
-    return "Opponents 1 to 12, accuracy by difficulty: " + "; ".join(parts) + "."
+def chart_desc(curves: dict, roster: list) -> str:
+    """The numbers as prose, so the chart still reads when it cannot be seen."""
+    per = []
+    for n, name, _cid, _cname, _focus in roster:
+        if n == CHART_NODES:
+            per.append(f"{name}: {curves['DEUS']}% on every band")
+        else:
+            per.append(f"{name}: easy {curves['EASY'][n]}%, hard {curves['HARD'][n]}%, "
+                       f"master {curves['MASTER'][n]}%")
+    return "Chance the CPU plays its best move, per opponent. " + ". ".join(per) + "."
 
 
-def render_chart_svg(curves: dict) -> str:
-    """One column per opponent: Easy at the bottom, Master at the top, Deus above them all."""
+def chart_roster(fragments: dict) -> list:
+    """(index, name, favourite card id, card name, focus) from the roster in src/cards.c."""
+    rows = []
+    for line in fragments.get("roster-meta", "").strip().splitlines():
+        parts = [q.strip() for q in line.split("|")]
+        if len(parts) != 5:
+            raise SystemExit(f"generator: malformed roster-meta row {line!r}")
+        rows.append((int(parts[0]), parts[1], int(parts[2]), parts[3], parts[4]))
+    if len(rows) != CHART_NODES + 1:
+        raise SystemExit(f"generator: roster-meta has {len(rows)} rows, expected {CHART_NODES + 1}")
+    return rows
+
+
+def chart_name_lines(name: str) -> list:
+    """'01: JANUARY CRANE' becomes ['JANUARY', 'CRANE'], wrapped for a 69px column."""
+    core = name.split("//")[-1] if "//" in name else re.sub(r"^\d+:\s*", "", name)
+    lines, cur = [], ""
+    for word in core.split():
+        if cur and len(cur) + 1 + len(word) > 10:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = f"{cur} {word}".strip()
+    if cur:
+        lines.append(cur)
+    return lines[:3]
+
+
+def card_data_uri(card_id: int) -> str:
+    """A card thumb as a data URI.
+
+    A standalone SVG shown through <img> is not allowed to load external files, so the art has
+    to travel inside the chart. Each thumb is a few KB, which keeps the whole figure small.
+    """
+    path = DOCS / "assets" / "cards" / f"card-{card_id:02d}.webp"
+    if not path.exists():
+        raise SystemExit(f"generator: {path.relative_to(ROOT)} missing - run tools/make_card_images.py")
+    return "data:image/webp;base64," + base64.b64encode(path.read_bytes()).decode()
+
+
+def render_chart_svg(curves: dict, roster: list) -> str:
+    """One column per opponent: his card, his three bands. Deus sits above the whole roster."""
     easy, hard, master, deus = curves["EASY"], curves["HARD"], curves["MASTER"], curves["DEUS"]
-    dots = (("EASY", easy, 3.2, "none"), ("HARD", hard, 4.2, CHART_INK_DIM), ("MASTER", master, 5.2, CHART_INK))
+    bands = (("EASY", easy, "ring", 3.4), ("HARD", hard, "dot", 4.2), ("MASTER", master, "diamond", 5.2))
+    colour = {"EASY": CHART_INK, "HARD": CHART_AMBER, "MASTER": CHART_CRIMSON}
+    card_y = CHART_AXIS_Y + 12
     out = []
     add = out.append
 
+    def marker(cx, cy, shape, band, r):
+        """Ring for Easy, filled dot for Hard, diamond for Master: colour and shape carry it."""
+        fill = CHART_BG if shape == "ring" else colour[band]
+        if shape == "diamond":
+            s = r + 0.8
+            return (f'<path d="M{cx:.1f} {cy - s:.1f} L{cx + s:.1f} {cy:.1f} L{cx:.1f} {cy + s:.1f} '
+                    f'L{cx - s:.1f} {cy:.1f} Z" fill="{fill}" stroke="{colour[band]}" stroke-width="1.7"/>')
+        return (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{fill}" stroke="{colour[band]}" '
+                f'stroke-width="1.7"/>')
+
+    art = {}
+    for _n, _name, card_id, _cn, _f in roster:
+        if card_id not in art:      # Deus reuses the December card, so keep each thumb once
+            art[card_id] = (f'<image id="chart-card-{card_id:02d}" x="-{CHART_CARD_W / 2:.1f}" y="0" '
+                            f'width="{CHART_CARD_W}" height="{CHART_CARD_H}" '
+                            f'preserveAspectRatio="xMidYMid meet" href="{card_data_uri(card_id)}"/>')
+
     add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CHART_W} {CHART_H}" role="img" '
         'font-family="monospace">')
+    add("<defs>" + "".join(art.values()) + "</defs>")
     add("<title>AI decision accuracy per opponent</title>")
-    add("<desc>" + chart_desc(curves) + "</desc>")
+    add("<desc>" + chart_desc(curves, roster) + "</desc>")
     add(f'<rect x="0.5" y="0.5" width="{CHART_W - 1}" height="{CHART_H - 1}" rx="10" fill="{CHART_BG}" '
         f'stroke="{CHART_INK_DIM}" stroke-opacity="0.45"/>')
     add(f'<text x="{CHART_ML}" y="34" fill="{CHART_INK}" font-size="21">'
         "AI DECISION ACCURACY PER OPPONENT</text>")
     add(f'<text x="{CHART_ML}" y="54" fill="{CHART_INK_DIM}" font-size="12">'
-        "chance the CPU plays its best move - from ai_get_accuracy() in src/ai.c</text>")
+        "how often the CPU plays its best move - read live from ai_get_accuracy() in src/ai.c</text>")
 
     for pct in range(0, CHART_TOP + 1, 20):
         y = chart_y(pct)
@@ -199,85 +273,96 @@ def render_chart_svg(curves: dict) -> str:
             'stroke="#ffffff" stroke-opacity="0.07"/>')
         add(f'<text x="{CHART_ML - 10}" y="{y + 4:.1f}" fill="{CHART_INK_DIM}" font-size="12" '
             f'text-anchor="end">{pct}%</text>')
-    for pct, label in ((max(easy), f"Easy max {max(easy)}%"),
-                       (min(master), f"Master min {min(master)}%")):
+    for pct, label, tint in ((max(easy), f"Easy max {max(easy)}%", CHART_INK),
+                             (min(master), f"Master min {min(master)}%", CHART_CRIMSON)):
         y = chart_y(pct)
         add(f'<line x1="{CHART_ML}" y1="{y:.1f}" x2="{CHART_ML + CHART_PLOT_W}" y2="{y:.1f}" '
-            f'stroke="{CHART_INK}" stroke-opacity="0.35" stroke-dasharray="5 5"/>')
-        add(f'<text x="{CHART_ML + CHART_PLOT_W - 4}" y="{y - 8:.1f}" fill="{CHART_INK}" font-size="11" '
+            f'stroke="{tint}" stroke-opacity="0.35" stroke-dasharray="5 5"/>')
+        add(f'<text x="{CHART_ML + CHART_PLOT_W - 4}" y="{y - 8:.1f}" fill="{tint}" font-size="11" '
             f'text-anchor="end">{label}</text>')
 
-    for n in range(CHART_NODES):
+    for n, name, card_id, _card_name, _focus in roster:
         cx = chart_x(n)
-        add(f'<rect x="{cx - 15:.1f}" y="{chart_y(master[n]):.1f}" width="30" '
-            f'height="{chart_y(easy[n]) - chart_y(master[n]):.1f}" fill="{CHART_INK}" fill-opacity="0.08"/>')
-        add(f'<line x1="{cx:.1f}" y1="{chart_y(easy[n]):.1f}" x2="{cx:.1f}" y2="{chart_y(master[n]):.1f}" '
-            f'stroke="{CHART_INK_DIM}" stroke-opacity="0.55" stroke-width="1.5"/>')
-        for _, values, r, fill in dots:
-            add(f'<circle cx="{cx:.1f}" cy="{chart_y(values[n]):.1f}" r="{r}" fill="{fill}" '
-                f'stroke="{CHART_INK}" stroke-width="1.6"/>')
-        add(f'<text x="{cx:.1f}" y="{CHART_AXIS_Y + 22}" fill="{CHART_INK_DIM}" font-size="12" '
+        if n < CHART_NODES:
+            add(f'<rect x="{cx - 15:.1f}" y="{chart_y(master[n]):.1f}" width="30" '
+                f'height="{chart_y(easy[n]) - chart_y(master[n]):.1f}" fill="{CHART_INK}" fill-opacity="0.08"/>')
+            add(f'<line x1="{cx:.1f}" y1="{chart_y(easy[n]):.1f}" x2="{cx:.1f}" '
+                f'y2="{chart_y(master[n]):.1f}" stroke="{CHART_INK_DIM}" stroke-opacity="0.55" '
+                'stroke-width="1.5"/>')
+            for band, values, shape, r in bands:
+                add(marker(cx, chart_y(values[n]), shape, band, r))
+        else:
+            add(f'<line x1="{cx:.1f}" y1="{chart_y(deus) + 7:.1f}" x2="{cx:.1f}" y2="{CHART_AXIS_Y}" '
+                f'stroke="{CHART_DEUS}" stroke-opacity="0.3" stroke-dasharray="3 5"/>')
+            add(f'<rect x="{cx - 22:.1f}" y="{chart_y(deus) - 5:.1f}" width="44" height="10" rx="2" '
+                f'fill="{CHART_DEUS}"/>')
+        grey = ' style="filter:grayscale(1)"' if n == CHART_NODES else ""
+        add(f'<use x="{cx:.1f}" y="{card_y}" href="#chart-card-{card_id:02d}"{grey}/>')
+        add(f'<rect x="{cx - CHART_CARD_W / 2 - 1:.1f}" y="{card_y - 1}" width="{CHART_CARD_W + 2}" '
+            f'height="{CHART_CARD_H + 2}" fill="none" stroke="{CHART_INK_DIM}" stroke-opacity="0.3"/>')
+        add(f'<text x="{cx:.1f}" y="{card_y + CHART_CARD_H + 20}" fill="{CHART_INK_DIM}" font-size="11" '
             f'text-anchor="middle">{n + 1:02d}</text>')
-        if n == 0:
-            # One worked example; the table under the chart carries every number.
-            for _, values, _, _ in dots:
-                add(f'<text x="{cx + 19:.1f}" y="{chart_y(values[n]) + 4:.1f}" fill="{CHART_INK}" '
-                    f'font-size="11">{values[n]}</text>')
+        for k, line in enumerate(chart_name_lines(name)):
+            add(f'<text x="{cx:.1f}" y="{card_y + CHART_CARD_H + 33 + 11 * k}" fill="#ffffff" '
+                f'fill-opacity="0.62" font-size="9" text-anchor="middle">{line}</text>')
 
-    cx = chart_x(CHART_NODES)
-    div = cx - CHART_SLOT / 2 - 4
-    add(f'<line x1="{div:.1f}" y1="{CHART_MT - 16}" x2="{div:.1f}" y2="{CHART_AXIS_Y + 30}" '
+    div = chart_x(CHART_NODES) - CHART_SLOT / 2 - 4
+    add(f'<line x1="{div:.1f}" y1="{CHART_MT - 16}" x2="{div:.1f}" y2="{card_y + CHART_CARD_H + 44}" '
         'stroke="#ffffff" stroke-opacity="0.14" stroke-dasharray="4 6"/>')
-    add(f'<line x1="{cx:.1f}" y1="{chart_y(deus) + 7:.1f}" x2="{cx:.1f}" y2="{CHART_AXIS_Y}" '
-        f'stroke="{CHART_DEUS}" stroke-opacity="0.3" stroke-dasharray="3 5"/>')
-    add(f'<rect x="{cx - 22:.1f}" y="{chart_y(deus) - 5:.1f}" width="44" height="10" rx="2" '
-        f'fill="{CHART_DEUS}"/>')
     add(f'<text x="{CHART_ML + CHART_PLOT_W - 4}" y="{chart_y(deus) - 14:.1f}" fill="{CHART_DEUS}" '
-        f'font-size="11" text-anchor="end">always {deus}%</text>')
-    add(f'<text x="{cx:.1f}" y="{CHART_AXIS_Y + 22}" fill="#c8ccd0" font-size="12" '
-        'text-anchor="middle">DEUS</text>')
+        'font-size="11" text-anchor="end">always 100%, in every band</text>')
 
-    tip_x, tip_y = CHART_ML + CHART_PLOT_W + 12, CHART_AXIS_Y
-    add(f'<line x1="{CHART_ML}" y1="{tip_y}" x2="{tip_x}" y2="{tip_y}" stroke="{CHART_INK_DIM}" '
-        'stroke-opacity="0.6" stroke-width="1.5"/>')
-    add(f'<path d="M{tip_x} {tip_y - 6} L{tip_x + 10} {tip_y} L{tip_x} {tip_y + 6} Z" '
-        f'fill="{CHART_INK_DIM}" fill-opacity="0.6"/>')
+    tip_x = CHART_ML + CHART_PLOT_W + 12
+    add(f'<line x1="{CHART_ML}" y1="{CHART_AXIS_Y}" x2="{tip_x}" y2="{CHART_AXIS_Y}" '
+        f'stroke="{CHART_INK_DIM}" stroke-opacity="0.6" stroke-width="1.5"/>')
+    add(f'<path d="M{tip_x} {CHART_AXIS_Y - 6} L{tip_x + 10} {CHART_AXIS_Y} L{tip_x} '
+        f'{CHART_AXIS_Y + 6} Z" fill="{CHART_INK_DIM}" fill-opacity="0.6"/>')
     add(f'<line x1="{CHART_ML}" y1="{CHART_MT - 18}" x2="{CHART_ML}" y2="{CHART_AXIS_Y}" '
         f'stroke="{CHART_INK_DIM}" stroke-opacity="0.6" stroke-width="1.5"/>')
     add(f'<path d="M{CHART_ML - 6} {CHART_MT - 18} L{CHART_ML} {CHART_MT - 28} L{CHART_ML + 6} '
         f'{CHART_MT - 18} Z" fill="{CHART_INK_DIM}" fill-opacity="0.6"/>')
 
-    lx, ly = float(CHART_ML), CHART_AXIS_Y + 58
-    for band, _, r, fill in dots:
-        add(f'<circle cx="{lx + 5:.1f}" cy="{ly - 4:.1f}" r="{r}" fill="{fill}" stroke="{CHART_INK}" '
-            'stroke-width="1.6"/>')
-        add(f'<text x="{lx + 14:.1f}" y="{ly}" fill="{CHART_INK_DIM}" font-size="12">{band}</text>')
-        lx += 14 + 7.2 * len(band) + 26
+    lx, ly = float(CHART_ML), CHART_H - 76
+    for band, _values, shape, r in bands:
+        add(marker(lx + 6, ly - 4, shape, band, r))
+        add(f'<text x="{lx + 16:.1f}" y="{ly}" fill="{colour[band]}" font-size="11">'
+            f"{band.lower()}</text>")
+        lx += 16 + 6.6 * (len(band) + 2) + 24
     add(f'<rect x="{lx:.1f}" y="{ly - 12:.1f}" width="12" height="14" fill="{CHART_INK}" '
         'fill-opacity="0.12"/>')
-    add(f'<text x="{lx + 18:.1f}" y="{ly}" fill="{CHART_INK_DIM}" font-size="12">'
+    add(f'<text x="{lx + 18:.1f}" y="{ly}" fill="{CHART_INK_DIM}" font-size="11">'
         "spread across that opponent</text>")
-    add(f'<text x="{CHART_ML}" y="{ly + 28}" fill="{CHART_INK_DIM}" fill-opacity="0.85" font-size="12">'
-        "the 15s/30s timer, the ruleset and the mono Deus atlas change your pressure, not his accuracy"
-        "</text>")
+    add(f'<text x="{CHART_ML}" y="{CHART_H - 50}" fill="{CHART_INK_DIM}" fill-opacity="0.85" '
+        'font-size="11">the art under each column is his signature target, from the roster in '
+        "src/cards.c</text>")
+    add(f'<text x="{CHART_ML}" y="{CHART_H - 34}" fill="{CHART_INK_DIM}" fill-opacity="0.85" '
+        'font-size="11">the 15s/30s timer, the ruleset and the mono Deus atlas change your '
+        "pressure, not his accuracy</text>")
     add("</svg>")
     return "\n".join(out) + "\n"
 
 
-def render_chart_markdown(curves: dict) -> str:
-    """The same numbers as a table, so the page still reads if the image does not."""
+def render_chart_markdown(curves: dict, roster: list) -> str:
+    """The same numbers as dossiers, so the page reads without the image."""
     easy, hard, master, deus = curves["EASY"], curves["HARD"], curves["MASTER"], curves["DEUS"]
     lines = [
-        "![Chart: chance of an optimal CPU move for each opponent on Easy, Hard and Master, "
-        "with Deus above them all](../assets/difficulty-curve.svg)",
+        "![Chart: for every opponent, his signature card and the chance of an optimal CPU move on "
+        "Easy, Hard and Master, with Deus above them all](../assets/difficulty-curve.svg)",
         "",
-        "| Opponent | Easy | Hard | Master |",
-        "|---|---:|---:|---:|",
+        "| # | Opponent | Signature target | Priority yaku | Easy | Hard | Master |",
+        "|---:|---|---|---|---:|---:|---:|",
     ]
-    lines += [f"| {n + 1:02d} | {easy[n]}% | {hard[n]}% | {master[n]}% |" for n in range(CHART_NODES)]
-    lines.append(f"| **13 · Deus** | {deus}% | {deus}% | {deus}% |")
+    for n, name, card_id, card_name, focus in roster:
+        label = name if n == CHART_NODES else re.sub(r"^\d+:\s*", "", name)
+        trio = (f"- | - | **{deus}%** always" if n == CHART_NODES
+                else f"{easy[n]}% | {hard[n]}% | {master[n]}%")
+        art = f"![{card_name}](../assets/cards/card-{card_id:02d}.webp){{ .card-mini }}"
+        lines.append(f"| {n + 1:02d} | **{label}** | {art} {card_name} | {focus} | {trio} |")
     ramps = [max(v) - min(v) for v in (easy, hard, master)]
-    lines.append(f"| *Ramp, 01 to 12* | +{ramps[0]} | +{ramps[1]} | +{ramps[2]} |")
+    lines.append(f"| | *Ramp, 01 to 12* | | | +{ramps[0]} | +{ramps[1]} | +{ramps[2]} |")
+    lines.append("")
+    lines.append("*Easy, Hard and Master are not picked against Deus: he overrides the band and "
+                 "plays optimally on every turn.*")
     return "\n".join(lines)
 
 
@@ -302,7 +387,8 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         fragments = parse_fragments(build_and_run(pathlib.Path(tmp)))
     curves = chart_curves()
-    fragments[CHART_FRAGMENT] = render_chart_markdown(curves)
+    roster = chart_roster(fragments)
+    fragments[CHART_FRAGMENT] = render_chart_markdown(curves, roster)
 
     seen = set()
     stale = []
@@ -314,7 +400,7 @@ def main() -> int:
             if not check_only:
                 md.write_text(updated, encoding="utf-8")
 
-    chart = render_chart_svg(curves)
+    chart = render_chart_svg(curves, roster)
     current = CHART_ASSET.read_text(encoding="utf-8") if CHART_ASSET.exists() else None
     if current != chart:
         stale.append(CHART_ASSET)
@@ -322,7 +408,7 @@ def main() -> int:
             CHART_ASSET.parent.mkdir(parents=True, exist_ok=True)
             CHART_ASSET.write_text(chart, encoding="utf-8")
 
-    unused = sorted(set(fragments) - seen)
+    unused = sorted(set(fragments) - seen - DATA_ONLY_FRAGMENTS)
     if unused:
         print(f"note: generated fragments not placed in any page: {', '.join(unused)}")
 
