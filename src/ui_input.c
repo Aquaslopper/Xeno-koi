@@ -1,5 +1,6 @@
 #include "ui_input.h"
 #include "ui_motion.h"
+#include "replay.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -51,12 +52,14 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                (int)c.x, (int)c.y, hand_idx, CARDS[card_id].name);
         fflush(stdout);
         engine_play_hand(g, card_id, -1);
+        replay_rec_play(0, card_id, -1);
     } else if (mc == 1) {
         printf("DROP centre=(%d,%d) -> CAPTURE %s+%s\n",
                (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
         fflush(stdout);
         cap_starts[1] = board_get_card_field_pos(g, matches[0]);
         engine_play_hand(g, card_id, -1);
+        replay_rec_play(0, card_id, -1);
         if (g->last_captured_count > 0) {
             anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
                                cap_starts, player_cap_dest, 0.50f);
@@ -69,6 +72,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
             cap_starts[k + 1] = board_get_card_field_pos(g, matches[k]);
         }
         engine_play_hand(g, card_id, -1);
+        replay_rec_play(0, card_id, -1);
         if (g->last_captured_count > 0) {
             anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
                                cap_starts, player_cap_dest, 0.50f);
@@ -94,6 +98,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[0]);
             engine_play_hand(g, card_id, matches[0]);
+            replay_rec_play(0, card_id, matches[0]);
             if (g->last_captured_count > 0) {
                 anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
                                    cap_starts, player_cap_dest, 0.50f);
@@ -104,6 +109,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[1]);
             engine_play_hand(g, card_id, matches[1]);
+            replay_rec_play(0, card_id, matches[1]);
             if (g->last_captured_count > 0) {
                 anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
                                    cap_starts, player_cap_dest, 0.50f);
@@ -113,6 +119,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                    (int)c.x, (int)c.y, CARDS[card_id].name);
             fflush(stdout);
             engine_play_hand(g, card_id, -1);
+            replay_rec_play(0, card_id, -1);
         }
     }
 }

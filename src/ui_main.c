@@ -21,6 +21,8 @@
 #include "ui_input.h"
 #include "campaign.h"
 #include "ui_taunt.h"
+#include "replay.h"
+#include "ui_replay.h"
 
 #ifndef IsFontReady
 #define IsFontReady(f) ((f).texture.id > 0)
@@ -85,7 +87,14 @@ static void update_draw_frame(void) {
             if (transition_action == 1) {
                 if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
                 anim_init(&anim); memset(&drag, 0, sizeof(drag)); hovered_idx = -1; is_paused = 0; confirm_restart = 0; human_turn_started = 0; deus_banner_timer = 0.0f;
-                engine_init(&g, settings.ruleset, settings.rounds, (uint32_t)time(NULL));
+                uint32_t match_seed = (uint32_t)time(NULL);
+                engine_init(&g, settings.ruleset, settings.rounds, match_seed);
+#ifndef __EMSCRIPTEN__
+                /* From here to the match end every decision of both players is written down,
+                   so the finished match can be replayed (see docs/reference/modes.md). */
+                replay_rec_begin(match_seed, ai_rng, settings.ruleset, settings.rounds, settings.difficulty,
+                                 settings.master_timer, settings.current_opponent);
+#endif
                 ai_set_opponent(settings.current_opponent); taunt_init();
                 taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.0f);
                 audio_start_match_music(&audio, transition_track);
@@ -152,17 +161,49 @@ static void update_draw_frame(void) {
             if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) { audio_play_click(&audio); screen = SCREEN_START; }
         } else if (screen == SCREEN_OPTIONS && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
             if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) screen = SCREEN_START;
-        } else if (screen == SCREEN_STATS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            ScreenAction act = screens_handle_stats_click(vm, &confirm_reset);
-            if (act != ACT_NONE) audio_play_click(&audio);
-            if (act == ACT_GOTO_MENU) screen = SCREEN_START;
-            else if (act == ACT_SAVE_LOG) { storage_write_report(&stats, &history); log_timer = 2.0f; }
-            else if (act == ACT_RESET_STATS) storage_reset_stats(&stats);
+        } else if (screen == SCREEN_STATS) {
+#ifndef __EMSCRIPTEN__
+            /* replays/ only exists next to a desktop executable, so the browser build
+               gets no replay controls (see docs/reference/modes.md). */
+            ui_replay_keys(&history);
+#endif
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                int replay_used = 0;
+                ScreenAction act = ACT_NONE;
+#ifndef __EMSCRIPTEN__
+                if (!confirm_reset && ui_replay_click(&history, vm)) { audio_play_click(&audio); replay_used = 1; }
+#endif
+                if (!replay_used) {
+                    act = screens_handle_stats_click(vm, &confirm_reset);
+                    if (act != ACT_NONE) audio_play_click(&audio);
+                    if (act == ACT_GOTO_MENU) screen = SCREEN_START;
+                    else if (act == ACT_SAVE_LOG) { storage_write_report(&stats, &history); log_timer = 2.0f; }
+                    else if (act == ACT_RESET_STATS) storage_reset_stats(&stats);
+                }
+            }
+#ifndef __EMSCRIPTEN__
+            if (ui_replay_take_start(&g)) {
+                anim_init(&anim); motion_init(); memset(&drag, 0, sizeof(drag)); hovered_idx = -1;
+                taunt_init(); deus_banner_timer = 0.0f;
+                is_paused = 0; confirm_restart = 0;
+                screen = SCREEN_GAME;
+            }
+#endif
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
             if (act != ACT_NONE) audio_play_click(&audio);
             if (act == ACT_START_GAME) { int trk = (rand() % 10) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk); }
             else if (act == ACT_GOTO_MENU) start_transition(SCREEN_START, 3, 0);
+        } else if (screen == SCREEN_GAME && replay_pb_active()) {
+            /* A replay feeds the recorded decisions straight into the engine; there is no
+               input, no pause and no clock, and nothing here may touch stats or unlocks. */
+            if (IsKeyPressed(KEY_ESCAPE)) { replay_pb_stop(); start_transition(SCREEN_STATS, 2, 0); }
+            else {
+                motion_update(dt, -1);
+                int pb_state = replay_pb_tick(&g, dt);
+                if (pb_state == -1) ui_replay_set_status(replay_pb_error());
+                if (pb_state != 0) { replay_pb_stop(); start_transition(SCREEN_STATS, 2, 0); }
+            }
         } else if (screen == SCREEN_GAME) {
             int pause_toggled = 0;
             if ((IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) && !drag.on) { is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
@@ -181,7 +222,7 @@ static void update_draw_frame(void) {
                         int trk = (rand() % 10) + 1; audio_start_match_music(&audio, trk);
                         is_paused = 0; confirm_restart = 0; start_transition(SCREEN_GAME, 1, trk);
                     }
-                    else if (act == ACT_ABANDON_MATCH) { is_paused = 0; confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
+                    else if (act == ACT_ABANDON_MATCH) { replay_rec_abort(); is_paused = 0; confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
             } else if (!is_paused) {
@@ -201,10 +242,9 @@ static void update_draw_frame(void) {
                                 int pick = board_check_dealer_select_click(&g, vm);
                                 if (pick >= 0) {
                                     g.oya_player_choice = pick; g.oya_timer = 0.0f;
-                                    int p_cid = g.oya_cards[pick], c_cid = g.oya_cards[1 - pick];
-                                    int mp = CARDS[p_cid].month, mc = CARDS[c_cid].month;
-                                    g.oya_winner = (mp < mc) ? 0 : (mc < mp) ? 1 : (CARDS[p_cid].dealer_rank >= CARDS[c_cid].dealer_rank) ? 0 : 1;
+                                    g.oya_winner = engine_oya_winner(g.oya_cards[pick], g.oya_cards[1 - pick]);
                                     g.dealer = g.oya_winner; audio_play_flip(&audio);
+                                    replay_rec_oya(pick);
                                 }
                             }
                         } else {
@@ -225,6 +265,7 @@ static void update_draw_frame(void) {
                             anim.active = 0; audio_play_drop(&audio);
                             motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
                             engine_play_hand(&g, card, target);
+                            replay_rec_play(1, card, target);
                             if (g.last_captured_count > 0) audio_play_capture(&audio);
                         } else if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
                             anim.active = 0; int card, target;
@@ -263,6 +304,7 @@ static void update_draw_frame(void) {
                     if (g.current_player == 1 && g.phase == PHASE_DRAW_CHOICE && input_unlocked) {
                         int target = ai_choose_stock_target(&g, settings.difficulty, &ai_rng);
                         engine_pick_draw_choice(&g, target);
+                        replay_rec_pick(1, target);
                         if (g.last_captured_count > 0) audio_play_capture(&audio);
                     }
 
@@ -274,6 +316,7 @@ static void update_draw_frame(void) {
                             taunt_trigger(campaign_get_opponent(settings.current_opponent)->koi_taunt, 4.0f);
                         }
                         engine_decide(&g, dec);
+                        replay_rec_koi(1, dec == DECISION_KOI_KOI);
                     }
 
                     if (g.current_player != 0 || (g.phase != PHASE_TURN_HAND && g.phase != PHASE_HAND_CHOICE)) human_turn_started = 0;
@@ -297,6 +340,7 @@ static void update_draw_frame(void) {
                                     } else {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
                                         engine_timeout_autoplay(&g);
+                                        replay_rec_timeout(0);
                                         if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
                                         anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
                                     }
@@ -313,17 +357,17 @@ static void update_draw_frame(void) {
                         }
                         else if (g.phase == PHASE_HAND_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
-                            if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
-                            else if (res == 2) { audio_play_click(&audio); engine_cancel_hand_choice(&g); }
+                            if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
+                            else if (res == 2) { audio_play_click(&audio); engine_cancel_hand_choice(&g); replay_rec_cancel(0); }
                         } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
-                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
                             }
                         } else if (g.phase == PHASE_DECIDE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             DecisionType dec;
                             if (screens_check_decide_click(vm, &dec)) {
                                 audio_play_click(&audio); if (dec == DECISION_KOI_KOI) audio_play_koi(&audio);
-                                engine_decide(&g, dec);
+                                engine_decide(&g, dec); replay_rec_koi(0, dec == DECISION_KOI_KOI);
                             }
                         }
                     }
@@ -334,6 +378,9 @@ static void update_draw_frame(void) {
                             if (g.current_round >= g.total_rounds) {
                                 anim_init(&anim); engine_next_round(&g);
                                 storage_record_match(&g, &settings, &stats, &history);
+#ifndef __EMSCRIPTEN__
+                                ui_replay_commit_auto(&history);
+#endif
                                 if (g.total_score[0] > g.total_score[1]) {
                                     audio_play_win(&audio);
                                     bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
@@ -357,7 +404,8 @@ static void update_draw_frame(void) {
         }
     }
 
-    int overlay_active = (screen == SCREEN_GAME) && (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE ||
+    int overlay_active = (screen == SCREEN_GAME) && !replay_pb_active() &&
+                          (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE ||
                           (g.phase == PHASE_DECIDE && g.current_player == 0) || g.phase == PHASE_DEALER_SELECT ||
                           g.phase == PHASE_ROUND_END || is_paused);
     if (overlay_active) {
@@ -370,9 +418,9 @@ static void update_draw_frame(void) {
         overlay_alpha = 0.0f; last_overlay_phase = g.phase; last_overlay_paused = is_paused;
     }
 
-    if (screen == SCREEN_GAME) taunt_update(dt);
+    if (screen == SCREEN_GAME && !replay_pb_active()) taunt_update(dt);
 
-    card_tooltip_begin(screen == SCREEN_GAME && settings.difficulty == DIFFICULTY_EASY &&
+    card_tooltip_begin(screen == SCREEN_GAME && !replay_pb_active() && settings.difficulty == DIFFICULTY_EASY &&
                        !is_paused && !drag.on && !cinematic_is_active() &&
                        transition_dir == 0 && transition_alpha <= 0.0f &&
                        !(anim.active && anim.type == ANIM_BANNER) &&
@@ -388,7 +436,8 @@ static void update_draw_frame(void) {
     else if (screen == SCREEN_MATCH_RESULT) screens_draw_match_result(&assets, &g, &settings, vm);
     else if (screen == SCREEN_GAME) {
         const char *status = ""; char cpu_status[64];
-        if (cinematic_is_active()) status = "";
+        if (replay_pb_active()) status = "REPLAY - ESC TO STOP";
+        else if (cinematic_is_active()) status = "";
         else if (anim.active && anim.type == ANIM_STOCK_FLY) {
             snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
         } else if (g.phase == PHASE_TURN_HAND) {
@@ -397,10 +446,11 @@ static void update_draw_frame(void) {
         } else if (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE) status = "CHOOSE ONE OF THE MATCHING CARDS";
         else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
 
-        board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos, (settings.difficulty == DIFFICULTY_EASY), status);
-        taunt_draw();
+        board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
+                         replay_pb_active() ? (replay_pb_difficulty() == DIFFICULTY_EASY) : (settings.difficulty == DIFFICULTY_EASY), status);
+        if (!replay_pb_active()) taunt_draw();
 
-        if (!is_paused) {
+        if (!is_paused && !replay_pb_active()) {
             Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
             if (CheckCollisionPointRec(vm, pause_btn)) {
                 DrawRectangleRec(pause_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);
@@ -412,7 +462,7 @@ static void update_draw_frame(void) {
             }
         }
         if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
-        cinematic_draw();
+        if (!replay_pb_active()) cinematic_draw();
         if (overlay_active && overlay_alpha >= 0.999f) draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart);
     }
     EndTextureMode();

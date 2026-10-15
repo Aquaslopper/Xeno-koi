@@ -113,6 +113,10 @@ void engine_init(GameState *g, Ruleset ruleset, int total_rounds, uint32_t seed)
 /* Determine first dealer by single card draw. Returns 0 or 1. */
 int engine_determine_first_dealer(uint32_t *rng_state);
 
+/* Oya-gime dealer draw: the earlier month deals; on the same month the higher
+   card rank deals. Returns 0 when card_a (human) wins, 1 when card_b (CPU) does. */
+int engine_oya_winner(int card_a, int card_b);
+
 /* Deal a round. Handles misdeals automatically. Advances to LUCKY_CHECK or TURN_HAND. */
 void engine_start_round(GameState *g);
 

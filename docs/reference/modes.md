@@ -71,3 +71,21 @@ Tracked statistics include:
 - Yaku counts, which feed the favourite combo shown on the main menu
 
 Match history is written to `history.txt`, and a report is written to `stats_report.txt`. Both are next to the game.
+
+### Replays
+
+Every finished match is recorded while it is played, so it can be watched again later. The Stats screen lists the last ten matches on the right; click a line to select it and use the three buttons underneath:
+
+- **[START REPLAY]** plays the selected match back on the board.
+- **[SAVE]** asks for a name and copies the selected match to that name, so you can keep it or pass it on.
+- **[LOAD]** lists the `.txt` files in the `replays/` folder; pick one and press **PLAY**. To load a replay someone shared with you, put its file in that folder first.
+
+Records are written to the `replays/` folder next to the game as plain `.txt` files:
+
+- The ten most recent matches are kept automatically and named after the date and time they finished, for example `2026-10-15_1548.txt`. A second match finishing in the same minute is stored as `..._2.txt`. When an eleventh match arrives, the oldest automatic record is deleted.
+- Files made with **[SAVE]** are never deleted by the game. Give them the names you want.
+- A record holds the match seed, the AI RNG starting state, the ruleset, round count, difficulty, master timer and opponent, plus the card choices and decisions from both sides. Playing it back feeds those choices into the same engine again, so the deals, captures and scores are the same.
+- A record can only be made while the match is played. Existing log entries from before this feature, matches that were never finished (restarted, abandoned or closed), and Deus matches lost on the turn timer have no record. A replay never counts towards statistics, streaks or unlocks, and the game never changes a record.
+- While a replay runs, the status line shows `REPLAY - ESC TO STOP`; **Esc** leaves the replay and returns to the Stats screen. The pause and restart buttons are not shown. The choice, decision and round-result windows are not shown either - the board, the capture piles and the combo panels are.
+- A record with an unsupported replay-format version is refused with a short message. If a later engine change makes a valid record diverge, playback stops with a short message; incompatible replay changes must increment the format version.
+- **The browser build has no replay buttons.** It cannot read or write files next to the game, so the Stats screen there shows the log list without the replay controls and without selection.

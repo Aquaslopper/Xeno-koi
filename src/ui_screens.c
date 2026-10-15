@@ -1,4 +1,5 @@
 #include "ui_screens.h"
+#include "ui_replay.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -327,12 +328,20 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
 
     DrawLine(620, 110, 620, 560, COLOR_PHOSPHOR_DIM);
     draw_text_ex_snapped(font_title, "LAST 10 MATCHES", (Vector2){ 650.0f, 120.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+#ifndef __EMSCRIPTEN__
+    ui_replay_draw_rows(h, vm);
+#else
     for (int i = 0, hy = 155; i < h->count; i++, hy += 28)
         draw_text_ex_snapped(font_body, h->lines[i], (Vector2){ 650.0f, (float)hy }, 16.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+#endif
 
     draw_btn((Rectangle){ 220, 610, 200, 44 }, "SAVE LOG", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 540, 610, 200, 44 }, "RESET STATS", 20, vm, COLOR_RED);
     draw_btn((Rectangle){ 860, 610, 200, 44 }, "BACK", 20, vm, COLOR_PHOSPHOR);
+#ifndef __EMSCRIPTEN__
+    /* The browser build has no replays/ folder, so it gets no replay controls. */
+    ui_replay_draw_controls(vm);
+#endif
     if (log_timer > 0.0f) draw_text_ex_snapped(font_body, "stats_report.txt written!", (Vector2){ 230.0f, 664.0f }, 16.0f, 1.2f, COLOR_TEXT_INFO);
     if (confirm_reset) {
         Rectangle modal = { 440, 240, 400, 200 };
