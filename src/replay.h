@@ -63,7 +63,9 @@ typedef enum {
    another one is still in the air. */
 PbWant replay_pb_want(const GameState *g, int *player, int *card, int *target);
 
-/* Freeze / unfreeze the engine side while a flight is in the air. */
+/* Freeze the engine while a flight is in the air. Release frees it and drops
+   what is left of the pacing pause, so the step is applied on the frame the
+   card lands rather than after it. */
 void replay_pb_hold(void);
 void replay_pb_release(void);
 

@@ -291,8 +291,13 @@ PbWant replay_pb_want(const GameState *g, int *player, int *card, int *target) {
     return w;
 }
 
-void replay_pb_hold(void)    { pb_hold = 1; }
-void replay_pb_release(void) { pb_hold = 0; }
+void replay_pb_hold(void) { pb_hold = 1; }
+
+/* The flight has landed, so the step has to be taken on this tick: whatever is
+   left of the pacing pause is dropped. Waiting it out would leave the card
+   sitting in the hand it has already flown out of, and the board would pull it
+   back before the engine moved it. */
+void replay_pb_release(void) { pb_hold = 0; pb_delay = 0.0f; }
 
 int replay_pb_tick(GameState *g, float dt) {
     if (!pb_active) return pb_status;

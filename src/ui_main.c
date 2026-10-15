@@ -38,6 +38,7 @@ static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_ba
 static int transition_dir = 0, transition_action = 0, transition_track = 1, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int last_replay_round = 0;   /* replay only: last round the deal was shown for */
+static float replay_beat = 0.0f;    /* replay only: pause after a card lands */
 static int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0, human_turn_started = 0, shot_frame = -1, quit_requested = 0;
 static ScreenState transition_target_screen = SCREEN_START, screen = SCREEN_START;
 static GamePhase last_overlay_phase = PHASE_NONE;
@@ -238,6 +239,7 @@ static void update_draw_frame(void) {
                 motion_deal_round(&g, 0.45f);           /* the deal is shown, not snapped */
                 cinematic_start(g.current_round);
                 last_replay_round = g.current_round;
+                replay_beat = 0.0f;
                 screen = SCREEN_GAME;
             }
 #endif
@@ -257,8 +259,13 @@ static void update_draw_frame(void) {
                 motion_update(dt, -1);
                 cinematic_update(dt);
                 anim_update(&anim, dt);
+                if (replay_beat > 0.0f) replay_beat -= dt;
 
-                /* 1. A flight that has just landed frees the step it was holding. */
+                /* 1. A flight that has just landed frees the step it was holding.
+                      The step is applied in this very frame (replay_pb_release()
+                      clears the pacing pause), so the card is never drawn back in
+                      the hand it has just left - that read as the flight undoing
+                      itself and the card teleporting to the table afterwards. */
                 if (anim.active && (anim.type == ANIM_CPU_FLY || anim.type == ANIM_STOCK_FLY) &&
                     anim.elapsed >= anim.duration) {
                     int card = (anim.type == ANIM_CPU_FLY) ? anim.cpu_card : anim.card_id;
@@ -267,19 +274,22 @@ static void update_draw_frame(void) {
                     audio_play_drop(&audio);
                     motion_set_instant(card, landed, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
                     replay_pb_release();
+                    replay_beat = 0.20f;    /* a beat to read the board before the next card */
                 }
 
-                /* 2. Nothing in the air and the table is settled: take the next step. */
-                if (!anim.active && !cinematic_is_active() && !motion_is_reflowing(&g)) {
+                /* 2. Nothing in the air: take the next step. A round deal is covered
+                      by the round-start cinematic, which outlasts the deal itself. */
+                if (!anim.active && !cinematic_is_active()) {
                     int pb_state = replay_pb_tick(&g, dt);
                     if (pb_state == -1) ui_replay_set_status(replay_pb_error());
                     if (pb_state != 0) { replay_pb_stop(); anim_init(&anim); start_transition(SCREEN_STATS, 2, 0); }
                 }
 
-                /* 3. The next step wants a flight: start it and hold the engine.
-                      Same gate as the step above, so a card never leaves a hand
-                      that is still being dealt. */
-                if (!anim.active && !cinematic_is_active() && !motion_is_reflowing(&g)) {
+                /* 3. The next step wants a flight: start it and hold the engine. The
+                      table has to be settled first, so a card never leaves a hand
+                      that is still being dealt or slides out of a row that is still
+                      reflowing. */
+                if (!anim.active && !cinematic_is_active() && !motion_is_reflowing(&g) && replay_beat <= 0.0f) {
                     int wp = -1, wc = -1, wt = -1;
                     PbWant want = replay_pb_want(&g, &wp, &wc, &wt);
                     if (want == PB_WANT_PLAY) {
