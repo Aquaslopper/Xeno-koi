@@ -109,8 +109,8 @@ static void update_draw_frame(void) {
     audio_update(&audio);
     int in_game = (screen == SCREEN_GAME) || (transition_dir != 0 && transition_target_screen == SCREEN_GAME);
     if (in_game) {
-        if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 5) + 1));
-        else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 4)) % 5) + 1);
+        if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 10) + 1));
+        else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 9)) % 10) + 1);
     } else audio_play_menu_music(&audio);
 
     if (saved_timer > 0.0f) saved_timer -= dt;
@@ -136,7 +136,7 @@ static void update_draw_frame(void) {
                 if (cres == -1) { campaign_overlay_open = 0; audio_play_click(&audio); }
                 else if (cres == 1) {
                     campaign_overlay_open = 0; ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
-                    int trk = (rand() % 5) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk);
+                    int trk = (rand() % 10) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk);
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 ScreenAction act = screens_handle_start_click(vm);
@@ -161,7 +161,7 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
             if (act != ACT_NONE) audio_play_click(&audio);
-            if (act == ACT_START_GAME) { int trk = (rand() % 5) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk); }
+            if (act == ACT_START_GAME) { int trk = (rand() % 10) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk); }
             else if (act == ACT_GOTO_MENU) start_transition(SCREEN_START, 3, 0);
         } else if (screen == SCREEN_GAME) {
             int pause_toggled = 0;
@@ -178,7 +178,7 @@ static void update_draw_frame(void) {
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_RESUME) { is_paused = 0; confirm_restart = 0; }
                     else if (act == ACT_RESTART_MATCH) {
-                        int trk = (rand() % 5) + 1; audio_start_match_music(&audio, trk);
+                        int trk = (rand() % 10) + 1; audio_start_match_music(&audio, trk);
                         is_paused = 0; confirm_restart = 0; start_transition(SCREEN_GAME, 1, trk);
                     }
                     else if (act == ACT_ABANDON_MATCH) { is_paused = 0; confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
@@ -524,7 +524,7 @@ int main(int argc, char **argv) {
     motion_init(); taunt_init(); ai_set_opponent(settings.current_opponent);
     if (auto_start) {
         engine_start_round(&g); motion_deal_round(&g, 0.45f); cinematic_start(g.current_round);
-        audio_start_match_music(&audio, (rand() % 5) + 1);
+        audio_start_match_music(&audio, (rand() % 10) + 1);
         taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.0f);
     }
 

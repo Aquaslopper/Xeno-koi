@@ -28,7 +28,7 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
         SetMusicVolume(a->music_menu, a->bgm_volume);
     }
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
         char track_path[64];
         snprintf(track_path, sizeof(track_path), "assets/music/game%d.mp3", i + 1);
         const char *p_game = get_path(track_path);
@@ -82,7 +82,7 @@ void audio_set_bgm_volume(AudioAssets *a, float volume) {
     if (volume > 1.0f) volume = 1.0f;
     a->bgm_volume = volume;
     if (a->has_music_menu) SetMusicVolume(a->music_menu, volume);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
         if (a->has_music_game[i]) SetMusicVolume(a->music_game[i], volume);
     }
 }
@@ -103,7 +103,7 @@ void audio_set_sfx_volume(AudioAssets *a, float volume) {
 void audio_update(AudioAssets *a) {
     if (a->current_music == 1 && a->has_music_menu) {
         UpdateMusicStream(a->music_menu);
-    } else if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 5) {
+    } else if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) {
             UpdateMusicStream(a->music_game[a->current_game_track]);
         }
@@ -112,7 +112,7 @@ void audio_update(AudioAssets *a) {
 
 void audio_play_menu_music(AudioAssets *a) {
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 5) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
     a->current_music = 1;
@@ -122,14 +122,14 @@ void audio_play_menu_music(AudioAssets *a) {
     }
 }
 
-void audio_start_match_music(AudioAssets *a, int track_1_to_5) {
+void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
-    if (a->current_game_track >= 0 && a->current_game_track < 5) {
+    if (a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
-    int idx = track_1_to_5 - 1;
+    int idx = track_1_to_10 - 1;
     if (idx < 0) idx = 0;
-    if (idx > 4) idx = 4;
+    if (idx > 9) idx = 9;
     a->current_game_track = idx;
     a->current_music = 2;
 
@@ -141,7 +141,7 @@ void audio_start_match_music(AudioAssets *a, int track_1_to_5) {
 }
 
 void audio_resume_match_music(AudioAssets *a) {
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 5) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track] && !IsMusicStreamPlaying(a->music_game[a->current_game_track])) {
             SetMusicVolume(a->music_game[a->current_game_track], a->bgm_volume);
             PlayMusicStream(a->music_game[a->current_game_track]);
@@ -150,7 +150,7 @@ void audio_resume_match_music(AudioAssets *a) {
 }
 
 int audio_is_match_music_finished(const AudioAssets *a) {
-    if (a->current_music != 2 || a->current_game_track < 0 || a->current_game_track >= 5) return 0;
+    if (a->current_music != 2 || a->current_game_track < 0 || a->current_game_track >= 10) return 0;
     if (!a->has_music_game[a->current_game_track]) return 0;
     Music m = a->music_game[a->current_game_track];
     if (!IsMusicStreamPlaying(m)) return 1;
@@ -161,7 +161,7 @@ int audio_is_match_music_finished(const AudioAssets *a) {
 
 void audio_stop_music(AudioAssets *a) {
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 5) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
     a->current_music = 0;
@@ -177,7 +177,7 @@ void audio_play_click(AudioAssets *a)   { if (a->has_sfx_click) PlaySound(a->sfx
 
 void audio_close(AudioAssets *a) {
     if (a->has_music_menu) UnloadMusicStream(a->music_menu);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
         if (a->has_music_game[i]) UnloadMusicStream(a->music_game[i]);
     }
     if (a->has_sfx_flip) UnloadSound(a->sfx_flip);

@@ -7,9 +7,9 @@ typedef struct {
     Music music_menu;
     int has_music_menu;
 
-    Music music_game[5];
-    int has_music_game[5];
-    int current_game_track; /* 0..4, or -1 if none */
+    Music music_game[10];
+    int has_music_game[10];
+    int current_game_track; /* 0..9, or -1 if none */
 
     Sound sfx_flip;
     Sound sfx_drop;
@@ -38,7 +38,7 @@ void audio_set_bgm_volume(AudioAssets *a, float volume);
 void audio_set_sfx_volume(AudioAssets *a, float volume);
 
 void audio_play_menu_music(AudioAssets *a);
-void audio_start_match_music(AudioAssets *a, int track_1_to_5);
+void audio_start_match_music(AudioAssets *a, int track_1_to_10);
 void audio_resume_match_music(AudioAssets *a);
 int  audio_is_match_music_finished(const AudioAssets *a);
 void audio_stop_music(AudioAssets *a);
