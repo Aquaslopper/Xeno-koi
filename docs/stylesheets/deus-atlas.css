@@ -13,33 +13,50 @@
  
    The grid is 12 columns x 4 rows because a card's cell is (id >> 2, id & 3) -
    see board_draw_card() in src/ui_board.c and the same mapping in
-   tools/make_card_images.py. Which cells get the red frame is decided by the
+   tools/make_card_images.py. Which cells get framed is decided by the
    generator, from SPECIAL_CARDS[] in src/ai.c; nothing is hardcoded here.
  
-   Font: Metal Mania, SIL OFL 1.1, docs/assets/fonts/ (licence text alongside it).
-   Same words as the game's own subtitle, and a spiky display face that sits next
-   to the owner's banner art without pretending to be it.
+   Colour: no palette is invented here. The values below are the six tones that
+   quantize() finds in assets/atlas_deus.png itself - #0a0604 at 21.7%, #2a231e
+   20.2%, #1d1511 17.3%, #423b38 15.9%, #170d0b 15.1%, #756e6c 9.8%. The lightest
+   of those, #756e6c, is 3.3:1 against the theme background: honest for a 9rem title,
+   not honest for anything a person has to read small. So --deus-ink is that same hue
+   lifted to #b9b2ad (7.8:1) and nothing else on the page goes brighter than the art's
+   own greys. No red on his page: the only ink here is his.
+ 
+   Font: Jacquard 24, SIL OFL 1.1, docs/assets/fonts/ (licence text alongside it). A
+   heavy blackletter display, and the "24" is literal - it is drawn to be set large,
+   which is the only size his name is ever shown at. It reads as carved, which is what
+   the owner's etched mono art asks for; a metal logo face did not.
    ============================================================================= */
+.deus-title,
+.deus-map {
+    --deus-ink: #b9b2ad;                    /* the art's lightest grey, lifted to read */
+    --deus-ink-art: #756e6c;                /* that lightest grey, exactly as drawn */
+    --deus-hair: rgba(117, 110, 108, 0.3);   /* the mid tone, as a hairline */
+    --deus-tint: rgba(185, 178, 173, 0.1);
+    --deus-ground: #0a0604;                 /* the tone the art itself sits on */
+}
+
 @font-face {
-    font-family: "Metal Mania";
+    font-family: "Jacquard 24";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url("../assets/fonts/metal-mania-latin-400-normal.woff2") format("woff2"),
-         url("../assets/fonts/metal-mania-latin-ext-400-normal.woff2") format("woff2");
+    src: url("../assets/fonts/jacquard-24-latin-400-normal.woff2") format("woff2"),
+         url("../assets/fonts/jacquard-24-latin-ext-400-normal.woff2") format("woff2");
 }
 
 /* His name, big: the first thing on the page. */
 .md-typeset h1.deus-title {
-    font-family: "Metal Mania", "Segoe UI", sans-serif;
+    font-family: "Jacquard 24", "Segoe UI", serif;
     font-weight: 400;
-    font-size: clamp(3.4rem, 13vw, 9rem);
+    font-size: clamp(3.6rem, 13.5vw, 9.5rem);
     line-height: 0.9;
-    letter-spacing: 0.045em;
+    letter-spacing: 0.02em;
     margin: 0.15em 0 0.3em;
-    color: #ff0000;
-    text-shadow: 0 0 26px rgba(255, 0, 0, 0.4);
-    border-bottom: 1px solid rgba(255, 0, 0, 0.3);
+    color: var(--deus-ink);
+    border-bottom: 1px solid var(--deus-hair);
     padding-bottom: 0.16em;
 }
 
@@ -68,16 +85,16 @@
 }
 
 .md-typeset .deus-map-btn {
-    border: 1px solid rgba(45, 175, 195, 0.55);
+    border: 1px solid var(--deus-ink-art);
     padding: 0.12em 0.6em;
-    color: var(--md-accent-fg-color);
+    color: var(--deus-ink);
     text-decoration: none;
     white-space: nowrap;
 }
 
 .md-typeset .deus-map-btn:hover {
-    border-color: var(--md-accent-fg-color);
-    background: rgba(45, 175, 195, 0.12);
+    border-color: var(--deus-ink);
+    background: var(--deus-tint);
 }
 
 .md-typeset .deus-map-key {
@@ -90,8 +107,7 @@
     display: inline-block;
     width: 0.7em;
     height: 0.7em;
-    box-shadow: inset 0 0 0 2px #ff0000;
-    background: rgba(255, 0, 0, 0.07);
+    box-shadow: inset 0 0 0 2px var(--deus-ink);
 }
 
 .md-typeset .deus-map-scroll {
@@ -112,7 +128,7 @@
     grid-template-columns: repeat(12, 1fr);
     font-size: 0.6rem;
     letter-spacing: 0.08em;
-    color: var(--md-default-fg-color--lighter);
+    color: var(--deus-ink-art);
     text-align: center;
 }
 
@@ -122,7 +138,7 @@
     display: grid;
     grid-template-rows: repeat(4, 1fr);
     font-size: 0.6rem;
-    color: var(--md-default-fg-color--lighter);
+    color: var(--deus-ink-art);
     text-align: right;
     align-items: center;
     justify-items: right;
@@ -143,7 +159,7 @@
     grid-column: 1 / -1;
     grid-row: 1 / -1;
     display: block;
-    background: #0b0e0b;
+    background: var(--deus-ground);
     cursor: zoom-in;
 }
 
@@ -156,30 +172,30 @@
 .md-typeset .deus-map-cell {
     z-index: 1;
     display: block;
-    border: 1px solid rgba(45, 175, 195, 0.1);
+    border: 1px solid var(--deus-hair);
     text-decoration: none;
 }
 
 .md-typeset .deus-map-cell:hover {
-    background: rgba(100, 240, 255, 0.1);
+    background: var(--deus-tint);
 }
 
+/* Brighter than any tone the art uses, or the frame would disappear into it. */
 .md-typeset .deus-map-cell.denial {
-    box-shadow: inset 0 0 0 2px #ff0000;
-    background: rgba(255, 0, 0, 0.06);
+    box-shadow: inset 0 0 0 2px var(--deus-ink);
 }
 
 .md-typeset .deus-map-cell.denial:hover {
-    background: rgba(255, 0, 0, 0.16);
+    background: rgba(185, 178, 173, 0.18);
 }
 
 /* Zoomed: the sheet at native size inside a scroll box, so pan and study. */
 .md-typeset .deus-map:target .deus-map-scroll {
     overflow: auto;
     max-height: 82vh;
-    outline: 1px solid rgba(45, 175, 195, 0.45);
+    outline: 1px solid var(--deus-ink-art);
     padding: 0.6em;
-    background: rgba(11, 14, 11, 0.6);
+    background: var(--deus-ground);
 }
 
 .md-typeset .deus-map:target .deus-map-body {

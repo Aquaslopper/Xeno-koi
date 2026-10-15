@@ -87,9 +87,14 @@ def main() -> int:
     # Wiki top background: kept at its native 1280 x 720, WebP-compressed.
     Image.open(DEUS).convert("RGB").save(DEUS_OUT, "WEBP", quality=78)
 
-    # The mono sheet at native resolution - the study page zooms into this one image,
-    # so it must stay 2112 x 1144 and never be resampled down.
-    Image.open(ATLAS_DEUS).convert("RGB").save(DEUS_ATLAS_OUT, "WEBP", quality=82)
+    # The mono sheet, for the study page: it must stay 2112 x 1144 and it must be the art.
+    # Lossless, deliberately. Lossy WebP round-trips through YUV, and on this sheet that moves
+    # every pixel - measured against the source PNG at mean error 10.6/255 at quality 95 and
+    # 10.6 at quality 100, max 55, i.e. the grey of the etching is shifted, not softened. That
+    # is acceptable on a 88px thumb and not acceptable on the one image a player studies at 1:1.
+    # 4.26 MiB against the PNG's 5.49 MiB, and 6.5x smaller than re-encoding it as PNG would be
+    # if the atlas had alpha. The file is a build product: delete it and re-run this tool.
+    Image.open(ATLAS_DEUS).convert("RGB").save(DEUS_ATLAS_OUT, "WEBP", lossless=True, method=6)
 
     total = sum(p.stat().st_size for p in expected)
     print(f"wrote {len(expected)} images ({total / 1024:.0f} KiB total)")

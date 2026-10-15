@@ -311,9 +311,12 @@ def render_deus_map_markdown(denial: list, cells: dict) -> str:
         f'<div class="deus-map-y">{rows}</div>\n'
         '<div class="deus-map-cells">'
         '<a class="deus-map-open" href="#deus-atlas-study">'
-        '<img src="../assets/deus-atlas.webp" width="2112" height="1144" loading="lazy" alt="'
+        # Two dots up, not one: mkdocs rewrites paths in markdown, but never inside raw HTML, and
+        # this block is HTML. The page is published at /reference/deus-supremus/, so the src has to
+        # be counted from there (docs/reference/x.md -> ../assets/ is only right in the source).
+        '<img src="../../assets/deus-atlas.webp" width="2112" height="1144" loading="lazy" alt="'
         "The whole DEUS SUPREMUS atlas: 48 mono cards in twelve month columns and four slot "
-        f'rows, with {len(denial)} of them framed in red"></a>'
+        f'rows, with {len(denial)} of them framed in his own lightest grey"></a>'
         + "".join(marks)
         + "</div>\n</div></div>\n</div>"
     )
