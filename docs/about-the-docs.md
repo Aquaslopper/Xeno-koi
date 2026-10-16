@@ -147,3 +147,12 @@ The site is published from `main` by the **Docs** GitHub Actions workflow to Git
 1. Create the Markdown file under `docs/`.
 2. Add it to the `nav:` section of `mkdocs.yml`.
 3. Link to it from a related page, so nobody has to find it through the sidebar.
+4. A figure embedded as raw HTML (a `figure-zoom`/`figure-still` block around an `<img>` tag) must
+   have its `src` written from where the page is *published*, not from where the file sits: MkDocs
+   rewrites paths written in Markdown and leaves raw HTML alone, and with `use_directory_urls` every
+   page is a directory — `docs/tutorial.md` arrives at `/tutorial/index.html`, so its HTML images
+   need `../assets/…`, and anything under `docs/reference/` needs `../../assets/…`. A wrong path
+   there 404s on the live site while `mkdocs build --strict` stays green, because it never looks
+   inside HTML; that is why CI also runs `python3 tools/gen_wiki_tables.py --check`, which resolves
+   every raw-HTML `<img>` against the published directory and fails with the corrected path
+   (`broken_html_srcs()`).

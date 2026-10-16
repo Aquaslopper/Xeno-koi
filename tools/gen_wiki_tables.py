@@ -24,6 +24,10 @@ Usage:
   python3 tools/gen_wiki_tables.py           # rewrite docs/ in place
   python3 tools/gen_wiki_tables.py --check   # exit 1 if docs/ is out of date (for CI)
 
+It also resolves every <img src=...> written in raw HTML against the directory its page is
+published in, because MkDocs rewrites Markdown links and leaves HTML alone - see broken_html_srcs().
+That check lives here rather than in a script of its own because this is the docs check CI runs.
+
 Requires gcc. The binary is built in a temp directory and never committed.
 """
 import base64
@@ -469,6 +473,35 @@ def splice(text: str, fragments: dict, seen: set) -> str:
     return BLOCK_RE.sub(repl, text)
 
 
+HTML_IMG = re.compile(r'<img[^>]+src="([^"]+)"')
+
+
+def published_dir(md: pathlib.Path) -> pathlib.PurePosixPath:
+    """The directory a page is served from, relative to the site root.
+
+    `use_directory_urls` is on (mkdocs.yml never turns it off), so docs/reference/opponents.md is
+    published as /reference/opponents/index.html - one deeper than the file it came from. The one
+    exception is docs/index.md, which is published at the root."""
+    rel = md.relative_to(DOCS).as_posix()
+    if rel == "index.md":
+        return pathlib.PurePosixPath(".")
+    return pathlib.PurePosixPath(rel).parent / md.stem
+
+
+def broken_html_srcs(md: pathlib.Path, text: str) -> list:
+    """Every <img src=...> in raw HTML that does not resolve from the directory of its page.
+
+    This is the one check that catches a figure shipped with a bad path. MkDocs rewrites links
+    written in Markdown, so a thumbnail in `![](...)` syntax is fine whatever it says, but a figure
+    pasted as `<div class="figure-zoom"><img src="...">` is emitted verbatim and the browser
+    resolves it against the *published* url. `mkdocs build --strict` does not look inside HTML, so
+    every screenshot on a page can 404 with CI green - which has happened."""
+    pub = DOCS / published_dir(md)
+    return [src for src in HTML_IMG.findall(text)
+            if not src.startswith(("http", "data:", "/", "#"))
+            and not (pub / src).resolve().exists()]
+
+
 def main() -> int:
     check_only = "--check" in sys.argv[1:]
 
@@ -505,6 +538,17 @@ def main() -> int:
     unused = sorted(set(fragments) - seen - DATA_ONLY_FRAGMENTS)
     if unused:
         print(f"note: generated fragments not placed in any page: {', '.join(unused)}")
+
+    broken = {md: s for md in sorted(DOCS.rglob("*.md"))
+              if (s := broken_html_srcs(md, md.read_text(encoding="utf-8")))}
+    for md, srcs in broken.items():
+        need = "../" * len(published_dir(md).parts)
+        for src in srcs:
+            print(f'broken image path in {md.relative_to(ROOT)}: src="{src}" does not resolve from '
+                  f'/{published_dir(md).as_posix()}/ - raw HTML needs src="{need}{src.split("../")[-1]}"')
+    if broken:
+        print(f"{len(sum(broken.values(), []))} image path(s) would 404 on the published site")
+        return 1
 
     if check_only:
         if stale:

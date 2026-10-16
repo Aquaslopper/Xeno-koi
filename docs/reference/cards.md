@@ -2,7 +2,7 @@
 
 The deck has **48 cards** in **12 months** of four cards each. The table below is generated from `src/cards.c`, so it always matches the game.
 
-<div class="figure-zoom" id="card-in-hand"><div class="figure-zoom-scroll"><img src="../assets/screenshots/card-tooltip.webp" width="1920" height="1080" loading="lazy" alt="A round in progress with one field card held under the cursor and its tooltip open beside it, naming the month, the suit, the type and the card."></div><a class="figure-zoom-btn" href="#card-in-hand">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+<div class="figure-zoom" id="card-in-hand"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/card-tooltip.webp" width="1920" height="1080" loading="lazy" alt="A round in progress with one field card held under the cursor and its tooltip open beside it, naming the month, the suit, the type and the card."></div><a class="figure-zoom-btn" href="#card-in-hand">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
 
 *The names in this page's tables are the names the game prints. Hover a face-up card for half a
 second on Easy and you get three lines it assembles at draw time: the month and the type from
@@ -104,7 +104,7 @@ These 48 are the game's own rendering of a shape that is over two centuries old:
 four, one column per month, the four ranks of the month down the column. This is a printed sheet of
 the traditional pattern, in the same order the tables above use.
 
-<div class="figure-zoom" id="deck-sheet"><div class="figure-zoom-scroll"><img src="../assets/screenshots/deck-sheet.webp" width="2268" height="1190" loading="lazy" alt="A traditional hanafuda sheet: a header row naming the twelve months - Pine, Plum, Cherry, Wisteria, Iris, Peony, Clover, Pampas, Chrysanthemum, Maple, Willow, Paulownia - and under each name four cards, a bright with the month's animal and sun or moon, a ribbon with a short poem strip, and two plain cards of foliage."></div><a class="figure-zoom-btn" href="#deck-sheet">zoom the sheet</a><a class="figure-zoom-btn" href="#">close</a></div>
+<div class="figure-zoom" id="deck-sheet"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/deck-sheet.webp" width="2268" height="1190" loading="lazy" alt="A traditional hanafuda sheet: a header row naming the twelve months - Pine, Plum, Cherry, Wisteria, Iris, Peony, Clover, Pampas, Chrysanthemum, Maple, Willow, Paulownia - and under each name four cards, a bright with the month's animal and sun or moon, a ribbon with a short poem strip, and two plain cards of foliage."></div><a class="figure-zoom-btn" href="#deck-sheet">zoom the sheet</a><a class="figure-zoom-btn" href="#">close</a></div>
 
 *The month names are the ones the game keeps, in the order `src/cards.c` lays the deck out. The
 game's own sheet is `assets/atlas.png`: twelve columns of 176 x 286 cells, 2112 x 1144
