@@ -53,6 +53,7 @@ CI runs the same checks (`.github/workflows/docs.yml`) and fails if the generate
 
 - `tools/wiki_tables.c` links the real `src/rules.c` and `src/cards.c`. Do not copy scoring logic into the docs or the generator.
 - Card images in the wiki (`docs/assets/cards/card-<id>.webp` + `back.webp`) are cut from `assets/atlas.png` by `tools/make_card_images.py` — never edit the art or the thumbnails by hand. Regenerate after any atlas change: `python3 tools/make_card_images.py` (needs Pillow: `pip install --break-system-packages pillow`). Check they exist with `python3 tools/make_card_images.py --check`.
+- `README.md`'s masthead band and link buttons are generated from the shipped art by `tools/make_readme_art.py` -- never edit `docs/assets/readme/*` by hand. Regenerate with `python3 tools/make_readme_art.py`, check with `--check`.
 - Desktop builds: see `build.sh`. The `linux`, `win`, and `wasm` modes expect raylib in `/tmp`.
 - `build.sh test` expects `tests/test_engine.c`, which is not in this repository.
 - Do not commit build output: `koikoi_linux`, `test_engine`, `dist/`, `site/`, or compiled tool binaries. Build tools to `/tmp`.

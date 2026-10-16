@@ -47,6 +47,24 @@ python3 tools/make_card_images.py --check  # exit 1 if an image is missing
 
 The images live in `docs/assets/cards/` and are named by card ID (`card-00.webp` to `card-47.webp`, plus `back.webp`). Generated tables link them automatically; hand-written pages link them with the `card-thumb`, `card-mini`, or `card-tiny` styles from `docs/stylesheets/cards.css`. Never edit the thumbnails by hand — rerun the script.
 
+## README art
+
+The masthead band and the three buttons at the top of the repository's `README.md` are not hand-made either.
+`tools/make_readme_art.py` paints them out of the shipped files: the background is one of the eight frames the
+game loads, dimmed and lettered exactly as `screens_draw_start()` does it, then passed through the scanline and
+gamma maths of `assets/postprocess.fs` at the default settings. The typefaces are the game's own
+(`assets/audiowide.ttf`, `assets/play.ttf`, both OFL with their licence files beside them), so every constant in
+the tool names the line of `src/` it came from.
+
+```bash
+python3 tools/make_readme_art.py          # needs Pillow
+python3 tools/make_readme_art.py --check  # exit 1 if an image is missing
+```
+
+They are build products: `docs/assets/readme/hero.jpg` plus three button PNGs. Edit the tool, not the images, if
+a button label changes -- and note that the tool refuses to draw a label that would overflow the game's 300 x 40
+button rect, because `draw_btn()` has no wrapping to fall back on.
+
 ## Previewing locally
 
 ```bash
