@@ -1,8 +1,8 @@
 <img src="docs/assets/readme/hero.jpg" alt="[XENO / KOI] Biomechanical Edition — the game's own start screen: teal CRT lettering under a dark arch, over Giger-style biomechanical art of a face merged with the architecture." width="1280" />
 
-<a href="https://aquaslopper.github.io/Xeno-koi/play/"><img src="docs/assets/readme/btn-play.png" alt="Play in the browser" width="300" /></a>&nbsp;
-<a href="https://aquaslopper.github.io/Xeno-koi/how-to-play/"><img src="docs/assets/readme/btn-rulebook.png" alt="Read the rulebook" width="300" /></a>&nbsp;
-<a href="https://github.com/Aquaslopper/Xeno-koi/releases/latest"><img src="docs/assets/readme/btn-release.png" alt="Windows build" width="300" /></a>
+<a href="https://aquaslopper.github.io/Xeno-koi/play/"><img src="docs/assets/readme/btn-play.png" alt="Play in the browser" width="288" /></a>&nbsp;
+<a href="https://aquaslopper.github.io/Xeno-koi/how-to-play/"><img src="docs/assets/readme/btn-rulebook.png" alt="Read the rulebook" width="288" /></a>&nbsp;
+<a href="https://github.com/Aquaslopper/Xeno-koi/releases/latest"><img src="docs/assets/readme/btn-release.png" alt="Windows build" width="288" /></a>
 
 **The browser build is the whole game** — the same C, compiled to WebAssembly. No install, no account, no asset download.
 
@@ -16,26 +16,6 @@
 * **Five rule sets, twelve opponents, then [DEUS SUPREMUS](https://aquaslopper.github.io/Xeno-koi/reference/deus-supremus/).** He is not an opponent so much as a wall, and he has his own page.
 
 Everything above is explained with real card pictures in the rulebook: **[How to Play](https://aquaslopper.github.io/Xeno-koi/how-to-play/)**.
-
-## The table, to scale
-
-<img src="docs/assets/readme/table-map.png" alt="A schematic of the whole 1280 by 720 play screen at one pixel per game pixel: the CPU's eight face-down cards across the top, eight face-up cards on the field in two rows, the stock pile of seven stacked backs at the left with the number 24 under it, your eight cards along the bottom, four capture lanes per side down the left edge, the two score boxes, and the right column with the round, the rule set, both combo panels and the pause and restart buttons. Seven numbered badges mark the regions." width="1280" />
-
-This is not a screenshot and not a sketch. It is the geometry in `src/` painted at 1:1 — the file is 1280 x 720 because that is the canvas the engine lays the table out on before any window scaling — and `tools/make_board_figure.py` generates it from the same constants the painter uses, so it cannot quietly drift from the game. The numbers are `board_draw()`'s own paint-order numbers, taken from its comments.
-
-| # | On the table | Where it is measured from |
-|---:|---|---|
-| **2** | Left column: the two score boxes, and under each side's four capture lanes sorted by card type -- Brights, Animals, Ribbons, Plains | `src/ui_board.c:300-302`, `draw_capture_lanes()` |
-| **3** | His hand, face-down: 56 x 91 backs, 62 px apart, centred on x = 710 at y = 12 | `src/ui_board.c:305-308` |
-| **4** | The stock: one 76 x 124 rectangle at (330, 262), stacked `stock_count >> 2` times so a full stock draws 7 deep, with the count under it | `src/ui_board.c:158`, `:320-323` |
-| **5** | The field: two rows at y = 170 and y = 310, 96 px apart, centred inside the 650 x 400 box that starts at x = 430, the spacing shrinking when a row would not fit | `src/board_layout.c:16-27` |
-| **7** | Your hand: 88 x 143 cards, 96 px apart, centred on the same axis, lifted to y = 552 while you hover one | `src/ui_board.c:169-172` |
-| **10** | The status line, centred on x = 710 at y = 529; the Master timer sits above it | `src/ui_board_status.c:73-80` |
-| **11** | Right column: round and rule set, then both players' clickable combo panels (paused details), then PAUSE / RESTART | `src/ui_combos.c`, `src/ui_board.c` |
-
-Three things worth noticing. Everything in play is centred on **x = 710**, not the canvas centre at 640, and the left column stops at 267 while the right starts at 1160. A field card is painted **smaller** than a hand card (76 x 124 against 88 x 143) and grows or shrinks mid-flight instead of popping. And four regions are missing from the map because they have no rectangle to hold: **1** is the background, and **6**, **8** and **9** -- the stock card just revealed, the card under your cursor, and cards in flight -- only exist for a moment.
-
-The state shown is the opening of a round, which is the only state where every count is fixed by the rules: 8 to you, 8 to him, 8 on the field, 24 in the stock, no captures yet. The cards are the real art, cropped from `assets/atlas.png`. Two January cards sit on that field on purpose -- a pair is legal, while all four of a month or exactly four pairs is a misdeal the engine redeals (`has_four_of_month_or_four_pairs()`, `src/engine.c:36-44`) -- and the opening is the same one `docs/tutorial.md` is played out on, so the picture and the walkthrough are one table.
 
 ## Screenshots
 
@@ -90,6 +70,26 @@ The game supports 5 distinct rule variations, selectable in the Options menu to 
   * **GLSL Depth-Fog Shader:** A custom fragment shader that calculates background luminance to map procedural, drifting sine-wave fog exclusively to the dark, distant valleys of the 2D background art.
   * **Native Particle Engine:** Fixed-size memory pools handling ambient phosphor ash and high-velocity capture bursts.
 * **Development Methodology:** The core state machine and rendering pipelines were architected using strict, contract-based AI Prompt Engineering (Arena.ai), demonstrating advanced LLM context-retention through isolated logical handoffs.
+
+### The table, to scale
+
+<img src="docs/assets/readme/table-map.png" alt="A schematic of the whole 1280 by 720 play screen at one pixel per game pixel: the CPU's eight face-down cards across the top, eight face-up cards on the field in two rows, the stock pile of seven stacked backs at the left with the number 24 under it, your eight cards along the bottom, four capture lanes per side down the left edge, the two score boxes, and the right column with the round, the rule set, both combo panels and the pause and restart buttons. Seven numbered badges mark the regions." width="1280" />
+
+This is not a screenshot and not a sketch. It is the geometry in `src/` painted at 1:1 — the file is 1280 x 720 because that is the canvas the engine lays the table out on before any window scaling — and `tools/make_board_figure.py` generates it from the same constants the painter uses, so it cannot quietly drift from the game. The numbers are `board_draw()`'s own paint-order numbers, taken from its comments.
+
+| # | On the table | Where it is measured from |
+|---:|---|---|
+| **2** | Left column: the two score boxes, and under each side's four capture lanes sorted by card type -- Brights, Animals, Ribbons, Plains | `src/ui_board.c:300-302`, `draw_capture_lanes()` |
+| **3** | His hand, face-down: 56 x 91 backs, 62 px apart, centred on x = 710 at y = 12 | `src/ui_board.c:305-308` |
+| **4** | The stock: one 76 x 124 rectangle at (330, 262), stacked `stock_count >> 2` times so a full stock draws 7 deep, with the count under it | `src/ui_board.c:158`, `:320-323` |
+| **5** | The field: two rows at y = 170 and y = 310, 96 px apart, centred inside the 650 x 400 box that starts at x = 430, the spacing shrinking when a row would not fit | `src/board_layout.c:16-27` |
+| **7** | Your hand: 88 x 143 cards, 96 px apart, centred on the same axis, lifted to y = 552 while you hover one | `src/ui_board.c:169-172` |
+| **10** | The status line, centred on x = 710 at y = 529; the Master timer sits above it | `src/ui_board_status.c:73-80` |
+| **11** | Right column: round and rule set, then both players' clickable combo panels (paused details), then PAUSE / RESTART | `src/ui_combos.c`, `src/ui_board.c` |
+
+Three things worth noticing. Everything in play is centred on **x = 710**, not the canvas centre at 640, and the left column stops at 267 while the right starts at 1160. A field card is painted **smaller** than a hand card (76 x 124 against 88 x 143) and grows or shrinks mid-flight instead of popping. And four regions are missing from the map because they have no rectangle to hold: **1** is the background, and **6**, **8** and **9** -- the stock card just revealed, the card under your cursor, and cards in flight -- only exist for a moment.
+
+The state shown is the opening of a round, which is the only state where every count is fixed by the rules: 8 to you, 8 to him, 8 on the field, 24 in the stock, no captures yet. The cards are the real art, cropped from `assets/atlas.png`. Two January cards sit on that field on purpose -- a pair is legal, while all four of a month or exactly four pairs is a misdeal the engine redeals (`has_four_of_month_or_four_pairs()`, `src/engine.c:36-44`) -- and the opening is the same one `docs/tutorial.md` is played out on, so the picture and the walkthrough are one table.
 
 ## Install and run
 
