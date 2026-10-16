@@ -135,7 +135,11 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
         } else {
             DrawTexturePro(ba->atlas, src, slot, (Vector2){0,0}, 0.0f, (Color){ 15, 15, 15, 255 });
             DrawRectangleRec(slot, (Color){ 0, 0, 0, 210 });
-            DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
+            if (hov || i == selected_opponent) {
+                DrawRectangleLinesEx(slot, 2.0f, YELLOW);
+            } else {
+                DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
+            }
             DrawTextEx(font_body, "LOCKED", (Vector2){ slot.x + 8.0f, slot.y + 45.0f }, 13.0f, 2.0f, (Color){ 160, 160, 160, 255 });
         }
         DrawTextEx(font_body, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f }, 14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
@@ -258,14 +262,12 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
 
     if (*out_selected < 0 || *out_selected >= CAMPAIGN_OPPONENT_COUNT) *out_selected = 0;
 
-    /* Mini portraits */
+    /* Mini portraits: allow inspecting any opponent, including locked ones */
     for (int i = 0; i < CAMPAIGN_OPPONENT_COUNT; i++) {
         Rectangle slot = { 155.0f + i * 82.0f, 96.0f, 68.0f, 110.0f };
         if (CheckCollisionPointRec(vm, slot)) {
-            if (i < unlocked_opponents) {
-                *out_selected = i;
-                return 2;
-            }
+            *out_selected = i;
+            return 2;
         }
     }
 
