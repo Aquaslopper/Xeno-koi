@@ -1,8 +1,8 @@
 <img src="docs/assets/readme/hero.jpg" alt="[XENO / KOI] Biomechanical Edition — the game's own start screen: teal CRT lettering under a dark arch, over Giger-style biomechanical art of a face merged with the architecture." width="1280" />
 
-<a href="https://aquaslopper.github.io/Xeno-koi/play/"><img src="docs/assets/readme/btn-play.png" alt="Play in the browser" width="288" /></a>&nbsp;
-<a href="https://aquaslopper.github.io/Xeno-koi/how-to-play/"><img src="docs/assets/readme/btn-rulebook.png" alt="Read the rulebook" width="288" /></a>&nbsp;
-<a href="https://github.com/Aquaslopper/Xeno-koi/releases/latest"><img src="docs/assets/readme/btn-release.png" alt="Windows build" width="288" /></a>
+<a href="https://aquaslopper.github.io/Xeno-koi/play/"><img src="docs/assets/readme/btn-play.png" alt="Play in the browser" width="32%" /></a>&nbsp;
+<a href="https://aquaslopper.github.io/Xeno-koi/how-to-play/"><img src="docs/assets/readme/btn-rulebook.png" alt="Read the rulebook" width="32%" /></a>&nbsp;
+<a href="https://github.com/Aquaslopper/Xeno-koi/releases/latest"><img src="docs/assets/readme/btn-release.png" alt="Windows build" width="32%" /></a>
 
 **The browser build is the whole game** — the same C, compiled to WebAssembly. No install, no account, no asset download.
 
