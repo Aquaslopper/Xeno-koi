@@ -33,4 +33,4 @@ The five **Brights** — the most valuable cards in the deck:
 
     - **This wiki and the code in `src/`** are the source of truth.
     - **`HANDOFF_KoiKoi_Giger_v2.pdf` is legacy.** It was the original build spec. Its rules were later changed, and it has not been updated since. Use it only for history. [Errata & Known Issues](errata.md) lists every place it differs from the game.
-    - **`STATUS.md` is a legacy snapshot** of one earlier session.
+    - **`STATUS.md` is the dated development handoff**, not a rulebook or deployment record. It reports the local source status and checks recorded on its stated date.

@@ -7,7 +7,7 @@ This wiki is built with [MkDocs](https://www.mkdocs.org/) and the [Material them
 1. **The code** in `src/` decides what the game does.
 2. **This wiki** (`docs/`) explains the current rules and is the reference for players and contributors.
 3. **`HANDOFF_KoiKoi_Giger_v2.pdf`** is the legacy build spec. It is kept for history only. Where it disagrees with the code or the wiki, the handoff is wrong. [Errata & Known Issues](errata.md) lists the differences.
-4. **`STATUS.md`** is a legacy snapshot of one earlier session.
+4. **`STATUS.md`** is a dated development handoff. It records completed work, checks that were run, and items still to verify; it is not the rules authority or a release record.
 
 When you change a rule, update the code, the wiki page for that rule, and the generated tables in the same change. Keep [`AGENTS.md`](https://github.com/Aquaslopper/Xeno-koi/blob/main/AGENTS.md) in mind too: it gives future contributors and coding agents the same instructions.
 
