@@ -1,5 +1,4 @@
-> **LEGACY SNAPSHOT.** This is a status report from one earlier session and is no longer kept up to date.
-> For the current rules see the wiki in `docs/` (published from `mkdocs.yml`). The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is also legacy. See `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 16 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
