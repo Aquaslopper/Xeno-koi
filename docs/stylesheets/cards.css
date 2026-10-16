@@ -91,3 +91,16 @@ img.card-tiny {
 .table-map:target .table-map-close {
   display: inline-block;
 }
+
+/* A close-up that is smaller than the article column: shown at the pixels it has, never stretched,
+   and with no zoom button, because there is nothing wider to open it to. */
+.figure-still {
+  margin: 1rem 0;
+}
+
+.figure-still img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}

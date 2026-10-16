@@ -145,6 +145,13 @@ After a round, the results screen shows each yaku, the base points, every multip
 
 ## Controls
 
+<div class="figure-still"><img src="assets/screenshots/tooltip-card.webp" width="450" height="216" loading="lazy" alt="A field card with its tooltip beside it, reading February / Plum, Plain / Kasu, Plain."></div>
+
+*What a hover says: month and suit, type and its Japanese name, and the card's own name. The row is
+only armed on Easy (`src/ui_main.c:569`), and face-down cards cannot be described at all - a card
+registers itself for the tooltip as it is painted face-up (`src/ui_board.c:179`) and the back
+painter cancels the candidate by passing -1 (`:187`).*
+
 - **Play a card:** click and drag a card from your hand onto the table.
 - **Choose a target:** when a choice appears, click the card you want to capture. Some choices can be cancelled, and the stock choice cannot.
 - **Pause:** `Esc` or `P`.
@@ -153,6 +160,10 @@ After a round, the results screen shows each yaku, the base points, every multip
 ## Winning
 
 Each round's award goes to the round winner. Points accumulate across the match, and the highest total at the end wins. The match result screen records the round-by-round ledger.
+
+<div class="figure-zoom" id="match-result-live"><div class="figure-zoom-scroll"><img src="assets/screenshots/match-result.webp" width="1920" height="1080" loading="lazy" alt="The match over screen: MATCH OVER and VICTORY above a panel reading FINAL SCORE: YOU 3 - CPU 0, a ROUND LEDGER listing each round and its winner, and PLAY AGAIN and MAIN MENU buttons, all over the planet background."></div><a class="figure-zoom-btn" href="#match-result-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*A 3 - 0 win over two rounds. The ledger is per round, not per turn, which is why the numbers are small even in a match where you captured half the deck each round.*
 
 ## Next steps
 

@@ -17,6 +17,14 @@ the game's own scoring code while these docs are built.
 * Those panels on the left are where your captures go, sorted by type: **B**rights, **A**nimals,
   **R**ibbons, **P**lains.
 
+<div class="figure-zoom" id="board-live"><div class="figure-zoom-scroll"><img src="assets/screenshots/board-mid-round.webp" width="1920" height="1080" loading="lazy" alt="The real play screen four turns into a round: four face-down cards in his hand along the top, four card faces left in the middle, the stock with 16 under it, four cards in your hand along the bottom, his four capture lanes top left and yours bottom left, and the status line reading YOUR TURN - DRAG A CARD ONTO THE TABLE."></div><a class="figure-zoom-btn" href="#board-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*The game itself, four turns into a round, no drawing between you and it. The arithmetic still adds up: 4 on the field, 4 in your hand, 4 in his, 16 in the stock, ten captured by each side, 48 in all. And look at the panel on the right - that player holds **ten** cards and their base points are **0**, which is step 3 of this page in someone's actual game.*
+
+<div class="figure-still"><img src="assets/screenshots/capture-lanes.webp" width="394" height="321" loading="lazy" alt="Close-up of one player's four capture lanes: Brights 2, Animals 3 with an asterisk, Ribbons 1, Plains 4, each lane showing a small picture of every card in it, and below them the score line YOU SCORE: 0 [DEALER] with a fast-forward button at the right."></div>
+
+*Up close: the letter is the type, the number is how many cards are in the lane, and the little pictures are those cards. The `*` after the Animal count is the Sake Cup - the lane prints it when `09-A` is in there, because the Cup is what turns the Curtain or the Moon into a yaku (`src/ui_board.c:206` and `:214`).*
+
 ## Step 2 · A turn is two stages, and you always do both
 
 | Stage | Where the card comes from | Who picks it |
@@ -88,6 +96,10 @@ ribbon is 5 points rather than 0, and every later turn is played from that pile.
 ## Step 7 · Then the prompt opens
 
 Your score went up, so the game stops and offers two buttons.
+
+<div class="figure-zoom" id="prompt-live"><div class="figure-zoom-scroll"><img src="assets/screenshots/koi-panel.webp" width="1332" height="956" loading="lazy" alt="The decide overlay as the game draws it: YAKU DETECTED and KOI-KOI / SHOBU across the top, one row reading Hanami-zake (Cherry Viewing), 5 pts, with two card pictures beside it, a divider, then Base: 5 pts and IF YOU SHOBU NOW: 5 POINTS, and the two buttons KOI-KOI (CONTINUE) and SHOBU (BANK & END) with a line of explanation under each."></div><a class="figure-zoom-btn" href="#prompt-live">zoom the panel</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*This is the screen the example above ends on, and it says its own working: the combo, the cards that form it, the base, and what banking pays right now. The two lines under the buttons are the whole bet in one sentence each.*
 
 * **Shobu** — stop. The points in the table above are yours and the round ends.
 * **Koi-Koi** — keep playing, for more. Every call raises your own multiplier, and if he calls it
