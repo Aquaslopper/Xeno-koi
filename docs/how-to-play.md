@@ -76,7 +76,7 @@ After a valid deal, the game checks each hand for a lucky opening:
 | **Teshi** (four of one month) | Four January cards: ![01-B Crane](assets/cards/card-00.webp){ .card-thumb } ![01-RP Poetry](assets/cards/card-01.webp){ .card-thumb } ![01-P1 Plain](assets/cards/card-02.webp){ .card-thumb } ![01-P2 Plain](assets/cards/card-03.webp){ .card-thumb } plus any four other cards | 6 points |
 | **Kuttsuki** (four pairs) | Two cards of each of four months: Jan ![01-B Crane](assets/cards/card-00.webp){ .card-thumb } ![01-P1 Plain](assets/cards/card-02.webp){ .card-thumb } · Feb ![02-A Warbler](assets/cards/card-04.webp){ .card-thumb } ![02-P1 Plain](assets/cards/card-06.webp){ .card-thumb } · Mar ![03-B Curtain](assets/cards/card-08.webp){ .card-thumb } ![03-P1 Plain](assets/cards/card-10.webp){ .card-thumb } · Apr ![04-A Cuckoo](assets/cards/card-12.webp){ .card-thumb } ![04-P1 Plain](assets/cards/card-14.webp){ .card-thumb } | 6 points |
 
-A lucky hand wins the round immediately for **6 points**, with no multipliers, and that player becomes the next dealer. If **both** players are lucky, the round is a 0–0 draw (except in Yakuza, see [Yakuza](rulesets/yakuza.md)).
+A lucky hand wins the round immediately for **6 points**, with no multipliers, and that player becomes the next dealer. If **both** players are lucky, the round is a 0–0 draw (except in Yakuza, where both players lucky is not a draw — the dealer wins 6 points (dealer privilege), see [Yakuza](rulesets/yakuza.md)).
 
 Both are checked only once, on the 8 cards dealt at the start of the round.
 
@@ -139,7 +139,7 @@ The round ends in one of these ways:
 
 1. **Shobu.** A player stops and scores the award.
 2. **A lucky hand** (see above).
-3. **Exhaustion.** Both hands are empty and nobody called Shobu. This is a **0–0 draw** and the dealer stays the same. In a 16-turn round, 8 stock cards are never drawn.
+3. **Exhaustion.** Both hands are empty and nobody called Shobu. This is a **0–0 draw** and the dealer stays the same.
 
 After a round, the results screen shows each yaku, the base points, every multiplier, and the final award.
 

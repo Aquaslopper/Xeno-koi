@@ -1,9 +1,5 @@
 # Play it in three turns
 
-One round, played out in front of you. One idea per line, the real cards at every step, and no
-number you have to trust: the table in [step 6](#step-6-what-the-two-choices-cost) is computed by
-the game's own scoring code while these docs are built.
-
 !!! tip "If you remember nothing else"
     Match by **month**. Take what you match. When your score goes up, **bank it or push it**.
 
@@ -19,7 +15,7 @@ the game's own scoring code while these docs are built.
 
 <div class="figure-zoom" id="board-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/board-mid-round.webp" width="1920" height="1080" loading="lazy" alt="The real play screen four turns into a round: four face-down cards in his hand along the top, four card faces left in the middle, the stock with 16 under it, four cards in your hand along the bottom, his four capture lanes top left and yours bottom left, and the status line reading YOUR TURN - DRAG A CARD ONTO THE TABLE."></div><a class="figure-zoom-btn" href="#board-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
 
-*The game itself, four turns into a round, no drawing between you and it. The arithmetic still adds up: 4 on the field, 4 in your hand, 4 in his, 16 in the stock, ten captured by each side, 48 in all. And look at the panel on the right - that player holds **ten** cards and their base points are **0**, which is step 3 of this page in someone's actual game.*
+*The game itself, four turns into a round, no drawing between you and the opponent*
 
 <div class="figure-still"><img src="../assets/screenshots/capture-lanes.webp" width="394" height="321" loading="lazy" alt="Close-up of one player's four capture lanes: Brights 2, Animals 3 with an asterisk, Ribbons 1, Plains 4, each lane showing a small picture of every card in it, and below them the score line YOU SCORE: 0 [DEALER] with a fast-forward button at the right."></div>
 
@@ -132,6 +128,3 @@ And if your hand runs out, Koi-Koi is not offered at all: the round ends on its 
 * How the awards are multiplied: [Multipliers & Awards](scoring/multipliers.md)
 * When you are ready for the wall: [DEUS SUPREMUS](reference/deus-supremus.md)
 
-*(The worked round above is a fixed set of card ids in `tools/wiki_tables.c`. The generator checks
-the example against the engine before it writes this page: it refuses if a capture stops matching by
-month, if the deal turns into a misdeal, or if turn 3 stops being a real choice.)*

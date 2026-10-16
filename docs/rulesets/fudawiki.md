@@ -40,3 +40,9 @@ The handoff document mentions a FudaWiki rule where a Koi-Koi call can be taken 
 
 - [Rule set comparison](index.md)
 - [Nintendo](nintendo.md)
+
+## Ruleset Source
+
+- [Rules of Koi-Koi (Sloperama)](https://www.sloperama.com/hanafuda/rules.html) — the Koi-Koi call and its escalating multipliers.
+- [How to Play Koi-Koi (CardRulesPlus)](https://cardrulesplus.com/games/koi-koi/) — when the Koi-Koi prompt opens, and capped multiplier streaks in digital versions.
+- [Koi-Koi rules (hanafuda.fr)](https://www.hanafuda.fr/en/) — core Koi-Koi rules, including the 7+ doubling.
