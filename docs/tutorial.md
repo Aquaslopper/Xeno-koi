@@ -9,7 +9,7 @@ the game's own scoring code while these docs are built.
 
 ## Step 1 · The table you start on
 
-<div class="table-map" id="table-map"><div class="table-map-scroll"><img src="../assets/readme/table-map.png" width="1280" height="720" loading="lazy" alt="The whole play screen at one pixel per game pixel: his eight face-down cards across the top, the eight card faces of the field in two rows in the middle, the stock of stacked card backs at the left, your eight face-up cards along the bottom, four capture lanes per side down the left edge, and the round, ruleset, combo and pause panels down the right."></div><a class="table-map-btn" href="#table-map">zoom the table</a>'          '<a class="table-map-btn" href="#">close</a></div>
+<div class="table-map" id="table-map"><div class="table-map-scroll"><img src="../assets/readme/table-map.png" width="1280" height="720" loading="lazy" alt="The whole play screen at one pixel per game pixel: his eight face-down cards across the top, the eight card faces of the field in two rows in the middle, the stock of stacked card backs at the left, your eight face-up cards along the bottom, four capture lanes per side down the left edge, and the round, ruleset, combo and pause panels down the right."></div><a class="table-map-btn" href="#table-map">zoom the table</a><a class="table-map-btn" href="#">close</a></div>
 
 * **8** cards to you, **8** to him, **8** face-up in the middle, **24** face-down in the stock.
 * The middle is the **field**. Every card you play, you play onto it.
@@ -23,6 +23,8 @@ the game's own scoring code while these docs are built.
 |---|---|---|
 | **1. your hand** | your 8 cards | you, by dragging one onto the field |
 | **2. the stock** | the top of the draw pile | nobody. It is turned over |
+
+Same rule in both stages, drawn as one picture: [how a turn runs](how-to-play.md#turn-flow).
 
 Both stages do the same thing with the same rule: **look at the field for the card's month.**
 

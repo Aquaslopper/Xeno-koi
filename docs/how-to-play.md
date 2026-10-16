@@ -89,6 +89,8 @@ Each turn has two stages, and you always do both: a **hand stage**, then a **sto
 | **1. Hand** | Your 8-card hand | You, face-up, on the table |
 | **2. Stock** | The top of the face-down stock | Nobody. It is turned over at random |
 
+<div class="figure-zoom" id="turn-flow"><div class="figure-zoom-scroll"><img src="assets/figures/turn-flow.png" width="1520" height="1376" loading="lazy" alt="The turn as the code runs it: stage 1, you play one card from your hand; four boxes for what happens by how many field cards share its month (nothing captured, both taken, a choice between two, all four taken); stage 2, the stock card answers the same question; then the verdict, and one of three endings - Shobu because your hand is empty, Shobu forced by the ruleset, or the Koi-Koi prompt."></div><a class="figure-zoom-btn" href="#turn-flow">zoom the diagram</a><a class="figure-zoom-btn" href="#">close</a></div>
+
 **A worked turn, in two steps** (the field starts with a January Plain and no February card):
 
 1. **Hand stage.** You play the January Crane from your hand. The field holds a January Plain, so you capture both: ![01-B Crane](assets/cards/card-00.webp){ .card-thumb } + ![01-P1 Plain](assets/cards/card-02.webp){ .card-thumb } go to your pile.

@@ -70,6 +70,31 @@ button rect, because `draw_btn()` has no wrapping to fall back on.
 game pixel. It takes the same `--check`, and it has the same rule -- if the layout in `src/` changes, the figure is
 regenerated rather than repainted.
 
+## Diagrams
+
+Prose about the turn and about the award is hard to hold in your head, so both are also drawn.
+`tools/make_flow_figures.py` paints two figures into `docs/assets/figures/`:
+
+```bash
+python3 tools/make_flow_figures.py          # needs Pillow
+python3 tools/make_flow_figures.py --check  # exit 1 if a figure is missing
+```
+
+- `turn-flow.png` -- one turn as [How to Play](how-to-play.md) describes it: hand stage, the four
+  match counts, stock stage, the verdict, and which of three endings follows.
+- `award-pipeline.png` -- the six gates in `calculate_award()`, in the order the code applies them,
+  on [Multipliers & Awards](scoring/multipliers.md).
+
+They carry **no numbers**. A figure that repeats the score table goes stale on the next balance
+pass; the numbers are generated into the tables on the same page, and the figure only carries the
+shape of the rule. Every box names the `src/` function and line range it was read from, and the
+sizes are derived from measured text metrics, because a box sized by eye is a box that overflows
+the first time somebody rewords a sentence.
+
+Both figures are drawn 760 px wide -- the width Material gives an article -- and saved at 2x, so
+they are sharp on a hi-dpi screen. The `figure-zoom` class in `docs/stylesheets/cards.css` fits one
+to the column and blows it up on click.
+
 ## Previewing locally
 
 ```bash
