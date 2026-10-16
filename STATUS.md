@@ -1,41 +1,44 @@
 > **LEGACY SNAPSHOT.** This is a status report from one earlier session and is no longer kept up to date.
 > For the current rules see the wiki in `docs/` (published from `mkdocs.yml`). The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is also legacy. See `AGENTS.md` and `docs/errata.md`.
+# XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
+**Last updated: 16 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
+## Latest completed work
+
+- Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
+- Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
+- Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
+- Added headless table UI regression tests and a CI step to run them. Updated the controls documentation and regenerated the table map.
+- Card data, matching rules, scoring, opponent logic, artwork, and the intentional Deus unlock were not changed.
+
+## Verification last completed in this session
+
+- Engine integrity suite: 500 full simulated matches passed.
+- Table input and combo-panel tests passed, including AddressSanitizer and UndefinedBehaviorSanitizer runs.
+- Native and browser tooltip tests passed.
+- Engine-derived documentation tables were current; strict MkDocs build passed.
+- All C sources passed syntax checks with Raylib 5.5 headers and `-Wall -Wextra -Werror`.
+- Generated table-map and card-image presence checks passed. These are not graphical playtests.
+
+## Still to verify
+
+- Visually playtest click/drag coexistence, selection feedback, and panel readability in the graphical build.
+- Check both combo windows, pagination, and timer pause/resume in live play and replay playback.
+- Confirm full Windows and WebAssembly build results. They were not run locally; this document does not claim a CI or deployment result.
+- Refresh the stored gameplay screenshots when suitable captures are available. They predate the new sidebar; the generated table map is updated.
+
+## Keeping this useful
+
+Update the date, completed work, checks actually run, and remaining verification when handing off a meaningful change. Keep scoring explanations in the wiki rather than duplicating them here. Distinguish implemented, tested, and released work.
+
+## Historical snapshot — retained for context
+
+The following is an earlier session's report, not a description of the current checkout. Its test totals, file-size claims, build outputs, and archive paths are historical and have not been reverified. The original `HANDOFF_KoiKoi_Giger_v2.pdf` is also legacy.
+
+### Earlier status summary
 
 1. **Start Menu Order Updated**
    - Configured exact 6-button main menu structure:
-     1. `START MATCH`
-     2. `OPTION`
-     3. `STATS`
-     4. `SAVE`
-     5. `CREDITS`
-     6. `QUIT`
-   - Spaced and centered cleanly with active navigation logic.
-
-2. **Wiki Components Fully Removed**
-   - Removed `src/ui_wiki.h` and `src/ui_wiki.c`.
-   - Removed `SCREEN_WIKI` from `ScreenState` and `ACT_GOTO_WIKI` from `ScreenAction`.
-   - Purged all Wiki-specific update, input, drawing, and audio routes from `src/ui_main.c`.
-
-3. **CRT Analog Beam & Clean Scanlines**
-   - All legacy software-loop scanlines removed from both board and screens.
-   - Clean analog CRT beam shader active with selectable in-menu filter strength (`0: OFF`, `1: LOW`, `2: MID`, `3: HIGH`).
-
-4. **Koi-Koi Streak Multiplier (Caller-Side)**
-   - `calculate_award()` now takes both Koi-Koi tallies: the winner's own calls drive an escalating
-     multiplier (`koi_caller_multiplier()`, +1 per call, capped at `KOI_CALLER_MULT_MAX = 6`), while the
-     loser's calls still grant the flat `x2` Opponent Koi-Koi multiplier.
-   - `RoundRecord` carries `mult_opp_koi` (was `mult_koi`), `mult_self_koi`, `self_koi_calls` and
-     `opp_koi_calls`, so the ledger and round-result screen can break the award down per multiplier.
-   - Decide overlay, round-result screen, side combo panels and the CPU banner all display the live streak.
-   - AI decision-making now compares the banked award against the projected streak award instead of using
-     a fixed "base < 7" threshold, so the CPU chases (and stops chasing) streaks correctly.
-
-5. **Deliverables**
-   - All C source files strictly under 500 lines.
-   - 15,000 engine test matches passed (post-change: AI-vs-AI sweep over all 5 rulesets, award/multiplier fields verified against the engine, zero zone violations).
-   - Windows 64-bit release binary compiled to `dist/KoiKoi.exe`.
-   - Archive packaged at `/home/user/koikoi_project.zip`.
