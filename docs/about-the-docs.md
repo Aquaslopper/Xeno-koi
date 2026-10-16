@@ -65,6 +65,11 @@ They are build products: `docs/assets/readme/hero.jpg` plus three button PNGs. E
 a button label changes -- and note that the tool refuses to draw a label that would overflow the game's 300 x 40
 button rect, because `draw_btn()` has no wrapping to fall back on.
 
+`tools/make_board_figure.py` writes `docs/assets/readme/table-map.png` next to them: the play screen drawn at
+1280 x 720 from the layout constants in `src/`, with the field slots from `board_field_slot_xy()`, at one pixel per
+game pixel. It takes the same `--check`, and it has the same rule -- if the layout in `src/` changes, the figure is
+regenerated rather than repainted.
+
 ## Previewing locally
 
 ```bash
