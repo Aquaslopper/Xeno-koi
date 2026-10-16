@@ -532,8 +532,17 @@ static void update_draw_frame(void) {
                                                            (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
                                     if (settings.current_opponent == settings.unlocked_opponents - 1 && meets_clearance && settings.unlocked_opponents < 12) {
                                         settings.unlocked_opponents++;
-                                        storage_save_settings(&settings);
                                     }
+                                    /* Award clearance coin for this opponent on the difficulty played (sticky, no cascade) */
+                                    if (meets_clearance) {
+                                        int bit = settings.current_opponent * 3;
+                                        if (settings.difficulty == DIFFICULTY_HARD) bit += 1;
+                                        else if (settings.difficulty == DIFFICULTY_MASTER) bit += 2;
+                                        /* EASY -> +0 */
+                                        settings.cleared_mask |= (1ULL << bit);
+                                    }
+                                    campaign_update_unlocks(&settings);
+                                    storage_save_settings(&settings);
                                 } else if (g.total_score[0] < g.total_score[1]) audio_play_lose(&audio);
                                 start_transition(SCREEN_MATCH_RESULT, 2, 0);
                             } else {
@@ -577,7 +586,7 @@ static void update_draw_frame(void) {
         if (campaign_overlay_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, vm);
     }
     else if (screen == SCREEN_OPTIONS) screens_draw_options(&assets, &settings, vm);
-    else if (screen == SCREEN_STATS) screens_draw_stats(&assets, &stats, &history, vm, confirm_reset, log_timer);
+    else if (screen == SCREEN_STATS) screens_draw_stats(&assets, &stats, &settings, &history, vm, confirm_reset, log_timer);
     else if (screen == SCREEN_CREDITS) screens_draw_credits(&assets, vm);
     else if (screen == SCREEN_MATCH_RESULT) screens_draw_match_result(&assets, &g, &settings, vm);
     else if (screen == SCREEN_GAME) {
@@ -682,6 +691,7 @@ int main(int argc, char **argv) {
     SetWindowMinSize(960, 540); SetTargetFPS(60);
 
     storage_load_settings(&settings);
+    if (campaign_update_unlocks(&settings)) storage_save_settings(&settings);
 #ifdef __EMSCRIPTEN__
     /* The browser build does not use raylib's fullscreen mode. On web,
        ToggleBorderlessWindowed() resolves to Module.requestFullscreen(), which

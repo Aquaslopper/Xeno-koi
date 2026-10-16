@@ -36,6 +36,7 @@ static inline const Opponent* campaign_get_all(void) {
 #include "ui_board.h"
 void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent, Vector2 vm);
 int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm);
+int campaign_update_unlocks(GameSettings *settings);
 #endif
 #endif
 

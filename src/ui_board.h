@@ -10,6 +10,9 @@ typedef struct {
     Texture2D atlas;
     Texture2D atlas_deus;
     Texture2D card_back;
+    Texture2D coin_gold;
+    Texture2D coin_silver;
+    Texture2D coin_bronze;
     Texture2D bgs[8];
     int current_bg;
     int assets_loaded;

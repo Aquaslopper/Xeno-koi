@@ -20,6 +20,7 @@ typedef struct {
     float gamma;           /* 0.5 .. 2.0, default 1.0f */
     int unlocked_opponents;/* 1..12, default 1 */
     int current_opponent;  /* 0..11, default 0 */
+    unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
 } GameSettings;
 
 typedef struct {

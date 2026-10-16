@@ -1,5 +1,6 @@
 #include "ui_screens.h"
 #include "ui_replay.h"
+#include "storage.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -305,7 +306,7 @@ static void draw_stat_row(int row, const char *label, const char *value, int div
     if (divider) DrawLine(135, (int)(y + 24), 585, (int)(y + 24), (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 60 });
 }
 
-void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchHistory *h, Vector2 vm, int confirm_reset, float log_timer) {
+void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const GameSettings *settings, const MatchHistory *h, Vector2 vm, int confirm_reset, float log_timer) {
     draw_bg_if_loaded(ba, 180);
     draw_centered_text(font_title, "COMBAT TELEMETRY // STATS", 640.0f, 34.0f, 30.0f, 1.4f, COLOR_PHOSPHOR);
     Rectangle p = { 100, 90, 1080, 500 };
@@ -327,6 +328,38 @@ void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchH
     draw_stat_row(10, "Favorite Combo", storage_get_favorite_combo(st), 0);
 
     DrawLine(620, 110, 620, 560, COLOR_PHOSPHOR_DIM);
+
+    /* Clearance coin rows (step 2): one row per tier, 12 slots (one per opponent) */
+    if (settings) {
+        int slot_size = 18;
+        int slot_step = 22;
+        int slot_start = 270;
+        int row_y0 = 485;
+        const char *labels[3] = { "GOLD", "SILVER", "BRONZE" };
+        Texture2D coins[3] = { ba->coin_gold, ba->coin_silver, ba->coin_bronze };
+        for (int r = 0; r < 3; r++) {
+            int ry = row_y0 + r * 30;
+            if (coins[r].id > 0) {
+                Rectangle src = { 0.0f, 0.0f, (float)coins[r].width, (float)coins[r].height };
+                Rectangle dst = { 135.0f, (float)ry, 20.0f, 20.0f };
+                DrawTexturePro(coins[r], src, dst, (Vector2){0,0}, 0.0f, WHITE);
+            }
+            draw_text_ex_snapped(font_body, labels[r], (Vector2){ 160.0f, (float)ry + 2.0f }, 16.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+            for (int i = 0; i < 12; i++) {
+                int bit = i * 3 + (2 - r);
+                int earned = (settings->cleared_mask & (1ULL << bit)) != 0;
+                float sx = (float)(slot_start + i * slot_step);
+                float sy = (float)(ry + 1);
+                if (earned && coins[r].id > 0) {
+                    Rectangle src = { 0.0f, 0.0f, (float)coins[r].width, (float)coins[r].height };
+                    Rectangle dst = { sx, sy, (float)slot_size, (float)slot_size };
+                    DrawTexturePro(coins[r], src, dst, (Vector2){0,0}, 0.0f, WHITE);
+                } else {
+                    DrawCircleLines((int)(sx + slot_size / 2), (int)(sy + slot_size / 2), slot_size / 2 - 1, (Color){ 60, 60, 60, 255 });
+                }
+            }
+        }
+    }
     draw_text_ex_snapped(font_title, "LAST 10 MATCHES", (Vector2){ 650.0f, 120.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 #ifndef __EMSCRIPTEN__
     ui_replay_draw_rows(h, vm);
@@ -413,8 +446,13 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const 
         int meets_clearance = (s->difficulty == DIFFICULTY_MASTER && s->rounds >= 3) ||
                               (s->difficulty == DIFFICULTY_HARD   && s->rounds >= 6) ||
                               (s->difficulty == DIFFICULTY_EASY   && s->rounds >= 9);
-        if (meets_clearance)
-            draw_centered_text(font_body, "/// CLEARANCE VERIFIED: NEXT SECTOR UNLOCKED! ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+        if (meets_clearance) {
+            int unlocked_next = (s->unlocked_opponents == s->current_opponent + 2);
+            if (unlocked_next)
+                draw_centered_text(font_body, "/// CLEARANCE VERIFIED: NEXT SECTOR UNLOCKED! ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+            else
+                draw_centered_text(font_body, "/// CLEARANCE VERIFIED: COIN EARNED ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+        }
         else if (s->current_opponent == s->unlocked_opponents - 1)
             draw_centered_text(font_body, "/// MATCH WON (Clearance Unfulfilled: Requires Master 3+, Hard 6+, or Easy 9+ Rounds) ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_AMBER);
     }
