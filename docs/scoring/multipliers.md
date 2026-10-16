@@ -8,7 +8,7 @@ When a round ends with a winner, the **award** is the base points multiplied by 
 award = base × seven_multiplier × opponent_koi_multiplier × caller_multiplier
 ```
 
-<div class="figure-zoom" id="award-pipeline"><div class="figure-zoom-scroll"><img src="../assets/figures/award-pipeline.png" width="1520" height="508" loading="lazy" alt="Six boxes in a row: your pile, its base points from the ruleset, then three gates - a base of 7 or more doubles, an opponent who called Koi-Koi doubles, your own calls multiply by 1 plus the number of calls up to 6 - and the award at the end."></div><a class="figure-zoom-btn" href="#award-pipeline">zoom the diagram</a><a class="figure-zoom-btn" href="#">close</a></div>
+<div class="figure-zoom" id="award-pipeline"><div class="figure-zoom-scroll"><img src="../../assets/figures/award-pipeline.png" width="1520" height="508" loading="lazy" alt="Six boxes in a row: your pile, its base points from the ruleset, then three gates - a base of 7 or more doubles, an opponent who called Koi-Koi doubles, your own calls multiply by 1 plus the number of calls up to 6 - and the award at the end."></div><a class="figure-zoom-btn" href="#award-pipeline">zoom the diagram</a><a class="figure-zoom-btn" href="#">close</a></div>
 
 | Multiplier | When it applies | Value |
 |---|---|---|

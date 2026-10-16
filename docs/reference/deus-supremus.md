@@ -83,11 +83,11 @@ sends the CPU into a deliberate casual blunder can never miss. Every number on t
 You will lose the first one, probably to the clock. That is the design: he is a mode where the
 pressure is on your decisions, not on his. What the mechanics above mean in practice:
 
-<div class="figure-zoom" id="deus-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/deus-taunt.webp" width="1920" height="1080" loading="lazy" alt="A round against DEUS SUPREMUS: every card in mono, the transmission panel at the left reading [ CPU TRANSMISSION ] PURE MATHEMATICAL PERFECTION., a ROUND 2 START banner across the middle, the clock reading TIME: 14.4S, and the right-hand column showing RND 2/9 with YAKUZA under it."></div><a class="figure-zoom-btn" href="#deus-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+<div class="figure-zoom" id="deus-live"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/deus-taunt.webp" width="1920" height="1080" loading="lazy" alt="A round against DEUS SUPREMUS: every card in mono, the transmission panel at the left reading [ CPU TRANSMISSION ] PURE MATHEMATICAL PERFECTION., a ROUND 2 START banner across the middle, the clock reading TIME: 14.4S, and the right-hand column showing RND 2/9 with YAKUZA under it."></div><a class="figure-zoom-btn" href="#deus-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
 
 *What his page is actually describing: the mono deck (`board_draw_card()` swaps the texture when the opponent is him, `src/ui_board.c:181`), the fifteen seconds already running (`src/ui_main.c:472`), Yakuza rules in the corner, and the transmission line itself - `src/cards.c:93`, shown by `src/ui_taunt.c:136` in the game's own red. Nothing about this screen is tuned for the screenshot; that is the point of it.*
 
-<div class="figure-still"><img src="../assets/screenshots/taunt-panel.webp" width="394" height="154" loading="lazy" alt="Close-up of the transmission panel: the red heading [ CPU TRANSMISSION ], a divider, and the line PURE MATHEMATICAL PERFECTION. in the game's own text colour."></div>
+<div class="figure-still"><img src="../../assets/screenshots/taunt-panel.webp" width="394" height="154" loading="lazy" alt="Close-up of the transmission panel: the red heading [ CPU TRANSMISSION ], a divider, and the line PURE MATHEMATICAL PERFECTION. in the game's own text colour."></div>
 
 The panel at its own size, because at full-frame width it is three lines of 14-point type in a
 1920-pixel picture. The crop is the rectangle the code draws - `{ 12, 260, 255, 95 }`,
