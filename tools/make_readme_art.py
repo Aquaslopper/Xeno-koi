@@ -79,12 +79,13 @@ BACKDROPS = {
     "face": "assets/face.jpg",
     "realm": "assets/realm.jpg",
 }
-# The README band is painted over assets/hole.jpg, background index 1. Not the game's own
-# default frame -- that is harvest.jpg, index 0 (storage.c:36) -- because hole.jpg is the one
-# of the eight whose middle falls away into dark architecture, so the masthead has something to
-# sit on. --frame takes any of them; the default here is a presentation choice, and that is the
-# only number in this file that is not copied from the game.
-DEFAULT_BACKDROP = "hole"
+# The README band is painted over assets/face.jpg, background index 6 (bg_names, ui_board.c:98-100).
+# Not the game's own default frame -- that is harvest.jpg, index 0 (storage.c:36) -- because face.jpg
+# is the one of the eight that puts a dark arch exactly where the masthead has to sit, with the
+# sleeping biomechanical face rising underneath it. --frame takes any of them. This is the only number
+# in the file that is a presentation choice rather than a value copied out of the game, and it is the
+# owner's, not the generator's.
+DEFAULT_BACKDROP = "face"
 
 # The band of the start screen the README uses: the masthead, nothing else.
 BAND = (0, 0, 1280, 300)

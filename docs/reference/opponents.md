@@ -22,7 +22,7 @@ Opponents unlock in order. You win a match against the newest opponent to unlock
 | 9 | **10: OCT. DEER** | Sensory-Stealth Unit // Sector 10 | ![10-A Deer](../assets/cards/card-36.webp){ .card-mini } 10-A Deer (id 36) | Ino-Shika-Cho |
 | 10 | **11: NOV. RAIN** | Atmospheric Anomaly // Sector 11 | ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } 11-B Rainman (id 40) | Ribbons |
 | 11 | **12: DEC. PHOENIX** | The Apex Biomech // Sector 12 | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
-| 12 | **ENTITY 13 // DEUS SUPREMUS** ([dossier](deus-supremus.md)) | Omnipresent Machine God // Sector Null | ![12-B Phoenix](../assets/cards/deus/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
+| 12 | **ENTITY 13 // DEUS SUPREMUS** ([dossier](deus-supremus.md)) | Omnipresent Machine God // Sector Null | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
 
 Taunt lines:
 
@@ -41,6 +41,8 @@ Taunt lines:
 | 10 | *THE STORM WASHES ALL AWAY.* | *DELUGE IMMINENT. KOI-KOI!* |
 | 11 | *ASH TO ASH. DUST TO DUST.* | *REBORN FROM CRUCIBLE. KOI-KOI!* |
 | 12 | *PURE MATHEMATICAL PERFECTION.* | *INEVITABILITY CONFIRMED. KOI-KOI!* |
+
+*(Entity 13's card is shown from the coloured deck here, like everyone else's, because his engraved sheet is unreadable at thumbnail size. The art he actually plays you with -- all 48 cards -- is on his page.)*
 
 <!-- END GENERATED: opponents -->
 
