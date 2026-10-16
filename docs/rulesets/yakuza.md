@@ -30,9 +30,9 @@ Dealer's Privilege is a flat 6 points. It is not multiplied by Koi-Koi calls or 
 
 Because a draw pays the dealer and the dealer keeps the deal, being the dealer is worth more on Yakuza than on the other rule sets. A dealer can collect 6 points from a draw and still be dealer for the next round.
 
-## Deus Supremus
+## DEUS SUPREMUS
 
-The final CPU opponent, **Entity 13 // Deus Supremus**, always plays under Yakuza rules. The ruleset selector is locked for that difficulty. See [Modes](../reference/modes.md).
+The final CPU opponent, **[Entity 13 // DEUS SUPREMUS](../reference/deus-supremus.md)**, always plays under Yakuza rules. The ruleset selector is locked for that difficulty. See [Difficulty](../reference/difficulty.md).
 
 ## Related
 

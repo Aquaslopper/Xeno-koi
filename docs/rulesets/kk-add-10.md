@@ -26,6 +26,10 @@ In KK-ADD-10 the screen is triggered **by the combos themselves**, not by the to
 
 Capturing a card that changes no combo opens no screen. The combos are compared with the ones you had at your last Koi-Koi decision, so each stage of a growing combo opens the screen again — and each stage is already worth its points when it opens.
 
+<div class="figure-zoom" id="koi-screen-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/koi-prompt.webp" width="1920" height="1080" loading="lazy" alt="The Koi-Koi screen open over a darkened board: YAKU DETECTED, the one combo it found with its points and its cards, the base line, the award if you stop now, and the two buttons."></div><a class="figure-zoom-btn" href="#koi-screen-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*The screen at its own size, over the board it interrupted. Everything on it is `score_captures()` for the pile you have now (`src/ui_screens.c:463` onward), so the row count is the number of combos, not the number of cards - the reason this ruleset keeps asking.*
+
 The Brights growing, stage by stage — each row opens the screen:
 
 ![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![01-B Crane](../assets/cards/card-00.webp){ .card-thumb }

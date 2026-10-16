@@ -1,0 +1,250 @@
+/* =============================================================================
+   DEUS SUPREMUS - the study page.
+ 
+   Two things live here: his name set in a display face, and his own mono atlas as
+   ONE sheet with a grid over it, so a player can blow the map up and learn where
+   everything sits instead of clicking through 48 thumbnails.
+ 
+   No JavaScript, and no Material Insiders features: the paid image-zoom plugin is
+   not available to us, so zooming is :target - the cells are anchors that set the
+   hash, the sheet re-renders at its native 2112 x 1144, and a scroll box pans it.
+   In-place rather than position:fixed, because a transformed ancestor would turn
+   "fixed" into "relative to that ancestor" and the overlay would land mid-page.
+ 
+   The grid is 12 columns x 4 rows because a card's cell is (id >> 2, id & 3) -
+   see board_draw_card() in src/ui_board.c and the same mapping in
+   tools/make_card_images.py. Which cells get framed is decided by the
+   generator, from SPECIAL_CARDS[] in src/ai.c; nothing is hardcoded here.
+ 
+   Colour: no palette is invented here. The values below are the six tones that
+   quantize() finds in assets/atlas_deus.png itself - #0a0604 at 21.7%, #2a231e
+   20.2%, #1d1511 17.3%, #423b38 15.9%, #170d0b 15.1%, #756e6c 9.8%. The lightest
+   of those, #756e6c, is 3.3:1 against the theme background: honest for a 4.6rem display line,
+   not honest for anything a person has to read small. So --deus-ink is that same hue
+   lifted to #b9b2ad (7.8:1) and nothing else on the page goes brighter than the art's
+   own greys. No red on his page: the only ink here is his.
+ 
+   Font: UnifrakturMaguntia, SIL OFL 1.1 (Peter Wiegel / j. 'mach' wust), in
+   docs/assets/fonts/ with the licence text beside it - a drawn Textura in the Cloister Black
+   lineage, which is the register his etched mono art works in: high contrast, ornate, cut
+   rather than typed. Nothing blocky belongs next to that art, and neither does a metal logo face.
+ 
+   Why not the face people point at ("Ancient", artRAVE Editions on dafont)? It is itself a fan
+   font of Cloister Black and its own note reads "ONLY FOR PERSONAL USE" - fine to look at, not
+   distributable in a public repository documenting a game. The 1913 original is long out of
+   copyright and its revivals are commercial; this OFL cut is the one that can be shipped. If a
+   licensed Cloister Black lands in the repo, it is a two-line swap: the file and the family name.
+   ============================================================================= */
+.deus-title,
+.deus-map {
+    --deus-ink: #b9b2ad;                    /* the art's lightest grey, lifted to read */
+    --deus-ink-art: #756e6c;                /* that lightest grey, exactly as drawn */
+    --deus-hair: rgba(117, 110, 108, 0.3);   /* the mid tone, as a hairline */
+    --deus-tint: rgba(185, 178, 173, 0.1);
+    --deus-ground: #0a0604;                 /* the tone the art itself sits on */
+}
+
+@font-face {
+    font-family: "UnifrakturMaguntia";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../assets/fonts/unifrakturmaguntia-latin-400-normal.woff2") format("woff2");
+}
+
+/* His name, big: the first thing on the page. */
+.md-typeset h1.deus-title {
+    font-family: "UnifrakturMaguntia", "Palatino Linotype", serif;
+    font-weight: 400;
+    /* "DEUS SUPREMUS" is 9.85em wide in this face (measured from the font's own hmtx, plus the
+       letter-spacing below: 9.92em) and Material's article column is 757px at its widest. So the
+       largest size that keeps his name on ONE line is 757 / 9.92 = 76px, and min() picks the
+       smaller of that and a viewport-relative size for phones: 9vw needs 89% of the width down to
+       a 320px screen. nowrap as the guarantee - a slightly small name is a choice, a name on two
+       lines is a mistake. The 76px ceiling is so that a reader running a 20px default font size
+       gets a name that still fits instead of a page with a sideways scrollbar, and it is why this
+       is min() and not clamp(). Bigger than this only by bleeding the heading out of the column. */
+    font-size: min(76px, 4.6rem, 9vw);
+    white-space: nowrap;
+    line-height: 1.12;
+    letter-spacing: 0.005em;
+    margin: 0.1em 0 0.26em;
+    position: relative;
+    color: var(--deus-ink);
+    border-bottom: 1px solid var(--deus-hair);
+    padding-bottom: 0.16em;
+}
+
+.md-typeset .deus-tagline {
+    color: var(--md-default-fg-color--light);
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 1.4em;
+}
+
+/* The sheet, with its frame and its axis labels. */
+.md-typeset .deus-map {
+    position: relative;
+    margin: 1.5em 0 0.5em;
+}
+
+.md-typeset .deus-map-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7em;
+    align-items: baseline;
+    font-size: 0.68rem;
+    color: var(--md-default-fg-color--light);
+    margin-bottom: 0.5em;
+}
+
+.md-typeset .deus-map-btn {
+    border: 1px solid var(--deus-ink-art);
+    padding: 0.12em 0.6em;
+    color: var(--deus-ink);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.md-typeset .deus-map-btn:hover {
+    border-color: var(--deus-ink);
+    background: var(--deus-tint);
+}
+
+.md-typeset .deus-map-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+}
+
+.md-typeset .deus-map-key i {
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    box-shadow: inset 0 0 0 2px var(--deus-ink);
+}
+
+.md-typeset .deus-map-scroll {
+    overflow: hidden;
+}
+
+.md-typeset .deus-map-body {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 0.15em 0.4em;
+}
+
+.md-typeset .deus-map-x {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    color: var(--deus-ink-art);
+    text-align: center;
+}
+
+.md-typeset .deus-map-y {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-rows: repeat(4, 1fr);
+    font-size: 0.6rem;
+    color: var(--deus-ink-art);
+    text-align: right;
+    align-items: center;
+    justify-items: right;
+    padding-right: 0.35em;
+    white-space: nowrap;
+}
+
+.md-typeset .deus-map-cells {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+}
+
+.md-typeset .deus-map-open {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    display: block;
+    background: var(--deus-ground);
+    cursor: zoom-in;
+}
+
+.md-typeset .deus-map-open img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.md-typeset .deus-map-cell {
+    z-index: 1;
+    display: block;
+    border: 1px solid var(--deus-hair);
+    text-decoration: none;
+}
+
+.md-typeset .deus-map-cell:hover {
+    background: var(--deus-tint);
+}
+
+/* Brighter than any tone the art uses, or the frame would disappear into it. */
+.md-typeset .deus-map-cell.denial {
+    box-shadow: inset 0 0 0 2px var(--deus-ink);
+}
+
+.md-typeset .deus-map-cell.denial:hover {
+    background: rgba(185, 178, 173, 0.18);
+}
+
+/* Zoomed: the sheet at native size inside a scroll box, so pan and study. */
+.md-typeset .deus-map:target .deus-map-scroll {
+    overflow: auto;
+    max-height: 82vh;
+    outline: 1px solid var(--deus-ink-art);
+    padding: 0.6em;
+    background: var(--deus-ground);
+}
+
+.md-typeset .deus-map:target .deus-map-body {
+    width: 2112px;
+}
+
+.md-typeset .deus-map:target .deus-map-open {
+    cursor: zoom-out;
+}
+
+.md-typeset .deus-map .deus-map-close {
+    display: none;
+}
+
+.md-typeset .deus-map:target .deus-map-close {
+    display: inline-block;
+}
+
+.md-typeset .deus-map:target .deus-map-zoom {
+    display: none;
+}
+
+/* Out of the line's width: the permalink is an inline-block that would otherwise add an em to a
+   heading that has exactly 3% of the column to spare, and nowrap means no wrap to absorb it. */
+.md-typeset h1.deus-title .headerlink {
+    position: absolute;
+    right: 0;
+    bottom: 0.35em;
+    margin-left: 0;
+}
+
+@media (max-width: 44.99em) {
+    .md-typeset h1.deus-title {
+        font-size: 2.9rem;
+        line-height: 1;
+    }
+}

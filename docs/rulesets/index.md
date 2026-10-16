@@ -2,7 +2,7 @@
 
 Xeno Koi ships five rule sets. Pick one in **Options → Ruleset**. Every ruleset uses the same deal, turn order, and matching. They differ in **how cards are scored** and in **when a Koi-Koi call is allowed**.
 
-The Options screen changes the ruleset for future matches. Deus Supremus always uses Yakuza rules.
+The Options screen changes the ruleset for future matches. [DEUS SUPREMUS](../reference/deus-supremus.md) always uses Yakuza rules.
 
 | Rule set | Page |
 |---|---|

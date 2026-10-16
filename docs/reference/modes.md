@@ -1,15 +1,7 @@
-# Modes, Difficulty & Settings
+# Modes & Settings
 
-## Difficulty
-
-| Difficulty | What it changes |
-|---|---|
-| **Easy** (default) | The CPU is weakest, and it calls Koi-Koi at random (50% of the time while it has 3 or more cards). Hand cards that can capture glow, and while you drag a card, field cards of the same month glow. |
-| **Hard** | A stronger CPU. It needs at least 4 cards in hand before it will gamble on Koi-Koi, and it banks when you are already on the board. No glow hints. |
-| **Master** | A strong CPU. It needs at least 3 cards in hand before gambling, and it banks instead of continuing when a card would complete one of your special combinations. A **turn timer** applies: 15 or 30 seconds, set in Options. If it runs out, a random card is played for you. |
-| **Deus** | The 100% accuracy setting, against Entity 13. It uses the Master decision logic with stronger card evaluation, always plays under Yakuza rules, locks the ruleset selector, and has a fixed 15-second turn timer. |
-
-The CPU's Koi-Koi decision compares the **banked award now** with the **projected award** if it continues. It continues only when the projected award clearly beats banking. Once its multiplier is capped at ×6, it has no more streak upside, so it banks.
+How strongly the CPU plays has its own page: [Difficulty](difficulty.md). This page is everything
+around the match itself - unlocks, rounds, options and the records the game keeps.
 
 ## Campaign and unlocks
 
@@ -23,29 +15,43 @@ The CPU's Koi-Koi decision compares the **banked award now** with the **projecte
   | Master | 3 or more |
 
 - A win with fewer rounds still counts as a match win, but it does **not** unlock the next opponent. The results screen tells you so.
-- **Deus Supremus** normally requires all twelve opponents to be cleared. The maintainer currently keeps it **open to everyone on purpose**, while the mode is being tested. See [Errata & Known Issues](../errata.md).
+- **[DEUS SUPREMUS](deus-supremus.md)** normally requires all twelve opponents to be cleared. The maintainer currently keeps it **open to everyone on purpose**, while the mode is being tested. See [Errata & Known Issues](../errata.md).
 
 ## Rounds
 
-Choose 1 to 12 rounds in Options. The default is set in the code, and the value is saved with your settings. See [Errata & Known Issues](../errata.md) for a note about the default.
+Choose 1 to 12 rounds on the Options screen; the `+` and `-` buttons stop at both ends
+(`src/ui_screens.c:257-258`). With no `settings.txt` the game starts at **2** rounds
+(`src/storage.c:32`), and the value is saved with your other settings when you press
+BACK (SAVE). See [Errata & Known Issues](../errata.md) for why that is 2 and not 6.
 
 ## Options
 
 These settings are saved in `settings.txt` next to the game:
 
-| Setting | Options |
-|---|---|
-| Rounds | 1 to 12 |
-| Difficulty | Easy, Hard, Master, Deus |
-| Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza (locked to Yakuza on Deus) |
-| Background | Seven selectable backgrounds: Harvest, Hole, Arctic, Castle, City, Face, Realm (Deus has its own locked background) |
-| Terminal colour | Green, Amber, Teal, Crimson, Violet |
-| CRT filter | Off, Low, Mid, High |
-| Bloom | Off, Mid, Full |
-| Gamma | 0.5 to 2.0 |
-| Music and effects volume | 0.0 to 1.0 |
-| Animation speed | Slow, Normal, Fast |
-| Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) |
+<div class="figure-zoom" id="options-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/options.webp" width="1920" height="1080" loading="lazy" alt="The System Configuration screen: Match Length at 9 Rounds, Ruleset YAKUZA on a red band, Difficulty EASY, Master Timer marked MASTER ONLY, then Terminal Color TEAL, Background 3: Castle with a small preview, Anim Speed at NORMAL, two volume sliders at 70% and 30%, Fullscreen BORDERLESS, Bloom MID, CRT Filter 2: MID, Display Gamma 1.40, and BACK (SAVE) at the bottom."></div><a class="figure-zoom-btn" href="#options-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*Every row the game has. The bands on the Ruleset row are its own colour code: green for Nintendo and KK-ADD-10, amber for FudaWiki, red for Tournament and Yakuza (`src/ui_screens.c:167-170`). This player's file differs from a fresh install on three rows only - 9 rounds instead of 2, Yakuza instead of KK-ADD-10, Castle instead of Harvest - plus BGM at 70%, Normal animation, Borderless and Bloom on.*
+
+The left column is the label the screen shows. The right column is what you get before `settings.txt`
+exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
+
+| Setting | Options | On a fresh install |
+|---|---|---|
+| Match Length | 1 to 12 rounds | 2 |
+| [Difficulty](difficulty.md) | Easy, Hard, Master, [DEUS SUPREMUS](deus-supremus.md) | Easy |
+| Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza. The row is painted green for Nintendo and KK-ADD-10, amber for FudaWiki, red for the other two (`src/ui_screens.c:167-170`); locked to Yakuza on [DEUS SUPREMUS](deus-supremus.md) | KK-ADD-10 |
+| Master Timer | 15 sec or 30 sec, and the row only answers to clicks at Master. Against DEUS it reads **Deus Timer: 15 SEC (LOCKED)** | 15 |
+| Background | Harvest, Hole, Arctic, Castle, City, Face, Realm — seven, because index 5 is his and both arrows step over it (`src/ui_screens.c:273-274`). The row shows a live 46 x 26 preview of the frame you are on | Harvest (0) |
+| Terminal colour | Green, Amber, Teal, Crimson, Violet. The name list in `src/ui_screens.c:193` has a sixth, DARK, which the selector's `% 5` at `:272` never lands on: it is what playing DEUS sets, and leaving him puts you back on Teal | Teal (2) |
+| Anim Speed | Slow, Normal, Fast | Slow |
+| BGM Volume / SFX Volume | Sliders, shown as a percentage | 50% / 30% |
+| Bloom Effect | Off, Mid, Full | Off |
+| CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
+| Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.40 |
+| Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) | Windowed |
+
+Nothing here is per-match: BACK (SAVE) writes `settings.txt` and returns you to the menu
+(`src/ui_screens.c:296`), and the next match starts with what you left there.
 
 ### Fullscreen
 
@@ -58,19 +64,30 @@ These settings are saved in `settings.txt` next to the game:
 
 The game records statistics for **finished matches only**. Restarting, abandoning, or closing a match in progress does not count.
 
+<div class="figure-zoom" id="stats-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/stats.webp" width="1920" height="1080" loading="lazy" alt="The stats screen: twelve rows of numbers on the left under COMBAT TELEMETRY // STATS, and on the right the LAST 10 MATCHES as ten raw record lines, with START REPLAY, SAVE and LOAD under them and SAVE LOG, RESET STATS and BACK along the bottom."></div><a class="figure-zoom-btn" href="#stats-live">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*14 matches, 11 of them won. Read the Difficulty row against the log on the right: it says `Easy 10 | Hard 0 | Master 4` while two of the ten lines end in `deus` - there is no DEUS counter, because a match against him increments the Master total (`src/storage.c:355`). Every number on this screen is a field of `GameStats`, so the rows are exactly what `stats.txt` holds.*
+
+<div class="figure-still"><img src="../assets/screenshots/stats-log.webp" width="729" height="504" loading="lazy" alt="Close-up of the match log: the heading LAST 10 MATCHES and ten lines reading date, time, rounds, ruleset, difficulty, the two scores and the result, for example 2026-10-16 02:52;rounds=9;kk-add-10;easy;you=63;cpu=50;WIN."></div>
+
+*Those are the records themselves, printed as stored. A line is `date time;rounds=N;ruleset;difficulty;you=;cpu=;outcome` (`src/storage.c:377`), which is also what `history.txt` holds, and every line is clickable: the rectangle that draws the highlight and the one that catches the click are the same box (`src/ui_replay.c:378` and `:323`), 400 game px wide (`ROW_W`, `:19`). The text is not clipped to it - on the longest line here it runs to x 1116, 66 px past the box - so the frame you can click is narrower than the line you read, and clicking the tail of a record does nothing.*
+
 Tracked statistics include:
 
 - Matches played, won, lost, and drawn
 - Win rate
 - Rounds won by you and by the CPU
 - Total points for and against
-- Best award in a single round
+- Highest round score (the best single round) and best award (the highest total in a match you
+  won) - two different fields, `highest_round_score` and `best_award` in `src/storage.h:34-35`, and
+  the second row is labelled only "Best Award"
 - Koi-Koi calls by you and by the CPU
-- Matches per difficulty
+- Matches per difficulty. The row has three numbers and no DEUS column: a match against him is
+  counted with Master (`src/storage.c:355`)
 - Current and best win streak
 - Yaku counts, which feed the favourite combo shown on the main menu
 
-Match history is written to `history.txt`, and a report is written to `stats_report.txt`. Both are next to the game.
+Match history is written to `history.txt`, and a report is written to `stats_report.txt`. Both are next to the game. `SAVE LOG` at the bottom left of the screen is what writes the report, and it says so on the screen for a moment (`src/ui_screens.c:345`). `RESET STATS` is the only red button and it asks first: a modal over the panel, `RESET ALL STATS & LOGS?`, `This action cannot be undone.`, CONFIRM or CANCEL (`src/ui_screens.c:346-353`).
 
 ### Replays
 
@@ -85,7 +102,7 @@ Records are written to the `replays/` folder next to the game as plain `.txt` fi
 - The ten most recent matches are kept automatically and named after the date and time they finished, for example `2026-10-15_1548.txt`. A second match finishing in the same minute is stored as `..._2.txt`. When an eleventh match arrives, the oldest automatic record is deleted.
 - Files made with **[SAVE]** are never deleted by the game. Give them the names you want.
 - A record holds the match seed, the AI RNG starting state, the ruleset, round count, difficulty, master timer and opponent, plus the card choices and decisions from both sides. Playing it back feeds those choices into the same engine again, so the deals, captures and scores are the same.
-- A record can only be made while the match is played. Existing log entries from before this feature, matches that were never finished (restarted, abandoned or closed), and Deus matches lost on the turn timer have no record. A replay never counts towards statistics, streaks or unlocks, and the game never changes a record.
+- A record can only be made while the match is played. Existing log entries from before this feature, matches that were never finished (restarted, abandoned or closed), and [DEUS SUPREMUS](deus-supremus.md) matches lost on the turn timer have no record. A replay never counts towards statistics, streaks or unlocks, and the game never changes a record.
 - While a replay runs, the status line shows `REPLAY - P TO PAUSE   ESC TO STOP`, or `REPLAY PAUSED` once it is frozen. **Esc** leaves the replay and returns to the Stats screen, and so do the **STOP** button - the lower of the two board buttons, which reads **RESTART** in a live match - and **STOP REPLAY** in the pause overlay. **P** or the **PAUSE** button freezes the board; the overlay then offers **RESUME** and **STOP REPLAY** rather than the match actions, because a replay cannot be restarted or abandoned.
 - The choice, decision and round-result windows are not shown during a replay - the board, the capture piles and the combo panels are.
 - A replay is watched, not skimmed: every round is dealt out from the stock pile with the round-start banner, and every hand card and stock card flies to the table before the engine takes the step. The flight is a little slower than a live turn and is followed by a beat to read the board, and it follows the animation speed set in Options. The engine step itself waits for the flight to land, so the board never gets ahead of what is drawn.

@@ -30,3 +30,77 @@ img.card-tiny {
   border-radius: 4px;
   margin-right: 4px;
 }
+
+/* Figures that are drawn at least as wide as they are shown: fitted to the column by default,
+   blown up to their own pixel size on click. Same :target pattern as
+   docs/stylesheets/deus-atlas.css, so one gesture works everywhere on the site.
+
+   .table-map is the play-screen map, which is 1280 px wide - the game's canvas width - so its
+   zoom width is written down. .figure-zoom is for the diagrams from tools/make_flow_figures.py,
+   which are saved at 2x: "auto" means the file's own size, i.e. 200%, and the scroll box takes
+   care of anything the column cannot. */
+.figure-zoom,
+.table-map {
+  margin: 1rem 0;
+}
+
+.figure-zoom-scroll,
+.table-map-scroll {
+  overflow: hidden;
+}
+
+.figure-zoom-scroll img,
+.table-map-scroll img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.figure-zoom-btn,
+.table-map-btn {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: .72rem;
+}
+
+.figure-zoom .figure-zoom-close,
+.table-map .table-map-close {
+  display: none;
+}
+
+.figure-zoom:target .figure-zoom-scroll,
+.table-map:target .table-map-scroll {
+  overflow: auto;
+  max-height: 82vh;
+}
+
+.figure-zoom:target .figure-zoom-scroll img {
+  width: auto;
+}
+
+.table-map:target .table-map-scroll img {
+  width: 1280px;
+}
+
+.figure-zoom:target .figure-zoom-btn:not(.figure-zoom-close),
+.table-map:target .table-map-btn:not(.table-map-close) {
+  display: none;
+}
+
+.figure-zoom:target .figure-zoom-close,
+.table-map:target .table-map-close {
+  display: inline-block;
+}
+
+/* A close-up that is smaller than the article column: shown at the pixels it has, never stretched,
+   and with no zoom button, because there is nothing wider to open it to. */
+.figure-still {
+  margin: 1rem 0;
+}
+
+.figure-still img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}

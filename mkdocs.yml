@@ -11,6 +11,7 @@ strict: true
 extra_css:
   - stylesheets/cards.css
   - stylesheets/deus-theme.css
+  - stylesheets/deus-atlas.css
 
 theme:
   name: material
@@ -18,13 +19,13 @@ theme:
   palette:
     - scheme: slate
       primary: black
-      accent: green
+      accent: cyan
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
     - scheme: default
       primary: teal
-      accent: green
+      accent: cyan
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -51,6 +52,7 @@ nav:
   # Standalone WASM output, added by docs.yml after the wiki build.
   - Play: /Xeno-koi/play/
   - How to Play: how-to-play.md
+  - Tutorial: tutorial.md
   - Rulesets:
       - Overview: rulesets/index.md
       - Nintendo: rulesets/nintendo.md
@@ -64,6 +66,8 @@ nav:
   - Reference:
       - Cards: reference/cards.md
       - Opponents: reference/opponents.md
-      - Modes, Difficulty & Settings: reference/modes.md
+      - Difficulty: reference/difficulty.md
+      - DEUS SUPREMUS: reference/deus-supremus.md
+      - Modes & Settings: reference/modes.md
   - Errata & Known Issues: errata.md
   - About these docs: about-the-docs.md

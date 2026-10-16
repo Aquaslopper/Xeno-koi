@@ -2,6 +2,14 @@
 
 The deck has **48 cards** in **12 months** of four cards each. The table below is generated from `src/cards.c`, so it always matches the game.
 
+<div class="figure-zoom" id="card-in-hand"><div class="figure-zoom-scroll"><img src="../assets/screenshots/card-tooltip.webp" width="1920" height="1080" loading="lazy" alt="A round in progress with one field card held under the cursor and its tooltip open beside it, naming the month, the suit, the type and the card."></div><a class="figure-zoom-btn" href="#card-in-hand">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*The names in this page's tables are the names the game prints. Hover a face-up card for half a
+second on Easy and you get three lines it assembles at draw time: the month and the type from
+tables in `src/ui_card_tooltip.c:71-77`, and the card's own name from `CARDS[]` in `src/cards.c`
+with its id prefix cut off (`ui_card_tooltip.c:98`) - here `February / Plum`, `Plain / Kasu`,
+`Plain`.*
+
 ## Card types
 
 | Type | Count | Scoring role |
@@ -90,7 +98,25 @@ The deck has **48 cards** in **12 months** of four cards each. The table below i
 **Composition check (from `cards_validate()` invariants):** 5 Brights, 9 Animals, 10 Ribbons, 24 Plains = 48 cards.
 
 <!-- END GENERATED: cards -->
+## The sheet this deck was drawn from
 
-## Notes
+These 48 are the game's own rendering of a shape that is over two centuries old: twelve columns of
+four, one column per month, the four ranks of the month down the column. This is a printed sheet of
+the traditional pattern, in the same order the tables above use.
 
-- Card **47** is named `12-P2 Plain` in the source, the same as card 46. It is only a label, so scoring is not affected. See [Errata & Known Issues](../errata.md).
+<div class="figure-zoom" id="deck-sheet"><div class="figure-zoom-scroll"><img src="../assets/screenshots/deck-sheet.webp" width="2268" height="1190" loading="lazy" alt="A traditional hanafuda sheet: a header row naming the twelve months - Pine, Plum, Cherry, Wisteria, Iris, Peony, Clover, Pampas, Chrysanthemum, Maple, Willow, Paulownia - and under each name four cards, a bright with the month's animal and sun or moon, a ribbon with a short poem strip, and two plain cards of foliage."></div><a class="figure-zoom-btn" href="#deck-sheet">zoom the sheet</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*The month names are the ones the game keeps, in the order `src/cards.c` lays the deck out. The
+game's own sheet is `assets/atlas.png`: twelve columns of 176 x 286 cells, 2112 x 1144
+(`src/ui_theme.h:41-42`), the same grid, column for column, and it is where every thumbnail in this
+wiki is cut from (`tools/make_card_images.py`).*
+
+Two things worth checking against it, because both are easy to get wrong from the rules alone.
+**Columns are months, rows are not ranks.** Any two cards in a column match, so the January crane
+and the January plain are the same suit to the engine and the art never enters into it - which is
+also why the atlas is ordered by id, month first: a month with no bright puts its Animal in the top
+row, and that is where April's Cuckoo (`id 12`) sits. Nobody would call that row "the brights".
+**The ribbon colours are the real ones.** The three poetry strips - January, February, March - and
+the three blue ones - June, September, October - are the same six cards on both sheets:
+`01-RP`, `02-RP`, `03-RP` and `06-RB`, `09-RB`, `10-RB` in the tables above, Akatan and Aotan in
+[Yaku](../scoring/yaku.md). The game renamed nothing and moved nothing; it just drew it like Giger.
