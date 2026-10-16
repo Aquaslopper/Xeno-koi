@@ -13,21 +13,21 @@ The **default baseline**. Nintendo is the reference point the other rule sets ar
 
 ## Scoring at a glance
 
-| Yaku | Points |
-|---|---|
-| Goko (5 Brights) | 10 |
-| Shiko (4 Brights, no Rain Man) | 8 |
-| Ame-shiko (4 Brights with Rain Man) | 7 |
-| Sanko (3 Brights, no Rain Man) | 5 |
-| Hanami-zake (Curtain + Sake Cup) | 5 |
-| Tsukimi-zake (Moon + Sake Cup) | 5 |
-| Ino-shika-cho (Butterflies, Boar, Deer) | 5, +1 per other animal |
-| Akatan (3 Poetry ribbons) | 5, +1 per other ribbon |
-| Aotan (3 Blue ribbons) | 5, +1 per other ribbon |
-| Akatan + Aotan (all 6) | 10, +1 per other ribbon |
-| Tane (5+ animals) | n − 4, only if Ino-shika-cho does not apply |
-| Tanzaku (5+ ribbons) | n − 4, only if a ribbon set does not apply |
-| Kasu (10+ Plains) | k − 9 |
+| Yaku | Points | Combo |
+|---|---|---|
+| Goko (5 Brights) | 10 | ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![08-B Moon](../assets/cards/card-28.webp){ .card-mini } ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } |
+| Shiko (4 Brights, no Rain Man) | 8 | ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![08-B Moon](../assets/cards/card-28.webp){ .card-mini } ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } |
+| Ame-shiko (4 Brights with Rain Man) | 7 | ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![08-B Moon](../assets/cards/card-28.webp){ .card-mini } or ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } |
+| Sanko (3 Brights, no Rain Man) | 5 | ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![08-B Moon](../assets/cards/card-28.webp){ .card-mini } or ![01-B Crane](../assets/cards/card-00.webp){ .card-mini } ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } |
+| Hanami-zake (Curtain + Sake Cup) | 5 | ![03-B Curtain](../assets/cards/card-08.webp){ .card-mini } ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-mini } |
+| Tsukimi-zake (Moon + Sake Cup) | 5 | ![08-B Moon](../assets/cards/card-28.webp){ .card-mini } ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-mini } |
+| Ino-shika-cho (Butterflies, Boar, Deer) | 5, +1 per other animal | ![06-A Butterflies](../assets/cards/card-20.webp){ .card-mini } ![07-A Boar](../assets/cards/card-24.webp){ .card-mini } ![10-A Deer](../assets/cards/card-36.webp){ .card-mini } |
+| Akatan (3 Poetry ribbons) | 5, +1 per other ribbon | ![01-RP Poetry](../assets/cards/card-01.webp){ .card-mini } ![02-RP Poetry](../assets/cards/card-05.webp){ .card-mini } ![03-RP Poetry](../assets/cards/card-09.webp){ .card-mini } |
+| Aotan (3 Blue ribbons) | 5, +1 per other ribbon | ![06-RB Blue](../assets/cards/card-21.webp){ .card-mini } ![09-RB Blue](../assets/cards/card-33.webp){ .card-mini } ![10-RB Blue](../assets/cards/card-37.webp){ .card-mini } |
+| Akatan + Aotan (all 6) | 10, +1 per other ribbon | ![01-RP Poetry](../assets/cards/card-01.webp){ .card-mini } ![02-RP Poetry](../assets/cards/card-05.webp){ .card-mini } ![03-RP Poetry](../assets/cards/card-09.webp){ .card-mini } ![06-RB Blue](../assets/cards/card-21.webp){ .card-mini } ![09-RB Blue](../assets/cards/card-33.webp){ .card-mini } ![10-RB Blue](../assets/cards/card-37.webp){ .card-mini } |
+| Tane (5+ animals) | n − 4, only if Ino-shika-cho does not apply | ![02-A Warbler](../assets/cards/card-04.webp){ .card-mini } ![04-A Cuckoo](../assets/cards/card-12.webp){ .card-mini } ![05-A Bridge](../assets/cards/card-16.webp){ .card-mini } ![08-A Geese](../assets/cards/card-29.webp){ .card-mini } ![11-A Swallow](../assets/cards/card-41.webp){ .card-mini } + |
+| Tanzaku (5+ ribbons) | n − 4, only if a ribbon set does not apply | ![04-R Ribbon](../assets/cards/card-13.webp){ .card-mini } ![05-R Ribbon](../assets/cards/card-17.webp){ .card-mini } ![06-RB Blue](../assets/cards/card-21.webp){ .card-mini } ![07-R Ribbon](../assets/cards/card-25.webp){ .card-mini } ![11-R Ribbon](../assets/cards/card-42.webp){ .card-mini } + |
+| Kasu (10+ Plains) | k − 9 | ![01-P1 Plain](../assets/cards/card-02.webp){ .card-mini } ![01-P2 Plain](../assets/cards/card-03.webp){ .card-mini } ![02-P1 Plain](../assets/cards/card-06.webp){ .card-mini } ![02-P2 Plain](../assets/cards/card-07.webp){ .card-mini } ![03-P1 Plain](../assets/cards/card-10.webp){ .card-mini } ![03-P2 Plain](../assets/cards/card-11.webp){ .card-mini } ![04-P1 Plain](../assets/cards/card-14.webp){ .card-mini } ![04-P2 Plain](../assets/cards/card-15.webp){ .card-mini } ![05-P1 Plain](../assets/cards/card-18.webp){ .card-mini } ![05-P2 Plain](../assets/cards/card-19.webp){ .card-mini } + |
 
 The exact values, with examples generated from the engine, are on the [Yaku & Scoring](../scoring/yaku.md) page.
 
@@ -48,3 +48,7 @@ You capture Curtain, Moon, and Sake Cup (plus two Plains):
 
 - [Rule set comparison](index.md)
 - [Multipliers](../scoring/multipliers.md)
+
+## Ruleset Source
+
+- [Mario Hanafuda — How to Play Koi-Koi (official Nintendo rules)](https://www.nintendo.com/eu/media/downloads/other_1/my_nintendo_store_3/MyNintendoStore_Manual_Hanafuda_MarioCards_UKV.pdf) — the Nintendo rule booklet this rule set follows: Koi-Koi may be called only once per game, Five Lights 10, Four Lights 8 (7 with the rain card), lucky hands 6.

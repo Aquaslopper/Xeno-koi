@@ -28,8 +28,6 @@ Capturing a card that changes no combo opens no screen. The combos are compared 
 
 <div class="figure-zoom" id="koi-screen-live"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/koi-prompt.webp" width="1920" height="1080" loading="lazy" alt="The Koi-Koi screen open over a darkened board: YAKU DETECTED, the one combo it found with its points and its cards, the base line, the award if you stop now, and the two buttons."></div><a class="figure-zoom-btn" href="#koi-screen-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
 
-*The screen at its own size, over the board it interrupted. Everything on it is `score_captures()` for the pile you have now (`src/ui_screens.c:463` onward), so the row count is the number of combos, not the number of cards - the reason this ruleset keeps asking.*
-
 The Brights growing, stage by stage — each row opens the screen:
 
 ![03-B Curtain](../assets/cards/card-08.webp){ .card-thumb } ![08-B Moon](../assets/cards/card-28.webp){ .card-thumb } ![01-B Crane](../assets/cards/card-00.webp){ .card-thumb }
@@ -42,7 +40,11 @@ The Brights growing, stage by stage — each row opens the screen:
 
 ![11-B Rainman](../assets/cards/card-40.webp){ .card-thumb }
 
-The other rule sets open the screen when the total score goes up. This combo-based trigger is checked by `tools/test_koikoi_trigger.c`, which plays every wiki yaku and every growth stage above through the real engine.
+## High Score Gameplay
+
+Because counted cards stack, a single animal or ribbon beyond the threshold always adds points. Long, greedy captures score quickly. In practice that rewards keeping many cards of the same family.
+
+This is the heart of KK-ADD-10: one round can snowball to hundreds of points or evaporate in a turn. Bank a 30-point pile after two Koi-Koi calls and the award is 180 — 30 × 2 for the 7+ base × 3 for the calls. Let the opponent complete a combo first and their win is doubled while your pile scores nothing.
 
 ## Scoring differences from Nintendo
 
@@ -75,10 +77,6 @@ The other rule sets open the screen when the total score goes up. This combo-bas
 ![01-P1 Plain](../assets/cards/card-02.webp){ .card-mini } ![01-P2 Plain](../assets/cards/card-03.webp){ .card-mini } ![Card 6](../assets/cards/card-06.webp){ .card-mini } ![Card 7](../assets/cards/card-07.webp){ .card-mini } ![Card 10](../assets/cards/card-10.webp){ .card-mini } ![Card 11](../assets/cards/card-11.webp){ .card-mini } ![Card 14](../assets/cards/card-14.webp){ .card-mini } ![Card 15](../assets/cards/card-15.webp){ .card-mini } ![Card 18](../assets/cards/card-18.webp){ .card-mini } ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-mini }
 
 These values are generated from the engine on the [Yaku & Scoring](../scoring/yaku.md) page.
-
-## Why it scores high
-
-Because counted cards stack, a single animal or ribbon beyond the threshold always adds points. Long, greedy captures score quickly. In practice that rewards keeping many cards of the same family.
 
 ## Related
 

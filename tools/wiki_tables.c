@@ -310,44 +310,23 @@ static const char *card_subdir_for_opponent(int i) {
     return (i == CAMPAIGN_OPPONENT_COUNT) ? "deus/" : "";
 }
 
-/* ... but only his own page should show it. His sheet is engraved mono art, and at the 45-88 px
-   a thumbnail gets in a table or a chart it stops reading as a card at all: the month picture,
-   the type and the framing are all in the same grey. A beginner picking a rule set or reading a
-   difficulty curve needs to recognise the Phoenix, not admire the etching, so every listing that
-   is not about him specifically uses the coloured deck, and his dossier keeps the mono one. */
-static const char *card_subdir_for_listing(int i) {
-    (void)i;
-    return "";
-}
-
 static void frag_opponents(void) {
     puts("@@FRAGMENT opponents");
-    puts("| # | Opponent | Unit classification | Favorite card | Focus |");
-    puts("|---:|---|---|---|---|");
+    puts("| Opponent | Unit classification | Favorite card | Focus |");
+    puts("|---|---|---|---|");
     for (int i = 0; i <= 12; i++) {
         const Opponent *o = campaign_get_opponent(i);
         const Card *fc = &CARDS[o->favorite_card_id];
         if (i == CAMPAIGN_OPPONENT_COUNT)
-            printf("| %d | **%s** ([dossier](deus-supremus.md)) | %s | ", i, o->name, o->title);
+            printf("| **%s** ([dossier](deus-supremus.md)) | %s | ", o->name, o->title);
         else
-            printf("| %d | **%s** | %s | ", i, o->name, o->title);
+            printf("| **%s** | %s | ", o->name, o->title);
         printf("![%s](../assets/cards/%scard-%02d.webp){ .card-mini }", fc->name,
-               card_subdir_for_listing(i), o->favorite_card_id);
+               card_subdir_for_opponent(i), o->favorite_card_id);
         printf(" %s (id %d) | %s |\n", fc->name, o->favorite_card_id, o->favorite_combo);
     }
     puts("");
-    puts("Taunt lines:");
-    puts("");
-    puts("| # | Match taunt | Koi-Koi call |");
-    puts("|---:|---|---|");
-    for (int i = 0; i <= 12; i++) {
-        const Opponent *o = campaign_get_opponent(i);
-        printf("| %d | *%s* | *%s* |\n", i, o->taunt_text, o->koi_taunt);
-    }
-    puts("");
-    puts("*(Entity 13's card is shown from the coloured deck here, like everyone else's, because "
-         "his engraved sheet is unreadable at thumbnail size. The art he actually plays you with -- "
-         "all 48 cards -- is on his page.)*");
+
     puts("@@END");
 }
 
@@ -601,7 +580,7 @@ static void frag_roster_meta(void) {
     for (int i = 0; i <= 12; i++) {
         const Opponent *o = campaign_get_opponent(i);
         printf("%d | %s | %d | %s | %s | %s\n", i, o->name, o->favorite_card_id,
-               CARDS[o->favorite_card_id].name, o->favorite_combo, card_subdir_for_listing(i));
+               CARDS[o->favorite_card_id].name, o->favorite_combo, card_subdir_for_opponent(i));
     }
     puts("@@END");
 }

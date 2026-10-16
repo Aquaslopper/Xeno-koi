@@ -42,7 +42,7 @@ accuracy. See [Errata & Known Issues](../errata.md) for what the rulesets do cha
 | 10 | **OCT. DEER** | ![10-A Deer](../assets/cards/card-36.webp){ .card-mini } 10-A Deer | Ino-Shika-Cho | 52% | 74% | 96% |
 | 11 | **NOV. RAIN** | ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } 11-B Rainman | Ribbons | 56% | 77% | 98% |
 | 12 | **DEC. PHOENIX** | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix | Brights | 60% | 80% | 100% |
-| 13 | **ENTITY 13 // DEUS SUPREMUS ([dossier](deus-supremus.md))** | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix | Brights | - | - | **100%** always |
+| 13 | **ENTITY 13 // DEUS SUPREMUS ([dossier](deus-supremus.md))** | ![12-B Phoenix](../assets/cards/deus/card-44.webp){ .card-mini } 12-B Phoenix | Brights | - | - | **100%** always |
 | | *Ramp, 01 to 12* | | | +40 | +30 | +22 |
 
 *Easy, Hard and Master are not picked against [DEUS SUPREMUS](deus-supremus.md): he overrides the band and plays optimally on every turn.*
