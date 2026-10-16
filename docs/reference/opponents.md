@@ -4,6 +4,18 @@ The campaign has **twelve CPU opponents**, one per month, plus the final boss **
 
 Opponents unlock in order. You win a match against the newest opponent to unlock the next one. See [Modes](modes.md) for the unlock rules.
 
+<div class="figure-zoom" id="campaign-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/campaign.webp" width="1920" height="1080" loading="lazy" alt="The campaign select screen: twelve portrait tiles in a row labelled M-01 to M-12, the first nine open and the last three reading LOCKED, the ninth selected with a large portrait beside a dossier that names the unit, its priority yaku, its signature target and three clearance buttons, with START MATCH and BACK below."></div><a class="figure-zoom-btn" href="#campaign-live">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*The whole screen the roster below belongs to. Nine tiles are lit because this save has `unlocked_opponents = 9` and the rule is `i < unlocked_opponents` (`src/campaign.c:119-122`): the number of open sectors, not a list of chosen ones.*
+
+<div class="figure-zoom" id="grid-tiles"><div class="figure-zoom-scroll"><img src="../assets/screenshots/opponent-grid.webp" width="1487" height="210" loading="lazy" alt="The twelve tiles in a row: nine Giger portraits of the monthly units with their slot captions M-01 to M-09, the ninth framed by its selection border, and M-10, M-11 and M-12 as empty cells reading LOCKED."></div><a class="figure-zoom-btn" href="#grid-tiles">zoom the tiles</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*Each tile is the same 176 x 286 atlas cell the cards come from, drawn 68 x 110 and stepped 82 apart (`Rectangle slot = { 155 + i * 82, 96, 68, 110 }`, `src/campaign.c:120-121`) - the portrait is card row 0 of that opponent's month, which is why the twelfth tile looks like the Phoenix.*
+
+<div class="figure-zoom" id="dossier"><div class="figure-zoom-scroll"><img src="../assets/screenshots/dossier-row.webp" width="1014" height="129" loading="lazy" alt="Three lines of the selected opponent's dossier: PRIORITY YAKU: Animals, SIGNATURE TARGET: 09-A Sake Cup (#33), and CLEARANCE PROTOCOL with three buttons reading MASTER (3 RDS), HARD (6 RDS) and EASY (9 RDS), the last one lit."></div><a class="figure-zoom-btn" href="#dossier">zoom the row</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*The two things to know about this row. **The number in brackets is not the card id**: the screen prints `favorite_card_id + 1` (`src/campaign.c:163`), so `09-A Sake Cup (#33)` is `card-32` everywhere in these pages, and the roster table above is 0-based. And the three buttons are not a question - clicking one sets the difficulty, sets Match Length to its clearance number and writes `settings.txt` on the spot (`src/campaign.c:234-252`), which is why the Options screen can look like it changed itself while you were picking an opponent.*
+
 ## Roster
 
 <!-- BEGIN GENERATED: opponents -->

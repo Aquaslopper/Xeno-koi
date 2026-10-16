@@ -97,24 +97,28 @@ to the column and blows it up on click.
 
 ## Screenshots
 
-Six pictures of the running game sit in `docs/assets/screenshots/`: the board in play, a tooltip,
-the Koi-Koi screen, a transmission from DEUS, the match result, and the options screen. They are the
-**only images on this site that no tool can produce** - this repository has no GPU and no headless
-browser, so nothing here can render the game. A frame is captured by hand and imported once:
+Eight pictures of the running game sit in `docs/assets/screenshots/`: the board in play, a
+tooltip, the Koi-Koi screen, a transmission from DEUS, the match result, the options screen, the
+campaign grid and the stats screen. They and the one reference scan beside them are the **only
+images on this site that no tool can produce** - this repository has no GPU and no headless browser,
+so nothing here can render the game. A frame is captured by hand and imported once:
 
 ```bash
 python3 tools/make_screenshots.py --from ~/shots   # re-encode the captures it is given
-python3 tools/make_screenshots.py                  # re-derive the four close-ups
+python3 tools/make_screenshots.py                  # re-derive the seven close-ups
 python3 tools/make_screenshots.py --check          # exit 1 if one is missing or hand-cropped
 ```
 
 Two things about them are not accidents:
 
-- **Nothing is cropped by hand.** The four close-ups are cut from the committed frames at the
+- **Nothing is cropped by hand.** The seven close-ups are cut from the committed frames at the
   rectangles the code draws - the capture lanes at `src/ui_board.c:302`, the decide overlay at
-  `src/ui_screens.c:466`, the transmission panel at `src/ui_taunt.c:43` - scaled by the frame's own
+  `src/ui_screens.c:466`, the transmission panel at `src/ui_taunt.c:43`, the twelve campaign tiles at
+  their `{ 155 + i * 82, 96, 68, 110 }` step from `src/campaign.c:120` - scaled by the frame's own
   ratio (1920 x 1080 of a 1280 x 720 canvas is 1.5, and the tool verifies that against the captures
-  rather than trusting the number). If a panel moves in `src/`, the crop moves with it and
+  rather than trusting the number). Where a picture is not UI pixels - the traditional hanafuda
+  sheet on [Cards](reference/cards.md) - it is imported through the same tool at its own size and its
+  own quality, and cropped by nobody. If a panel moves in `src/`, the crop moves with it and
   `--check` fails on anything trimmed by eye.
 - **They carry their own numbers, and those numbers are the game's.** The Koi-Koi frame says
   "Hanami-zake, 5 pts" because that is what `score_captures()` handed that player in that round.

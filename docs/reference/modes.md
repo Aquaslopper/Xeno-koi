@@ -64,19 +64,30 @@ Nothing here is per-match: BACK (SAVE) writes `settings.txt` and returns you to 
 
 The game records statistics for **finished matches only**. Restarting, abandoning, or closing a match in progress does not count.
 
+<div class="figure-zoom" id="stats-live"><div class="figure-zoom-scroll"><img src="../assets/screenshots/stats.webp" width="1920" height="1080" loading="lazy" alt="The stats screen: twelve rows of numbers on the left under COMBAT TELEMETRY // STATS, and on the right the LAST 10 MATCHES as ten raw record lines, with START REPLAY, SAVE and LOAD under them and SAVE LOG, RESET STATS and BACK along the bottom."></div><a class="figure-zoom-btn" href="#stats-live">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*14 matches, 11 of them won. Read the Difficulty row against the log on the right: it says `Easy 10 | Hard 0 | Master 4` while two of the ten lines end in `deus` - there is no DEUS counter, because a match against him increments the Master total (`src/storage.c:355`). Every number on this screen is a field of `GameStats`, so the rows are exactly what `stats.txt` holds.*
+
+<div class="figure-still"><img src="../assets/screenshots/stats-log.webp" width="729" height="504" loading="lazy" alt="Close-up of the match log: the heading LAST 10 MATCHES and ten lines reading date, time, rounds, ruleset, difficulty, the two scores and the result, for example 2026-10-16 02:52;rounds=9;kk-add-10;easy;you=63;cpu=50;WIN."></div>
+
+*Those are the records themselves, printed as stored. A line is `date time;rounds=N;ruleset;difficulty;you=;cpu=;outcome` (`src/storage.c:377`), which is also what `history.txt` holds, and every line is clickable: the rectangle that draws the highlight and the one that catches the click are the same box (`src/ui_replay.c:378` and `:323`), 400 game px wide (`ROW_W`, `:19`). The text is not clipped to it - on the longest line here it runs to x 1116, 66 px past the box - so the frame you can click is narrower than the line you read, and clicking the tail of a record does nothing.*
+
 Tracked statistics include:
 
 - Matches played, won, lost, and drawn
 - Win rate
 - Rounds won by you and by the CPU
 - Total points for and against
-- Best award in a single round
+- Highest round score (the best single round) and best award (the highest total in a match you
+  won) - two different fields, `highest_round_score` and `best_award` in `src/storage.h:34-35`, and
+  the second row is labelled only "Best Award"
 - Koi-Koi calls by you and by the CPU
-- Matches per difficulty
+- Matches per difficulty. The row has three numbers and no DEUS column: a match against him is
+  counted with Master (`src/storage.c:355`)
 - Current and best win streak
 - Yaku counts, which feed the favourite combo shown on the main menu
 
-Match history is written to `history.txt`, and a report is written to `stats_report.txt`. Both are next to the game.
+Match history is written to `history.txt`, and a report is written to `stats_report.txt`. Both are next to the game. `SAVE LOG` at the bottom left of the screen is what writes the report, and it says so on the screen for a moment (`src/ui_screens.c:345`). `RESET STATS` is the only red button and it asks first: a modal over the panel, `RESET ALL STATS & LOGS?`, `This action cannot be undone.`, CONFIRM or CANCEL (`src/ui_screens.c:346-353`).
 
 ### Replays
 

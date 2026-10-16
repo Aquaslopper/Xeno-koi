@@ -43,6 +43,11 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "assets" / "screenshots"
+MISC_CAP = 2268              # the reference sheet keeps its own width; the click-to-zoom is the point
+# A scan of printed cards is not UI pixels: at native width it measured 2054 KiB lossless, 669 at
+# q95, 500 at q90 and 398 at q85, and shrinking to 1600 wide bought less than the detail it threw
+# away. q90 is where the halftone stops costing bytes.
+MISC_QUALITY = 90
 CANVAS_W, CANVAS_H = 1280, 720        # the game's fixed canvas, src/ui_main.c
 QUALITY = 95
 WEBP = dict(quality=QUALITY, method=6)
@@ -62,6 +67,8 @@ FRAMES = [
      "the mono deck, the round-start banner and DEUS's transmission panel"),
     ("match-result", "match result.png", "the match-over screen with its round ledger"),
     ("options", "option.png", "the whole options screen, every setting at its default"),
+    ("campaign", "camp.png", "the sector grid with one opponent's dossier open"),
+    ("stats", "stats.png", "the stats screen, the last ten matches and the replay controls"),
 ]
 
 # out-name, which frame it is cropped from, and the box in GAME pixels. The boxes are the
@@ -84,6 +91,27 @@ CROPS = [
     # rect to crop against. The box is the panel plus the card it describes.
     ("tooltip-card", "card-tooltip", (660, 300, 292, 136),
      "the tooltip next to the card it is describing"),
+    # Rectangle slot = { 155 + i * 82, 96, 68, 110 } for i in 0..11, src/campaign.c:120, plus the
+    # M-nn captions drawn under the tiles.
+    ("opponent-grid", "campaign", (150, 88, 983, 132),
+     "twelve tiles, nine of them open"),
+    # PRIORITY YAKU at (385, 324), SIGNATURE TARGET at (385, 344), CLEARANCE PROTOCOL at (385, 368)
+    # and the three preset buttons spanning y 364..390 - src/campaign.c:162-180.
+    ("dossier-row", "campaign", (378, 316, 668, 78),
+     "one opponent's dossier, the three rows that matter"),
+    # #define ROW_X 650 / ROW_Y 155 / ROW_W 400 / ROW_STEP 28, src/ui_replay.c:16-20, ten rows, with
+    # the "LAST 10 MATCHES" heading at (650, 120) from src/ui_screens.c:329. The width is not the
+    # rect: the line it draws runs to game x 1116 in this capture, 66 px past the 400-wide highlight,
+    # because draw_text_snapped is not clipped to ROW_W - so the crop follows the text.
+    ("stats-log", "stats", (646, 112, 478, 328),
+     "the match log, ten raw history lines"),
+]
+
+# Not a frame of the canvas: a reference picture the wiki keeps beside the game's own art. It is not
+# the 1280 x 720 canvas at any scale, so it skips the geometry rules above - import only, no crops.
+MISC = [
+    ("deck-sheet", "test.jpg", 2268, 1190,
+     "the 48 cards of a traditional hanafuda sheet, twelve month columns of four"),
 ]
 
 
@@ -131,6 +159,21 @@ def import_from(src: pathlib.Path) -> float:
     return scale or 1.5
 
 
+def import_misc(src: pathlib.Path) -> None:
+    """The reference pictures: no canvas geometry, just a width cap and one encode."""
+    for out, fname, _w, _h, _why in MISC:
+        q = src / fname
+        if not q.exists():
+            print(f"  skip {out}: {fname!r} not in {src}")
+            continue
+        im = Image.open(q).convert("RGB")
+        if im.size[0] > MISC_CAP:
+            im = im.resize((MISC_CAP, round(im.size[1] * MISC_CAP / im.size[0])), Image.LANCZOS)
+        im.save(OUT / f"{out}.webp", "WEBP", quality=MISC_QUALITY, method=6)
+        n = (OUT / f"{out}.webp").stat().st_size
+        print(f"  {out}.webp  {im.size[0]}x{im.size[1]}  {n / 1024:.0f} KiB   (imported)")
+
+
 def crop_all(scale: float) -> None:
     for out, from_frame, (x, y, w, h), why in CROPS:
         src = OUT / f"{from_frame}.webp"
@@ -160,7 +203,7 @@ def scale_of_committed() -> float:
 
 def check() -> int:
     scale = scale_of_committed()
-    missing, bad = [], []
+    missing, bad, refs = [], [], []
     for out, _fname, _why in FRAMES:
         p = OUT / f"{out}.webp"
         if not p.exists():
@@ -178,11 +221,17 @@ def check() -> int:
                        f"{want}")
     if missing:
         print(f"missing screenshots: {', '.join(missing)} - run tools/make_screenshots.py")
+    for out, _fname, _w, _h, _why in MISC:
+        if not (OUT / f"{out}.webp").exists():
+            refs.append(f"{out}.webp is missing")
     for b in bad:
         print("wrong size:", b)
-    if missing or bad:
+    for r in refs:
+        print("reference picture:", r)
+    if missing or bad or refs:
         return 1
-    print(f"screenshots present ({len(FRAMES)} frames, {len(CROPS)} crops).")
+    print(f"screenshots present ({len(FRAMES)} frames, {len(CROPS)} crops, "
+          f"{len(MISC)} reference picture).")
     return 0
 
 
@@ -195,6 +244,8 @@ def main() -> int:
         if not src.is_dir():
             raise SystemExit(f"--from {src} is not a folder of captures")
     scale = import_from(src) if src else 1.5
+    if src:
+        import_misc(src)
     crop_all(scale)
     if src:
         print(f"imported from {src}; crops re-derived at scale {scale}")

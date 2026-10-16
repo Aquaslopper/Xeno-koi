@@ -116,3 +116,14 @@ Normally DEUS SUPREMUS unlocks after all twelve opponents are cleared, on the te
 [Campaign and unlocks](modes.md#campaign-and-unlocks). He is currently open to everyone on purpose
 while the mode is being tested - see [Errata & Known Issues](../errata.md), which is the entry to
 re-check before you assume anything on this page is final.
+
+There is no tile for him. The select screen draws `CAMPAIGN_OPPONENT_COUNT` twelve tiles
+(`src/campaign.c:119`), which are the twelve sectors, and he is the thirteenth entry of the
+opponent table - `g_opponents[CAMPAIGN_OPPONENT_COUNT + 1]` (`src/campaign.h:20`). So you do not
+find him in the grid: you set **Difficulty: DEUS** in Options, and the same screen becomes his
+dossier - the Yakuza ruleset row locked, `THREAT LEVEL: TERMINAL` in red, his lore paragraph, and a
+START MATCH of its own (`src/campaign.c:100-112`). The gate is one line,
+`DEUS_UNLOCKED_FOR_TESTING || unlocked_opponents >= 12` (`src/campaign.c:110`), so a save that has
+cleared all twelve sectors reaches him the intended way and the define is what lets everyone else
+in. On the screen that means a sector tile can read LOCKED while he is reachable, and vice versa -
+they are not the same counter.
