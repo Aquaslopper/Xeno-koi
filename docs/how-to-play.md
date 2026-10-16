@@ -152,9 +152,11 @@ only armed on Easy (`src/ui_main.c:569`), and face-down cards cannot be describe
 registers itself for the tooltip as it is painted face-up (`src/ui_board.c:179`) and the back
 painter cancels the candidate by passing -1 (`:187`).*
 
-- **Play a card:** click and drag a card from your hand onto the table.
+- **Play a card:** drag a card from your hand onto the table, or click it once to select it, then click a matching field card. If it has no match, click an empty part of the field to place it. When two cards match, click the one you want; when three match, all three are captured. Small pointer movements still count as a click.
+- **Selected card:** the card and its matching field cards stay outlined. Click another hand card to change selection; click the selected card again, right-click, or press `Esc` to cancel. This click-selection outline works on every difficulty.
+- **Inspect combos:** click **CPU COMBOS** or **YOUR COMBOS** in the right column. The detail window shows completed combos, their points and cards, the base total, and current multipliers. Use **NEXT / PREVIOUS** for additional combos. **CLOSE**, `Esc`, or `P` resumes play; the CPU, animations, and turn timer stay paused while the window is open. The award preview is what that side would earn if it banked now, not points already awarded. The small panels show shortened previews; the window has the full names.
 - **Choose a target:** when a choice appears, click the card you want to capture. Some choices can be cancelled, and the stock choice cannot.
-- **Pause:** `Esc` or `P`.
+- **Pause:** `P`, or `Esc` when no card is selected or being dragged.
 - **Easy difficulty:** hand cards that can capture glow, and while you drag a card, field cards of the same month glow to help you match. Hover over a face-up card for half a second to see its month/suit, type (including its Japanese name), and card name beside the cursor. This also works on captured cards and cards in choice overlays; face-down cards never reveal metadata. Tooltips disappear when you leave the card, drag, pause, or switch away from Easy difficulty.
 
 ## Winning

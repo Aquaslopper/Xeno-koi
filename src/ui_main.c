@@ -19,6 +19,7 @@
 #include "ui_audio.h"
 #include "ui_screens.h"
 #include "ui_input.h"
+#include "ui_combos.h"
 #include "campaign.h"
 #include "ui_taunt.h"
 #include "replay.h"
@@ -37,6 +38,7 @@ static float transition_alpha = 0.0f, cached_bloom = -1.0f, cached_crt = -1.0f, 
 static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
+static int combo_player = -1, combo_page = 0;
 static int last_replay_round = 0;   /* replay only: last round the deal was shown for */
 static float replay_beat = 0.0f;    /* replay only: pause after a card lands */
 static int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0, human_turn_started = 0, shot_frame = -1, quit_requested = 0;
@@ -126,6 +128,10 @@ static void draw_hover_action_label(const char *label, Rectangle bounds) {
 static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs, Vector2 vm, int paused, int c_restart, int replay) {
     /* Only cards in the foreground overlay may be inspected. */
     card_tooltip_clear();
+    if (combo_player >= 0) {
+        combos_draw_details(ba, gs, combo_player, combo_page);
+        return;
+    }
     if (gs->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(ba, gs, vm);
     else if (gs->phase == PHASE_HAND_CHOICE || gs->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(ba, gs, vm, gs->phase == PHASE_HAND_CHOICE);
     else if (gs->phase == PHASE_DECIDE && gs->current_player == 0) screens_draw_decide_overlay(ba, gs, vm);
@@ -144,6 +150,7 @@ static void update_draw_frame(void) {
         transition_alpha += dt * 2.5f;
         if (transition_alpha >= 1.0f) {
             transition_alpha = 1.0f; transition_dir = -1; screen = transition_target_screen;
+            combo_player = -1; combo_page = 0;
             if (transition_action == 1) {
                 if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
                 anim_init(&anim); memset(&drag, 0, sizeof(drag)); hovered_idx = -1; is_paused = 0; confirm_restart = 0; human_turn_started = 0; deus_banner_timer = 0.0f;
@@ -258,6 +265,17 @@ static void update_draw_frame(void) {
             if (act != ACT_NONE) audio_play_click(&audio);
             if (act == ACT_START_GAME) { int trk = (rand() % 10) + 1; audio_start_match_music(&audio, trk); start_transition(SCREEN_GAME, 1, trk); }
             else if (act == ACT_GOTO_MENU) start_transition(SCREEN_START, 3, 0);
+        } else if (screen == SCREEN_GAME && combo_player >= 0) {
+            /* Own the entire frame, including dismissal: no timer, CPU, replay,
+               animation, or underlying button can advance through this window. */
+            if (combos_handle_details(&g, combo_player, &combo_page, vm)) {
+                combo_player = -1; is_paused = 0; audio_play_click(&audio);
+            }
+        } else if (screen == SCREEN_GAME && !is_paused && !drag.on &&
+                   IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && combos_panel_hit(vm) >= 0 &&
+                   g.phase != PHASE_DEALER_SELECT) {
+            combo_player = combos_panel_hit(vm); combo_page = 0;
+            is_paused = 1; confirm_restart = 0; audio_play_click(&audio);
         } else if (screen == SCREEN_GAME && replay_pb_active()) {
             /* A replay feeds the recorded decisions straight into the engine; there is no
                input and no clock, and nothing here may touch stats or unlocks. Pause and
@@ -350,7 +368,7 @@ static void update_draw_frame(void) {
             }
         } else if (screen == SCREEN_GAME) {
             int pause_toggled = 0;
-            if ((IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) && !drag.on) { is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
+            if (((IsKeyPressed(KEY_ESCAPE) && (!drag.selected || is_paused)) || IsKeyPressed(KEY_P)) && !drag.on) { is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
             else if (IsKeyPressed(KEY_R) && !drag.on) { is_paused = 1; confirm_restart = 1; pause_toggled = 1; }
             else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.on) {
                 if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) { audio_play_click(&audio); is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
@@ -369,7 +387,7 @@ static void update_draw_frame(void) {
                     else if (act == ACT_ABANDON_MATCH) { replay_rec_abort(); is_paused = 0; confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
-            } else if (!is_paused) {
+            } else if (!is_paused && !pause_toggled) {
                 if (g.hitlag_timer > 0.0f) {
                     g.hitlag_timer -= dt;
                     if (g.hitlag_timer < 0.0f) g.hitlag_timer = 0.0f;
@@ -477,12 +495,12 @@ static void update_draw_frame(void) {
                                     if (settings.difficulty == DIFFICULTY_DEUS) {
                                         /* DEUS SUPREMUS only: timer 0 = GAME OVER. No points, no win,
                                            no stats, no record - straight back to the start screen. */
-                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; human_turn_started = 0;
+                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
                                         audio_play_lose(&audio);
                                         deus_banner_timer = 3.0f;
                                         start_transition(SCREEN_START, 3, 0);
                                     } else {
-                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1;
+                                        g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);
                                         replay_rec_timeout(0);
                                         if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
@@ -491,9 +509,9 @@ static void update_draw_frame(void) {
                                 }
                             }
                             if (g.phase == PHASE_TURN_HAND) {
-                                int was_dragging = drag.on;
+                                int hand_before = g.hand_count[0];
                                 input_handle_mouse(&g, &drag, &anim, l, vm, &hovered_idx, 1);
-                                if (was_dragging && !drag.on) {
+                                if (g.hand_count[0] < hand_before) {
                                     if (g.last_captured_count > 0) audio_play_capture(&audio);
                                     else audio_play_drop(&audio);
                                 }
@@ -557,6 +575,7 @@ static void update_draw_frame(void) {
         }
     }
 
+    if (g.phase != PHASE_TURN_HAND || g.current_player != 0) drag.selected = 0;
     int replay_running = replay_pb_active();
     int overlay_active = (screen == SCREEN_GAME) &&
                          (replay_running ? is_paused :
@@ -573,7 +592,7 @@ static void update_draw_frame(void) {
         overlay_alpha = 0.0f; last_overlay_phase = g.phase; last_overlay_paused = is_paused;
     }
 
-    if (screen == SCREEN_GAME && !replay_pb_active()) taunt_update(dt);
+    if (screen == SCREEN_GAME && !replay_pb_active() && !is_paused) taunt_update(dt);
 
     card_tooltip_begin(screen == SCREEN_GAME && !replay_pb_active() && settings.difficulty == DIFFICULTY_EASY &&
                        !is_paused && !drag.on && !cinematic_is_active() &&
@@ -605,7 +624,7 @@ static void update_draw_frame(void) {
         else if (anim.active && anim.type == ANIM_STOCK_FLY) {
             snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
         } else if (g.phase == PHASE_TURN_HAND) {
-            status = (g.current_player == 0) ? "YOUR TURN - DRAG A CARD ONTO THE TABLE" :
+            status = (g.current_player == 0) ? (drag.selected ? "SELECTED - CLICK A MATCH OR EMPTY FIELD / ESC TO CANCEL" : "YOUR TURN - DRAG OR CLICK A CARD TO SELECT") :
                      (anim.active && anim.type == ANIM_CPU_FLY) ? "CPU PLAYS CARD" : "CPU IS THINKING...";
         } else if (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE) status = "CHOOSE ONE OF THE MATCHING CARDS";
         else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
@@ -613,7 +632,7 @@ static void update_draw_frame(void) {
         board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY) : (settings.difficulty == DIFFICULTY_EASY),
                          replay_running, status);
-        if (!replay_pb_active()) taunt_draw();
+        if (!replay_pb_active()) { input_draw_selection(&g, &drag); taunt_draw(); }
 
         if (!is_paused) {
             Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };

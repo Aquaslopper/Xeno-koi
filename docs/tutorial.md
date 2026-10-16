@@ -25,7 +25,7 @@
 
 | Stage | Where the card comes from | Who picks it |
 |---|---|---|
-| **1. your hand** | your 8 cards | you, by dragging one onto the field |
+| **1. your hand** | your 8 cards | you, by dragging one onto the field or selecting it and clicking a target |
 | **2. the stock** | the top of the draw pile | nobody. It is turned over |
 
 Same rule in both stages, drawn as one picture: [how a turn runs](how-to-play.md#turn-flow).

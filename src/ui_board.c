@@ -3,6 +3,7 @@
 #include "board_layout.h"
 #include "ui_motion.h"
 #include "ui_board_status.h"
+#include "ui_combos.h"
 #include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -236,43 +237,6 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
     }
 }
 
-static float draw_combo_panel(float y, const char *title, const ScoreResult *s, int koi_called) {
-    /* The column only has room for five rows per player; anything past that is announced on a
-       "+ N more" line (same convention as the round-result screen) instead of being dropped. */
-    int max_yakus = (s->yaku_count > 5) ? 5 : s->yaku_count, hidden = s->yaku_count - max_yakus, wrapped[5];
-    float row_two = (hidden > 0) ? 30.0f : 34.0f, row_one = (hidden > 0) ? 16.0f : 18.0f, sub_dy = (hidden > 0) ? 15.0f : 17.0f;
-    float base_h = 48.0f, content_h = 0.0f;
-    char full[5][64];
-    for (int i = 0; i < max_yakus; i++) {
-        snprintf(full[i], sizeof(full[i]), "%s: %d", s->yakus[i].name, s->yakus[i].points);
-        wrapped[i] = (MeasureTextEx(font_body, full[i], 16.0f, 1.2f).x > 96.0f);
-        content_h += wrapped[i] ? row_two : row_one;
-    }
-    float total_h = base_h + content_h + (max_yakus > 0 ? 6.0f : 0.0f) + (hidden > 0 ? 18.0f : 0.0f);
-    Rectangle r = { 1160, y, 112, total_h };
-    DrawRectangleRec(r, COLOR_PANEL_BG);
-    ui_draw_panel_border(r, (max_yakus > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_text_ex_snapped(font_title, title, (Vector2){ 1168.0f, y + 8.0f }, 11.0f, 0.8f, COLOR_PHOSPHOR);
-    /* Koi-Koi streak: each call the owner made raises their own multiplier by +1. */
-    const char *koi_str = (koi_called > 0) ? TextFormat(" x%d", koi_caller_multiplier(koi_called)) : "";
-    draw_text_ex_snapped(font_body, TextFormat("Base: %d%s", s->base_points, koi_str),
-               (Vector2){ 1168.0f, y + 25.0f }, 15.0f, 1.0f, (koi_called > 0) ? COLOR_RED : COLOR_TEXT_INFO_DIM);
-    if (max_yakus > 0) {
-        DrawLine(1164, (int)y + 44, 1268, (int)y + 44, COLOR_PHOSPHOR_DIM);
-        float cy = y + 49.0f;
-        for (int i = 0; i < max_yakus; i++) {
-            if (wrapped[i]) {
-                draw_text_ex_snapped(font_body, s->yakus[i].name, (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO);
-                draw_text_ex_snapped(font_body, TextFormat("  -> %d pts", s->yakus[i].points), (Vector2){ 1168.0f, cy + sub_dy }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM); cy += row_two;
-            } else {
-                draw_text_ex_snapped(font_body, full[i], (Vector2){ 1168.0f, cy }, 16.0f, 1.1f, COLOR_TEXT_INFO); cy += row_one;
-            }
-        }
-        if (hidden > 0) draw_text_ex_snapped(font_body, TextFormat("+%d more", hidden), (Vector2){ 1168.0f, cy + 2.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-    }
-    return total_h;
-}
-
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
                       int easy_mode, int replay_mode, const char *status_msg) {
@@ -452,26 +416,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
     board_draw_status_message(status_msg);
 
-    /* 11. Right Column (Cached ScoreResult across frames when captures are unchanged) */
-    Rectangle cp = { 1160, 12, 112, 54 };
-    DrawRectangleRec(cp, COLOR_PANEL_BG); ui_draw_panel_border(cp, COLOR_PHOSPHOR_DIM);
-    draw_text_ex_snapped(font_body, TextFormat("RND %d/%d", g->current_round, g->total_rounds), (Vector2){ 1168.0f, 20.0f }, 14.0f, 1.0f, COLOR_PHOSPHOR);
-    static const char *const rnames[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
-    draw_text_ex_snapped(font_body, rnames[g->ruleset], (Vector2){ 1168.0f, 38.0f }, 11.0f, 0.7f, COLOR_PHOSPHOR_DIM);
-
-    static ScoreResult s_cached_s0, s_cached_s1;
-    static int s_cached_c0 = -1, s_cached_c1 = -1, s_cached_rnd = -1, s_cached_rule = -1;
-    if (g->captured_count[0] != s_cached_c0 || g->current_round != s_cached_rnd || (int)g->ruleset != s_cached_rule) {
-        s_cached_s0 = score_captures(g->ruleset, g->captured[0], g->captured_count[0]);
-        s_cached_c0 = g->captured_count[0];
-    }
-    if (g->captured_count[1] != s_cached_c1 || g->current_round != s_cached_rnd || (int)g->ruleset != s_cached_rule) {
-        s_cached_s1 = score_captures(g->ruleset, g->captured[1], g->captured_count[1]);
-        s_cached_c1 = g->captured_count[1];
-    }
-    s_cached_rnd = g->current_round; s_cached_rule = (int)g->ruleset;
-    float cpu_h = draw_combo_panel(74.0f, "CPU COMBOS", &s_cached_s1, g->koi_called[1]);
-    draw_combo_panel(74.0f + cpu_h + 10.0f, "YOU COMBOS", &s_cached_s0, g->koi_called[0]);
+    /* 11. Fixed-size, clickable combo summaries. */
+    combos_draw_sidebar(g);
 
     Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
     DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);

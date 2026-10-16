@@ -38,6 +38,11 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 3. **[DEUS SUPREMUS](reference/deus-supremus.md) logic.** The DEUS SUPREMUS difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
 4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes & Settings](reference/modes.md).
 
+## Table UI updates
+
+- **Alternative card control:** click a hand card, then a matching field card (or empty field if unmatched). Dragging remains available; matching and scoring are unchanged.
+- **Combo-panel overflow corrected:** the right-column summaries now have fixed bounds and shortened names. Click either panel for paginated details, with play and the turn timer paused until dismissal. Existing gameplay screenshots predate this panel layout; the generated table map reflects it.
+
 ## Verified against the code
 
 The following handoff test cases were checked against the current code and still hold:

@@ -129,6 +129,45 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
     (void)l;
     *hovered_idx = -1;
 
+    if (g->phase != PHASE_TURN_HAND || g->current_player != 0 ||
+        drag->selected > g->hand_count[0]) drag->selected = 0;
+    if (!input_unlocked) return;
+    if (IsKeyPressed(KEY_ESCAPE) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        drag->selected = 0;
+        if (drag->on) {
+            Rectangle slot = board_get_hand_card_rect(drag->idx, g->hand_count[0], 0);
+            anim_start_glide(anim, g->hand[0][drag->idx], drag->pos,
+                             (Vector2){ slot.x, slot.y }, 0.40f);
+            drag->on = 0;
+        }
+        return;
+    }
+
+    /* A selected card only plays on a matching card, or empty field if unmatched.
+       Feed the existing drop resolver so captures and replay recording stay identical. */
+    if (!drag->on && drag->selected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        int cid = g->hand[0][drag->selected - 1], matches = 0, hit = -1;
+        for (int i = 0; i < g->field_count; i++) {
+            int f = g->field[i];
+            if (CARDS[f].month == CARDS[cid].month) matches++;
+            if (CheckCollisionPointRec(vm, board_get_field_card_rect_of(g, f))) hit = f;
+        }
+        if ((hit >= 0 && CARDS[hit].month == CARDS[cid].month) ||
+            (!matches && hit < 0 && CheckCollisionPointRec(vm, board_get_field_rect()))) {
+            drag->idx = drag->selected - 1;
+            Rectangle slot = board_get_hand_card_rect(drag->idx, g->hand_count[0], 0);
+            drag->pos = (Vector2){ slot.x, slot.y };
+            Vector2 target = vm;
+            if (hit >= 0) {
+                Rectangle r = board_get_field_card_rect_of(g, hit);
+                target = (Vector2){ r.x + r.width / 2, r.y + r.height / 2 };
+            }
+            drag->selected = 0;
+            resolve_drop(g, drag, anim, target);
+            return;
+        }
+    }
+
     /* Update hover when not dragging */
     if (!drag->on && input_unlocked && g->phase == PHASE_TURN_HAND && g->current_player == 0) {
         for (int i = g->hand_count[0] - 1; i >= 0; i--) {
@@ -148,6 +187,8 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
             if (CheckCollisionPointRec(vm, r)) {
                 drag->on = 1;
                 drag->idx = i;
+                drag->press = vm;
+                drag->moved = 0;
                 drag->grab = (Vector2){ vm.x - r.x, vm.y - r.y };
                 drag->pos = (Vector2){ r.x, r.y };
                 printf("PRESS hand[%d]=%s at (%d,%d)\n",
@@ -160,20 +201,32 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
 
     /* Drag move: keep grab offset exactly */
     if (drag->on) {
-        drag->pos = (Vector2){ vm.x - drag->grab.x, vm.y - drag->grab.y };
+        float dx = vm.x - drag->press.x, dy = vm.y - drag->press.y;
+        if (dx * dx + dy * dy > 144.0f) { drag->moved = 1; drag->selected = 0; }
+        if (drag->moved) drag->pos = (Vector2){ vm.x - drag->grab.x, vm.y - drag->grab.y };
     }
 
     /* Release: resolve drop */
     if (drag->on && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         drag->on = 0;
+        if (!drag->moved) {
+            drag->selected = (drag->selected == drag->idx + 1) ? 0 : drag->idx + 1;
+            return;
+        }
         Vector2 c = { drag->pos.x + HAND_CARD_W / 2.0f, drag->pos.y + HAND_CARD_H / 2.0f };
         resolve_drop(g, drag, anim, c);
     }
 
-    /* Cancel drag on ESC */
-    if (drag->on && IsKeyPressed(KEY_ESCAPE)) {
-        drag->on = 0;
-        Rectangle slot = board_get_hand_card_rect(drag->idx, g->hand_count[0], 0);
-        anim_start_glide(anim, g->hand[0][drag->idx], drag->pos, (Vector2){ slot.x, slot.y }, 0.40f);
+}
+
+void input_draw_selection(const GameState *g, const DragState *drag) {
+    if (drag->on || !drag->selected || drag->selected > g->hand_count[0] ||
+        g->current_player != 0 || g->phase != PHASE_TURN_HAND) return;
+    int cid = g->hand[0][drag->selected - 1];
+    board_draw_card_glow(motion_get_rect(cid), 1.0f);
+    for (int i = 0; i < g->field_count; i++) {
+        int f = g->field[i];
+        if (CARDS[f].month == CARDS[cid].month)
+            board_draw_card_glow(motion_get_rect(f), 1.0f);
     }
 }
