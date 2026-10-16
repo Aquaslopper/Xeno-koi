@@ -83,6 +83,13 @@ void board_load_assets(BoardAssets *ba) {
         SetTextureFilter(ba->atlas_deus, TEXTURE_FILTER_TRILINEAR);
     }
 
+    ba->coin_gold = LoadTexture(get_path("assets/coin_gold.png"));
+    if (ba->coin_gold.id > 0) { GenTextureMipmaps(&ba->coin_gold); SetTextureFilter(ba->coin_gold, TEXTURE_FILTER_TRILINEAR); }
+    ba->coin_silver = LoadTexture(get_path("assets/coin_silver.png"));
+    if (ba->coin_silver.id > 0) { GenTextureMipmaps(&ba->coin_silver); SetTextureFilter(ba->coin_silver, TEXTURE_FILTER_TRILINEAR); }
+    ba->coin_bronze = LoadTexture(get_path("assets/coin_bronze.png"));
+    if (ba->coin_bronze.id > 0) { GenTextureMipmaps(&ba->coin_bronze); SetTextureFilter(ba->coin_bronze, TEXTURE_FILTER_TRILINEAR); }
+
     Image img = LoadImage(get_path("assets/back.png"));
     if (img.data) {
         float crop_x = (img.width - 945) / 2.0f;
@@ -116,6 +123,9 @@ void board_unload_assets(BoardAssets *ba) {
     if (!ba->assets_loaded) return;
     UnloadTexture(ba->atlas); UnloadTexture(ba->card_back);
     if (ba->atlas_deus.id > 0) UnloadTexture(ba->atlas_deus);
+    if (ba->coin_gold.id > 0) UnloadTexture(ba->coin_gold);
+    if (ba->coin_silver.id > 0) UnloadTexture(ba->coin_silver);
+    if (ba->coin_bronze.id > 0) UnloadTexture(ba->coin_bronze);
     for (int i = 0; i < 8; i++) UnloadTexture(ba->bgs[i]);
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;

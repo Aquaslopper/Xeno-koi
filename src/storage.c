@@ -44,6 +44,7 @@ void storage_load_settings(GameSettings *s) {
     s->gamma = 1.40f;
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
+    s->cleared_mask = 0;
 
     char path[512];
     get_app_path("settings.txt", path, sizeof(path));
@@ -107,6 +108,9 @@ void storage_load_settings(GameSettings *s) {
             } else if (strcmp(k, "current_opponent") == 0) {
                 int co = atoi(v);
                 if (co >= 0 && co <= 12) s->current_opponent = co;
+            } else if (strcmp(k, "cleared_mask") == 0) {
+                unsigned long long cm = strtoull(v, NULL, 10);
+                s->cleared_mask = cm;
             }
         }
     }
@@ -120,7 +124,7 @@ void storage_load_settings(GameSettings *s) {
 }
 
 void storage_save_settings(const GameSettings *s) {
-    char buf[512];
+    char buf[1024];
     const char *diff_str = (s->difficulty == DIFFICULTY_DEUS) ? "deus" :
                            (s->difficulty == DIFFICULTY_MASTER) ? "master" :
                            (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
@@ -149,11 +153,12 @@ void storage_save_settings(const GameSettings *s) {
              "crt_filter=%d\n"
              "gamma=%.2f\n"
              "unlocked_opponents=%d\n"
-             "current_opponent=%d\n",
+             "current_opponent=%d\n"
+             "cleared_mask=%llu\n",
              s->rounds, diff_str, s->master_timer, rule_str, s->background,
              s->bgm_volume, s->sfx_volume, s->anim_speed, col_str,
              s->fullscreen, s->bloom, s->crt_filter, s->gamma,
-             s->unlocked_opponents, s->current_opponent);
+             s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask);
     safe_write_text("settings.txt", buf);
 }
 

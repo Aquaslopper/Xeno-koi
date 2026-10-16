@@ -135,7 +135,11 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
         } else {
             DrawTexturePro(ba->atlas, src, slot, (Vector2){0,0}, 0.0f, (Color){ 15, 15, 15, 255 });
             DrawRectangleRec(slot, (Color){ 0, 0, 0, 210 });
-            DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
+            if (hov || i == selected_opponent) {
+                DrawRectangleLinesEx(slot, 2.0f, YELLOW);
+            } else {
+                DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
+            }
             DrawTextEx(font_body, "LOCKED", (Vector2){ slot.x + 8.0f, slot.y + 45.0f }, 13.0f, 2.0f, (Color){ 160, 160, 160, 255 });
         }
         DrawTextEx(font_body, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f }, 14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
@@ -173,20 +177,59 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
 
         draw_btn_custom(btn_req_m, "MASTER (3 RDS)", 13, vm, is_master ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
         if (is_master) DrawRectangleLinesEx(btn_req_m, 1.5f, COLOR_PHOSPHOR);
+        if (settings->cleared_mask & (1ULL << (selected_opponent * 3 + 2))) {
+            if (ba->coin_gold.id > 0) {
+                float cs = 24.0f;
+                Rectangle src = { 0.0f, 0.0f, (float)ba->coin_gold.width, (float)ba->coin_gold.height };
+                Rectangle dst = { btn_req_m.x + btn_req_m.width - cs - 4.0f, btn_req_m.y - 6.0f, cs, cs };
+                DrawTexturePro(ba->coin_gold, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+            }
+        }
 
         draw_btn_custom(btn_req_h, "HARD (6 RDS)", 13, vm, is_hard ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
         if (is_hard) DrawRectangleLinesEx(btn_req_h, 1.5f, COLOR_PHOSPHOR);
+        if (settings->cleared_mask & (1ULL << (selected_opponent * 3 + 1))) {
+            if (ba->coin_silver.id > 0) {
+                float cs = 24.0f;
+                Rectangle src = { 0.0f, 0.0f, (float)ba->coin_silver.width, (float)ba->coin_silver.height };
+                Rectangle dst = { btn_req_h.x + btn_req_h.width - cs - 4.0f, btn_req_h.y - 6.0f, cs, cs };
+                DrawTexturePro(ba->coin_silver, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+            }
+        }
 
         draw_btn_custom(btn_req_e, "EASY (9 RDS)", 13, vm, is_easy ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
         if (is_easy) DrawRectangleLinesEx(btn_req_e, 1.5f, COLOR_PHOSPHOR);
+        if (settings->cleared_mask & (1ULL << (selected_opponent * 3 + 0))) {
+            if (ba->coin_bronze.id > 0) {
+                float cs = 24.0f;
+                Rectangle src = { 0.0f, 0.0f, (float)ba->coin_bronze.width, (float)ba->coin_bronze.height };
+                Rectangle dst = { btn_req_e.x + btn_req_e.width - cs - 4.0f, btn_req_e.y - 6.0f, cs, cs };
+                DrawTexturePro(ba->coin_bronze, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+            }
+        }
 
         DrawLine(385, 396, 1105, 396, COLOR_PHOSPHOR_DIM);
         draw_text_wrapped(font_body, opp->lore_text, 385.0f, 408.0f, 720.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
     } else {
         DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 385.0f, 260.0f }, 24.0f, 1.2f, COLOR_RED);
-        DrawTextEx(font_body, "DEFEAT PRECEDING TARGETS TO UNLOCK TRANSMISSION", (Vector2){ 385.0f, 295.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+        /* Show only the coin requirement for this opponent */
+        static const int REQ_B[12] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+        static const int REQ_S[12] = { 0, 0, 0, 0, 1, 2, 3, 6, 7, 8, 9, 10 };
+        static const int REQ_G[12] = { 0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 6, 9 };
+        int ri = selected_opponent;
+        if (ri < 0 || ri > 11) ri = 0;
+        char req[128];
+        req[0] = '\0';
+        int pos = 0;
+        int first = 1;
+        if (REQ_B[ri] > 0) { pos += snprintf(req + pos, sizeof(req) - pos, "%s%d BRONZE", first ? "" : ", ", REQ_B[ri]); first = 0; }
+        if (REQ_S[ri] > 0) { pos += snprintf(req + pos, sizeof(req) - pos, "%s%d SILVER", first ? "" : ", ", REQ_S[ri]); first = 0; }
+        if (REQ_G[ri] > 0) { pos += snprintf(req + pos, sizeof(req) - pos, "%s%d GOLD", first ? "" : ", ", REQ_G[ri]); first = 0; }
+        if (first) snprintf(req, sizeof(req), "NONE");
+        char line[160];
+        snprintf(line, sizeof(line), "REQUIRES: %s", req);
+        DrawTextEx(font_body, line, (Vector2){ 385.0f, 295.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         DrawLine(385, 325, 1105, 325, COLOR_PHOSPHOR_DIM);
-        draw_text_wrapped(font_body, opp->lore_text, 385.0f, 350.0f, 720.0f, 17.0f, 2.0f, COLOR_TEXT_INFO_DIM);
     }
 
     /* Bottom Buttons */
@@ -219,14 +262,12 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
 
     if (*out_selected < 0 || *out_selected >= CAMPAIGN_OPPONENT_COUNT) *out_selected = 0;
 
-    /* Mini portraits */
+    /* Mini portraits: allow inspecting any opponent, including locked ones */
     for (int i = 0; i < CAMPAIGN_OPPONENT_COUNT; i++) {
         Rectangle slot = { 155.0f + i * 82.0f, 96.0f, 68.0f, 110.0f };
         if (CheckCollisionPointRec(vm, slot)) {
-            if (i < unlocked_opponents) {
-                *out_selected = i;
-                return 2;
-            }
+            *out_selected = i;
+            return 2;
         }
     }
 
@@ -258,4 +299,37 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
     }
 
     return 0;
+}
+
+static const int UNLOCK_REQ_B[12] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+static const int UNLOCK_REQ_S[12] = { 0, 0, 0, 0, 1, 2, 3, 6, 7, 8, 9, 10 };
+static const int UNLOCK_REQ_G[12] = { 0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 6, 9 };
+
+static void count_coins(unsigned long long mask, int *b, int *s, int *g) {
+    *b = 0; *s = 0; *g = 0;
+    for (int i = 0; i < 12; i++) {
+        if (mask & (1ULL << (i * 3 + 0))) (*b)++;
+        if (mask & (1ULL << (i * 3 + 1))) (*s)++;
+        if (mask & (1ULL << (i * 3 + 2))) (*g)++;
+    }
+}
+
+int campaign_update_unlocks(GameSettings *settings) {
+    if (!settings) return 0;
+    int changed = 0;
+    int b, s, g;
+    count_coins(settings->cleared_mask, &b, &s, &g);
+    while (settings->unlocked_opponents < 12) {
+        int idx = settings->unlocked_opponents; /* 0-based opponent index to unlock */
+        if (idx < 0 || idx > 11) break;
+        if (b >= UNLOCK_REQ_B[idx] && s >= UNLOCK_REQ_S[idx] && g >= UNLOCK_REQ_G[idx]) {
+            settings->unlocked_opponents++;
+            changed = 1;
+        } else {
+            break;
+        }
+    }
+    if (settings->unlocked_opponents > 12) settings->unlocked_opponents = 12;
+    if (settings->unlocked_opponents < 1) settings->unlocked_opponents = 1;
+    return changed;
 }

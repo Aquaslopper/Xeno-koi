@@ -43,7 +43,7 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm);
 ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, AudioAssets *audio, Vector2 vm);
 
 /* Stats Screen */
-void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const MatchHistory *h, Vector2 vm, int confirm_reset, float log_timer);
+void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const GameSettings *settings, const MatchHistory *h, Vector2 vm, int confirm_reset, float log_timer);
 ScreenAction screens_handle_stats_click(Vector2 vm, int *confirm_reset);
 
 /* Credits Screen */
