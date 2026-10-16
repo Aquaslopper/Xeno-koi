@@ -20,7 +20,7 @@ WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU
 1. **The code** (`src/`) decides what the game does.
 2. **The wiki** (`docs/`, published from `mkdocs.yml`) explains the current rules. It is the reference for players and contributors.
 3. **`HANDOFF_KoiKoi_Giger_v2.pdf` is legacy.** It is the original build spec from 11 Oct 2026. Do not implement or document rules from it. Where it disagrees with the code or the wiki, the handoff is out of date. [`docs/errata.md`](docs/errata.md) lists each difference.
-4. **`STATUS.md` is a legacy snapshot** of one earlier session.
+4. **`STATUS.md` is the current development handoff**, not a rulebook or deployment record. Update its date, completed work, checks actually run, and remaining verification when handing off a meaningful change. Its explicitly marked historical section is not current status.
 
 If a handoff rule and the wiki disagree, follow the wiki and the code, and say so in your summary.
 
@@ -57,7 +57,7 @@ CI runs the same checks (`.github/workflows/docs.yml`) and fails if the generate
 - The flow diagrams in `docs/assets/figures/` (`turn-flow.png` on How to Play, `award-pipeline.png` on Multipliers & Awards) are drawn by `tools/make_flow_figures.py` from the stage order in `src/engine.c` and the gates in `calculate_award()` -- never edit the PNGs, and never put numbers in them, because totals belong in the generated tables. Regenerate with `python3 tools/make_flow_figures.py`, check with `--check`.
 - The six game screenshots in `docs/assets/screenshots/` are hand-captured (the only images here no tool can make) and imported with `python3 tools/make_screenshots.py --from <dir>`; their four close-ups are cropped from them at the rectangles in `src/`, so never trim a PNG by hand. Re-derive with `python3 tools/make_screenshots.py`, check with `--check`.
 - Desktop builds: see `build.sh`. The `linux`, `win`, and `wasm` modes expect raylib in `/tmp`.
-- `build.sh test` expects `tests/test_engine.c`, which is not in this repository.
+- `./build.sh test` runs `tests/test_engine.c` (500 simulated matches plus deck and scoring checks). `./tests/test_table_ui.sh` runs headless table input and combo-panel checks; it needs Raylib headers at `RAYLIB_SRC` (default `/tmp/raylib/src`), but not the Raylib library.
 - Do not commit build output: `koikoi_linux`, `test_engine`, `dist/`, `site/`, or compiled tool binaries. Build tools to `/tmp`.
 
 ## Code changes
