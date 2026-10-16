@@ -10,6 +10,7 @@
  *   gcc -std=c99 -O2 -Isrc tools/wiki_tables.c src/cards.c src/rules.c -o wiki_tables
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "cards.h"
 #include "campaign.h"
@@ -350,6 +351,216 @@ static void frag_opponents(void) {
     puts("@@END");
 }
 
+/* ---------------------------------------------------------------------------
+ * The tutorial's worked round.
+ *
+ * One round, played out step by step, so docs/tutorial.md can show a hand instead of
+ * describing one. Nothing here is typed in: the turn list is checked against the real
+ * CARDS[] table and then fed through the same score_captures() and calculate_award()
+ * the game calls, so a page cannot claim points the engine would not pay.
+ *
+ * The deal is chosen so that one sequence teaches all three capture rules and ends on
+ * the only decision that matters -- bank it or push. Field months are 1,1,2,3,4,5,6,8:
+ * one pair and no four-of-a-kind, which is legal, because the deal the engine accepts is
+ * the one where has_four_of_month_or_four_pairs() (src/engine.c:36-44) says no. The same
+ * mirror of that predicate below refuses to generate the page if a future CARDS[] change
+ * turns this into a misdeal, an illegal hand, or a capture that never happened.
+ */
+/* A turn, as it would be played: one card from the hand, what it took, the card the stock
+   turned over, what that took. `choice` marks a turn where the field held two matches, so the
+   player had to pick -- the one thing of Koi-Koi's that a paragraph cannot teach. */
+typedef struct {
+    int played;
+    int took[2];            /* field cards taken by the played card, -1 padding */
+    int stock;              /* the top card of the stock                         */
+    int stock_took[2];      /* what the stock card then matched on its own       */
+    int choice;
+} TutTurn;
+
+static const int TUT_FIELD[8] = { 0, 1, 5, 10, 13, 17, 20, 28 };
+static const int TUT_HAND[8]  = { 3, 4, 8, 12, 16, 29, 32, 40 };
+
+/* turn 1  03-B Curtain takes 03-P1; the stock's 07-A Boar finds no July and stays face-up
+   turn 2  08-A Geese takes 08-B Moon; the stock's 06-RB Blue does find 06-A Butterflies, so
+           it captures without being asked -- you never choose the stock card, and it never
+           comes into your hand
+   turn 3  01-P2 Plain matches two January cards, so you pick one. Both picks are scored below. */
+static const TutTurn TUT_TURNS[3] = {
+    { 8,  { 10, -1 }, 24, { -1, -1 }, 0 },
+    { 29, { 28, -1 }, 21, { 20, -1 }, 0 },
+    { 3,  { 0,  -1 }, 31, { -1, -1 }, 1 },
+};
+static const int TUT_TAKE_THE_OTHER = 1;    /* turn 3: take the 01-RP Poetry ribbon instead */
+
+/* engine.c:36-44, mirrored so the guard can run while the docs are generated. */
+static int tut_is_void_deal(const int *cards, int n) {
+    if (n != 8) return 0;
+    int mc[13] = {0}, pairs = 0;
+    for (int i = 0; i < 8; i++) mc[CARDS[cards[i]].month]++;
+    for (int m = 1; m <= 12; m++) {
+        if (mc[m] == 4) return 1;
+        if (mc[m] == 2) pairs++;
+    }
+    return pairs == 4;
+}
+
+static int tut_in(const int *set, int n, int id) {
+    for (int i = 0; i < n; i++) if (set[i] == id) return 1;
+    return 0;
+}
+
+static void tut_fail(int turn, const char *what) {
+    fprintf(stderr, "tutorial: turn %d %s - the example no longer matches the engine. Fix the "
+                    "ids in tools/wiki_tables.c rather than the page.\n", turn, what);
+    exit(1);
+}
+
+/* How many cards a played card may take: one match takes it, three take all three, two take
+   exactly one. That is the rule, so the example is checked against it rather than described. */
+static int tut_takes_allowed(int matches) { return matches == 2 ? 1 : matches; }
+
+static int tut_count_matches(const int *field, int nf, int card) {
+    int n = 0;
+    for (int f = 0; f < nf; f++) if (CARDS[field[f]].month == CARDS[card].month) n++;
+    return n;
+}
+
+static void tut_remove(int *field, int *nf, int id) {
+    for (int f = 0; f < *nf; f++)
+        if (field[f] == id) { field[f] = field[*nf - 1]; (*nf)--; return; }
+}
+
+static void tut_validate(void) {
+    if (tut_is_void_deal(TUT_FIELD, 8)) {
+        fprintf(stderr, "tutorial: the example field is a misdeal\n");
+        exit(1);
+    }
+    if (tut_is_void_deal(TUT_HAND, 8)) {
+        fprintf(stderr, "tutorial: the example hand is a lucky hand (Teshi or Kuttsuki)\n");
+        exit(1);
+    }
+    int used[48] = {0};
+    for (int i = 0; i < 8; i++) {
+        if (used[TUT_FIELD[i]] || used[TUT_HAND[i]]) {
+            fprintf(stderr, "tutorial: a card appears twice in the example deal\n");
+            exit(1);
+        }
+        used[TUT_FIELD[i]] = 1;
+        used[TUT_HAND[i]] = 1;
+    }
+
+    int field[8], nf = 8;
+    memcpy(field, TUT_FIELD, sizeof field);
+    for (int t = 0; t < 3; t++) {
+        int played = TUT_TURNS[t].played;
+        int took = 0, matches;
+        for (int k = 0; k < 2; k++) if (TUT_TURNS[t].took[k] >= 0) took++;
+        if (!tut_in(TUT_HAND, 8, played)) tut_fail(t + 1, "plays a card that is not in the hand");
+        matches = tut_count_matches(field, nf, played);
+        if (took != tut_takes_allowed(matches)) {
+            char m[96];
+            snprintf(m, sizeof m, "takes %d card(s) when the field has %d match(es) of month %d "
+                                  "(allowed: %d)", took, matches, CARDS[played].month,
+                     tut_takes_allowed(matches));
+            tut_fail(t + 1, m);
+        }
+        if (TUT_TURNS[t].choice && matches != 2) tut_fail(t + 1, "was meant to offer a choice");
+        for (int k = 0; k < 2; k++) {
+            int id = TUT_TURNS[t].took[k];
+            if (id < 0) continue;
+            if (!tut_in(field, nf, id)) tut_fail(t + 1, "captures a card that is not on the field");
+            if (CARDS[id].month != CARDS[played].month) tut_fail(t + 1, "captures a different month");
+            tut_remove(field, &nf, id);
+        }
+        used[played] = 1;
+        if (took == 0) field[nf++] = played;           /* no match: it stays face-up */
+
+        int stock = TUT_TURNS[t].stock;
+        int stok = 0;
+        for (int k = 0; k < 2; k++) if (TUT_TURNS[t].stock_took[k] >= 0) stok++;
+        if (used[stock]) tut_fail(t + 1, "turns over a card that is already somewhere else");
+        used[stock] = 1;
+        matches = tut_count_matches(field, nf, stock);
+        if (stok != tut_takes_allowed(matches)) {
+            char m[96];
+            snprintf(m, sizeof m, "stock card takes %d but the field has %d match(es)", stok, matches);
+            tut_fail(t + 1, m);
+        }
+        for (int k = 0; k < 2; k++) {
+            int id = TUT_TURNS[t].stock_took[k];
+            if (id < 0) continue;
+            if (CARDS[id].month != CARDS[stock].month) tut_fail(t + 1, "stock capture spans months");
+            tut_remove(field, &nf, id);
+        }
+        if (stok == 0) field[nf++] = stock;
+    }
+}
+
+static void tut_pile_cells(const int *pile, int n) {
+    for (int i = 0; i < n; i++) {
+        printf("![%s](assets/cards/card-%02d.webp){ .card-mini }", CARDS[pile[i]].name, pile[i]);
+        if (i + 1 < n) printf(" ");
+    }
+}
+
+/* Prints the yaku the engine found and hands back the base points it scored them at. */
+static int tut_verdict(Ruleset rs, const int *pile, int n) {
+    ScoreResult sr = score_captures(rs, pile, n);
+    if (sr.yaku_count == 0) {
+        printf("*nothing to score yet* = **0**");
+        return 0;
+    }
+    for (int i = 0; i < sr.yaku_count; i++)
+        printf("%s %d%s", yaku_name_of(sr.yakus[i].id), sr.yakus[i].points,
+               (i + 1 < sr.yaku_count) ? " + " : " ");
+    printf("= **%d**", sr.base_points);
+    return sr.base_points;
+}
+
+/* The cards a player holds after `turns` turns. last_take overrides which of the two January
+   cards turn 3 keeps, so the other choice is scored from the same source of truth. */
+static int tut_build(int turns, int last_take, int *out) {
+    int n = 0;
+    for (int t = 0; t < turns; t++) {
+        out[n++] = TUT_TURNS[t].played;
+        int take = (t == turns - 1 && last_take >= 0) ? last_take : TUT_TURNS[t].took[0];
+        if (take >= 0) out[n++] = take;
+        for (int k = 0; k < 2; k++)
+            if (TUT_TURNS[t].stock_took[k] >= 0) out[n++] = TUT_TURNS[t].stock_took[k];
+    }
+    return n;
+}
+
+static void tut_row(const char *when, int turns, int last_take) {
+    int pile[24], n = tut_build(turns, last_take, pile);
+    printf("| %s | ", when);
+    tut_pile_cells(pile, n);
+    printf(" | ");
+    int base = tut_verdict(RULESET_KK_ADD_10, pile, n);
+    printf(" | %d | %d | %d |\n", calculate_award(base, 0, 0), calculate_award(base, 1, 0),
+           calculate_award(base, 0, 1));
+}
+
+static void frag_tutorial_worked(void) {
+    tut_validate();
+    puts("@@FRAGMENT tutorial-worked");
+    puts("| After | You have captured | What `score_captures()` makes of it | Bank it now | "
+         "You called Koi-Koi once | He called it, you won |");
+    puts("|:--|:--|:--|--:|--:|--:|");
+    tut_row("**turn 1**", 1, -1);
+    tut_row("**turn 2**", 2, -1);
+    tut_row("**turn 3**, you take the Crane", 3, -1);
+    tut_row("**turn 3**, you take the ribbon", 3, TUT_TAKE_THE_OTHER);
+    puts("");
+    puts("*Base points and every award above come from this build's `score_captures()` and "
+         "`calculate_award()` in `src/rules.c`, on the card ids in `src/cards.c`, under "
+         "KK-ADD-10 -- the ruleset the game defaults to (`src/storage.c:35`). Nothing in this "
+         "table is typed: the generator stops with an error if a capture in the example stops "
+         "matching by month, if the deal turns into a misdeal, or if the third turn stops "
+         "offering a real choice.*");
+    puts("@@END");
+}
+
 /* Card names and their atlas cells, for the DEUS SUPREMUS study grid. Data only - the generator
    places no part of it on a page, it just must not guess where a card sits. Cell mapping is
    board_draw_card()'s: column id >> 2 (month - 1), row id & 3 (slot). */
@@ -421,5 +632,6 @@ int main(void) {
     frag_deus_dossier();
     frag_card_cells();
     frag_roster_meta();
+    frag_tutorial_worked();
     return 0;
 }

@@ -154,6 +154,7 @@ Each round's award goes to the round winner. Points accumulate across the match,
 
 ## Next steps
 
+- Want it shown instead of described? [Play it in three turns](tutorial.md) walks one round, card by card.
 - Choose a rule set: [Rulesets](rulesets/index.md)
 - Learn what each combination scores: [Yaku & Scoring](scoring/yaku.md)
 - Understand how multipliers stack: [Multipliers](scoring/multipliers.md)

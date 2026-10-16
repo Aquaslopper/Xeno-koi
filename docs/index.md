@@ -10,6 +10,7 @@ The five **Brights** — the most valuable cards in the deck:
 
 ## Start here
 
+- **Never played?** Go through [Play it in three turns](tutorial.md) -- one round played out, one idea per line, real cards at every step.
 - **New to Koi-Koi?** Read [How to Play](how-to-play.md) first. It covers the deal, a turn, calling Koi-Koi or Shobu, and how a round ends.
 - **Choosing a rule set?** See [Rulesets](rulesets/index.md). The Options menu lets you pick one of five.
 - **Want the exact scoring?** See [Yaku & Scoring](scoring/yaku.md) and [Multipliers](scoring/multipliers.md).

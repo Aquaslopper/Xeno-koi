@@ -30,3 +30,47 @@ img.card-tiny {
   border-radius: 4px;
   margin-right: 4px;
 }
+
+/* A figure wider than the article column: shown fitted, blown up on click. Same :target
+   pattern as docs/stylesheets/deus-atlas.css, so one gesture works everywhere on the site.
+   The 1280px below is the figure's own pixel width, which is the game's canvas width. */
+.table-map {
+  margin: 1rem 0;
+}
+
+.table-map-scroll {
+  overflow: hidden;
+}
+
+.table-map-scroll img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.table-map-btn {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: .72rem;
+}
+
+.table-map .table-map-close {
+  display: none;
+}
+
+.table-map:target .table-map-scroll {
+  overflow: auto;
+  max-height: 82vh;
+}
+
+.table-map:target .table-map-scroll img {
+  width: 1280px;
+}
+
+.table-map:target .table-map-btn:not(.table-map-close) {
+  display: none;
+}
+
+.table-map:target .table-map-close {
+  display: inline-block;
+}

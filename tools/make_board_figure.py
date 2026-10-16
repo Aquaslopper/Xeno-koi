@@ -84,8 +84,8 @@ CPU_STEP = 62.0
 AXIS_X = 710.0
 CELL_W, CELL_H = 176, 286
 
-FIELD_IDS = [0, 5, 10, 13, 17, 20, 24, 28]
-HAND_IDS = [33, 36, 37, 40, 41, 42, 44, 45]
+FIELD_IDS = [0, 1, 5, 10, 13, 17, 20, 28]
+HAND_IDS = [3, 4, 8, 12, 16, 29, 32, 40]
 STOCK_COUNT, HAND_COUNT = 24, 8
 
 # Each region number, at the top-left of a free spot beside the thing it labels. They are

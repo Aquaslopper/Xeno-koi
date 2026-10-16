@@ -35,7 +35,7 @@ This is not a screenshot and not a sketch. It is the geometry in `src/` painted 
 
 Three things worth noticing. Everything in play is centred on **x = 710**, not the canvas centre at 640, and the left column stops at 267 while the right starts at 1160. A field card is painted **smaller** than a hand card (76 x 124 against 88 x 143) and grows or shrinks mid-flight instead of popping. And four regions are missing from the map because they have no rectangle to hold: **1** is the background, and **6**, **8** and **9** -- the stock card just revealed, the card under your cursor, and cards in flight -- only exist for a moment.
 
-The state shown is the opening of a round, which is the only state where every count is fixed by the rules: 8 to you, 8 to him, 8 on the field, 24 in the stock, no captures yet. The cards are the real art, cropped from `assets/atlas.png`, and the eight on the field are one card from each of eight different months on purpose -- four of a month, or four pairs, on the field is a misdeal the engine would reject.
+The state shown is the opening of a round, which is the only state where every count is fixed by the rules: 8 to you, 8 to him, 8 on the field, 24 in the stock, no captures yet. The cards are the real art, cropped from `assets/atlas.png`. Two January cards sit on that field on purpose -- a pair is legal, while all four of a month or exactly four pairs is a misdeal the engine redeals (`has_four_of_month_or_four_pairs()`, `src/engine.c:36-44`) -- and the opening is the same one `docs/tutorial.md` is played out on, so the picture and the walkthrough are one table.
 
 ## Screenshots
 
