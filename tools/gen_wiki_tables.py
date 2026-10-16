@@ -283,48 +283,15 @@ def chart_card_cells(fragments: dict) -> dict:
     return cells
 
 
-def render_deus_map_markdown(denial: list, cells: dict) -> str:
-    """His atlas as one sheet, framed by the grid the engine actually uses.
-
-    Raw HTML, written without blank lines, because markdown would end the block mid-grid. The
-    cells are anchors rather than a script: clicking one sets the hash, deus-atlas.css does the
-    rest. Which cells are framed comes from SPECIAL_CARDS[], so the marking follows the AI.
-    """
-    framed = set(denial)
-    cols = "".join(f"<span>{m + 1:02d}</span>" for m in range(12))
-    rows = "".join(f"<span>slot {r}</span>" for r in range(4))
-    marks = []
-    for cid in range(48):
-        name, col, row = cells[cid]
-        klass = "deus-map-cell denial" if cid in framed else "deus-map-cell"
-        tip = f"{name} - id {cid}, column {col + 1}, row {row}"
-        if cid in framed:
-            tip += " - he counts this one"
-        marks.append(f'<a class="{klass}" style="grid-area:{row + 1}/{col + 1}" '
-                     f'href="#deus-atlas-study" title="{tip}"></a>')
+def render_deus_map_markdown() -> str:
+    """The unmarked atlas links directly to its full-size image in a new tab."""
     return (
-        '<div class="deus-map" id="deus-atlas-study">\n'
-        '<div class="deus-map-bar">'
-        '<a class="deus-map-btn deus-map-zoom" href="#deus-atlas-study">zoom the sheet</a>'
-        '<a class="deus-map-btn deus-map-close" href="#">close</a>'
-        '<span class="deus-map-key"><i></i> '
-        f"{len(denial)} cards he counts before calling Koi-Koi</span>"
-        '<span>hover a cell for the card, click to blow it up</span></div>\n'
-        '<div class="deus-map-scroll"><div class="deus-map-body">\n'
-        f'<div class="deus-map-x">{cols}</div>\n'
-        f'<div class="deus-map-y">{rows}</div>\n'
-        '<div class="deus-map-cells">'
-        '<a class="deus-map-open" href="#deus-atlas-study">'
-        # Two dots up, not one: mkdocs rewrites paths in markdown, but never inside raw HTML, and
-        # this block is HTML. The page is published at /reference/deus-supremus/, so the src has to
-        # be counted from there (docs/reference/x.md -> ../assets/ is only right in the source).
-        '<img src="../../assets/deus-atlas.webp" width="2112" height="1144" loading="lazy" alt="'
-        "The whole DEUS SUPREMUS atlas: 48 mono cards in twelve month columns and four slot "
-        f'rows, with {len(denial)} of them framed in his own lightest grey"></a>'
-        + "".join(marks)
-        + "</div>\n</div></div>\n</div>"
+        '<a href="../../assets/deus-atlas.webp" target="_blank" '
+        'rel="noopener noreferrer">'
+        '<img src="../../assets/deus-atlas.webp" width="2112" height="1144" loading="lazy" '
+        'alt="The DEUS SUPREMUS mono atlas: 48 cards in twelve month columns and four slot rows.">'
+        '</a>'
     )
-
 
 def render_chart_svg(curves: dict, roster: list) -> str:
     """One column per opponent: his card, his three bands. Deus sits above the whole roster."""
@@ -513,8 +480,7 @@ def main() -> int:
         fragments = parse_fragments(build_and_run(pathlib.Path(tmp)))
     curves = chart_curves()
     roster = chart_roster(fragments)
-    fragments[DEUS_MAP_FRAGMENT] = render_deus_map_markdown(chart_denial_set(),
-                                                             chart_card_cells(fragments))
+    fragments[DEUS_MAP_FRAGMENT] = render_deus_map_markdown()
     fragments[CHART_FRAGMENT] = render_chart_markdown(curves, roster)
 
     seen = set()

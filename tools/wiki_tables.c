@@ -550,8 +550,8 @@ static void frag_card_cells(void) {
     puts("@@END");
 }
 
-/* His own dossier, quoted from the roster instead of paraphrased: while the mode is being tuned,
-   the wiki should show what the game actually says. */
+/* His dossier table is generated from the roster; the wiki's narrative voice is maintained
+   separately in the page prose. */
 static void frag_deus_dossier(void) {
     const Opponent *o = campaign_get_opponent(CAMPAIGN_OPPONENT_COUNT);
     const Card *fc = &CARDS[o->favorite_card_id];
@@ -566,10 +566,6 @@ static void frag_deus_dossier(void) {
            o->favorite_card_id, fc->name, o->favorite_card_id);
     printf("| **Match taunt** | *%s* |\n", o->taunt_text);
     printf("| **On a Koi-Koi call** | *%s* |\n", o->koi_taunt);
-    puts("");
-    printf("> %s\n", o->lore_text);
-    puts("");
-    puts("*(generated from `g_opponents[12]` in `src/cards.c` - his text, not a paraphrase)*");
     puts("@@END");
 }
 
