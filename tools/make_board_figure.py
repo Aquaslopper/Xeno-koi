@@ -34,8 +34,8 @@ Rectangles, each with the line it was copied from:
   10. status line  text only, centred on x=710 at y=529 in 18px (board_draw_status_message,
                    src/ui_board_status.c:73-80), and the Master timer on x=640 at y=505 in 22px
                    (src/ui_board.c:~640-660); dashed guide, since it has no box
-  11. right column (1160, 12, 112, 54) round + ruleset, combo panels (1160, 74/132, 112, 48) --
-                   height is base_h 48 with no rows to draw (draw_combo_panel) -- and PAUSE /
+  11. right column (1160, 12, 112, 66) round + ruleset, fixed combo panels
+                   (1160, 88/316, 112, 218) from src/ui_combos.c, and PAUSE /
                    RESTART at (1160, 560) and (1160, 610), 112 x 40
 
 Regions 1, 6, 8 and 9 are in the paint order but have nothing to place: the background is the
@@ -239,15 +239,18 @@ def main() -> int:
             p.text(body(20), f"{letter} 0", (16, y + 8.5), TEXT_INFO + (255,), 1.4)
 
     # 11. right column: round + ruleset, the two combo panels, PAUSE / RESTART
-    p.panel(1160, 12, 112, 54, PANEL_A)
-    p.border(1160, 12, 112, 54)
-    p.text(body(14), "RND 1/2", (1168, 20), PHOSPHOR + (255,))
-    p.text(body(11), "KK-ADD-10", (1168, 38), PHOSPHOR_DIM + (255,), 0.7)
-    for y, t in ((74.0, "CPU COMBOS"), (132.0, "YOU COMBOS")):
-        p.panel(1160, y, 112, 48, PANEL_A)
-        p.border(1160, y, 112, 48)
-        p.text(title(11), t, (1168, y + 8), PHOSPHOR + (255,), 0.8)
-        p.text(body(15), "Base: 0", (1168, y + 25), TEXT_INFO + (200,))
+    p.panel(1160, 12, 112, 66, PANEL_A)
+    p.border(1160, 12, 112, 66)
+    p.text(body(16), "RND 1/2", (1168, 20), PHOSPHOR + (255,), 0.5)
+    p.text(body(16), "KK-ADD-10", (1168, 47), TEXT_INFO + (255,), 0.5)
+    for y, t in ((88.0, "CPU COMBOS"), (316.0, "YOUR COMBOS")):
+        p.panel(1160, y, 112, 218, PANEL_A)
+        p.border(1160, y, 112, 218, PHOSPHOR)
+        p.text(body(13), t, (1168, y + 8), PHOSPHOR + (255,), 0.5)
+        p.text(body(16), "Base: 0", (1168, y + 29), TEXT_INFO + (255,), 0.5)
+        p.text(body(14), "Koi: x1", (1168, y + 49), TEXT_INFO + (200,), 0.5)
+        p.text(body(13), "No combos yet", (1168, y + 78), TEXT_INFO + (200,), 0.5)
+        p.text(body(12), "CLICK TO VIEW", (1168, y + 197), PHOSPHOR + (255,), 0.5)
     for y, t in ((560.0, "PAUSE"), (610.0, "RESTART")):
         p.panel(1160, y, 112, 40, PANEL_A)
         p.border(1160, y, 112, 40, PHOSPHOR)

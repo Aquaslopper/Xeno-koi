@@ -83,6 +83,9 @@ jobs:
           cp -r /tmp/raylib_web_cache/src/* /tmp/raylib/src/
           cp /tmp/raylib_web_cache/libraylib.a /tmp/libraylib_web.a
 
+      - name: Run table UI regression tests (headless)
+        run: ./tests/test_table_ui.sh
+
       - name: Build WebAssembly bundle into /play/
         run: |
           ./build.sh wasm

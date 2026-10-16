@@ -31,7 +31,7 @@ This is not a screenshot and not a sketch. It is the geometry in `src/` painted 
 | **5** | The field: two rows at y = 170 and y = 310, 96 px apart, centred inside the 650 x 400 box that starts at x = 430, the spacing shrinking when a row would not fit | `src/board_layout.c:16-27` |
 | **7** | Your hand: 88 x 143 cards, 96 px apart, centred on the same axis, lifted to y = 552 while you hover one | `src/ui_board.c:169-172` |
 | **10** | The status line, centred on x = 710 at y = 529; the Master timer sits above it | `src/ui_board_status.c:73-80` |
-| **11** | Right column: round and rule set, then both players' live combo panels, then PAUSE / RESTART | `src/ui_board.c` |
+| **11** | Right column: round and rule set, then both players' clickable combo panels (paused details), then PAUSE / RESTART | `src/ui_combos.c`, `src/ui_board.c` |
 
 Three things worth noticing. Everything in play is centred on **x = 710**, not the canvas centre at 640, and the left column stops at 267 while the right starts at 1160. A field card is painted **smaller** than a hand card (76 x 124 against 88 x 143) and grows or shrinks mid-flight instead of popping. And four regions are missing from the map because they have no rectangle to hold: **1** is the background, and **6**, **8** and **9** -- the stock card just revealed, the card under your cursor, and cards in flight -- only exist for a moment.
 
