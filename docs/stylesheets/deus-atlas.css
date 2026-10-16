@@ -24,16 +24,10 @@
    lifted to #b9b2ad (7.8:1) and nothing else on the page goes brighter than the art's
    own greys. No red on his page: the only ink here is his.
  
-   Font: UnifrakturMaguntia, SIL OFL 1.1 (Peter Wiegel / j. 'mach' wust), in
-   docs/assets/fonts/ with the licence text beside it - a drawn Textura in the Cloister Black
-   lineage, which is the register his etched mono art works in: high contrast, ornate, cut
-   rather than typed. Nothing blocky belongs next to that art, and neither does a metal logo face.
- 
-   Why not the face people point at ("Ancient", artRAVE Editions on dafont)? It is itself a fan
-   font of Cloister Black and its own note reads "ONLY FOR PERSONAL USE" - fine to look at, not
-   distributable in a public repository documenting a game. The 1913 original is long out of
-   copyright and its revivals are commercial; this OFL cut is the one that can be shipped. If a
-   licensed Cloister Black lands in the repo, it is a two-line swap: the file and the family name.
+   Font: Geizer by Matt Cole Wilson, in docs/assets/fonts/ with its author-supplied terms beside
+   it. The author permits free personal and commercial use, and free redistribution provided the
+   author's site and original download folder are linked; those links are in GEIZER-LICENSE.txt.
+   Source file retrieved from a GitHub mirror of the author's font and license.
    ============================================================================= */
 .deus-title,
 .deus-map {
@@ -45,26 +39,20 @@
 }
 
 @font-face {
-    font-family: "UnifrakturMaguntia";
+    font-family: "Geizer";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url("../assets/fonts/unifrakturmaguntia-latin-400-normal.woff2") format("woff2");
+    src: url("../assets/fonts/geizer.otf") format("opentype");
 }
 
 /* His name, big: the first thing on the page. */
 .md-typeset h1.deus-title {
-    font-family: "UnifrakturMaguntia", "Palatino Linotype", serif;
+    font-family: "Geizer", "Palatino Linotype", serif;
     font-weight: 400;
-    /* "DEUS SUPREMUS" is 9.85em wide in this face (measured from the font's own hmtx, plus the
-       letter-spacing below: 9.92em) and Material's article column is 757px at its widest. So the
-       largest size that keeps his name on ONE line is 757 / 9.92 = 76px, and min() picks the
-       smaller of that and a viewport-relative size for phones: 9vw needs 89% of the width down to
-       a 320px screen. nowrap as the guarantee - a slightly small name is a choice, a name on two
-       lines is a mistake. The 76px ceiling is so that a reader running a 20px default font size
-       gets a name that still fits instead of a page with a sideways scrollbar, and it is why this
-       is min() and not clamp(). Bigger than this only by bleeding the heading out of the column. */
-    font-size: min(76px, 4.6rem, 9vw);
+    /* Geizer renders DEUS SUPREMUS at about 5.26em. This cap keeps it within the article
+       column; the viewport term scales it down on narrow phones, while nowrap prevents wrapping. */
+    font-size: min(136px, 8.5rem, 15.5vw);
     white-space: nowrap;
     line-height: 1.12;
     letter-spacing: 0.005em;
