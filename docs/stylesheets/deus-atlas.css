@@ -19,15 +19,21 @@
    Colour: no palette is invented here. The values below are the six tones that
    quantize() finds in assets/atlas_deus.png itself - #0a0604 at 21.7%, #2a231e
    20.2%, #1d1511 17.3%, #423b38 15.9%, #170d0b 15.1%, #756e6c 9.8%. The lightest
-   of those, #756e6c, is 3.3:1 against the theme background: honest for a 9rem title,
+   of those, #756e6c, is 3.3:1 against the theme background: honest for a 7.5rem display line,
    not honest for anything a person has to read small. So --deus-ink is that same hue
    lifted to #b9b2ad (7.8:1) and nothing else on the page goes brighter than the art's
    own greys. No red on his page: the only ink here is his.
  
-   Font: Jacquard 24, SIL OFL 1.1, docs/assets/fonts/ (licence text alongside it). A
-   heavy blackletter display, and the "24" is literal - it is drawn to be set large,
-   which is the only size his name is ever shown at. It reads as carved, which is what
-   the owner's etched mono art asks for; a metal logo face did not.
+   Font: UnifrakturMaguntia, SIL OFL 1.1 (Peter Wiegel / j. 'mach' wust), in
+   docs/assets/fonts/ with the licence text beside it - a drawn Textura in the Cloister Black
+   lineage, which is the register his etched mono art works in: high contrast, ornate, cut
+   rather than typed. Nothing blocky belongs next to that art, and neither does a metal logo face.
+ 
+   Why not the face people point at ("Ancient", artRAVE Editions on dafont)? It is itself a fan
+   font of Cloister Black and its own note reads "ONLY FOR PERSONAL USE" - fine to look at, not
+   distributable in a public repository documenting a game. The 1913 original is long out of
+   copyright and its revivals are commercial; this OFL cut is the one that can be shipped. If a
+   licensed Cloister Black lands in the repo, it is a two-line swap: the file and the family name.
    ============================================================================= */
 .deus-title,
 .deus-map {
@@ -39,22 +45,24 @@
 }
 
 @font-face {
-    font-family: "Jacquard 24";
+    font-family: "UnifrakturMaguntia";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url("../assets/fonts/jacquard-24-latin-400-normal.woff2") format("woff2"),
-         url("../assets/fonts/jacquard-24-latin-ext-400-normal.woff2") format("woff2");
+    src: url("../assets/fonts/unifrakturmaguntia-latin-400-normal.woff2") format("woff2");
 }
 
 /* His name, big: the first thing on the page. */
 .md-typeset h1.deus-title {
-    font-family: "Jacquard 24", "Segoe UI", serif;
+    font-family: "UnifrakturMaguntia", "Palatino Linotype", serif;
     font-weight: 400;
-    font-size: clamp(3.6rem, 13.5vw, 9.5rem);
-    line-height: 0.9;
-    letter-spacing: 0.02em;
-    margin: 0.15em 0 0.3em;
+    /* Fraktur is tall and narrow and its strokes are the point, so it is set larger than a
+       grotesque would need and given room above the ascenders - clamp on vw so the name still
+       fits one line from a phone to a desktop. */
+    font-size: clamp(3rem, 11vw, 7.5rem);
+    line-height: 1.12;
+    letter-spacing: 0.005em;
+    margin: 0.1em 0 0.26em;
     color: var(--deus-ink);
     border-bottom: 1px solid var(--deus-hair);
     padding-bottom: 0.16em;
