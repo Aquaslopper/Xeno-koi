@@ -107,7 +107,23 @@ void board_load_assets(BoardAssets *ba) {
         "assets/castle.jpg",  "assets/city.jpg", "assets/deus.png",
         "assets/face.jpg", "assets/realm.jpg"
     };
+    /* Bump maps made by tools/make_bg_normal_maps.py. Deus (index 5) is
+       deliberately blank: it keeps its own look without moving lights. */
+    const char *bg_normal_names[8] = {
+        "assets/harvest_normal.png", "assets/hole_normal.png", "assets/arctic_normal.png",
+        "assets/castle_normal.png",  "assets/city_normal.png", "",
+        "assets/face_normal.png",    "assets/realm_normal.png"
+    };
     for (int i = 0; i < 8; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
+    for (int i = 0; i < 8; i++) {
+        ba->bg_normals[i].id = 0;
+        if (bg_normal_names[i][0] == '\0') continue;
+        ba->bg_normals[i] = LoadTexture(get_path(bg_normal_names[i]));
+        if (ba->bg_normals[i].id > 0) {
+            SetTextureFilter(ba->bg_normals[i], TEXTURE_FILTER_BILINEAR);
+            SetTextureWrap(ba->bg_normals[i], TEXTURE_WRAP_CLAMP);
+        }
+    }
 
 #ifdef __EMSCRIPTEN__
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog_web.fs"));
@@ -115,7 +131,12 @@ void board_load_assets(BoardAssets *ba) {
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
 #endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
-    if (ba->has_fog_shader) ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
+    ba->light_normal_loc = ba->light_enabled_loc = -1;
+    if (ba->has_fog_shader) {
+        ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
+        ba->light_normal_loc = GetShaderLocation(ba->fog_shader, "normalMap");
+        ba->light_enabled_loc = GetShaderLocation(ba->fog_shader, "lightEnabled");
+    }
 
     ba->current_bg = 0; ba->assets_loaded = 1;
 }
@@ -127,7 +148,10 @@ void board_unload_assets(BoardAssets *ba) {
     if (ba->coin_gold.id > 0) UnloadTexture(ba->coin_gold);
     if (ba->coin_silver.id > 0) UnloadTexture(ba->coin_silver);
     if (ba->coin_bronze.id > 0) UnloadTexture(ba->coin_bronze);
-    for (int i = 0; i < 8; i++) UnloadTexture(ba->bgs[i]);
+    for (int i = 0; i < 8; i++) {
+        UnloadTexture(ba->bgs[i]);
+        if (ba->bg_normals[i].id > 0) UnloadTexture(ba->bg_normals[i]);
+    }
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;
 }
@@ -245,8 +269,17 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     /* 1. Background with hybrid 3D depth-fog shader */
     if (ba->has_fog_shader) {
+        float light_enabled = (ba->current_bg >= 0 && ba->current_bg < 8 &&
+                               ba->bg_normals[ba->current_bg].id > 0 &&
+                               ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
         BeginShaderMode(ba->fog_shader);
+        /* Register the bump map after BeginShaderMode: rlSetUniformSampler
+           only survives until the next batch flush, and BeginShaderMode
+           flushes. It then rides along with this background draw. */
+        if (light_enabled > 0.0f)
+            SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, ba->bg_normals[ba->current_bg]);
     }
     if (ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0) {
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
