@@ -37,9 +37,9 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
     float xDistance = abs(dot(uv - lightUV, beamAxis));
     float layer80 = 0.10 * lightLayer(xDistance, 1.568);
-    float layer60 = 0.20 * lightLayer(xDistance, 1.176);
-    float layer40 = 0.40 * lightLayer(xDistance, 0.784);
-    float layer20 = 0.80 * lightLayer(xDistance, 0.392);
+    float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
+    float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
+    float layer20 = 0.20 * lightLayer(xDistance, 0.392);
     // Nested bands select the strongest local layer; they do not add into one blob.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
 
