@@ -187,7 +187,10 @@ static void update_draw_frame(void) {
     if (in_game) {
         if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 10) + 1));
         else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 9)) % 10) + 1);
-    } else audio_play_menu_music(&audio);
+    } else {
+        audio_set_reverb(0.0f);
+        audio_play_menu_music(&audio);
+    }
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;

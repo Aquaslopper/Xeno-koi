@@ -4,6 +4,7 @@
 #include "ui_motion.h"
 #include "ui_board_status.h"
 #include "ui_combos.h"
+#include "ui_audio.h"
 #include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -378,6 +379,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
+    audio_set_reverb(thunder_flash);
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {

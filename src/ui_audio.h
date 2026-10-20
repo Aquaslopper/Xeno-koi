@@ -36,6 +36,7 @@ void audio_update(AudioAssets *a);
 
 void audio_set_bgm_volume(AudioAssets *a, float volume);
 void audio_set_sfx_volume(AudioAssets *a, float volume);
+void audio_set_reverb(float amount);
 
 void audio_play_menu_music(AudioAssets *a);
 void audio_start_match_music(AudioAssets *a, int track_1_to_10);

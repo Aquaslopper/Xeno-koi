@@ -2,6 +2,110 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Real-time stereo Schroeder/Freeverb reverb processor attached to music streams.
+   Driven by thunder_flash via audio_set_reverb(amount): spikes with the capture/Koi-Koi
+   flash and smoothly decays back to dry. */
+#define REVERB_COMB_COUNT 4
+#define REVERB_COMB_MAX   2688
+#define REVERB_AP_COUNT   2
+#define REVERB_AP_MAX     400
+
+static const int k_comb_len_l[REVERB_COMB_COUNT] = { 1687, 1933, 2251, 2579 };
+static const int k_comb_len_r[REVERB_COMB_COUNT] = { 1709, 1951, 2273, 2609 };
+static const int k_ap_len_l[REVERB_AP_COUNT]     = { 347, 113 };
+static const int k_ap_len_r[REVERB_AP_COUNT]     = { 367, 131 };
+
+static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
+static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
+static int   s_comb_idx_l[REVERB_COMB_COUNT];
+static int   s_comb_idx_r[REVERB_COMB_COUNT];
+static float s_comb_lp_l[REVERB_COMB_COUNT];
+static float s_comb_lp_r[REVERB_COMB_COUNT];
+
+static float s_ap_buf_l[REVERB_AP_COUNT][REVERB_AP_MAX];
+static float s_ap_buf_r[REVERB_AP_COUNT][REVERB_AP_MAX];
+static int   s_ap_idx_l[REVERB_AP_COUNT];
+static int   s_ap_idx_r[REVERB_AP_COUNT];
+
+static volatile float s_reverb_target = 0.0f;
+static float s_reverb_cur = 0.0f;
+
+void audio_set_reverb(float amount) {
+    if (amount < 0.0f) amount = 0.0f;
+    if (amount > 1.0f) amount = 1.0f;
+    s_reverb_target = amount;
+}
+
+static void music_reverb_processor(void *buffer, unsigned int frames) {
+    float *pcm = (float *)buffer;
+    if (!pcm || frames == 0) return;
+    float target = s_reverb_target;
+
+    for (unsigned int f = 0; f < frames; f++) {
+        s_reverb_cur += (target - s_reverb_cur) * 0.0015f;
+        float rev = s_reverb_cur;
+        float dry_l = pcm[f * 2 + 0];
+        float dry_r = pcm[f * 2 + 1];
+
+        /* Keep tank warm at low level so a sudden thunder spike blooms immediately
+           on the note already playing without clicks. */
+        float feed = (dry_l + dry_r) * 0.5f * (0.20f + 0.80f * rev);
+        float feedback = 0.74f + 0.12f * rev;
+        const float damp = 0.32f;
+        float acc_l = 0.0f, acc_r = 0.0f;
+
+        for (int c = 0; c < REVERB_COMB_COUNT; c++) {
+            int il = s_comb_idx_l[c];
+            float out_l = s_comb_buf_l[c][il];
+            s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
+            s_comb_buf_l[c][il] = feed + s_comb_lp_l[c] * feedback;
+            if (++il >= k_comb_len_l[c]) il = 0;
+            s_comb_idx_l[c] = il;
+            acc_l += out_l;
+
+            int ir = s_comb_idx_r[c];
+            float out_r = s_comb_buf_r[c][ir];
+            s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
+            s_comb_buf_r[c][ir] = feed + s_comb_lp_r[c] * feedback;
+            if (++ir >= k_comb_len_r[c]) ir = 0;
+            s_comb_idx_r[c] = ir;
+            acc_r += out_r;
+        }
+
+        acc_l *= 0.25f;
+        acc_r *= 0.25f;
+
+        for (int a = 0; a < REVERB_AP_COUNT; a++) {
+            int il = s_ap_idx_l[a];
+            float buf_l = s_ap_buf_l[a][il];
+            float in_l = acc_l;
+            acc_l = -in_l + buf_l;
+            s_ap_buf_l[a][il] = in_l + buf_l * 0.5f;
+            if (++il >= k_ap_len_l[a]) il = 0;
+            s_ap_idx_l[a] = il;
+
+            int ir = s_ap_idx_r[a];
+            float buf_r = s_ap_buf_r[a][ir];
+            float in_r = acc_r;
+            acc_r = -in_r + buf_r;
+            s_ap_buf_r[a][ir] = in_r + buf_r * 0.5f;
+            if (++ir >= k_ap_len_r[a]) ir = 0;
+            s_ap_idx_r[a] = ir;
+        }
+
+        if (rev > 0.0005f) {
+            float wet = rev * 0.65f;
+            float dry = 1.0f - rev * 0.18f;
+            float out_l = dry_l * dry + acc_l * wet;
+            float out_r = dry_r * dry + acc_r * wet;
+            if (out_l > 1.0f) out_l = 1.0f; else if (out_l < -1.0f) out_l = -1.0f;
+            if (out_r > 1.0f) out_r = 1.0f; else if (out_r < -1.0f) out_r = -1.0f;
+            pcm[f * 2 + 0] = out_l;
+            pcm[f * 2 + 1] = out_r;
+        }
+    }
+}
+
 static char path_buf[512];
 static const char* get_path(const char* sub) {
     const char *base = GetApplicationDirectory();
@@ -26,6 +130,7 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
         a->music_menu = LoadMusicStream(p_menu);
         a->has_music_menu = 1;
         SetMusicVolume(a->music_menu, a->bgm_volume);
+        AttachAudioStreamProcessor(a->music_menu.stream, music_reverb_processor);
     }
 
     for (int i = 0; i < 10; i++) {
@@ -37,6 +142,7 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
             a->music_game[i].looping = false;
             a->has_music_game[i] = 1;
             SetMusicVolume(a->music_game[i], a->bgm_volume);
+            AttachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
         }
     }
 
@@ -176,9 +282,15 @@ void audio_play_lose(AudioAssets *a)    { if (a->has_sfx_lose) PlaySound(a->sfx_
 void audio_play_click(AudioAssets *a)   { if (a->has_sfx_click) PlaySound(a->sfx_click); }
 
 void audio_close(AudioAssets *a) {
-    if (a->has_music_menu) UnloadMusicStream(a->music_menu);
+    if (a->has_music_menu) {
+        DetachAudioStreamProcessor(a->music_menu.stream, music_reverb_processor);
+        UnloadMusicStream(a->music_menu);
+    }
     for (int i = 0; i < 10; i++) {
-        if (a->has_music_game[i]) UnloadMusicStream(a->music_game[i]);
+        if (a->has_music_game[i]) {
+            DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
+            UnloadMusicStream(a->music_game[i]);
+        }
     }
     if (a->has_sfx_flip) UnloadSound(a->sfx_flip);
     if (a->has_sfx_drop) UnloadSound(a->sfx_drop);
