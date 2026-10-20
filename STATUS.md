@@ -19,6 +19,13 @@
 - Checks: engine suite (500 matches), headless table input/combo suite, C99 `-Wall -Wextra` syntax checks of ui_board.c/ui_main.c against Raylib 5.5 headers, and diff whitespace check passed.
 - Remaining: desktop/web shader compilation and graphical playtest, light intensity/speed tuning, and visual confirmation of capture/koi pulses. No live graphical build was run here; headless checks do not validate GPU rendering. Replay playback does not currently use the live action feedback hooks.
 
+## Lighting correction after playtest — 20 October 2026
+
+- Replaced the broad light falloff with a compact, soft-edged moving footprint. Event pulses now share that footprint instead of brightening the whole background.
+- Increased localized surface response and removed the flat-plane specular contribution to emphasize ridges. Fog depth masking now uses unlit image luminance so added light cannot thin the fog.
+- Checks: matching desktop/web shader bodies, numerical footprint checks at four timestamps (over 59% of the image outside the light), and diff whitespace check passed. Headless GPU compilation was attempted but unavailable (`libGL.so not loaded`); graphical desktop/web verification remains pending.
+- No JPGs, normal maps, Deus handling, event timing, game rules, or UI code changed in this correction.
+
 ## Status Summary
 ## Latest completed work
 

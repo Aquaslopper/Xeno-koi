@@ -16,6 +16,7 @@ uniform float eventFlash;
 void main()
 {
     vec4 texel = texture2D(texture0, fragTexCoord);
+    float baseLum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
     // Additive surface lighting preserves the approved baked TOP/gamma baseline.
     // Decode the original image-space normals (positive Y points down).
     if (lightEnabled > 0.5) {
@@ -23,14 +24,19 @@ void main()
         vec2 center = vec2(0.5 + 0.36 * sin(time * 0.17),
                            0.45 + 0.28 * cos(time * 0.13));
         vec2 delta = (center - fragTexCoord) * vec2(1.77778, 1.0);
-        vec3 l = normalize(vec3(delta, 0.32));
+        vec3 l = normalize(vec3(delta, 0.20));
         vec3 h = normalize(l + vec3(0.0, 0.0, 1.0));
-        float falloff = exp(-dot(delta, delta) * 2.2);
+        // Compact pool: no illumination outside this moving footprint.
+        float falloff = 1.0 - smoothstep(0.12, 0.48, length(delta));
         float relief = max(dot(n, l), 0.0);
         float spec = pow(max(dot(n, h), 0.0), 28.0);
         vec3 accent = vec3(0.78, 0.88, 1.0);
-        vec3 moving = (texel.rgb * relief * 0.14 + accent * spec * 0.07) * falloff;
-        vec3 pulse = (texel.rgb * relief + accent * spec * 0.35) * eventFlash;
+        // Reject the flat-plane specular response so ridges catch the light.
+        float flatSpec = pow(max(h.z, 0.0), 28.0);
+        float ridgeSpec = max(spec - flatSpec, 0.0);
+        vec3 surface = texel.rgb * relief * 0.30 + accent * ridgeSpec * 0.65;
+        vec3 moving = surface * falloff;
+        vec3 pulse = surface * falloff * eventFlash * 2.0;
         texel.rgb = min(texel.rgb + moving + pulse, vec3(1.0));
     }
     vec3 blended = texel.rgb;
@@ -41,7 +47,7 @@ void main()
         float yMask = smoothstep(0.38, 0.88, fragTexCoord.y);
 
         // 2. The Depth Mask (Luminance):
-        float lum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+        float lum = baseLum;
         float depthMask = smoothstep(0.78, 0.18, lum);
 
         // 3. The Patchy Drift:
