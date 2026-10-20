@@ -16,6 +16,7 @@ uniform float time;
 uniform sampler2D normalMap;
 uniform float lightEnabled;
 uniform vec2 heightRange;
+uniform float flashAmount;
 
 float lightLayer(float distanceFromCenter, float width)
 {
@@ -28,11 +29,12 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec4 map = texture2D(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
 
-    // Layer three drives the group center through a slow left-right 360 loop.
-    float phase = time * 0.0698132; // one loop per 90 seconds
-    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(phase)),
-                        0.50 + 0.12 * sin(phase));
-    float xDistance = abs(uv.x - lightUV.x);
+    // Drift is 30% slower than the previous pass; spin is 10% faster than drift.
+    float driftPhase = time * 0.0488692; // 30% slower: 128.6-second round trip
+    float spinPhase = time * 0.0537561;  // 10% faster than the drift frequency
+    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
+    vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
+    float xDistance = abs(dot(uv - lightUV, beamAxis));
     float layer80 = 0.10 * lightLayer(xDistance, 0.80);
     float layer60 = 0.20 * lightLayer(xDistance, 0.60);
     float layer40 = 0.40 * lightLayer(xDistance, 0.40);
@@ -45,9 +47,10 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float diffuse = max(dot(n, lightDir), 0.0);
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
     float surfaceGate = mix(0.65, 1.0, heightMask); // preserve visible banding on flat areas
-    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30; // exaggerated test strength
+    float flashGain = 1.0 + 3.0 * flashAmount;
+    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * flashGain;
     vec3 warm = vec3(1.0, 0.93, 0.80);
-    vec3 highlight = min(warm * amount, vec3(0.90));
+    vec3 highlight = min(warm * amount, vec3(0.98));
     return base + (vec3(1.0) - base) * highlight;
 }
 // moving-lights end

@@ -22,6 +22,7 @@ typedef struct {
     int light_normal_loc;
     int light_enabled_loc;
     int light_height_range_loc;
+    int light_flash_loc;
     int has_fog_shader;
 } BoardAssets;
 

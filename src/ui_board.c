@@ -130,12 +130,13 @@ void board_load_assets(BoardAssets *ba) {
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
 #endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
-    ba->fog_time_loc = ba->light_normal_loc = ba->light_enabled_loc = ba->light_height_range_loc = -1;
+    ba->fog_time_loc = ba->light_normal_loc = ba->light_enabled_loc = ba->light_height_range_loc = ba->light_flash_loc = -1;
     if (ba->has_fog_shader) {
         ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
         ba->light_normal_loc = GetShaderLocation(ba->fog_shader, "normalMap");
         ba->light_enabled_loc = GetShaderLocation(ba->fog_shader, "lightEnabled");
         ba->light_height_range_loc = GetShaderLocation(ba->fog_shader, "heightRange");
+        ba->light_flash_loc = GetShaderLocation(ba->fog_shader, "flashAmount");
     }
 
     ba->current_bg = 0; ba->assets_loaded = 1;
@@ -266,6 +267,19 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
                       int easy_mode, int replay_mode, const char *status_msg) {
     float cur_time = (float)GetTime();
     float frame_dt = GetFrameTime();
+    static int prev_capture_fly = 0;
+    static float thunder_flash = 0.0f;
+    int capture_fly = (anim && anim->active && anim->type == ANIM_CAPTURE_FLY);
+    if (capture_fly && !prev_capture_fly) thunder_flash = 1.0f;
+    prev_capture_fly = capture_fly;
+    if (thunder_flash > 0.0f) {
+        if (thunder_flash > 0.30f) {
+            thunder_flash -= frame_dt * 2.8f;
+            if (thunder_flash < 0.30f) thunder_flash = 0.30f;
+        } else {
+            thunder_flash *= expf(-frame_dt / 1.25f);
+        }
+    }
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
@@ -280,6 +294,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
                                ba->light_height_range_loc >= 0) ? 1.0f : 0.0f;
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
         SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
+        if (ba->light_flash_loc >= 0)
+            SetShaderValue(ba->fog_shader, ba->light_flash_loc, &thunder_flash, SHADER_UNIFORM_FLOAT);
         if (light_enabled > 0.5f)
             SetShaderValue(ba->fog_shader, ba->light_height_range_loc,
                            height_ranges[bg], SHADER_UNIFORM_VEC2);
