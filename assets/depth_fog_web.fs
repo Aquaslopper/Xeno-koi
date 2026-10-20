@@ -22,22 +22,22 @@ void main()
     // Decode the original image-space normals (positive Y points down).
     if (lightEnabled > 0.5) {
         vec3 n = normalize(texture2D(normalMap, fragTexCoord).rgb * 2.0 - 1.0);
-        vec2 center = vec2(0.5 + 0.36 * sin(time * 0.085),
-                           0.45 + 0.28 * cos(time * 0.065));
-        vec2 delta = (center - fragTexCoord) * vec2(1.77778, 1.0);
-        vec3 l = normalize(vec3(delta, 0.20));
+        // Distant directional light sweeps left/right; no point-light footprint.
+        float sweep = sin(time * 0.085);
+        vec3 l = normalize(vec3(sweep * 0.95, -0.35, 0.55));
         vec3 h = normalize(l + vec3(0.0, 0.0, 1.0));
-        // Compact pool: no illumination outside this moving footprint.
-        float falloff = 1.0 - smoothstep(0.12, 0.48, length(delta));
         float relief = max(dot(n, l), 0.0);
         float spec = pow(max(dot(n, h), 0.0), 28.0);
         vec3 accent = vec3(0.78, 0.88, 1.0);
         // Reject the flat-plane specular response so ridges catch the light.
         float flatSpec = pow(max(h.z, 0.0), 28.0);
         float ridgeSpec = max(spec - flatSpec, 0.0);
-        vec3 surface = texel.rgb * relief * 0.65 + accent * (ridgeSpec * 1.30 + relief * 0.08);
-        vec3 moving = surface * falloff;
-        vec3 pulse = surface * falloff * eventFlash * 4.0;
+        // Subtract the flat-plane response: broad light reveals relief rather
+        // than adding an even brightness wash to the whole image.
+        float ridgeDiffuse = max(relief - max(l.z, 0.0), 0.0);
+        vec3 surface = texel.rgb * ridgeDiffuse * 0.65 + accent * ridgeSpec * 1.30;
+        vec3 moving = surface;
+        vec3 pulse = surface * eventFlash * 4.0;
         surfaceLight = moving + pulse;
     }
     vec3 blended = min(texel.rgb + surfaceLight, vec3(1.0));

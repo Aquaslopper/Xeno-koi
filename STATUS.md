@@ -39,6 +39,13 @@
 - Slightly relaxed fog on normal-lit backgrounds only: gain 1.35→1.20 and opacity cap 0.88→0.78. Deus and missing-normal fallback keep original fog values. Baked JPGs remain unchanged.
 - Checks passed: desktop/web shader-body parity, RGB normal dimensions/unit-length tolerance, deterministic regeneration, unchanged JPG/Deus bytes, and diff whitespace. In-game visual assessment remains pending; no GPU test claimed.
 
+## Broad directional light sweep — 20 October 2026
+
+- Replaced the moving point-light pool with one distant directional light sweeping left/right and back at frequency 0.085 (about 74 seconds per full cycle). No circular footprint or vertical wandering remains.
+- Subtracted the flat-plane diffuse response as well as flat specular response to emphasize changing normal-map contours without a uniform brightness wash. Event pulses boost the same contour light across the scene.
+- Kept strength-6 normal maps, current gains, behind-fog blending, relaxed fog, and Deus exclusion. JPGs and gameplay/event hooks unchanged.
+- Checks: desktop/web shader-body parity, sweep direction at four cycle positions, absence of spotlight falloff, and diff whitespace passed. Visual tuning still requires in-game testing.
+
 ## Status Summary
 ## Latest completed work
 
