@@ -16,18 +16,19 @@ extern GameSettings settings;
 /* Event envelope uses wall time; overlapping events take the brighter pulse. */
 static double light_flash_start = -10.0;
 static float light_flash_peak;
-static float light_flash_duration = 1.2f;
+static float light_flash_duration = 3.0f;
 
 static float light_flash_value(void) {
     float age = (float)(GetTime() - light_flash_start);
     float t = fmaxf(0.0f, 1.0f - age / light_flash_duration);
-    return light_flash_peak * t * t;
+    /* Smoothstep glide: eases off the peak and eases into zero. */
+    return light_flash_peak * t * t * (3.0f - 2.0f * t);
 }
 
 void board_flash_light(int koi) {
-    float peak = koi ? 0.32f : 0.18f;
+    float peak = koi ? 0.45f : 0.25f;
     light_flash_peak = fmaxf(peak, light_flash_value());
-    light_flash_duration = koi ? 2.0f : 1.2f;
+    light_flash_duration = koi ? 5.0f : 3.0f;
     light_flash_start = GetTime();
 }
 

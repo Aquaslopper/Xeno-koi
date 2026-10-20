@@ -64,6 +64,11 @@
 - Effect brightness raised: pool multiplier is 0.80 + 0.40*diffuse + eventFlash*2.2, peaking near 1.78x versus the previous 1.36x max. Speed, flash durations (1.2s/2s), softened normals, fog order, Deus exclusion unchanged.
 - Checks: desktop/web shader-body parity, simulated illumination at left/middle/right sun positions showing night on the correct side (0.58 vs 1.60), strict C syntax, diff whitespace. Visual confirmation still pending.
 
+## Stronger, slower flash decay — 20 October 2026
+
+- Raised event flash peaks 0.18→0.25 (capture) and 0.32→0.45 (koi), extended durations to 3s/5s, and replaced the quick quadratic decay with smoothstep t²(3-2t), which eases off the peak and glides back to zero. Only board_flash_light envelope changed; shader, pool, sun speed, fog, and Deus handling untouched.
+- Checks: strict C syntax, table UI suite, diff whitespace passed. Visual confirmation pending.
+
 ## Status Summary
 ## Latest completed work
 
