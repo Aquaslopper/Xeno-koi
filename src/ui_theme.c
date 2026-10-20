@@ -67,22 +67,30 @@ void theme_set(int id) {
     g_theme = theme_get(id);
 }
 
-#define MAX_PANEL_FLARES 5
+#define MIN_FLARES_PER_BOX 3
+#define MAX_FLARES_PER_BOX 5
+#define MAX_FLARE_BOXES 128
 
 typedef struct {
-    Rectangle bounds;
     float distance;
     float direction;
     float speed;
     float len;
     float life;
-    float age;
     double shine_started;
     int flash_active;
     int active;
 } PanelFlare;
 
-static PanelFlare s_panel_flares[MAX_PANEL_FLARES];
+typedef struct {
+    Rectangle bounds;
+    PanelFlare flares[MAX_FLARES_PER_BOX];
+    double last_seen;
+    int key;
+    int active;
+} PanelFlareBox;
+
+static PanelFlareBox s_panel_flare_boxes[MAX_FLARE_BOXES];
 #define PANEL_SHINE_DURATION 0.4
 
 static Vector2 s_panel_mouse;
@@ -103,6 +111,10 @@ static Rectangle panel_flare_bounds(Rectangle r) {
                         (float)(int)r.width, (float)(int)r.height };
 }
 
+static int panel_bounds_match(Rectangle a, Rectangle b) {
+    return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
+}
+
 static float panel_flare_perimeter(Rectangle r) {
     if (r.width < 2.0f || r.height < 2.0f) return 0.0f;
     return 2.0f * ((r.width - 1.0f) + (r.height - 1.0f));
@@ -115,9 +127,44 @@ static float panel_wrap_distance(float distance, float perimeter) {
     return distance;
 }
 
-static int panel_flare_matches(const PanelFlare *f, Rectangle bounds) {
-    return f->active && f->bounds.x == bounds.x && f->bounds.y == bounds.y &&
-           f->bounds.width == bounds.width && f->bounds.height == bounds.height;
+static void panel_flare_box_rebind(PanelFlareBox *box, Rectangle bounds) {
+    float old_perimeter = panel_flare_perimeter(box->bounds);
+    float new_perimeter = panel_flare_perimeter(bounds);
+    if (old_perimeter > 0.0f && new_perimeter > 0.0f && old_perimeter != new_perimeter) {
+        float scale = new_perimeter / old_perimeter;
+        for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
+            PanelFlare *f = &box->flares[i];
+            if (!f->active) continue;
+            f->distance = panel_wrap_distance(f->distance * scale, new_perimeter);
+            f->len = fminf(f->len * scale, new_perimeter * 0.25f);
+        }
+    }
+    box->bounds = bounds;
+}
+
+static PanelFlareBox *panel_flare_box_get(Rectangle bounds, double now, int key) {
+    PanelFlareBox *free_box = NULL;
+    PanelFlareBox *oldest = NULL;
+    for (int i = 0; i < MAX_FLARE_BOXES; i++) {
+        PanelFlareBox *box = &s_panel_flare_boxes[i];
+        int matches = box->active && (key ? box->key == key :
+                                      box->key == 0 && panel_bounds_match(box->bounds, bounds));
+        if (matches) {
+            if (key) panel_flare_box_rebind(box, bounds);
+            box->last_seen = now;
+            return box;
+        }
+        if (!box->active && !free_box) free_box = box;
+        if (box->active && (!oldest || box->last_seen < oldest->last_seen)) oldest = box;
+    }
+    if (!free_box) free_box = oldest;
+    if (!free_box) return NULL;
+    free_box->bounds = bounds;
+    free_box->last_seen = now;
+    free_box->key = key;
+    free_box->active = 1;
+    for (int i = 0; i < MAX_FLARES_PER_BOX; i++) free_box->flares[i].active = 0;
+    return free_box;
 }
 
 static void panel_flares_update(double now) {
@@ -126,14 +173,17 @@ static void panel_flares_update(double now) {
     if (dt < 0.0f) dt = 0.0f;
     if (dt > 0.05f) dt = 0.05f;
     s_last_flare_time = now;
-    for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-        PanelFlare *f = &s_panel_flares[i];
-        if (!f->active) continue;
-        float perimeter = panel_flare_perimeter(f->bounds);
-        f->distance = panel_wrap_distance(f->distance + f->direction * f->speed * dt, perimeter);
-        f->life -= dt;
-        f->age += dt;
-        if (f->life <= 0.0f) f->active = 0;
+    for (int b = 0; b < MAX_FLARE_BOXES; b++) {
+        PanelFlareBox *box = &s_panel_flare_boxes[b];
+        if (!box->active) continue;
+        float perimeter = panel_flare_perimeter(box->bounds);
+        for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
+            PanelFlare *f = &box->flares[i];
+            if (!f->active) continue;
+            f->distance = panel_wrap_distance(f->distance + f->direction * f->speed * dt, perimeter);
+            f->life -= dt;
+            if (f->life <= 0.0f) f->active = 0;
+        }
     }
 }
 
@@ -141,47 +191,50 @@ static void panel_flare_assign(PanelFlare *f, Rectangle bounds, double now, int 
     float perimeter = panel_flare_perimeter(bounds);
     int perimeter_steps = (int)perimeter;
     if (!f || perimeter_steps <= 0) return;
-    f->bounds = bounds;
     f->direction = (rand() & 1) ? 1.0f : -1.0f;
     f->speed = 12.0f + (float)(rand() % 29);
-    f->len = 20.0f + (float)(rand() % 9);
+    float requested_len = 20.0f + (float)(rand() % 9);
+    f->len = fminf(requested_len, perimeter * 0.25f);
     f->distance = (float)(rand() % perimeter_steps);
     f->life = perimeter / f->speed + 2.0f;
-    f->age = 0.0f;
     f->shine_started = now;
     f->flash_active = flash;
     f->active = 1;
 }
 
-static PanelFlare *panel_flare_reusable_slot(void) {
-    PanelFlare *free_slot = NULL;
-    PanelFlare *oldest = NULL;
-    for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-        PanelFlare *f = &s_panel_flares[i];
-        if (!f->active && !free_slot) free_slot = f;
-        if (f->active && (!oldest || f->age > oldest->age)) oldest = f;
-    }
-    return free_slot ? free_slot : oldest;
+static int panel_flare_count(const PanelFlareBox *box) {
+    int count = 0;
+    for (int i = 0; i < MAX_FLARES_PER_BOX; i++)
+        if (box->flares[i].active) count++;
+    return count;
 }
 
-static void panel_flare_shine(Rectangle bounds, double now) {
-    int found_on_panel = 0;
-    for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-        PanelFlare *f = &s_panel_flares[i];
-        if (!panel_flare_matches(f, bounds)) continue;
+static void panel_flare_ensure_minimum(PanelFlareBox *box, double now) {
+    int count = panel_flare_count(box);
+    for (int i = 0; i < MAX_FLARES_PER_BOX && count < MIN_FLARES_PER_BOX; i++) {
+        if (box->flares[i].active) continue;
+        panel_flare_assign(&box->flares[i], box->bounds, now, 0);
+        count++;
+    }
+}
+
+static void panel_flare_shine(PanelFlareBox *box, double now) {
+    for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
+        PanelFlare *f = &box->flares[i];
+        if (!f->active) continue;
         f->shine_started = now;
         f->flash_active = 1;
-        found_on_panel = 1;
     }
-    if (found_on_panel) return;
-    panel_flare_assign(panel_flare_reusable_slot(), bounds, now, 1);
 }
 
-static void panel_flare_ensure(Rectangle bounds, double now) {
-    for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-        if (panel_flare_matches(&s_panel_flares[i], bounds)) return;
+static int panel_flare_box_shining(const PanelFlareBox *box, double now) {
+    for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
+        const PanelFlare *f = &box->flares[i];
+        if (!f->active || !f->flash_active) continue;
+        double elapsed = now - f->shine_started;
+        if (elapsed >= 0.0 && elapsed < PANEL_SHINE_DURATION) return 1;
     }
-    panel_flare_assign(panel_flare_reusable_slot(), bounds, now, 0);
+    return 0;
 }
 
 static Vector2 panel_perimeter_point(Rectangle r, float distance) {
@@ -239,33 +292,33 @@ static void panel_draw_streak(Rectangle bounds, float head, float direction,
     }
 }
 
-static void panel_flares_draw(Rectangle bounds, int ensure) {
-    bounds = panel_flare_bounds(bounds);
-    if (bounds.width < 40.0f || bounds.height < 3.0f) return;
+static void panel_flares_draw(Rectangle r, int key) {
+    Rectangle bounds = panel_flare_bounds(r);
+    if (bounds.width < 12.0f || bounds.height < 12.0f) return;
     double now = GetTime();
+    PanelFlareBox *box = panel_flare_box_get(bounds, now, key);
+    if (!box) return;
     int hovered = s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, bounds);
     int entered = hovered && (!s_previous_panel_mouse_valid ||
                               !CheckCollisionPointRec(s_previous_panel_mouse, bounds));
     panel_flares_update(now);
+    panel_flare_ensure_minimum(box, now);
+    if (entered) panel_flare_shine(box, now);
 
-    if (entered) panel_flare_shine(bounds, now);
-    else if (ensure) panel_flare_ensure(bounds, now);
-
-    int active = 0;
-    for (int i = 0; i < MAX_PANEL_FLARES; i++)
-        if (s_panel_flares[i].active) active++;
-    if (!entered && !ensure && active < MAX_PANEL_FLARES && (rand() % 100) == 0) {
-        for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-            if (!s_panel_flares[i].active) {
-                panel_flare_assign(&s_panel_flares[i], bounds, now, 0);
+    int count = panel_flare_count(box);
+    if (!entered && count < MAX_FLARES_PER_BOX && (rand() % 100) == 0) {
+        int flash = panel_flare_box_shining(box, now);
+        for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
+            if (!box->flares[i].active) {
+                panel_flare_assign(&box->flares[i], bounds, now, flash);
                 break;
             }
         }
     }
 
-    for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-        PanelFlare *f = &s_panel_flares[i];
-        if (!panel_flare_matches(f, bounds)) continue;
+    for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
+        PanelFlare *f = &box->flares[i];
+        if (!f->active) continue;
         float shine = 0.0f;
         if (f->flash_active) {
             double elapsed = now - f->shine_started;
@@ -281,7 +334,11 @@ static void panel_flares_draw(Rectangle bounds, int ensure) {
 }
 
 void ui_theme_draw_panel_flares(Rectangle r) {
-    panel_flares_draw(r, 1);
+    panel_flares_draw(r, 0);
+}
+
+void ui_theme_draw_panel_flares_keyed(Rectangle r, int key) {
+    if (key > 0) panel_flares_draw(r, key);
 }
 
 void ui_draw_panel_border(Rectangle r, Color border_color) {
@@ -303,6 +360,6 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
         DrawRectangleGradientH(rx + half_w, ry + rh - 1, rw - half_w, 1, c_mid, c_edge);
     }
 
-    /* 3. Existing moving flares crawl around all four sides (max five globally). */
-    if (rw >= 40) panel_flares_draw((Rectangle){ (float)rx, (float)ry, (float)rw, (float)rh }, 0);
+    /* 3. Each bordered box gets its own three-to-five perimeter dots. */
+    panel_flares_draw((Rectangle){ (float)rx, (float)ry, (float)rw, (float)rh }, 0);
 }

@@ -19,8 +19,9 @@ extern TerminalTheme g_theme;
 TerminalTheme theme_get(int id);
 void theme_set(int id);
 void ui_theme_set_mouse(Vector2 virtual_mouse);
-/* Attach the existing moving perimeter flare to a highlighted rectangle. */
+/* Draw per-box flares for static outlines or follow a moving rectangle with a stable positive key. */
 void ui_theme_draw_panel_flares(Rectangle r);
+void ui_theme_draw_panel_flares_keyed(Rectangle r, int key);
 void ui_draw_panel_border(Rectangle r, Color border_color);
 
 #define COLOR_PHOSPHOR       (g_theme.base)
