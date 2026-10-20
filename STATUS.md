@@ -52,6 +52,12 @@
 - Replaced it with continuous signed diffuse/soft-specular modulation of the image's own colors, capped at ±20% before event pulses. Broad left/right motion, strength-6 normals, behind-fog blending, and Deus exclusion remain unchanged.
 - Checks: desktop/web shader-body parity, finite/bounded response over all seven normal maps at four sweep times, and diff whitespace passed. No graphical validation claimed; maintainer playtest remains required.
 
+## Standard normal-mapped sun lighting — 20 October 2026
+
+- Per maintainer request ("apply the effect the right way" per standard normal-mapping sources, and smoother rather than hard-edged), replaced the custom signed response/clamp/ridge math with the conventional model: decode normal map, distant sun direction sweeping left/right (fixed Z), Lambert `max(dot(n,l),0)` diffuse plus constant ambient, applied as `texel.rgb * illumination` and clamped. Removed specular terms and all ridge thresholds, so no embossed outlines remain.
+- Softened edges by cross-filtering the sampled normal vectors over a 5-texel kernel and setting bilinear filtering + clamp wrap on the normal textures. Event flashes raise the same diffuse term (`0.80 + eventFlash`), keeping longer 1.2s/2s durations; lighting still blends before fog. Deus (no normal) keeps original fog path; JPGs and normal maps unchanged by this revision.
+- Checks passed: desktop/web shader-body parity, old response math absent, sun-vector unit length at four cycle positions, strict C syntax with Raylib 5.5 header, table UI suite, unchanged JPG/Deus bytes, diff whitespace. GPU/in-game visual verification still outstanding.
+
 ## Status Summary
 ## Latest completed work
 

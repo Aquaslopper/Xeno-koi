@@ -134,6 +134,10 @@ void board_load_assets(BoardAssets *ba) {
     for (int i = 0; i < 8; i++) {
         ba->bg_normals[i] = (Texture2D){0};
         if (normal_names[i]) ba->bg_normals[i] = LoadTexture(get_path(normal_names[i]));
+        if (ba->bg_normals[i].id > 0) {
+            SetTextureFilter(ba->bg_normals[i], TEXTURE_FILTER_BILINEAR);
+            SetTextureWrap(ba->bg_normals[i], TEXTURE_WRAP_CLAMP);
+        }
     }
     light_flash_start = -10.0;
 

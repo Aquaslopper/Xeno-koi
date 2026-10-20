@@ -19,28 +19,28 @@ void main()
 {
     vec4 texel = texture(texture0, fragTexCoord);
     float baseLum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
-    vec3 surfaceLight = vec3(0.0);
-    // Additive surface lighting preserves the approved baked TOP/gamma baseline.
-    // Decode the original image-space normals (positive Y points down).
+    vec3 blended = texel.rgb;
     if (lightEnabled > 0.5) {
-        vec3 n = normalize(texture(normalMap, fragTexCoord).rgb * 2.0 - 1.0);
-        // Distant directional light sweeps left/right; no point-light footprint.
-        float sweep = sin(time * 0.085);
-        vec3 l = normalize(vec3(sweep * 0.95, -0.35, 0.55));
-        vec3 h = normalize(l + vec3(0.0, 0.0, 1.0));
-        // Continuous, signed response around a flat reference plane.
-        // Do not threshold ridges: that produces fragmented embossed outlines.
-        float diffuseDelta = dot(n, l) - l.z;
-        float spec = pow(max(dot(n, h), 0.0), 12.0);
-        float flatSpec = pow(max(h.z, 0.0), 12.0);
-        float response = clamp(diffuseDelta * 0.70 + (spec - flatSpec) * 0.12,
-                               -0.40, 0.40);
-        vec3 moving = texel.rgb * response;
-        // Pulses remain surface-dependent, without a full-image brightness flash.
-        vec3 pulse = texel.rgb * max(response, 0.0) * eventFlash * 3.0;
-        surfaceLight = moving + pulse;
+        // Filter normal vectors, not the image: soften small embossed edges.
+        // Backgrounds and normals are both 1280x720, including the web build.
+        vec2 stepUV = vec2(2.5 / 1280.0, 2.5 / 720.0);
+        vec3 encoded = texture(normalMap, fragTexCoord).rgb * 4.0;
+        encoded += texture(normalMap, fragTexCoord + vec2(stepUV.x, 0.0)).rgb;
+        encoded += texture(normalMap, fragTexCoord - vec2(stepUV.x, 0.0)).rgb;
+        encoded += texture(normalMap, fragTexCoord + vec2(0.0, stepUV.y)).rgb;
+        encoded += texture(normalMap, fragTexCoord - vec2(0.0, stepUV.y)).rgb;
+        vec3 n = normalize((encoded / 8.0) * 2.0 - 1.0);
+
+        // Distant sun behind the viewer. Constant Z keeps the illumination of
+        // a flat surface constant; only the relief responds to the sweep.
+        float sunX = 0.78 * sin(time * 0.085);
+        vec3 l = vec3(sunX, -sqrt(max(1.0 - sunX * sunX - 0.55 * 0.55, 0.0)), 0.55);
+        float diffuse = max(dot(n, l), 0.0);
+        // Lambert diffuse + ambient, no ridge thresholds or specular outlines.
+        // Event pulses increase the same surface light, not a screen overlay.
+        vec3 illumination = vec3(0.56 + (0.80 + eventFlash) * diffuse);
+        blended = clamp(texel.rgb * illumination, vec3(0.0), vec3(1.0));
     }
-    vec3 blended = clamp(texel.rgb + surfaceLight, vec3(0.0), vec3(1.0));
 
     // 1. The Y-Axis Mask:
     // Fog exists on bottom 62% of screen; skip trig waves completely above y = 0.38.
