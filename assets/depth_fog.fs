@@ -16,18 +16,31 @@ out vec4 finalColor;
 // Bump lighting for the table background. normalMap RGB holds a
 // tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias),
 // alpha holds the height field (unused here, kept for inspection).
-// Three wide soft lights drift on independent slow paths; the ambient
-// lift keeps every background brighter than its art, so there is no
-// night side and no hard spotlight cone.
+//
+// Only the tilted part of the normal answers the lights: the flat,
+// viewer-facing component is projected out and a relief mask keeps
+// near-flat art quiet, so the pools land on the raised ridges instead of
+// washing the whole frame. Three wide soft lights drift on independent
+// slow paths; the ambient lift keeps a lit background slightly brighter
+// than its art, so there is no night side and no hard spotlight cone.
+// Constants are mirrored in tools/make_bg_normal_maps.py for --preview.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
 
-vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float height, float gain, vec3 tint)
+const float AMBIENT_LIFT = 1.10; // what flat art is multiplied by
+const float RELIEF_MIN = 0.12;   // |n.xy| below this counts as flat: stays dark
+const float RELIEF_MAX = 0.45;   // |n.xy| above this is lit at full strength
+const float LIGHT_HEIGHT = 0.35; // low = grazing light, so ridges read stronger
+
+vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float gain, vec3 tint)
 {
     vec2 d = (lp - uv) * vec2(1.7777778, 1.0); // aspect-corrected offset, uv y is down
     float dist2 = dot(d, d);
-    vec3 l = normalize(vec3(d, height));
-    float diff = max(dot(n, l), 0.0);
+    vec3 l = normalize(vec3(d, LIGHT_HEIGHT));
+    // Relief response: how far the tilted normal turns toward the light.
+    // A flat normal contributes exactly zero here, which is what stops the
+    // light from brightening art that has no bumps in it.
+    float diff = max(n.x * l.x + n.y * l.y, 0.0);
     vec3 h = normalize(l + vec3(0.0, 0.0, 1.0)); // half-vector, view = +z
     float spec = pow(max(dot(n, h), 0.0), 28.0);
     float atten = 1.0 / (1.0 + dist2 / (radius * radius));
@@ -38,17 +51,18 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 normalTexel = texture(normalMap, uv);
     vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
+    float relief = smoothstep(RELIEF_MIN, RELIEF_MAX, length(n.xy));
     float t = time;
-    vec3 lit = vec3(1.22); // ambient lift
-    lit += movingLight(n, uv,
+    vec3 lit = vec3(AMBIENT_LIFT); // ambient lift
+    lit += relief * movingLight(n, uv,
         vec2(0.50 + 0.42 * sin(t * 0.100), 0.30 + 0.18 * sin(t * 0.067 + 1.7)),
-        0.62, 0.55, 1.15, vec3(1.00, 0.97, 0.90));
-    lit += movingLight(n, uv,
+        0.62, 3.20, vec3(1.00, 0.97, 0.90));
+    lit += relief * movingLight(n, uv,
         vec2(0.22 + 0.26 * cos(t * 0.073 + 0.6), 0.52 + 0.24 * sin(t * 0.073)),
-        0.55, 0.50, 1.00, vec3(0.90, 0.96, 1.00));
-    lit += movingLight(n, uv,
+        0.55, 2.80, vec3(0.90, 0.96, 1.00));
+    lit += relief * movingLight(n, uv,
         vec2(0.80 + 0.22 * sin(t * 0.055 + 2.9), 0.42 + 0.28 * cos(t * 0.049 + 1.1)),
-        0.58, 0.55, 0.95, vec3(1.00, 0.93, 0.88));
+        0.58, 2.60, vec3(1.00, 0.93, 0.88));
     return clamp(base * lit, 0.0, 1.0);
 }
 // moving-lights end

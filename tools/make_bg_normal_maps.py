@@ -51,21 +51,24 @@ DETAIL_WEIGHT = 0.35   # weight of the fine scale vs the broad one
 TARGET_SLOPE = 1.0     # p98 of |grad height| is scaled to this slope
 
 # ---- moving-light constants; keep in sync with assets/depth_fog*.fs ----
-AMBIENT = 1.22
+AMBIENT = 1.10
+RELIEF_MIN = 0.12    # |n.xy| below this is flat: stays at ambient
+RELIEF_MAX = 0.45    # |n.xy| above this is lit at full strength
+LIGHT_HEIGHT = 0.35  # grazing light height, shared by all three lights
 SPEC_POWER = 28.0
 SPEC_GAIN = 0.40
 ASPECT = 16.0 / 9.0
-# (path(t) -> (u, v) centre, radius, height, gain, tint)
+# (path(t) -> (u, v) centre, radius, gain, tint)
 LIGHTS = [
     (lambda t: (0.50 + 0.42 * math.sin(t * 0.100),
                 0.30 + 0.18 * math.sin(t * 0.067 + 1.7)),
-     0.62, 0.55, 1.15, (1.00, 0.97, 0.90)),
+     0.62, 3.20, (1.00, 0.97, 0.90)),
     (lambda t: (0.22 + 0.26 * math.cos(t * 0.073 + 0.6),
                 0.52 + 0.24 * math.sin(t * 0.073)),
-     0.55, 0.50, 1.00, (0.90, 0.96, 1.00)),
+     0.55, 2.80, (0.90, 0.96, 1.00)),
     (lambda t: (0.80 + 0.22 * math.sin(t * 0.055 + 2.9),
                 0.42 + 0.28 * math.cos(t * 0.049 + 1.1)),
-     0.58, 0.55, 0.95, (1.00, 0.93, 0.88)),
+     0.58, 2.60, (1.00, 0.93, 0.88)),
 ]
 # -----------------------------------------------------------------------
 
@@ -99,6 +102,13 @@ def normal_map(img: Image.Image) -> np.ndarray:
     return out
 
 
+def relief_mask(nx: np.ndarray, ny: np.ndarray) -> np.ndarray:
+    """Smoothstep mask from RELIEF_MIN to RELIEF_MAX over the normal's tilt."""
+    slope = np.sqrt(nx * nx + ny * ny)
+    ramp = np.clip((slope - RELIEF_MIN) / max(RELIEF_MAX - RELIEF_MIN, 1e-6), 0.0, 1.0)
+    return ramp * ramp * (3.0 - 2.0 * ramp)
+
+
 def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float) -> np.ndarray:
     """Replicate the depth_fog moving-light block on an RGB float image."""
     u = (np.arange(WIDTH, dtype=np.float64) + 0.5) / WIDTH
@@ -109,22 +119,25 @@ def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float) -> np.nda
     nz = normal_rgba[..., 2] / 255.0 * 2.0 - 1.0
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
     nx, ny, nz = nx * inv, ny * inv, nz * inv
+    relief = relief_mask(nx, ny)
     lit = np.full((HEIGHT, WIDTH, 3), AMBIENT, dtype=np.float64)
-    for path, radius, height, gain, tint in LIGHTS:
+    for path, radius, gain, tint in LIGHTS:
         lu, lv = path(t)
         dx = (lu - uu) * ASPECT
         dy = lv - vv
         d2 = dx * dx + dy * dy
-        inv_len = 1.0 / np.sqrt(d2 + height * height)
-        lx, ly, lz = dx * inv_len, dy * inv_len, height * inv_len
-        diff = np.clip(nx * lx + ny * ly + nz * lz, 0.0, None)
+        inv_len = 1.0 / np.sqrt(d2 + LIGHT_HEIGHT * LIGHT_HEIGHT)
+        lx, ly, lz = dx * inv_len, dy * inv_len, LIGHT_HEIGHT * inv_len
+        # Relief response only: a flat normal contributes exactly zero, so
+        # the pools land on the bumps instead of washing the whole frame.
+        diff = np.clip(nx * lx + ny * ly, 0.0, None)
         # half-vector with view = +z
         hx, hy, hz = lx, ly, lz + 1.0
         inv_h = 1.0 / np.sqrt(hx * hx + hy * hy + hz * hz)
         spec = np.clip(nx * hx * inv_h + ny * hy * inv_h + nz * hz * inv_h,
                        0.0, None) ** SPEC_POWER
         atten = 1.0 / (1.0 + d2 / (radius * radius))
-        contrib = (diff + SPEC_GAIN * spec) * atten * gain
+        contrib = relief * (diff + SPEC_GAIN * spec) * atten * gain
         for c in range(3):
             lit[..., c] += contrib * tint[c]
     return np.clip(base * lit, 0.0, 1.0)
