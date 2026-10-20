@@ -48,7 +48,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
     float surfaceGate = mix(0.65, 1.0, heightMask); // preserve visible banding on flat areas
     float flashGain = 1.0 + 3.0 * flashAmount;
-    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * flashGain;
+    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * 0.70 * flashGain;
     vec3 warm = vec3(1.0, 0.93, 0.80);
     vec3 highlight = min(warm * amount, vec3(0.98));
     return base + (vec3(1.0) - base) * highlight;

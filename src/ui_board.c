@@ -273,11 +273,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (capture_fly && !prev_capture_fly) thunder_flash = 1.0f;
     prev_capture_fly = capture_fly;
     if (thunder_flash > 0.0f) {
-        if (thunder_flash > 0.30f) {
+        if (thunder_flash > 0.40f) {
             thunder_flash -= frame_dt * 2.8f;
-            if (thunder_flash < 0.30f) thunder_flash = 0.30f;
+            if (thunder_flash < 0.40f) thunder_flash = 0.40f;
         } else {
-            thunder_flash *= expf(-frame_dt / 1.25f);
+            thunder_flash *= expf(-frame_dt / 1.5625f);
         }
     }
 
