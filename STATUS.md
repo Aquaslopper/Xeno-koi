@@ -6,9 +6,9 @@
 
 ## Harvest local-light prototype — 20 October 2026
 
-- Harvest only: replaced its background with the approved TOP / Medium 4.0 no-gamma bake and added an RGBA Medium 4.0 normal texture whose alpha is the approved smoothed height mask. The desktop/web fog shaders add the approved positive local top light on raised forms only; fog values, every other background, Deus, rules, cards, and scoring are unchanged.
-- Verification actually run: strict C99 syntax checks for all `src/*.c` against Raylib 5.5 headers; engine suite passed (500 matches); headless table UI suite passed; desktop/web shader-body parity checked; both Harvest assets are 1280×720 and byte-match the approved preview outputs.
-- Remaining verification: maintainer GPU playtest on desktop/web, including shader rendering, Harvest in-match appearance under existing fog/post-processing, and confirmation that other backgrounds remain visually unchanged. Do not roll out to the other backgrounds before this Gate C decision.
+- Harvest only: replaced its background with the approved TOP / Medium 4.0 no-gamma bake and added an RGBA Medium 4.0 normal texture whose alpha is the approved smoothed height mask. The desktop/web fog shaders add the approved positive local light on raised forms only, from a directional sun behind the viewer that smoothly sweeps ±63° across the top over 120 seconds at constant front elevation (no spotlight pool or night side); fog values, every other background, Deus, rules, cards, and scoring are unchanged.
+- Verification actually run: strict C99 syntax checks for all `src/*.c` against Raylib 5.5 headers; engine suite passed (500 matches); headless table UI suite passed; desktop/web shader-body parity checked; both Harvest assets are 1280×720 and byte-match the approved preview outputs. The moving-sun revision was also simulated offline at left/centre/right positions to confirm changes stay within the height mask.
+- Remaining verification: maintainer GPU retest on desktop/web, including whether the slow directional sweep is visible and correctly reads as a sun behind the player rather than a spotlight, plus confirmation that other backgrounds remain visually unchanged. Do not roll out to the other backgrounds before this Gate C decision.
 
 ## Status Summary
 ## Latest completed work

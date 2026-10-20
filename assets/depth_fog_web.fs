@@ -18,12 +18,15 @@ void main()
     vec3 blended = texel.rgb;
 
     // Harvest Option B: the normal texture's alpha is the smoothed height
-    // mask. Raised forms may receive positive top light; flat/low areas and
-    // every other background keep a factor of exactly 1.0.
+    // mask. A directional sun behind the viewer slowly sweeps left/right
+    // across the top at constant front elevation; flat/low areas and every
+    // other background keep a factor of exactly 1.0. No spotlight is used.
     if (lightEnabled > 0.5) {
         vec4 normalTexel = texture2D(normalMap, fragTexCoord);
         vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
-        vec3 l = normalize(vec3(0.0, -1.0, 1.0));
+        float sunAngle = 1.10 * sin(time * 0.0523599); // 120-second smooth sweep
+        vec3 l = normalize(vec3(0.70710678 * sin(sunAngle),
+                                -0.70710678 * cos(sunAngle), 0.70710678));
         float diffuse = clamp(dot(n, l), 0.0, 1.0);
         float directional = clamp((diffuse - l.z) / (1.0 - l.z), 0.0, 1.0);
         float response = 0.45 * (0.35 * diffuse + 0.65 * directional);
