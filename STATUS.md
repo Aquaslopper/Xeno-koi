@@ -10,7 +10,7 @@
 - Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
 - Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
-- Added a one-shot hover shine to the existing panel flares. On entry, matching flares brighten; if none are active on that panel, the effect reuses an existing global flare slot there so the shine is visible immediately. The streak reaches white at full opacity and 3 px wide, then returns to its normal dim 1 px line over 500 ms; staying over the panel does not retrigger it. Existing flare movement and normal random spawning are preserved.
+- Added a one-shot hover shine to the existing panel flares. On entry, matching flares brighten; if none are active on that panel, the effect reuses an existing global flare slot there so the shine is visible immediately. For 400 ms, the streak reaches white at full opacity and grows from 1 px to 6 px thick (+5 px), then returns to baseline; staying over the panel does not retrigger it. The existing moving streak effect now allows five active dots globally instead of three.
 - Added headless table UI regression tests and a CI step to run them. Updated the controls documentation and regenerated the table map.
 - Card data, matching rules, scoring, opponent logic, artwork, and the intentional Deus unlock were not changed.
 
@@ -18,16 +18,16 @@
 
 - Engine integrity suite passed, including 500 full simulated matches.
 - Browser tooltip regression passed, generated wiki tables are current, and `git diff --check` passed.
-- Headless Raylib-API-stub timing harnesses passed, including the case where all three global flare slots were active on other panels: hover reached alpha 255 and 3 px thickness, faded to baseline by 500 ms, stayed dim while held, and flashed again after re-entry. These harnesses are temporary and are not a graphical playtest.
+- Headless Raylib-API-stub timing harnesses passed, including the case where all five global flare slots were active on other panels: hover reached alpha 255 and 6 px thickness, faded to baseline by 400 ms, stayed dim while held, and flashed again after re-entry. These harnesses are temporary and are not a graphical playtest.
 - Raylib headers are not installed locally, so the Raylib table UI test and live graphical playtest were not run.
-- This follow-up is not yet committed; CI has not run on these latest changes.
+- Windows and WebAssembly builds are tracked through the PR workflows; they were not run locally.
 
 ## Still to verify
 
-- Visually check the 500 ms panel-flare shine, its return to dim while the pointer remains over the panel, and re-entry behavior in the graphical build.
+- Visually check the 400 ms, 5 px growth of the panel flare, its return to baseline while the pointer remains over the panel, and re-entry behavior in the graphical build.
 - Visually playtest click/drag coexistence, selection feedback, and panel readability.
 - Check both combo windows, pagination, and timer pause/resume in live play and replay playback.
-- Build Windows and WebAssembly for this change; they were not run locally, and CI has not run on this working branch.
+- Review the latest Windows and WebAssembly CI results on PR #56; those targets were not built locally.
 - Refresh the stored gameplay screenshots when suitable captures are available. They predate the new sidebar; the generated table map is updated.
 
 ## Keeping this useful

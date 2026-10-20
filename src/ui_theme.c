@@ -67,7 +67,7 @@ void theme_set(int id) {
     g_theme = theme_get(id);
 }
 
-#define MAX_PANEL_FLARES 3
+#define MAX_PANEL_FLARES 5
 
 typedef struct {
     float x;
@@ -83,7 +83,7 @@ typedef struct {
 } PanelFlare;
 
 static PanelFlare s_panel_flares[MAX_PANEL_FLARES];
-#define PANEL_SHINE_DURATION 0.5
+#define PANEL_SHINE_DURATION 0.4
 
 static Vector2 s_panel_mouse;
 static Vector2 s_previous_panel_mouse;
@@ -160,7 +160,7 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
         DrawRectangleGradientH(rx + half_w, ry + rh - 1, rw - half_w, 1, c_mid, c_edge);
     }
 
-    /* 3. Horizontal slow crawling faint streaks on top border (max 3 globally) */
+    /* 3. Horizontal slow crawling faint streaks on top border (max 5 globally) */
     if (rw >= 40) {
         static double s_last_time = -1.0;
         if (now != s_last_time) {
@@ -226,7 +226,7 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
                     Color flare = (Color){ 255, 255, 255, alpha };
                     if (shine > 0.0f) {
                         DrawLineEx((Vector2){ x0, (float)ry }, (Vector2){ x1, (float)ry },
-                                   1.0f + 2.0f * shine, flare);
+                                   1.0f + 5.0f * shine, flare);
                     } else {
                         DrawLine((int)x0, ry, (int)x1, ry, flare);
                     }
