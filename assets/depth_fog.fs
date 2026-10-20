@@ -13,10 +13,9 @@ uniform float time;
 out vec4 finalColor;
 
 // moving-lights begin
-// One drifting, spinning 4-band light beam over the tangent-space normal map.
-// Analytical slope response (dot(n, l) - l.z) is 0.0 on flat pixels, positive on
-// light-facing 3D ridges, and 0.0 on shadow-facing slopes, with multiplicative
-// diffuse plus wet-chitin specular sheen so dark biomechanical forms gleam without grey wash.
+// One drifting, spinning 4-band light beam over the tangent-space normal map
+// with a multi-tap light-only bloom halo and soft-knee highlight rolloff so
+// 3D biomechanical ridges glow smoothly without sharp cutoffs or grey wash.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
 uniform float flashAmount;
@@ -24,7 +23,20 @@ uniform float flashAmount;
 float lightLayer(float distanceFromCenter, float width)
 {
     float halfWidth = 0.5 * width;
-    return 1.0 - smoothstep(halfWidth - 0.1176, halfWidth, distanceFromCenter);
+    float feather = max(0.24, halfWidth * 0.65);
+    return 1.0 - smoothstep(halfWidth - feather, halfWidth + 0.08, distanceFromCenter);
+}
+
+float sampleRidgeEmit(vec2 sampleUV, vec2 lightDirXY)
+{
+    vec2 cUV = clamp(sampleUV, vec2(0.001), vec2(0.999));
+    vec3 sn = normalize(texture(normalMap, cUV).rgb * 2.0 - 1.0);
+    vec3 sb = texture(texture0, cUV).rgb;
+    float sLum = dot(sb, vec3(0.299, 0.587, 0.114));
+    float sMask = smoothstep(0.014, 0.065, sLum);
+    float sRelief = smoothstep(0.015, 0.30, length(sn.xy));
+    float sDir = 0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(sn.xy, lightDirXY));
+    return sRelief * sDir * sMask;
 }
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
@@ -42,27 +54,46 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
     float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
     float layer20 = 0.20 * lightLayer(xDistance, 0.392);
-    // Nested bands select the strongest local layer; they do not add into one blob.
+    // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
+    layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
-    float reach = exp(-dist2 / (0.85 * 0.85));
+    float reach = exp(-dist2 / (0.90 * 0.90));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
-    // Analytical 3D slope response: 0.0 on flat pixels (n = 0,0,1), >0 on light-facing slopes.
-    float slope = max(dot(n, lightDir) - lightDir.z, 0.0);
-    float spec = pow(max(dot(n, halfVec), 0.0), 20.0);
+    // Smooth 3D relief with wrapped directional bias (no center hole or half-ridge cutoff).
+    float relief = smoothstep(0.015, 0.30, length(n.xy));
+    float dirBias = 0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(n.xy, lightDir.xy));
+    float slope = relief * dirBias;
+    float spec = pow(max(dot(n, halfVec), 0.0), 14.0);
 
     float baseLum = dot(base, vec3(0.299, 0.587, 0.114));
-    float chitinMask = smoothstep(0.018, 0.075, baseLum) * smoothstep(0.65, 0.25, baseLum);
+    float surfaceMask = smoothstep(0.014, 0.065, baseLum);
+
+    // 8-tap two-ring bloom kernel around uv so the light itself glows softly over ridges.
+    const vec2 r1 = vec2(7.0 / 1280.0, 7.0 / 720.0);
+    const vec2 r2 = vec2(13.0 / 1280.0, 13.0 / 720.0);
+    float bloomEnergy = 0.125 * (
+        sampleRidgeEmit(uv + vec2(-r1.x, 0.0), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2( r1.x, 0.0), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(0.0, -r1.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(0.0,  r1.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(-r2.x, -r2.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2( r2.x, -r2.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(-r2.x,  r2.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2( r2.x,  r2.y), lightDir.xy)
+    );
+
     float flashGain = 1.0 + 3.0 * flashAmount;
     float beam = layers * reach * flashGain + flashAmount * 0.22 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
-    float diffGain = beam * slope * 24.0;
-    float specSheen = chitinMask * beam * slope * (0.45 + 1.55 * spec) * 3.2;
-    return clamp(base * (vec3(1.0) + warm * diffGain) + warm * specSheen, 0.0, 1.0);
+    float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
+    float lightBloom = beam * (surfaceMask * slope * (0.32 + 1.05 * spec) * 0.95 + bloomEnergy * 1.15);
+    vec3 lightAdd = base * warm * diffGain + warm * lightBloom;
+    return clamp(base + (vec3(1.0) - base) * (vec3(1.0) - exp(-lightAdd)), 0.0, 1.0);
 }
 // moving-lights end
 
