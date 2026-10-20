@@ -77,14 +77,33 @@ typedef struct {
     float min_x;
     float max_x;
     float life;
+    double shine_started;
+    int flash_active;
     int active;
 } PanelFlare;
 
 static PanelFlare s_panel_flares[MAX_PANEL_FLARES];
+#define PANEL_SHINE_DURATION 0.5
+
+static Vector2 s_panel_mouse;
+static Vector2 s_previous_panel_mouse;
+static int s_panel_mouse_valid;
+static int s_previous_panel_mouse_valid;
+
+void ui_theme_set_mouse(Vector2 virtual_mouse) {
+    s_previous_panel_mouse = s_panel_mouse;
+    s_previous_panel_mouse_valid = s_panel_mouse_valid;
+    s_panel_mouse = virtual_mouse;
+    s_panel_mouse_valid = 1;
+}
 
 void ui_draw_panel_border(Rectangle r, Color border_color) {
     if (r.width <= 2.0f || r.height <= 2.0f) return;
     int rx = (int)r.x, ry = (int)r.y, rw = (int)r.width, rh = (int)r.height;
+    double now = GetTime();
+    int hovered = s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, r);
+    int entered = hovered && (!s_previous_panel_mouse_valid ||
+                              !CheckCollisionPointRec(s_previous_panel_mouse, r));
 
     /* 1. Base border stroke */
     DrawRectangleLinesEx(r, 1.0f, border_color);
@@ -104,7 +123,6 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
     /* 3. Horizontal slow crawling faint streaks on top border (max 3 globally) */
     if (rw >= 40) {
         static double s_last_time = -1.0;
-        double now = GetTime();
         if (now != s_last_time) {
             float dt = GetFrameTime();
             if (dt > 0.05f) dt = 0.05f;
@@ -130,6 +148,8 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
                 if (!s_panel_flares[i].active) {
                     PanelFlare *f = &s_panel_flares[i];
                     f->active = 1;
+                    f->flash_active = 0;
+                    f->shine_started = 0.0;
                     f->y = (float)ry;
                     f->min_x = (float)rx;
                     f->max_x = (float)(rx + rw - 1);
@@ -145,15 +165,27 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
         }
 
         for (int i = 0; i < MAX_PANEL_FLARES; i++) {
-            const PanelFlare *f = &s_panel_flares[i];
+            PanelFlare *f = &s_panel_flares[i];
             if (!f->active) continue;
             if (fabsf(f->y - (float)ry) < 1.0f && f->min_x == (float)rx && f->max_x == (float)(rx + rw - 1)) {
+                if (entered) {
+                    f->shine_started = now;
+                    f->flash_active = 1;
+                }
+                float shine = 0.0f;
+                if (f->flash_active) {
+                    double elapsed = now - f->shine_started;
+                    if (elapsed >= 0.0 && elapsed < PANEL_SHINE_DURATION)
+                        shine = 1.0f - (float)(elapsed / PANEL_SHINE_DURATION);
+                    else f->flash_active = 0;
+                }
                 float x_tail = f->x - (f->vx > 0 ? f->len : -f->len);
                 float x0 = fminf(f->x, x_tail), x1 = fmaxf(f->x, x_tail);
                 if (x0 < f->min_x) x0 = f->min_x;
                 if (x1 > f->max_x) x1 = f->max_x;
                 if (x1 > x0) {
-                    DrawLine((int)x0, ry, (int)x1, ry, (Color){ 255, 255, 255, 22 });
+                    unsigned char alpha = (unsigned char)(22.0f + 233.0f * shine);
+                    DrawLine((int)x0, ry, (int)x1, ry, (Color){ 255, 255, 255, alpha });
                 }
             }
         }
