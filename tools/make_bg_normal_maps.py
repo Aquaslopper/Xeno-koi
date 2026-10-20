@@ -47,22 +47,22 @@ ASSETS = ROOT / "assets"
 BACKGROUNDS = ["harvest", "hole", "arctic", "castle", "city", "face", "realm"]
 
 WIDTH, HEIGHT = 1280, 720
-# The height field comes from luminance, so its gradient is only non-zero
-# where the art actually changes -- half the frame is flat and the relief
-# sits in bands along the art's contours. Lighting that read as edging
-# rather than bumps, so the blur is now heavy: only the large forms (dome,
-# spires, ridges) carry relief, and the art's own texture stops being
-# amplified into visible contour banding.
-BLUR_DETAIL = 13.0     # px sigma for the fine height scale
-BLUR_BROAD = 26.0      # px sigma for the broad forms
-DETAIL_WEIGHT = 0.35   # weight of the fine scale vs the broad one
-TARGET_SLOPE = 2.6     # p98 of |grad height| is scaled to this slope, which
-                       # sets how strong the relief is. 1.0 left the map nearly
-                       # flat (mean tilt 10 degrees), so N.L barely varied and
-                       # the light read as a wash; 2.6 gives mean tilt 25
-                       # degrees, p90 56 -- bumps that actually answer a light.
-SLOPE_MAX = 3.0        # clamp on the scaled slope, so the steepest art edges
-                       # cannot push the normal past ~72 degrees and strobe.
+# The height field is a blurred luminance, and the blur sigma decides where
+# relief lives -- more than the slope does. A luminance gradient is only
+# non-zero where the art changes, so a light blur puts all the relief in thin
+# bands along the art's contours and the lighting traces those contours as
+# edges. 16/6 px keeps the large forms (the Harvest dome, the spires, the
+# ridges) and leaves the art's own texture alone.
+BLUR_BROAD = 16.0     # px sigma for the broad forms
+BLUR_DETAIL = 6.0     # px sigma for the medium detail on top
+DETAIL_WEIGHT = 0.35  # weight of the detail scale vs the broad one
+TARGET_SLOPE = 3.0    # p98 of |gradient| is scaled to this slope, which sets
+                      # how strong the relief is: mean tilt ~25 degrees, p90
+                      # ~50. 1.0 left the map nearly flat (mean tilt 10), so
+                      # N.L barely varied and the light read as a wash.
+SLOPE_MAX = 4.0       # clamp on the scaled slope. Only the extreme tail of
+                      # the distribution reaches it; it exists so the steepest
+                      # art edges cannot push a normal near 90 degrees.
 
 # ---- moving-light constants; keep in sync with assets/depth_fog*.fs ----
 # Standard tangent-space normal mapping: an ambient term plus two directional
@@ -91,27 +91,72 @@ FILL_DIRECTION = FILL_DIRECTION / np.linalg.norm(FILL_DIRECTION)
 # -----------------------------------------------------------------------
 
 
+def _gaussian_kernel(sigma: float) -> np.ndarray:
+    """1-D gaussian kernel, truncated at 3 sigma."""
+    radius = max(1, int(math.ceil(sigma * 3.0)))
+    xs = np.arange(-radius, radius + 1, dtype=np.float64)
+    k = np.exp(-(xs * xs) / (2.0 * sigma * sigma))
+    return k / k.sum()
+
+
+def blur_float(a: np.ndarray, sigma: float) -> np.ndarray:
+    """Separable gaussian blur on a float array.
+
+    This must NOT be PIL's GaussianBlur: PIL keeps the image mode, so
+    filtering an 8-bit "L" image rounds the result back to 8-bit integers.
+    That turned the height field into a 68-level staircase -- continuous
+    nowhere, with zero gradient inside every step and a burst of tilt at
+    each step boundary -- and the lighting drew every one of those
+    boundaries as a thin line over the art. Measured on harvest: 68 distinct
+    values against 921600 for this, and 42% of the frame pinned to exactly
+    zero gradient.
+    """
+    k = _gaussian_kernel(sigma)
+    t = np.apply_along_axis(lambda m: np.convolve(m, k, mode="same"), 1, a)
+    return np.apply_along_axis(lambda m: np.convolve(m, k, mode="same"), 0, t)
+
+
 def height_field(img: Image.Image) -> np.ndarray:
+    """Blurred luminance as a float height field. No percentile clipping:
+    clipping pinned 1.3% of the frame to exactly 0 and 0.5% to exactly 1,
+    and the gradient is zero inside a plateau, so the clip boundary became
+    a hard light/shadow edge. The slope is normalised downstream, so the
+    height field's absolute range does not matter and needs no rescaling.
+    """
     lum = np.asarray(img.convert("L"), dtype=np.float64) / 255.0
-    broad = np.asarray(
-        img.convert("L").filter(ImageFilter.GaussianBlur(BLUR_BROAD)),
-        dtype=np.float64) / 255.0
-    detail = np.asarray(
-        img.convert("L").filter(ImageFilter.GaussianBlur(BLUR_DETAIL)),
-        dtype=np.float64) / 255.0
-    h = (1.0 - DETAIL_WEIGHT) * broad + DETAIL_WEIGHT * detail
-    lo, hi = np.percentile(h, 1.0), np.percentile(h, 99.5)
-    return np.clip((h - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+    broad = blur_float(lum, BLUR_BROAD)
+    detail = blur_float(lum, BLUR_DETAIL)
+    return (1.0 - DETAIL_WEIGHT) * broad + DETAIL_WEIGHT * detail
+
+
+def _sobel(a: np.ndarray, k: np.ndarray) -> np.ndarray:
+    """3x3 correlation with edge padding (no wrap-around)."""
+    p = np.pad(a, 1, mode="edge")
+    return (k[0, 0] * p[:-2, :-2] + k[0, 1] * p[:-2, 1:-1] + k[0, 2] * p[:-2, 2:]
+            + k[1, 0] * p[1:-1, :-2] + k[1, 1] * p[1:-1, 1:-1] + k[1, 2] * p[1:-1, 2:]
+            + k[2, 0] * p[2:, :-2] + k[2, 1] * p[2:, 1:-1] + k[2, 2] * p[2:, 2:])
 
 
 def normal_map(img: Image.Image) -> np.ndarray:
+    """Height field -> tangent-space normal map.
+
+    Sobel is the standard height-to-normal operator: it weights four
+    neighbours per axis instead of taking a plain central difference, which
+    smooths the result on the same data. Rows grow downward and z faces the
+    viewer, so a surface whose height rises toward the right or the bottom
+    has its normal tilted toward the left or the top -- n.xy is the negative
+    gradient. Checked against a synthetic Gaussian bump lit from the upper
+    left: the highlight lands in the bump's upper-left quadrant.
+    """
     h = height_field(img)
-    gy, gx = np.gradient(h)  # rows = v (down), cols = u (right)
-    mag = np.sqrt(gx * gx + gy * gy)
+    sx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float64)
+    sy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float64)
+    dX, dY = _sobel(h, sx), _sobel(h, sy)
+    mag = np.sqrt(dX * dX + dY * dY)
     p = float(np.percentile(mag, 98.0))
     s = TARGET_SLOPE / max(p, 1e-6)
     slope = np.minimum(mag * s, SLOPE_MAX)
-    ang = np.arctan2(gy, gx)
+    ang = np.arctan2(dY, dX)
     nx, ny, nz = -slope * np.cos(ang), -slope * np.sin(ang), np.ones_like(h)
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
     out = np.zeros(h.shape + (4,), dtype=np.uint8)
