@@ -56,7 +56,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float baseLum = dot(base, vec3(0.299, 0.587, 0.114));
     float chitinMask = smoothstep(0.018, 0.075, baseLum) * smoothstep(0.65, 0.25, baseLum);
     float flashGain = 1.0 + 3.0 * flashAmount;
-    float beam = layers * reach * flashGain;
+    float beam = layers * reach * flashGain + flashAmount * 0.22 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * slope * 24.0;
     float specSheen = chitinMask * beam * slope * (0.45 + 1.55 * spec) * 3.2;
@@ -93,7 +93,7 @@ void main()
 
         // 4. Fog Blend (#050505):
         const vec3 fogColor = vec3(0.0196, 0.0196, 0.0196);
-        float fogAlpha = clamp(depthMask * yMask * patch * 1.35, 0.0, 0.88);
+        float fogAlpha = clamp(depthMask * yMask * patch * 0.80, 0.0, 0.55);
         blended = mix(blended, fogColor, fogAlpha);
     }
 

@@ -27,10 +27,26 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
     draw_text_ex_snapped(font, text, (Vector2){ b.x + (b.width - ts.x) / 2.0f, b.y + (b.height - fsz) / 2.0f }, fsz, sp, col);
 }
 
-#define ASH_COUNT 50
+#define ASH_COUNT 95
+#define ASH_BURST_MAX 128
 
 typedef struct { Vector2 pos; float speed_y, sway_speed, sway_amp; int size; unsigned char alpha; float phase; } AshParticle;
+typedef struct {
+    Vector2 pos;
+    Vector2 vel;
+    int card_id;
+    int size;
+    unsigned char base_alpha;
+    float follow;
+    float phase;
+    float sway_speed;
+    float life;
+    float max_life;
+    int active;
+} AshBurstParticle;
+
 static AshParticle g_ash[ASH_COUNT];
+static AshBurstParticle g_ash_burst[ASH_BURST_MAX];
 static int g_ash_initialized = 0;
 
 static void ash_init(void) {
@@ -40,11 +56,58 @@ static void ash_init(void) {
         g_ash[i].sway_speed = 0.8f + (float)(rand() % 100) / 70.0f;
         g_ash[i].sway_amp = 8.0f + (float)(rand() % 12);
         g_ash[i].size = (int)(1.5f + (float)(rand() % 16) / 10.0f);
-        float a = 0.18f + (float)(rand() % 25) / 100.0f;
+        float a = 0.22f + (float)(rand() % 28) / 100.0f;
         g_ash[i].alpha = (unsigned char)(255.0f * a);
         g_ash[i].phase = (float)(rand() % 628) / 100.0f;
     }
+    for (int i = 0; i < ASH_BURST_MAX; i++) g_ash_burst[i].active = 0;
     g_ash_initialized = 1;
+}
+
+static void ash_spawn_capture_burst(const GameState *g) {
+    if (!g_ash_initialized) ash_init();
+    if (!g || g->last_captured_count <= 0) return;
+
+    Rectangle table_rect = { 640.0f, 240.0f, FIELD_CARD_W, FIELD_CARD_H };
+    for (int k = g->last_captured_count - 1; k >= 0; k--) {
+        Rectangle tr = motion_get_rect(g->last_captured[k]);
+        if (tr.width > 0.0f && tr.y >= 60.0f && tr.y <= 500.0f) {
+            table_rect = tr;
+            break;
+        }
+    }
+
+    int slot = 0;
+    for (int k = 0; k < g->last_captured_count; k++) {
+        int cid = g->last_captured[k];
+        Rectangle r = motion_get_rect(cid);
+        if (r.width <= 0.0f || (k == 0 && (r.y > 500.0f || r.y < 60.0f))) r = table_rect;
+        int rw = (int)fmaxf(1.0f, r.width);
+        int rh = (int)fmaxf(1.0f, r.height);
+
+        for (int n = 0; n < 28; n++) {
+            AshBurstParticle *p = NULL;
+            for (int i = 0; i < ASH_BURST_MAX; i++) {
+                int idx = (slot + i) % ASH_BURST_MAX;
+                if (!g_ash_burst[idx].active) { p = &g_ash_burst[idx]; slot = idx + 1; break; }
+            }
+            if (!p) { p = &g_ash_burst[slot % ASH_BURST_MAX]; slot++; }
+
+            float ang = (float)(rand() % 628) / 100.0f;
+            float spd = 38.0f + (float)(rand() % 92);
+            p->pos = (Vector2){ r.x + (float)(rand() % rw), r.y + (float)(rand() % rh) };
+            p->vel = (Vector2){ cosf(ang) * spd, sinf(ang) * spd - 14.0f };
+            p->card_id = cid;
+            p->size = 2 + (rand() % 3);
+            p->base_alpha = (unsigned char)(195 + (rand() % 55));
+            p->follow = 0.24f + (float)(rand() % 18) / 100.0f;
+            p->phase = (float)(rand() % 628) / 100.0f;
+            p->sway_speed = 2.4f + (float)(rand() % 28) / 10.0f;
+            p->max_life = 0.85f + (float)(rand() % 45) / 100.0f;
+            p->life = p->max_life;
+            p->active = 1;
+        }
+    }
 }
 
 static void ash_draw_and_update(float dt) {
@@ -60,6 +123,34 @@ static void ash_draw_and_update(float dt) {
         if (p->alpha == 0) continue;
         float sway_x = p->pos.x + sinf(p->phase + cur_time * p->sway_speed) * p->sway_amp;
         DrawRectangle((int)sway_x, (int)p->pos.y, p->size, p->size, (Color){ 5, 5, 5, p->alpha });
+    }
+}
+
+static void ash_burst_draw_and_update(float dt) {
+    if (!g_ash_initialized) return;
+    float cur_time = (float)GetTime();
+    float damp = expf(-3.4f * dt);
+    for (int i = 0; i < ASH_BURST_MAX; i++) {
+        AshBurstParticle *p = &g_ash_burst[i];
+        if (!p->active) continue;
+        p->life -= dt;
+        if (p->life <= 0.0f) { p->active = 0; continue; }
+
+        p->vel.x *= damp;
+        p->vel.y *= damp;
+        Rectangle cr = motion_get_rect(p->card_id);
+        if (cr.width > 0.0f) {
+            float cx = cr.x + cr.width * 0.5f, cy = cr.y + cr.height * 0.5f;
+            p->vel.x += (cx - p->pos.x) * p->follow * 4.5f * dt;
+            p->vel.y += (cy - p->pos.y) * p->follow * 4.5f * dt;
+        }
+        p->pos.x += (p->vel.x + cosf(p->phase + cur_time * p->sway_speed) * 14.0f) * dt;
+        p->pos.y += (p->vel.y - 16.0f) * dt;
+
+        float frac = p->life / p->max_life;
+        float fade = (frac < 0.35f) ? (frac / 0.35f) : 1.0f;
+        unsigned char a = (unsigned char)((float)p->base_alpha * fade);
+        if (a > 0) DrawRectangle((int)p->pos.x, (int)p->pos.y, p->size, p->size, (Color){ 5, 5, 5, a });
     }
 }
 
@@ -271,18 +362,20 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     static float thunder_flash = 0.0f;
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
-    if ((prev_captured >= 0 && cur_captured > prev_captured) ||
-        (prev_koi >= 0 && cur_koi > prev_koi)) {
-        thunder_flash = 1.0f;
-    }
+    int capture_edge = (prev_captured >= 0 && cur_captured > prev_captured);
+    int koi_edge = (prev_koi >= 0 && cur_koi > prev_koi);
     prev_captured = cur_captured;
     prev_koi = cur_koi;
-    if (thunder_flash > 0.0f) {
+    if (capture_edge) ash_spawn_capture_burst(g);
+    if (capture_edge || koi_edge) {
+        thunder_flash = 1.0f;
+    } else if (thunder_flash > 0.0f) {
         if (thunder_flash > 0.40f) {
-            thunder_flash -= frame_dt * 2.8f;
+            thunder_flash -= frame_dt * 3.2f;
             if (thunder_flash < 0.40f) thunder_flash = 0.40f;
         } else {
-            thunder_flash *= expf(-frame_dt / 1.5625f);
+            thunder_flash *= expf(-frame_dt / 1.80f);
+            if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
 
@@ -305,7 +398,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (ba->has_fog_shader) EndShaderMode();
 
     DrawRectangle(0, 0, 1280, 720, COLOR_TABLE_DIM);
-    DrawRectangleGradientV(0, 380, 1280, 340, (Color){ 5, 5, 5, 0 }, (Color){ 5, 5, 5, 110 });
+    DrawRectangleGradientV(0, 380, 1280, 340, (Color){ 5, 5, 5, 0 }, (Color){ 5, 5, 5, 65 });
     ash_draw_and_update(frame_dt);
 
     /* 2. Left Column */
@@ -364,8 +457,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
         } else board_draw_card(ba, cid, dr);
-        if (easy_mode && drag_m > 0 && CARDS[cid].month == drag_m) board_draw_card_glow(dr, pulse);
+        if (easy_mode && drag_m > 0 && CARDS[cid].month == drag_m) {
+            board_draw_card_glow(dr, pulse);
+            ui_theme_draw_panel_flares_keyed(dr, cid + 1);
+        }
     }
+    ash_burst_draw_and_update(frame_dt);
 
     /* 5b. A hand card waiting on a choice (it matched two field cards): it has
            left the hand and is not on the field yet, so nothing else draws it. */

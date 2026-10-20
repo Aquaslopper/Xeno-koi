@@ -192,8 +192,8 @@ static void panel_flare_assign(PanelFlare *f, Rectangle bounds, double now, int 
     int perimeter_steps = (int)perimeter;
     if (!f || perimeter_steps <= 0) return;
     f->direction = (rand() & 1) ? 1.0f : -1.0f;
-    f->speed = 12.0f + (float)(rand() % 29);
-    float requested_len = 20.0f + (float)(rand() % 9);
+    f->speed = (12.0f + (float)(rand() % 29)) * 0.80f;
+    float requested_len = 19.0f + (float)(rand() % 9);
     f->len = fminf(requested_len, perimeter * 0.25f);
     f->distance = (float)(rand() % perimeter_steps);
     f->life = perimeter / f->speed + 2.0f;
@@ -209,11 +209,12 @@ static int panel_flare_count(const PanelFlareBox *box) {
     return count;
 }
 
-static void panel_flare_ensure_minimum(PanelFlareBox *box, double now) {
+static void panel_flare_ensure_minimum(PanelFlareBox *box, double now, int target_count, int flash) {
     int count = panel_flare_count(box);
-    for (int i = 0; i < MAX_FLARES_PER_BOX && count < MIN_FLARES_PER_BOX; i++) {
+    if (target_count > MAX_FLARES_PER_BOX) target_count = MAX_FLARES_PER_BOX;
+    for (int i = 0; i < MAX_FLARES_PER_BOX && count < target_count; i++) {
         if (box->flares[i].active) continue;
-        panel_flare_assign(&box->flares[i], box->bounds, now, 0);
+        panel_flare_assign(&box->flares[i], box->bounds, now, flash);
         count++;
     }
 }
@@ -298,15 +299,16 @@ static void panel_flares_draw(Rectangle r, int key) {
     double now = GetTime();
     PanelFlareBox *box = panel_flare_box_get(bounds, now, key);
     if (!box) return;
+    int held_card = (key > 0);
     int hovered = s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, bounds);
     int entered = hovered && (!s_previous_panel_mouse_valid ||
                               !CheckCollisionPointRec(s_previous_panel_mouse, bounds));
     panel_flares_update(now);
-    panel_flare_ensure_minimum(box, now);
-    if (entered) panel_flare_shine(box, now);
+    panel_flare_ensure_minimum(box, now, held_card ? MAX_FLARES_PER_BOX : MIN_FLARES_PER_BOX, held_card);
+    if (entered || held_card) panel_flare_shine(box, now);
 
     int count = panel_flare_count(box);
-    if (!entered && count < MAX_FLARES_PER_BOX && (rand() % 100) == 0) {
+    if (!entered && !held_card && count < MAX_FLARES_PER_BOX && (rand() % 100) == 0) {
         int flash = panel_flare_box_shining(box, now);
         for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
             if (!box->flares[i].active) {
@@ -320,7 +322,9 @@ static void panel_flares_draw(Rectangle r, int key) {
         PanelFlare *f = &box->flares[i];
         if (!f->active) continue;
         float shine = 0.0f;
-        if (f->flash_active) {
+        if (held_card) {
+            shine = 1.0f;
+        } else if (f->flash_active) {
             double elapsed = now - f->shine_started;
             if (elapsed >= 0.0 && elapsed < PANEL_SHINE_DURATION)
                 shine = 1.0f - (float)(elapsed / PANEL_SHINE_DURATION);
@@ -329,7 +333,7 @@ static void panel_flares_draw(Rectangle r, int key) {
         unsigned char alpha = (unsigned char)(22.0f + 233.0f * shine);
         Color flare = (Color){ 255, 255, 255, alpha };
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
-                          1.0f + 3.0f * shine, flare);
+                          1.0f + 2.0f * shine, flare);
     }
 }
 
