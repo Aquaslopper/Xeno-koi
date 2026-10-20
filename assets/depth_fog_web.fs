@@ -9,10 +9,30 @@ varying vec4 fragColor;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 uniform float time;
+uniform sampler2D normalMap;
+uniform float lightEnabled;
+uniform float eventFlash;
 
 void main()
 {
     vec4 texel = texture2D(texture0, fragTexCoord);
+    // Additive surface lighting preserves the approved baked TOP/gamma baseline.
+    // Decode the original image-space normals (positive Y points down).
+    if (lightEnabled > 0.5) {
+        vec3 n = normalize(texture2D(normalMap, fragTexCoord).rgb * 2.0 - 1.0);
+        vec2 center = vec2(0.5 + 0.36 * sin(time * 0.17),
+                           0.45 + 0.28 * cos(time * 0.13));
+        vec2 delta = (center - fragTexCoord) * vec2(1.77778, 1.0);
+        vec3 l = normalize(vec3(delta, 0.32));
+        vec3 h = normalize(l + vec3(0.0, 0.0, 1.0));
+        float falloff = exp(-dot(delta, delta) * 2.2);
+        float relief = max(dot(n, l), 0.0);
+        float spec = pow(max(dot(n, h), 0.0), 28.0);
+        vec3 accent = vec3(0.78, 0.88, 1.0);
+        vec3 moving = (texel.rgb * relief * 0.14 + accent * spec * 0.07) * falloff;
+        vec3 pulse = (texel.rgb * relief + accent * spec * 0.35) * eventFlash;
+        texel.rgb = min(texel.rgb + moving + pulse, vec3(1.0));
+    }
     vec3 blended = texel.rgb;
 
     // 1. The Y-Axis Mask:

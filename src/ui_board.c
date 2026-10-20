@@ -13,6 +13,24 @@ extern Font font_title;
 extern Font font_body;
 extern GameSettings settings;
 
+/* Event envelope uses wall time; overlapping events take the brighter pulse. */
+static double light_flash_start = -10.0;
+static float light_flash_peak;
+static float light_flash_duration = 0.6f;
+
+static float light_flash_value(void) {
+    float age = (float)(GetTime() - light_flash_start);
+    float t = fmaxf(0.0f, 1.0f - age / light_flash_duration);
+    return light_flash_peak * t * t;
+}
+
+void board_flash_light(int koi) {
+    float peak = koi ? 0.32f : 0.18f;
+    light_flash_peak = fmaxf(peak, light_flash_value());
+    light_flash_duration = koi ? 1.0f : 0.6f;
+    light_flash_start = GetTime();
+}
+
 static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
     DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
 }
@@ -108,6 +126,17 @@ void board_load_assets(BoardAssets *ba) {
         "assets/face.jpg", "assets/realm.jpg"
     };
     for (int i = 0; i < 8; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
+    const char *normal_names[8] = {
+        "assets/harvest_normal.png", "assets/hole_normal.png", "assets/arctic_normal.png",
+        "assets/castle_normal.png", "assets/city_normal.png", NULL,
+        "assets/face_normal.png", "assets/realm_normal.png"
+    };
+    for (int i = 0; i < 8; i++) {
+        ba->bg_normals[i] = (Texture2D){0};
+        if (normal_names[i]) ba->bg_normals[i] = LoadTexture(get_path(normal_names[i]));
+    }
+    light_flash_start = -10.0;
+
 
 #ifdef __EMSCRIPTEN__
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog_web.fs"));
@@ -116,6 +145,10 @@ void board_load_assets(BoardAssets *ba) {
 #endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
     if (ba->has_fog_shader) ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
+
+    ba->light_normal_loc = GetShaderLocation(ba->fog_shader, "normalMap");
+    ba->light_enabled_loc = GetShaderLocation(ba->fog_shader, "lightEnabled");
+    ba->light_flash_loc = GetShaderLocation(ba->fog_shader, "eventFlash");
 
     ba->current_bg = 0; ba->assets_loaded = 1;
 }
@@ -127,7 +160,10 @@ void board_unload_assets(BoardAssets *ba) {
     if (ba->coin_gold.id > 0) UnloadTexture(ba->coin_gold);
     if (ba->coin_silver.id > 0) UnloadTexture(ba->coin_silver);
     if (ba->coin_bronze.id > 0) UnloadTexture(ba->coin_bronze);
-    for (int i = 0; i < 8; i++) UnloadTexture(ba->bgs[i]);
+    for (int i = 0; i < 8; i++) {
+        UnloadTexture(ba->bgs[i]);
+        if (ba->bg_normals[i].id > 0) UnloadTexture(ba->bg_normals[i]);
+    }
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;
 }
@@ -246,7 +282,15 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 1. Background with hybrid 3D depth-fog shader */
     if (ba->has_fog_shader) {
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
+        int bg = ba->current_bg;
+        float enabled = (bg >= 0 && bg < 8 && bg != 5 &&
+                         ba->bg_normals[bg].id > 0 && ba->light_normal_loc >= 0) ? 1.0f : 0.0f;
+        float flash = light_flash_value();
+        SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &enabled, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ba->fog_shader, ba->light_flash_loc, &flash, SHADER_UNIFORM_FLOAT);
         BeginShaderMode(ba->fog_shader);
+        if (enabled > 0.0f)
+            SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, ba->bg_normals[bg]);
     }
     if (ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0) {
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);

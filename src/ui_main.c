@@ -25,6 +25,16 @@
 #include "replay.h"
 #include "ui_replay.h"
 
+/* Visual feedback is unconditional, including when SFX are muted or unavailable. */
+static void capture_feedback(AudioAssets *a) {
+    board_flash_light(0);
+    audio_play_capture(a);
+}
+static void koi_feedback(AudioAssets *a) {
+    board_flash_light(1);
+    audio_play_koi(a);
+}
+
 #ifndef IsFontReady
 #define IsFontReady(f) ((f).texture.id > 0)
 #endif
@@ -429,7 +439,7 @@ static void update_draw_frame(void) {
                             motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
                             engine_play_hand(&g, card, target);
                             replay_rec_play(1, card, target);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            if (g.last_captured_count > 0) capture_feedback(&audio);
                         } else if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
                             anim.active = 0; int card, target;
                             ai_choose_hand(&g, settings.difficulty, &ai_rng, &card, &target);
@@ -448,7 +458,7 @@ static void update_draw_frame(void) {
                             anim.active = 0; audio_play_drop(&audio);
                             motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
                             engine_reveal_stock(&g);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            if (g.last_captured_count > 0) capture_feedback(&audio);
                         } else if (!anim.active) {
                             int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
                             if (top_stock >= 0) {
@@ -468,14 +478,14 @@ static void update_draw_frame(void) {
                         int target = ai_choose_stock_target(&g, settings.difficulty, &ai_rng);
                         engine_pick_draw_choice(&g, target);
                         replay_rec_pick(1, target);
-                        if (g.last_captured_count > 0) audio_play_capture(&audio);
+                        if (g.last_captured_count > 0) capture_feedback(&audio);
                     }
 
                     if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
                         DecisionType dec = ai_choose_decision(&g, settings.difficulty, &ai_rng);
                         if (dec == DECISION_KOI_KOI) {
                             int cpu_streak = koi_caller_multiplier(g.koi_called[1] + 1); /* streak after this call */
-                            audio_play_koi(&audio); anim_start_banner(&anim, TextFormat("CPU: KOI-KOI  x%d", cpu_streak), 1.5f);
+                            koi_feedback(&audio); anim_start_banner(&anim, TextFormat("CPU: KOI-KOI  x%d", cpu_streak), 1.5f);
                             taunt_trigger(campaign_get_opponent(settings.current_opponent)->koi_taunt, 4.0f);
                         }
                         engine_decide(&g, dec);
@@ -504,7 +514,7 @@ static void update_draw_frame(void) {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);
                                         replay_rec_timeout(0);
-                                        if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
+                                        if (g.last_captured_count > 0) capture_feedback(&audio); else audio_play_drop(&audio);
                                         anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
                                     }
                                 }
@@ -513,23 +523,23 @@ static void update_draw_frame(void) {
                                 int hand_before = g.hand_count[0];
                                 input_handle_mouse(&g, &drag, &anim, l, vm, &hovered_idx, 1);
                                 if (g.hand_count[0] < hand_before) {
-                                    if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                    if (g.last_captured_count > 0) capture_feedback(&audio);
                                     else audio_play_drop(&audio);
                                 }
                             }
                         }
                         else if (g.phase == PHASE_HAND_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
-                            if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
+                            if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) capture_feedback(&audio); }
                             else if (res == 2) { audio_play_click(&audio); engine_cancel_hand_choice(&g); replay_rec_cancel(0); }
                         } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
-                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) capture_feedback(&audio);
                             }
                         } else if (g.phase == PHASE_DECIDE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             DecisionType dec;
                             if (screens_check_decide_click(vm, &dec)) {
-                                audio_play_click(&audio); if (dec == DECISION_KOI_KOI) audio_play_koi(&audio);
+                                audio_play_click(&audio); if (dec == DECISION_KOI_KOI) koi_feedback(&audio);
                                 engine_decide(&g, dec); replay_rec_koi(0, dec == DECISION_KOI_KOI);
                             }
                         }

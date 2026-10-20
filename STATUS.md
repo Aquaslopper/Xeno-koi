@@ -11,6 +11,14 @@
 - Verified all seven JPEGs decode and retain 1280×720 dimensions; `assets/deus.png` matches HEAD byte-for-byte. No game code, rules, card artwork, or shaders changed. Local preview/scratch outputs are excluded from the PR.
 - Remaining verification: maintainer will test the backgrounds in-game and report back. Earlier UI work and its checks are recorded below; no new graphical game build was tested for this artwork update.
 
+## Animated background lighting — 20 October 2026
+
+- Shipped the seven original Medium 4.0 normal maps and added slow wandering surface light in the desktop/web background fog shaders, before fog/vignette. The baked gamma 1.20 JPGs are unchanged.
+- Added capture pulses (0.6 seconds) and stronger koi-koi pulses (1 second) at existing player/CPU action feedback sites, independent of SFX volume. Overlapping pulses use the brighter envelope rather than summing. A match/capture uses one trigger, not separate duplicate effects.
+- Deus bypasses the new light calculations and has no normal texture. Missing normal textures disable lighting for that background. Cards/UI are not shaded by this pass; menus retain their existing static drawing path.
+- Checks: engine suite (500 matches), headless table input/combo suite, C99 `-Wall -Wextra` syntax checks of ui_board.c/ui_main.c against Raylib 5.5 headers, and diff whitespace check passed.
+- Remaining: desktop/web shader compilation and graphical playtest, light intensity/speed tuning, and visual confirmation of capture/koi pulses. No live graphical build was run here; headless checks do not validate GPU rendering. Replay playback does not currently use the live action feedback hooks.
+
 ## Status Summary
 ## Latest completed work
 

@@ -14,6 +14,8 @@ typedef struct {
     Texture2D coin_silver;
     Texture2D coin_bronze;
     Texture2D bgs[8];
+    Texture2D bg_normals[8];
+    int light_normal_loc, light_enabled_loc, light_flash_loc;
     int current_bg;
     int assets_loaded;
     Shader fog_shader;
@@ -24,6 +26,9 @@ typedef struct {
 /* Load / unload graphical assets */
 void board_load_assets(BoardAssets *ba);
 void board_unload_assets(BoardAssets *ba);
+
+/* Background-only event pulse: 0 = capture, 1 = koi-koi. */
+void board_flash_light(int koi);
 
 /* Geometry helpers */
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered);
