@@ -12,17 +12,19 @@ uniform float time;
 
 // moving-lights begin
 // Bump lighting for the table background. normalMap RGB holds a
-// tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias),
-// alpha holds the height field (unused here, kept for inspection).
+// tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias).
+// Alpha holds the relief mask baked by tools/make_bg_normal_maps.py --
+// smoothstep over a *blurred* slope -- so the lit/unlit boundary can only
+// ramp. Deriving the mask from the raw normal in here would flip it
+// between two neighbouring pixels wherever the height field pins to 0/1,
+// which traces a hard edge along the art's contours.
 //
 // Only the tilted part of the normal answers the lights: the flat,
-// viewer-facing component is projected out and a relief mask keeps
-// near-flat art quiet, so the pools land on the raised ridges instead of
-// washing the whole frame. The mask ramps over a wide slope band so the
-// lit/unlit boundary eases in instead of cutting a hard edge. Three wide
-// soft lights drift on independent slow paths; the ambient lift keeps a
-// lit background slightly brighter than its art, so there is no night
-// side and no hard spotlight cone.
+// viewer-facing component is projected out and the mask keeps near-flat
+// art quiet, so the pools land on the raised ridges instead of washing the
+// whole frame. Three wide soft lights drift on independent slow paths; the
+// ambient lift keeps a lit background slightly brighter than its art, so
+// there is no night side and no hard spotlight cone.
 //
 // flashAmount is 1 at a capture (match taken) or a Koi-Koi call and decays
 // through a fast linear fall into a long tail; the envelope lives in
@@ -34,8 +36,6 @@ uniform float lightEnabled;
 uniform float flashAmount;
 
 const float AMBIENT_LIFT = 1.10; // what flat art is multiplied by
-const float RELIEF_MIN = 0.07;   // |n.xy| below this counts as flat: stays dark
-const float RELIEF_MAX = 0.58;   // |n.xy| above this is lit at full strength
 const float LIGHT_HEIGHT = 0.35; // low = grazing light, so ridges read stronger
 const float FLASH_GAIN = 1.00;   // how far the thunder spike lifts everything
 
@@ -58,7 +58,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 normalTexel = texture2D(normalMap, uv);
     vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
-    float relief = smoothstep(RELIEF_MIN, RELIEF_MAX, length(n.xy));
+    float relief = normalTexel.a; // baked mask: flat art stays dark, no hard edge
     float flash = 1.0 + FLASH_GAIN * flashAmount;
     float t = time;
     vec3 lit = vec3(AMBIENT_LIFT * flash); // ambient lift

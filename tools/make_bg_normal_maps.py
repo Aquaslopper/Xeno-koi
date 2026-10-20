@@ -9,7 +9,14 @@ assets/<name>_normal.png, 1280x720 RGBA:
        Convention matches assets/depth_fog*.fs on the fullscreen quad:
        x right, y DOWN (v grows with image rows), z toward the viewer,
        encoded as rgb * 0.5 + 0.5. No green-channel flip.
-  A    the smoothed height field itself (0..1), for inspection/masking.
+  A    the relief mask the shaders multiply the lights by (0..1):
+       smoothstep(RELIEF_MIN, RELIEF_MAX) over a *blurred* slope. Baking it
+       matters: the height field pins to 0/1 where the art is dark, which
+       leaves perfectly flat plateaus, and the slope collapses to ~0 in a
+       single pixel at their border. Computing the mask from the raw slope in
+       the shader flips it 0<->1 across that one pixel -- a hard edge that
+       traces the art's contours (visible on the flanks of the Harvest
+       face). Blurring the slope first turns the cliff into a ramp.
 
 The height field is the two-scale gaussian of the art's luminance, so the
 bright biomechanical ridges become raised forms. Gradient strength is
@@ -50,10 +57,17 @@ BLUR_BROAD = 3.6       # px sigma for the broad forms
 DETAIL_WEIGHT = 0.35   # weight of the fine scale vs the broad one
 TARGET_SLOPE = 1.0     # p98 of |grad height| is scaled to this slope
 
+# Relief mask, baked into the normal maps' alpha channel (see normal_map()).
+# The slope is blurred first: where the height field pins to 0/1, or where the
+# art itself has a hard edge, the slope collapses in a single pixel, and a mask
+# taken from the raw slope flips 0<->1 there -- a hard edge that traces the
+# art's contours. RELIEF_BLUR turns those cliffs into ramps.
+RELIEF_MIN = 0.07    # slope below this is flat: stays at ambient
+RELIEF_MAX = 0.58    # slope above this is lit at full strength
+RELIEF_BLUR = 5.0    # px sigma the slope is blurred by before the mask
+
 # ---- moving-light constants; keep in sync with assets/depth_fog*.fs ----
-AMBIENT = 1.10
-RELIEF_MIN = 0.07    # |n.xy| below this is flat: stays at ambient
-RELIEF_MAX = 0.58    # |n.xy| above this is lit at full strength
+AMBIENT = 1.10       # what flat art is multiplied by
 LIGHT_HEIGHT = 0.35  # grazing light height, shared by all three lights
 FLASH_GAIN = 1.00    # thunder-spike lift; the decay envelope is C-side
 SPEC_POWER = 28.0
@@ -95,17 +109,43 @@ def normal_map(img: Image.Image) -> np.ndarray:
     s = TARGET_SLOPE / max(p, 1e-6)
     nx, ny, nz = -gx * s, -gy * s, np.ones_like(h)
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
+    # Alpha: the relief mask, computed from a blurred slope so that art edges
+    # -- which become one-pixel cliffs where the height field pins to 0/1 --
+    # ramp instead of flipping the mask in a single pixel.
+    relief = relief_mask(gaussian_blur(mag * s, RELIEF_BLUR))
     out = np.zeros(h.shape + (4,), dtype=np.uint8)
     out[..., 0] = np.clip((nx * inv * 0.5 + 0.5) * 255.0, 0, 255)
     out[..., 1] = np.clip((ny * inv * 0.5 + 0.5) * 255.0, 0, 255)
     out[..., 2] = np.clip((nz * inv * 0.5 + 0.5) * 255.0, 0, 255)
-    out[..., 3] = np.clip(h * 255.0, 0, 255)
+    out[..., 3] = np.clip(relief * 255.0, 0, 255)
     return out
 
 
-def relief_mask(nx: np.ndarray, ny: np.ndarray) -> np.ndarray:
-    """Smoothstep mask from RELIEF_MIN to RELIEF_MAX over the normal's tilt."""
-    slope = np.sqrt(nx * nx + ny * ny)
+def gaussian_blur(a: np.ndarray, sigma: float) -> np.ndarray:
+    """Separable gaussian blur with edge padding (numpy only: PIL's
+    GaussianBlur cannot handle float arrays)."""
+    if sigma <= 0.0:
+        return a
+    radius = max(1, int(round(sigma * 3.0)))
+    x = np.arange(-radius, radius + 1, dtype=np.float64)
+    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+    kernel /= kernel.sum()
+    out = a
+    for axis in (0, 1):
+        pad = [(0, 0)] * out.ndim
+        pad[axis] = (radius, radius)
+        padded = np.pad(out, pad, mode="edge")
+        acc = np.zeros_like(out)
+        for i in range(kernel.size):
+            src = [slice(None)] * out.ndim
+            src[axis] = slice(i, i + out.shape[axis])
+            acc += kernel[i] * padded[tuple(src)]
+        out = acc
+    return out
+
+
+def relief_mask(slope: np.ndarray) -> np.ndarray:
+    """Smoothstep mask from RELIEF_MIN to RELIEF_MAX over a slope field."""
     ramp = np.clip((slope - RELIEF_MIN) / max(RELIEF_MAX - RELIEF_MIN, 1e-6), 0.0, 1.0)
     return ramp * ramp * (3.0 - 2.0 * ramp)
 
@@ -126,7 +166,7 @@ def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float,
     nz = normal_rgba[..., 2] / 255.0 * 2.0 - 1.0
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
     nx, ny, nz = nx * inv, ny * inv, nz * inv
-    relief = relief_mask(nx, ny)
+    relief = normal_rgba[..., 3] / 255.0  # baked mask, as the shader samples it
     flash_gain = 1.0 + FLASH_GAIN * flash
     lit = np.full((HEIGHT, WIDTH, 3), AMBIENT * flash_gain, dtype=np.float64)
     for path, radius, gain, tint in LIGHTS:
