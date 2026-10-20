@@ -131,11 +131,12 @@ void board_load_assets(BoardAssets *ba) {
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
 #endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
-    ba->light_normal_loc = ba->light_enabled_loc = -1;
+    ba->light_normal_loc = ba->light_enabled_loc = ba->light_flash_loc = -1;
     if (ba->has_fog_shader) {
         ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
         ba->light_normal_loc = GetShaderLocation(ba->fog_shader, "normalMap");
         ba->light_enabled_loc = GetShaderLocation(ba->fog_shader, "lightEnabled");
+        ba->light_flash_loc = GetShaderLocation(ba->fog_shader, "flashAmount");
     }
 
     ba->current_bg = 0; ba->assets_loaded = 1;
@@ -261,6 +262,38 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
     }
 }
 
+/* Background lightning. A capture (a match taken from the table) or a
+   Koi-Koi call spikes the bump lighting, and the spike decays like a
+   thunder: a linear fall from the peak until only 30% of it is left, then a
+   long smooth tail back to rest. Both events are caught as rising edges --
+   a capture animation only runs one at a time (anim_is_blocking), and
+   koi_called[] counts up per round -- so every event flashes exactly once.
+   The shader turns the returned amount into a gain on the whole lighting
+   factor; Deus has no normal map and never sees it. */
+static float bg_light_flash(const GameState *g, const AnimState *anim, float dt) {
+    static int prev_koi_calls = -1; /* -1: first frame, nothing to compare */
+    static int prev_capturing = 0;
+    static float amount = 0.0f;
+    const float LINEAR_DROP = 2.2f; /* peak -> 30% in ~0.32 s */
+    const float TAIL_START = 0.30f; /* linear fall hands over to the tail here */
+    const float TAIL_TAU = 0.55f;   /* long tail time constant */
+
+    int koi_calls = g->koi_called[0] + g->koi_called[1];
+    int capturing = (anim && anim->active && anim->type == ANIM_CAPTURE_FLY);
+    if ((prev_koi_calls >= 0 && koi_calls > prev_koi_calls) || (capturing && !prev_capturing)) {
+        amount = 1.0f;
+    }
+    prev_koi_calls = koi_calls;
+    prev_capturing = capturing;
+
+    if (amount > 0.0f) {
+        if (amount >= TAIL_START) amount -= LINEAR_DROP * dt;
+        else amount *= expf(-dt / TAIL_TAU);
+        if (amount < 0.0f) amount = 0.0f;
+    }
+    return amount;
+}
+
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
                       int easy_mode, int replay_mode, const char *status_msg) {
@@ -272,7 +305,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         float light_enabled = (ba->current_bg >= 0 && ba->current_bg < 8 &&
                                ba->bg_normals[ba->current_bg].id > 0 &&
                                ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
+        float light_flash = bg_light_flash(g, anim, frame_dt);
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ba->fog_shader, ba->light_flash_loc, &light_flash, SHADER_UNIFORM_FLOAT);
         SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
         BeginShaderMode(ba->fog_shader);
         /* Register the bump map after BeginShaderMode: rlSetUniformSampler

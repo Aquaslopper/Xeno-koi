@@ -52,9 +52,10 @@ TARGET_SLOPE = 1.0     # p98 of |grad height| is scaled to this slope
 
 # ---- moving-light constants; keep in sync with assets/depth_fog*.fs ----
 AMBIENT = 1.10
-RELIEF_MIN = 0.12    # |n.xy| below this is flat: stays at ambient
-RELIEF_MAX = 0.45    # |n.xy| above this is lit at full strength
+RELIEF_MIN = 0.07    # |n.xy| below this is flat: stays at ambient
+RELIEF_MAX = 0.58    # |n.xy| above this is lit at full strength
 LIGHT_HEIGHT = 0.35  # grazing light height, shared by all three lights
+FLASH_GAIN = 1.00    # thunder-spike lift; the decay envelope is C-side
 SPEC_POWER = 28.0
 SPEC_GAIN = 0.40
 ASPECT = 16.0 / 9.0
@@ -109,8 +110,14 @@ def relief_mask(nx: np.ndarray, ny: np.ndarray) -> np.ndarray:
     return ramp * ramp * (3.0 - 2.0 * ramp)
 
 
-def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float) -> np.ndarray:
-    """Replicate the depth_fog moving-light block on an RGB float image."""
+def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float,
+                  flash: float = 0.0) -> np.ndarray:
+    """Replicate the depth_fog moving-light block on an RGB float image.
+
+    `flash` is the capture / Koi-Koi spike amount (0 at rest, 1 at the peak).
+    Its decay envelope lives in src/ui_board.c, so pass the amount you want
+    to preview; this only mirrors the shader's FLASH_GAIN conversion.
+    """
     u = (np.arange(WIDTH, dtype=np.float64) + 0.5) / WIDTH
     v = (np.arange(HEIGHT, dtype=np.float64) + 0.5) / HEIGHT
     uu, vv = np.meshgrid(u, v)
@@ -120,7 +127,8 @@ def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float) -> np.nda
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
     nx, ny, nz = nx * inv, ny * inv, nz * inv
     relief = relief_mask(nx, ny)
-    lit = np.full((HEIGHT, WIDTH, 3), AMBIENT, dtype=np.float64)
+    flash_gain = 1.0 + FLASH_GAIN * flash
+    lit = np.full((HEIGHT, WIDTH, 3), AMBIENT * flash_gain, dtype=np.float64)
     for path, radius, gain, tint in LIGHTS:
         lu, lv = path(t)
         dx = (lu - uu) * ASPECT
@@ -137,7 +145,7 @@ def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float) -> np.nda
         spec = np.clip(nx * hx * inv_h + ny * hy * inv_h + nz * hz * inv_h,
                        0.0, None) ** SPEC_POWER
         atten = 1.0 / (1.0 + d2 / (radius * radius))
-        contrib = relief * (diff + SPEC_GAIN * spec) * atten * gain
+        contrib = relief * flash_gain * (diff + SPEC_GAIN * spec) * atten * gain
         for c in range(3):
             lit[..., c] += contrib * tint[c]
     return np.clip(base * lit, 0.0, 1.0)

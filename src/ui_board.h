@@ -19,7 +19,7 @@ typedef struct {
     int assets_loaded;
     Shader fog_shader;
     int fog_time_loc;
-    int light_normal_loc, light_enabled_loc;
+    int light_normal_loc, light_enabled_loc, light_flash_loc;
     int has_fog_shader;
 } BoardAssets;
 

@@ -18,17 +18,26 @@ uniform float time;
 // Only the tilted part of the normal answers the lights: the flat,
 // viewer-facing component is projected out and a relief mask keeps
 // near-flat art quiet, so the pools land on the raised ridges instead of
-// washing the whole frame. Three wide soft lights drift on independent
-// slow paths; the ambient lift keeps a lit background slightly brighter
-// than its art, so there is no night side and no hard spotlight cone.
+// washing the whole frame. The mask ramps over a wide slope band so the
+// lit/unlit boundary eases in instead of cutting a hard edge. Three wide
+// soft lights drift on independent slow paths; the ambient lift keeps a
+// lit background slightly brighter than its art, so there is no night
+// side and no hard spotlight cone.
+//
+// flashAmount is 1 at a capture (match taken) or a Koi-Koi call and decays
+// through a fast linear fall into a long tail; the envelope lives in
+// src/ui_board.c. It lifts the whole lighting factor, so the event reads as
+// a thunder flash over the ridges. Deus has no normal map and is untouched.
 // Constants are mirrored in tools/make_bg_normal_maps.py for --preview.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
+uniform float flashAmount;
 
 const float AMBIENT_LIFT = 1.10; // what flat art is multiplied by
-const float RELIEF_MIN = 0.12;   // |n.xy| below this counts as flat: stays dark
-const float RELIEF_MAX = 0.45;   // |n.xy| above this is lit at full strength
+const float RELIEF_MIN = 0.07;   // |n.xy| below this counts as flat: stays dark
+const float RELIEF_MAX = 0.58;   // |n.xy| above this is lit at full strength
 const float LIGHT_HEIGHT = 0.35; // low = grazing light, so ridges read stronger
+const float FLASH_GAIN = 1.00;   // how far the thunder spike lifts everything
 
 vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float gain, vec3 tint)
 {
@@ -50,15 +59,16 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec4 normalTexel = texture2D(normalMap, uv);
     vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
     float relief = smoothstep(RELIEF_MIN, RELIEF_MAX, length(n.xy));
+    float flash = 1.0 + FLASH_GAIN * flashAmount;
     float t = time;
-    vec3 lit = vec3(AMBIENT_LIFT); // ambient lift
-    lit += relief * movingLight(n, uv,
+    vec3 lit = vec3(AMBIENT_LIFT * flash); // ambient lift
+    lit += relief * flash * movingLight(n, uv,
         vec2(0.50 + 0.42 * sin(t * 0.100), 0.30 + 0.18 * sin(t * 0.067 + 1.7)),
         0.62, 3.20, vec3(1.00, 0.97, 0.90));
-    lit += relief * movingLight(n, uv,
+    lit += relief * flash * movingLight(n, uv,
         vec2(0.22 + 0.26 * cos(t * 0.073 + 0.6), 0.52 + 0.24 * sin(t * 0.073)),
         0.55, 2.80, vec3(0.90, 0.96, 1.00));
-    lit += relief * movingLight(n, uv,
+    lit += relief * flash * movingLight(n, uv,
         vec2(0.80 + 0.22 * sin(t * 0.055 + 2.9), 0.42 + 0.28 * cos(t * 0.049 + 1.1)),
         0.58, 2.60, vec3(1.00, 0.93, 0.88));
     return clamp(base * lit, 0.0, 1.0);
