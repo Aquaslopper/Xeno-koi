@@ -31,8 +31,8 @@ void main()
                                 -0.70710678 * cos(sunAngle), 0.70710678));
         float diffuse = clamp(dot(n, l), 0.0, 1.0);
         float directional = clamp((diffuse - l.z) / (1.0 - l.z), 0.0, 1.0);
-        float response = 0.90 * directional;
-        blended = clamp(texel.rgb * (1.0 + normalTexel.a * response), vec3(0.0), vec3(1.0));
+        float response = 0.18 * directional;
+        blended = clamp(texel.rgb + vec3(1.0, 0.93, 0.80) * (normalTexel.a * response), vec3(0.0), vec3(1.0));
     }
 
     // 1. The Y-Axis Mask:
