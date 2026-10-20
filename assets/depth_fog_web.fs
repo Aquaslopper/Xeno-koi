@@ -28,7 +28,6 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 map = texture2D(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
-    n.xy = -n.xy; // invert the beam's normal-map response
 
     // Make drift and spin visibly trackable while keeping spin 10% faster.
     float driftPhase = time * 0.1954768; // 4x faster: 32.1-second round trip
