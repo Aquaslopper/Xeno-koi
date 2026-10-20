@@ -11,43 +11,29 @@ uniform vec4 colDiffuse;
 uniform float time;
 
 // moving-lights begin
-// Bump lighting for the table background. normalMap RGB holds a
-// tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias),
-// alpha holds the height field (unused here, kept for inspection).
-// Three wide soft lights drift on independent slow paths; the ambient
-// lift keeps every background brighter than its art, so there is no
-// night side and no hard spotlight cone.
+// One soft moving light travels across selected raised regions. RGB stores
+// tangent-space normals; alpha gates the light with a soft height mask.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
-
-vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float height, float gain, vec3 tint)
-{
-    vec2 d = (lp - uv) * vec2(1.7777778, 1.0); // aspect-corrected offset, uv y is down
-    float dist2 = dot(d, d);
-    vec3 l = normalize(vec3(d, height));
-    float diff = max(dot(n, l), 0.0);
-    vec3 h = normalize(l + vec3(0.0, 0.0, 1.0)); // half-vector, view = +z
-    float spec = pow(max(dot(n, h), 0.0), 28.0);
-    float atten = 1.0 / (1.0 + dist2 / (radius * radius));
-    return tint * (diff + 0.40 * spec) * atten * gain;
-}
+uniform vec2 heightRange;
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
-    vec4 normalTexel = texture2D(normalMap, uv);
-    vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
-    float t = time;
-    vec3 lit = vec3(1.22); // ambient lift
-    lit += movingLight(n, uv,
-        vec2(0.50 + 0.42 * sin(t * 0.100), 0.30 + 0.18 * sin(t * 0.067 + 1.7)),
-        0.62, 0.55, 1.15, vec3(1.00, 0.97, 0.90));
-    lit += movingLight(n, uv,
-        vec2(0.22 + 0.26 * cos(t * 0.073 + 0.6), 0.52 + 0.24 * sin(t * 0.073)),
-        0.55, 0.50, 1.00, vec3(0.90, 0.96, 1.00));
-    lit += movingLight(n, uv,
-        vec2(0.80 + 0.22 * sin(t * 0.055 + 2.9), 0.42 + 0.28 * cos(t * 0.049 + 1.1)),
-        0.58, 0.55, 0.95, vec3(1.00, 0.93, 0.88));
-    return clamp(base * lit, 0.0, 1.0);
+    vec4 map = texture2D(normalMap, uv);
+    vec3 n = normalize(map.rgb * 2.0 - 1.0);
+    float phase = time * 0.0698132; // one slow 360-degree loop per 90 seconds
+    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(phase)),
+                        0.50 + 0.12 * sin(phase));
+    vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
+    float dist2 = dot(toLight, toLight);
+    float attenuation = exp(-dist2 / (0.72 * 0.72));
+    vec3 lightDir = normalize(vec3(toLight, 0.42));
+    float diffuse = max(dot(n, lightDir), 0.0);
+    float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
+    float amount = heightMask * attenuation * diffuse * 8.0; // intentionally exaggerated for visual testing
+    vec3 warm = vec3(1.0, 0.93, 0.80);
+    vec3 highlight = vec3(1.0) - exp(-warm * amount);
+    return base + (vec3(1.0) - base) * highlight;
 }
 // moving-lights end
 
