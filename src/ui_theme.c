@@ -97,6 +97,46 @@ void ui_theme_set_mouse(Vector2 virtual_mouse) {
     s_panel_mouse_valid = 1;
 }
 
+static int panel_flare_matches(const PanelFlare *f, int rx, int ry, int rw) {
+    return f->active && fabsf(f->y - (float)ry) < 1.0f &&
+           f->min_x == (float)rx && f->max_x == (float)(rx + rw - 1);
+}
+
+static void panel_flare_shine(int rx, int ry, int rw, double now) {
+    PanelFlare *slot = NULL;
+    PanelFlare *oldest = NULL;
+    int found = 0;
+    for (int i = 0; i < MAX_PANEL_FLARES; i++) {
+        PanelFlare *f = &s_panel_flares[i];
+        if (panel_flare_matches(f, rx, ry, rw)) {
+            f->shine_started = now;
+            f->flash_active = 1;
+            found = 1;
+        } else {
+            if (!f->active && !slot) slot = f;
+            if (f->active && (!oldest || f->life < oldest->life)) oldest = f;
+        }
+    }
+    if (found) return;
+    if (!slot) slot = oldest;
+    if (!slot) return;
+
+    if (!panel_flare_matches(slot, rx, ry, rw)) {
+        int go_right = rand() & 1;
+        float speed = 10.0f + (float)(rand() % 9);
+        slot->active = 1;
+        slot->y = (float)ry;
+        slot->min_x = (float)rx;
+        slot->max_x = (float)(rx + rw - 1);
+        slot->vx = go_right ? speed : -speed;
+        slot->len = 20.0f + (float)(rand() % 9);
+        slot->x = go_right ? slot->min_x + slot->len : slot->max_x - slot->len;
+        slot->life = (slot->max_x - slot->min_x) / speed + 2.0f;
+    }
+    slot->shine_started = now;
+    slot->flash_active = 1;
+}
+
 void ui_draw_panel_border(Rectangle r, Color border_color) {
     if (r.width <= 2.0f || r.height <= 2.0f) return;
     int rx = (int)r.x, ry = (int)r.y, rw = (int)r.width, rh = (int)r.height;
@@ -139,11 +179,13 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
             }
         }
 
+        if (entered) panel_flare_shine(rx, ry, rw, now);
+
         int global_active = 0;
         for (int i = 0; i < MAX_PANEL_FLARES; i++) {
             if (s_panel_flares[i].active) global_active++;
         }
-        if (global_active < MAX_PANEL_FLARES && (rand() % 100) == 0) {
+        if (!entered && global_active < MAX_PANEL_FLARES && (rand() % 100) == 0) {
             for (int i = 0; i < MAX_PANEL_FLARES; i++) {
                 if (!s_panel_flares[i].active) {
                     PanelFlare *f = &s_panel_flares[i];
@@ -167,11 +209,7 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
         for (int i = 0; i < MAX_PANEL_FLARES; i++) {
             PanelFlare *f = &s_panel_flares[i];
             if (!f->active) continue;
-            if (fabsf(f->y - (float)ry) < 1.0f && f->min_x == (float)rx && f->max_x == (float)(rx + rw - 1)) {
-                if (entered) {
-                    f->shine_started = now;
-                    f->flash_active = 1;
-                }
+            if (panel_flare_matches(f, rx, ry, rw)) {
                 float shine = 0.0f;
                 if (f->flash_active) {
                     double elapsed = now - f->shine_started;
@@ -185,7 +223,13 @@ void ui_draw_panel_border(Rectangle r, Color border_color) {
                 if (x1 > f->max_x) x1 = f->max_x;
                 if (x1 > x0) {
                     unsigned char alpha = (unsigned char)(22.0f + 233.0f * shine);
-                    DrawLine((int)x0, ry, (int)x1, ry, (Color){ 255, 255, 255, alpha });
+                    Color flare = (Color){ 255, 255, 255, alpha };
+                    if (shine > 0.0f) {
+                        DrawLineEx((Vector2){ x0, (float)ry }, (Vector2){ x1, (float)ry },
+                                   1.0f + 2.0f * shine, flare);
+                    } else {
+                        DrawLine((int)x0, ry, (int)x1, ry, flare);
+                    }
                 }
             }
         }
