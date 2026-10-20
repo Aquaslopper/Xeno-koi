@@ -28,6 +28,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 map = texture2D(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
+    n.xy = -n.xy; // test the opposite-facing relief zones
 
     // Drift is 30% slower than the previous pass; spin is 10% faster than drift.
     float driftPhase = time * 0.0488692; // 30% slower: 128.6-second round trip
