@@ -140,6 +140,7 @@ static void draw_slider(int y, float val, const char *lbl, const char *val_txt, 
     DrawRectangleLinesEx(track, 1.0f, COLOR_PHOSPHOR_DIM);
     DrawRectangle(688, y + 5, (int)(184.0f * val), 16, COLOR_PHOSPHOR);
     DrawRectangle((int)(688 + 184.0f * val - 3), y + 1, 6, 24, COLOR_PHOSPHOR);
+    ui_theme_draw_panel_flares(track);
     draw_btn((Rectangle){ 876, (float)y, 34, 26 }, "+", 18, vm, COLOR_PHOSPHOR);
     draw_text_ex_snapped(font_body, val_txt, (Vector2){ 920.0f, (float)y + 4.0f }, 17.0f, 1.2f, COLOR_TEXT_INFO);
 }
@@ -171,6 +172,7 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
                      (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 240, 160, 30, 140 } : (Color){ 240, 40, 40, 140 };
         Rectangle rbox = { 694, 128, 172, 26 };
         DrawRectangleRec(rbox, dbg); DrawRectangleLinesEx(rbox, 1.0f, dbdr);
+        ui_theme_draw_panel_flares(rbox);
         draw_text_in_rect(font_body, r_names[s->ruleset], rbox, 15.0f, 1.0f, COLOR_TEXT_INFO);
         draw_btn((Rectangle){ 870, 128, 40, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
     }
@@ -207,6 +209,7 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
         Rectangle prev = { 864, 356, 46, 26 };
         DrawTexturePro(ba->bgs[bg_idx], (Rectangle){0,0,1280,720}, prev, (Vector2){0}, 0, WHITE);
         DrawRectangleLinesEx(prev, 1.0f, COLOR_PHOSPHOR_DIM);
+        ui_theme_draw_panel_flares(prev);
     }
 
     draw_text_ex_snapped(font_body, "Anim Speed:", (Vector2){ 300.0f, 396.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
@@ -487,8 +490,14 @@ void screens_draw_choice_overlay(const BoardAssets *ba, const GameState *g, Vect
     draw_centered_text(font_title, "CHOOSE ONE OF THE MATCHING CARDS", 640.0f, 140.0f, 28.0f, 1.2f, COLOR_PHOSPHOR);
     Rectangle r0 = { 400, 180, CHOICE_CARD_W, CHOICE_CARD_H }, r1 = { 704, 180, CHOICE_CARD_W, CHOICE_CARD_H };
     board_draw_card(ba, g->choice_targets[0], r0); board_draw_card(ba, g->choice_targets[1], r1);
-    if (CheckCollisionPointRec(vm, r0)) board_draw_card_glow(r0, 1.0f);
-    if (CheckCollisionPointRec(vm, r1)) board_draw_card_glow(r1, 1.0f);
+    if (CheckCollisionPointRec(vm, r0)) {
+        board_draw_card_glow(r0, 1.0f);
+        ui_theme_draw_panel_flares(r0);
+    }
+    if (CheckCollisionPointRec(vm, r1)) {
+        board_draw_card_glow(r1, 1.0f);
+        ui_theme_draw_panel_flares(r1);
+    }
     if (is_hand) draw_btn((Rectangle){ 560, 500, 160, 44 }, "CANCEL", 20, vm, COLOR_RED);
 }
 

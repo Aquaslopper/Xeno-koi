@@ -332,6 +332,7 @@ void cinematic_draw(void) {
     DrawLineEx((Vector2){ box.x + box.width, box.y + box.height }, (Vector2){ box.x + box.width - c_len, box.y + box.height }, 3.0f, border_inner);
     DrawLineEx((Vector2){ box.x + box.width, box.y + box.height }, (Vector2){ box.x + box.width, box.y + box.height - c_len }, 3.0f, border_inner);
 
+    ui_theme_draw_panel_flares(box);
     Color text_col = col_base;
     text_col.a = (unsigned char)(255 * alpha);
     DrawTextEx(font_title, title, (Vector2){ (float)(box_x + pad_x), (float)(box_y + pad_y) },

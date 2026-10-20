@@ -204,6 +204,7 @@ static void update_draw_frame(void) {
 
     Letterbox l = input_get_letterbox();
     Vector2 vm = input_vmouse(l);
+    ui_theme_set_mouse(vm);
 
     if (transition_dir == 0) {
         if (screen == SCREEN_START) {

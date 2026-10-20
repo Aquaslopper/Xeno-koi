@@ -58,6 +58,7 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
     DrawRectangleLinesEx(r, 1.0f, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    ui_theme_draw_panel_flares(r);
     const float font_size = (float)fsz;
     const float spacing = 1.2f;
     Vector2 text_size = MeasureTextEx(font_title, txt, font_size, spacing);
@@ -142,6 +143,7 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
             }
             DrawTextEx(font_body, "LOCKED", (Vector2){ slot.x + 8.0f, slot.y + 45.0f }, 13.0f, 2.0f, (Color){ 160, 160, 160, 255 });
         }
+        ui_theme_draw_panel_flares(slot);
         DrawTextEx(font_body, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f }, 14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
     }
 

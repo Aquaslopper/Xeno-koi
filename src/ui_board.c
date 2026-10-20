@@ -361,6 +361,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         board_draw_card(ba, cid, dr);
         board_draw_card_shimmer(dr, motion_get_card_shimmer(cid));
         board_draw_card_glow(dr, 1.0f);
+        ui_theme_draw_panel_flares_keyed(dr, cid + 1);
     }
 
     /* 9. Animated Cards */
@@ -384,6 +385,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         board_draw_card_shadow(ar, lift);
         board_draw_card(ba, anim->cpu_card, ar);
         board_draw_card_glow(ar, 1.0f);
+        ui_theme_draw_panel_flares_keyed(ar, anim->cpu_card + 1);
     } else if (anim->active && (anim->type == ANIM_STOCK_FLY || anim->type == ANIM_STOCK_FLIP)) {
         float t = anim->elapsed / anim->duration;
         if (t < 0.0f) t = 0.0f;
@@ -399,6 +401,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (cos_val > 0.0f) board_draw_card_back(ba, cr);
         else board_draw_card(ba, anim->card_id, cr);
         board_draw_card_glow(cr, 1.0f);
+        ui_theme_draw_panel_flares_keyed(cr, anim->card_id + 1);
     }
 
     /* 10. Status Line & Master Timer */
@@ -435,7 +438,10 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
         for (int i = 0; i < 2; i++) {
             board_draw_card_back(ba, r[i]);
             int hov = CheckCollisionPointRec(vm, r[i]);
-            if (hov) board_draw_card_glow(r[i], 1.0f);
+            if (hov) {
+                board_draw_card_glow(r[i], 1.0f);
+                ui_theme_draw_panel_flares(r[i]);
+            }
             draw_centered_text(font_body, "CLICK TO PICK", r[i].x + r[i].width / 2.0f, 485.0f, 18.0f, 1.2f, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         }
     } else {
@@ -461,7 +467,9 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
             const char *res = (g->oya_winner == 0) ? "YOU ARE DEALER" : "CPU IS DEALER";
             Color res_col = (g->oya_winner == 0) ? COLOR_PHOSPHOR : COLOR_RED;
             draw_centered_text(font_title, res, 640.0f, 565.0f, 32.0f, 1.5f, res_col);
-            board_draw_card_glow(r[(g->oya_winner == 0) ? pc : cc], 1.0f);
+            Rectangle winner_card = r[(g->oya_winner == 0) ? pc : cc];
+            board_draw_card_glow(winner_card, 1.0f);
+            ui_theme_draw_panel_flares(winner_card);
         }
     }
 }

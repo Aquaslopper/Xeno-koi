@@ -1,5 +1,6 @@
 #include "ui_input.h"
 #include "ui_motion.h"
+#include "ui_theme.h"
 #include "replay.h"
 #include <stdio.h>
 #include <math.h>
@@ -223,10 +224,15 @@ void input_draw_selection(const GameState *g, const DragState *drag) {
     if (drag->on || !drag->selected || drag->selected > g->hand_count[0] ||
         g->current_player != 0 || g->phase != PHASE_TURN_HAND) return;
     int cid = g->hand[0][drag->selected - 1];
-    board_draw_card_glow(motion_get_rect(cid), 1.0f);
+    Rectangle selected_card = motion_get_rect(cid);
+    board_draw_card_glow(selected_card, 1.0f);
+    ui_theme_draw_panel_flares_keyed(selected_card, cid + 1);
     for (int i = 0; i < g->field_count; i++) {
         int f = g->field[i];
-        if (CARDS[f].month == CARDS[cid].month)
-            board_draw_card_glow(motion_get_rect(f), 1.0f);
+        if (CARDS[f].month == CARDS[cid].month) {
+            Rectangle matching_card = motion_get_rect(f);
+            board_draw_card_glow(matching_card, 1.0f);
+            ui_theme_draw_panel_flares_keyed(matching_card, f + 1);
+        }
     }
 }

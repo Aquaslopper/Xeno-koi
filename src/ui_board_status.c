@@ -48,6 +48,7 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
             flash.a = (unsigned char)(255.0f * flash_alpha);
             DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 3.0f, flash);
         }
+        ui_theme_draw_panel_flares(box);
 
         Rectangle tag = { box.x + box.width - 31.0f, box.y + 5.0f, 25.0f, box.height - 10.0f };
         Color badge = COLOR_PHOSPHOR;

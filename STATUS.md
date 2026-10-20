@@ -1,8 +1,8 @@
-> **Development handoff (last updated 16 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 20 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 16 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 20 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
@@ -10,23 +10,23 @@
 - Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
 - Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
+- Reworked the existing moving flares from a five-dot global pool into independent per-box pools: each bordered UI panel/button and audited direct-outline UI box gets 3–5 dots moving around its perimeter at varied speeds. On entry, only that box's dots flash white and grow by 3 px (1 px to 4 px total) for 400 ms; other boxes stay dim, and the pulse does not retrigger while held. Covered campaign portrait slots/buttons, option slider/ruleset/preview boxes, active turn boxes, and the cinematic notice, plus selected, matching, hovered, and animated card highlights (keyed so their dots follow card motion). Ordinary unhighlighted card-art borders remain plain to avoid crowding the play area.
 - Added headless table UI regression tests and a CI step to run them. Updated the controls documentation and regenerated the table map.
 - Card data, matching rules, scoring, opponent logic, artwork, and the intentional Deus unlock were not changed.
 
 ## Verification last completed in this session
 
-- Engine integrity suite: 500 full simulated matches passed.
-- Table input and combo-panel tests passed, including AddressSanitizer and UndefinedBehaviorSanitizer runs.
-- Native and browser tooltip tests passed.
-- Engine-derived documentation tables were current; strict MkDocs build passed.
-- All C sources passed syntax checks with Raylib 5.5 headers and `-Wall -Wextra -Werror`.
-- Generated table-map and card-image presence checks passed. These are not graphical playtests.
+- Engine integrity suite passed, including 500 full simulated matches.
+- Browser tooltip regression passed, generated wiki tables are current, and `git diff --check` passed.
+- Compiled `src/ui_theme.c` with `-Wall -Wextra -Werror` against a temporary Raylib API stub. Stub harnesses passed the 3–5-per-box bounds and independent storage, keyed flare continuity as card rectangles move, panel-scoped flash (other boxes stay dim), the 400 ms +3 px pulse, no retrigger while held, re-entry, and travel around all four perimeter sides. These are not a graphical playtest.
+- Raylib headers are not installed locally, so the Raylib table UI test and live graphical playtest were not run.
+- CI results for each pushed revision are tracked on PR #56.
 
 ## Still to verify
 
-- Visually playtest click/drag coexistence, selection feedback, and panel readability in the graphical build.
+- Visually check the 400 ms, +3 px flare growth, perimeter movement (including the highlighted cards), speed variation, and return to baseline while the pointer remains over the panel.
+- Visually playtest click/drag coexistence, selection feedback, and panel readability.
 - Check both combo windows, pagination, and timer pause/resume in live play and replay playback.
-- Confirm full Windows and WebAssembly build results. They were not run locally; this document does not claim a CI or deployment result.
 - Refresh the stored gameplay screenshots when suitable captures are available. They predate the new sidebar; the generated table map is updated.
 
 ## Keeping this useful
