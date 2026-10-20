@@ -4,6 +4,12 @@
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
 **Last updated: 20 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
+## Harvest local-light prototype — 20 October 2026
+
+- Harvest only: replaced its background with the approved TOP / Medium 4.0 no-gamma bake and added an RGBA Medium 4.0 normal texture whose alpha is the approved smoothed height mask. The desktop/web fog shaders add the approved positive local top light on raised forms only; fog values, every other background, Deus, rules, cards, and scoring are unchanged.
+- Verification actually run: strict C99 syntax checks for all `src/*.c` against Raylib 5.5 headers; engine suite passed (500 matches); headless table UI suite passed; desktop/web shader-body parity checked; both Harvest assets are 1280×720 and byte-match the approved preview outputs.
+- Remaining verification: maintainer GPU playtest on desktop/web, including shader rendering, Harvest in-match appearance under existing fog/post-processing, and confirmation that other backgrounds remain visually unchanged. Do not roll out to the other backgrounds before this Gate C decision.
+
 ## Status Summary
 ## Latest completed work
 

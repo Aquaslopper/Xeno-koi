@@ -108,6 +108,11 @@ void board_load_assets(BoardAssets *ba) {
         "assets/face.jpg", "assets/realm.jpg"
     };
     for (int i = 0; i < 8; i++) ba->bgs[i] = LoadTexture(get_path(bg_names[i]));
+    ba->harvest_normal = LoadTexture(get_path("assets/harvest_normal.png"));
+    if (ba->harvest_normal.id > 0) {
+        SetTextureFilter(ba->harvest_normal, TEXTURE_FILTER_BILINEAR);
+        SetTextureWrap(ba->harvest_normal, TEXTURE_WRAP_CLAMP);
+    }
 
 #ifdef __EMSCRIPTEN__
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog_web.fs"));
@@ -115,7 +120,12 @@ void board_load_assets(BoardAssets *ba) {
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
 #endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
-    if (ba->has_fog_shader) ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
+    ba->light_normal_loc = ba->light_enabled_loc = -1;
+    if (ba->has_fog_shader) {
+        ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
+        ba->light_normal_loc = GetShaderLocation(ba->fog_shader, "normalMap");
+        ba->light_enabled_loc = GetShaderLocation(ba->fog_shader, "lightEnabled");
+    }
 
     ba->current_bg = 0; ba->assets_loaded = 1;
 }
@@ -128,6 +138,7 @@ void board_unload_assets(BoardAssets *ba) {
     if (ba->coin_silver.id > 0) UnloadTexture(ba->coin_silver);
     if (ba->coin_bronze.id > 0) UnloadTexture(ba->coin_bronze);
     for (int i = 0; i < 8; i++) UnloadTexture(ba->bgs[i]);
+    if (ba->harvest_normal.id > 0) UnloadTexture(ba->harvest_normal);
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;
 }
@@ -245,8 +256,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     /* 1. Background with hybrid 3D depth-fog shader */
     if (ba->has_fog_shader) {
+        float light_enabled = (ba->current_bg == 0 && ba->harvest_normal.id > 0 &&
+                               ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
         BeginShaderMode(ba->fog_shader);
+        if (light_enabled > 0.0f)
+            SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, ba->harvest_normal);
     }
     if (ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0) {
         DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);

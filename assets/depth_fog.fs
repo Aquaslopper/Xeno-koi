@@ -8,6 +8,8 @@ in vec4 fragColor;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 uniform float time;
+uniform sampler2D normalMap;
+uniform float lightEnabled;
 
 // Output fragment color
 out vec4 finalColor;
@@ -16,6 +18,19 @@ void main()
 {
     vec4 texel = texture(texture0, fragTexCoord);
     vec3 blended = texel.rgb;
+
+    // Harvest Option B: the normal texture's alpha is the smoothed height
+    // mask. Raised forms may receive positive top light; flat/low areas and
+    // every other background keep a factor of exactly 1.0.
+    if (lightEnabled > 0.5) {
+        vec4 normalTexel = texture(normalMap, fragTexCoord);
+        vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
+        vec3 l = normalize(vec3(0.0, -1.0, 1.0));
+        float diffuse = clamp(dot(n, l), 0.0, 1.0);
+        float directional = clamp((diffuse - l.z) / (1.0 - l.z), 0.0, 1.0);
+        float response = 0.45 * (0.35 * diffuse + 0.65 * directional);
+        blended = clamp(texel.rgb * (1.0 + normalTexel.a * response), vec3(0.0), vec3(1.0));
+    }
 
     // 1. The Y-Axis Mask:
     // Fog exists on bottom 62% of screen; skip trig waves completely above y = 0.38.
@@ -36,7 +51,7 @@ void main()
         // 4. Fog Blend (#050505):
         const vec3 fogColor = vec3(0.0196, 0.0196, 0.0196);
         float fogAlpha = clamp(depthMask * yMask * patch * 1.35, 0.0, 0.88);
-        blended = mix(texel.rgb, fogColor, fogAlpha);
+        blended = mix(blended, fogColor, fogAlpha);
     }
 
     // 5. Ambient Vignette:
