@@ -32,7 +32,7 @@ void main()
         float spec = pow(max(dot(n, h), 0.0), 12.0);
         float flatSpec = pow(max(h.z, 0.0), 12.0);
         float response = clamp(diffuseDelta * 0.35 + (spec - flatSpec) * 0.12,
-                               -0.20, 0.20);
+                               -0.40, 0.40);
         vec3 moving = texel.rgb * response;
         // Pulses remain surface-dependent, without a full-image brightness flash.
         vec3 pulse = texel.rgb * max(response, 0.0) * eventFlash * 3.0;
