@@ -10,7 +10,7 @@
 - Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
 - Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
-- Refined the existing moving panel flares: five dots can now be active globally (up from three), moving around all four sides in either direction at varied speeds. On hover entry, a matching flare or reassigned slot flashes white and grows by 3 px (1 px to 4 px total) for 400 ms, then returns to baseline without retriggering while held. Strong card-highlight outlines also ensure a moving flare, including the selected card and its matching field cards.
+- Refined the existing moving panel flares: five dots can now be active globally (up from three), moving around all four sides in either direction at varied speeds. On any panel entry, all active dots flash white together and grow by 3 px (1 px to 4 px total) for 400 ms; if the hovered panel has no dot, a slot is reassigned there. The pulse returns to baseline without retriggering while held. Strong card-highlight outlines also ensure a moving flare, including the selected card and its matching field cards.
 - Added headless table UI regression tests and a CI step to run them. Updated the controls documentation and regenerated the table map.
 - Card data, matching rules, scoring, opponent logic, artwork, and the intentional Deus unlock were not changed.
 
@@ -18,7 +18,7 @@
 
 - Engine integrity suite passed, including 500 full simulated matches.
 - Browser tooltip regression passed, generated wiki tables are current, and `git diff --check` passed.
-- Temporary Raylib-API-stub harnesses passed for the 400 ms +3 px flash, no retrigger while held, re-entry, and a target with all five flare slots initially elsewhere. Perimeter traversal was checked on all four sides; a highlighted rectangle was assigned a flare even with every slot occupied. These are not a graphical playtest.
+- Temporary Raylib-API-stub harnesses passed for all active dots flashing together, the 400 ms +3 px pulse, no retrigger while held, re-entry, and a target with all five flare slots initially elsewhere. Perimeter traversal was checked on all four sides; a highlighted rectangle was assigned a flare even with every slot occupied. These are not a graphical playtest.
 - Raylib headers are not installed locally, so the Raylib table UI test and live graphical playtest were not run.
 - CI results for each pushed revision are tracked on PR #56.
 

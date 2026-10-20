@@ -165,15 +165,16 @@ static PanelFlare *panel_flare_reusable_slot(void) {
 }
 
 static void panel_flare_shine(Rectangle bounds, double now) {
-    int found = 0;
+    /* Flash every live dot together, then ensure the entered panel has one too. */
+    int found_on_panel = 0;
     for (int i = 0; i < MAX_PANEL_FLARES; i++) {
         PanelFlare *f = &s_panel_flares[i];
-        if (!panel_flare_matches(f, bounds)) continue;
+        if (!f->active) continue;
         f->shine_started = now;
         f->flash_active = 1;
-        found = 1;
+        if (panel_flare_matches(f, bounds)) found_on_panel = 1;
     }
-    if (found) return;
+    if (found_on_panel) return;
     panel_flare_assign(panel_flare_reusable_slot(), bounds, now, 1);
 }
 
