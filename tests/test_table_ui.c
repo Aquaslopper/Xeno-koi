@@ -53,6 +53,7 @@ void DrawTextEx(Font f, const char *text, Vector2 pos, float size, float spacing
 void DrawRectangleRec(Rectangle r, Color c) { (void)r; (void)c; }
 void DrawRectangle(int x, int y, int w, int h, Color c) { (void)x; (void)y; (void)w; (void)h; (void)c; }
 void ui_theme_draw_panel_flares(Rectangle r) { (void)r; }
+void ui_theme_draw_panel_flares_keyed(Rectangle r, int key) { (void)r; (void)key; }
 void ui_draw_panel_border(Rectangle r, Color c) { (void)r; (void)c; }
 void __wrap_board_draw_card(const BoardAssets *a, int id, Rectangle r) {
     (void)a;
