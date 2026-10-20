@@ -58,6 +58,12 @@
 - Softened edges by cross-filtering the sampled normal vectors over a 5-texel kernel and setting bilinear filtering + clamp wrap on the normal textures. Event flashes raise the same diffuse term (`0.80 + eventFlash`), keeping longer 1.2s/2s durations; lighting still blends before fog. Deus (no normal) keeps original fog path; JPGs and normal maps unchanged by this revision.
 - Checks passed: desktop/web shader-body parity, old response math absent, sun-vector unit length at four cycle positions, strict C syntax with Raylib 5.5 header, table UI suite, unchanged JPG/Deus bytes, diff whitespace. GPU/in-game visual verification still outstanding.
 
+## Travelling sun pool with night falloff — 20 October 2026
+
+- Maintainer specified the spatial model exactly: when the light is left, the right is night; in the middle, both sides are night; when right, the left is night. Replaced the uniform sun illumination with a bright horizontal pool sweeping left/right (sunX = 0.5 + 0.45*sin(t*0.085)), wide smoothstep falloff (aspect-corrected 0.22–0.95), and night level 0.58 outside the pool. No whole-image ambient lift remains.
+- Effect brightness raised: pool multiplier is 0.80 + 0.40*diffuse + eventFlash*2.2, peaking near 1.78x versus the previous 1.36x max. Speed, flash durations (1.2s/2s), softened normals, fog order, Deus exclusion unchanged.
+- Checks: desktop/web shader-body parity, simulated illumination at left/middle/right sun positions showing night on the correct side (0.58 vs 1.60), strict C syntax, diff whitespace. Visual confirmation still pending.
+
 ## Status Summary
 ## Latest completed work
 

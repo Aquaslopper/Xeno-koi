@@ -31,14 +31,18 @@ void main()
         encoded += texture(normalMap, fragTexCoord - vec2(0.0, stepUV.y)).rgb;
         vec3 n = normalize((encoded / 8.0) * 2.0 - 1.0);
 
-        // Distant sun behind the viewer. Constant Z keeps the illumination of
-        // a flat surface constant; only the relief responds to the sweep.
-        float sunX = 0.78 * sin(time * 0.085);
-        vec3 l = vec3(sunX, -sqrt(max(1.0 - sunX * sunX - 0.55 * 0.55, 0.0)), 0.55);
+        // Moving sun: a bright pool sweeps left/right and back. Away from the
+        // pool the scene falls to night, so the light has a visible position.
+        float sweep = sin(time * 0.085);
+        float sunX = 0.5 + 0.45 * sweep;
+        vec3 l = normalize(vec3(sweep * 0.85, -0.25, 0.55));
         float diffuse = max(dot(n, l), 0.0);
-        // Lambert diffuse + ambient, no ridge thresholds or specular outlines.
-        // Event pulses increase the same surface light, not a screen overlay.
-        vec3 illumination = vec3(0.56 + (0.80 + eventFlash) * diffuse);
+        // Wide smooth horizontal falloff, full height: no hard pool edges.
+        float pool = 1.0 - smoothstep(0.22, 0.95,
+                                      abs((fragTexCoord.x - sunX) * 1.77778));
+        // Night outside the effect; only the pool is brightened, strongly.
+        float illumination = 0.58
+            + pool * (0.80 + 0.40 * diffuse + eventFlash * 2.2);
         blended = clamp(texel.rgb * illumination, vec3(0.0), vec3(1.0));
     }
 
