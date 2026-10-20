@@ -11,66 +11,47 @@ uniform vec4 colDiffuse;
 uniform float time;
 
 // moving-lights begin
-// Bump lighting for the table background. normalMap RGB holds a
-// tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias).
-// Alpha holds the relief mask baked by tools/make_bg_normal_maps.py --
-// smoothstep over a *blurred* slope -- so the lit/unlit boundary can only
-// ramp. Deriving the mask from the raw normal in here would flip it
-// between two neighbouring pixels wherever the height field pins to 0/1,
-// which traces a hard edge along the art's contours.
-//
-// Only the tilted part of the normal answers the lights: the flat,
-// viewer-facing component is projected out and the mask keeps near-flat
-// art quiet, so the pools land on the raised ridges instead of washing the
-// whole frame. Three wide soft lights drift on independent slow paths; the
-// ambient lift keeps a lit background slightly brighter than its art, so
-// there is no night side and no hard spotlight cone.
-//
-// flashAmount is 1 at a capture (match taken) or a Koi-Koi call and decays
-// through a fast linear fall into a long tail; the envelope lives in
-// src/ui_board.c. It lifts the whole lighting factor, so the event reads as
-// a thunder flash over the ridges. Deus has no normal map and is untouched.
+// Standard tangent-space normal mapping for the table background.
+// normalMap RGB holds the normal (x right, y DOWN, z toward the viewer,
+// 0.5 bias); alpha is unused. Lighting is an ambient floor plus two
+// directional lights -- a warm key whose direction drifts on a slow
+// lissajous, and a cool fixed fill -- with a Blinn-Phong glint. Plain N.L,
+// so the relief reads as a surface lit from one side and the highlight
+// travels as the key light swings. Deus has no normal map and is untouched.
 // Constants are mirrored in tools/make_bg_normal_maps.py for --preview.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
 uniform float flashAmount;
 
-const float AMBIENT_LIFT = 1.10; // what flat art is multiplied by
-const float LIGHT_HEIGHT = 0.35; // low = grazing light, so ridges read stronger
+const float AMBIENT = 0.55;      // floor, so shadowed slopes stay out of pitch black
+const float KEY_GAIN = 1.25;
+const vec3  KEY_COLOR = vec3(1.00, 0.93, 0.82);
+const float FILL_GAIN = 0.30;
+const vec3  FILL_COLOR = vec3(0.55, 0.70, 1.00);
+const float SPEC_POWER = 48.0;
+const float SPEC_GAIN = 0.30;
 const float FLASH_GAIN = 1.00;   // how far the thunder spike lifts everything
-
-vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float gain, vec3 tint)
-{
-    vec2 d = (lp - uv) * vec2(1.7777778, 1.0); // aspect-corrected offset, uv y is down
-    float dist2 = dot(d, d);
-    vec3 l = normalize(vec3(d, LIGHT_HEIGHT));
-    // Relief response: how far the tilted normal turns toward the light.
-    // A flat normal contributes exactly zero here, which is what stops the
-    // light from brightening art that has no bumps in it.
-    float diff = max(n.x * l.x + n.y * l.y, 0.0);
-    vec3 h = normalize(l + vec3(0.0, 0.0, 1.0)); // half-vector, view = +z
-    float spec = pow(max(dot(n, h), 0.0), 28.0);
-    float atten = 1.0 / (1.0 + dist2 / (radius * radius));
-    return tint * (diff + 0.40 * spec) * atten * gain;
-}
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
-    vec4 normalTexel = texture2D(normalMap, uv);
-    vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
-    float relief = normalTexel.a; // baked mask: flat art stays dark, no hard edge
-    float flash = 1.0 + FLASH_GAIN * flashAmount;
+    vec3 n = normalize(texture2D(normalMap, uv).rgb * 2.0 - 1.0);
     float t = time;
-    vec3 lit = vec3(AMBIENT_LIFT * flash); // ambient lift
-    lit += relief * flash * movingLight(n, uv,
-        vec2(0.50 + 0.42 * sin(t * 0.100), 0.30 + 0.18 * sin(t * 0.067 + 1.7)),
-        0.62, 3.20, vec3(1.00, 0.97, 0.90));
-    lit += relief * flash * movingLight(n, uv,
-        vec2(0.22 + 0.26 * cos(t * 0.073 + 0.6), 0.52 + 0.24 * sin(t * 0.073)),
-        0.55, 2.80, vec3(0.90, 0.96, 1.00));
-    lit += relief * flash * movingLight(n, uv,
-        vec2(0.80 + 0.22 * sin(t * 0.055 + 2.9), 0.42 + 0.28 * cos(t * 0.049 + 1.1)),
-        0.58, 2.60, vec3(1.00, 0.93, 0.88));
+
+    // Key light: direction drifts, always raking (z stays toward the viewer).
+    float az = 0.90 * sin(t * 0.043) + 0.35 * sin(t * 0.017 + 1.3);
+    float el = 0.55 + 0.18 * sin(t * 0.029);
+    vec3 key = normalize(vec3(sin(az) * cos(el), -sin(el), cos(az) * cos(el)));
+    vec3 fill = normalize(vec3(-0.55, 0.35, 0.75));
+
+    float kd = max(dot(n, key), 0.0);
+    float fd = max(dot(n, fill), 0.0);
+    vec3 hv = normalize(key + vec3(0.0, 0.0, 1.0)); // half-vector, view = +z
+    float spec = pow(max(dot(n, hv), 0.0), SPEC_POWER);
+
+    float flash = 1.0 + FLASH_GAIN * flashAmount;
+    vec3 lit = vec3(AMBIENT) * flash; // ambient floor
+    lit += flash * (KEY_COLOR * (kd * KEY_GAIN + spec * SPEC_GAIN)
+                    + FILL_COLOR * fd * FILL_GAIN);
     return clamp(base * lit, 0.0, 1.0);
 }
 // moving-lights end

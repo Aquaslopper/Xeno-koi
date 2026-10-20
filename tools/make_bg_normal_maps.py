@@ -9,14 +9,9 @@ assets/<name>_normal.png, 1280x720 RGBA:
        Convention matches assets/depth_fog*.fs on the fullscreen quad:
        x right, y DOWN (v grows with image rows), z toward the viewer,
        encoded as rgb * 0.5 + 0.5. No green-channel flip.
-  A    the relief mask the shaders multiply the lights by (0..1):
-       smoothstep(RELIEF_MIN, RELIEF_MAX) over a *blurred* slope. Baking it
-       matters: the height field pins to 0/1 where the art is dark, which
-       leaves perfectly flat plateaus, and the slope collapses to ~0 in a
-       single pixel at their border. Computing the mask from the raw slope in
-       the shader flips it 0<->1 across that one pixel -- a hard edge that
-       traces the art's contours (visible on the flanks of the Harvest
-       face). Blurring the slope first turns the cliff into a ramp.
+  A    the smoothed height field itself (0..1), kept for inspection. Nothing
+       samples it: the shaders light the RGB normal with plain tangent-space
+       N.L, so no relief mask is baked any more.
 
 The height field is the two-scale gaussian of the art's luminance, so the
 bright biomechanical ridges become raised forms. Gradient strength is
@@ -52,39 +47,47 @@ ASSETS = ROOT / "assets"
 BACKGROUNDS = ["harvest", "hole", "arctic", "castle", "city", "face", "realm"]
 
 WIDTH, HEIGHT = 1280, 720
-BLUR_DETAIL = 1.6      # px sigma for the fine height scale
-BLUR_BROAD = 3.6       # px sigma for the broad forms
+# The height field comes from luminance, so its gradient is only non-zero
+# where the art actually changes -- half the frame is flat and the relief
+# sits in bands along the art's contours. Lighting that read as edging
+# rather than bumps, so the blur is now heavy: only the large forms (dome,
+# spires, ridges) carry relief, and the art's own texture stops being
+# amplified into visible contour banding.
+BLUR_DETAIL = 13.0     # px sigma for the fine height scale
+BLUR_BROAD = 26.0      # px sigma for the broad forms
 DETAIL_WEIGHT = 0.35   # weight of the fine scale vs the broad one
-TARGET_SLOPE = 1.0     # p98 of |grad height| is scaled to this slope
-
-# Relief mask, baked into the normal maps' alpha channel (see normal_map()).
-# The slope is blurred first: where the height field pins to 0/1, or where the
-# art itself has a hard edge, the slope collapses in a single pixel, and a mask
-# taken from the raw slope flips 0<->1 there -- a hard edge that traces the
-# art's contours. RELIEF_BLUR turns those cliffs into ramps.
-RELIEF_MIN = 0.07    # slope below this is flat: stays at ambient
-RELIEF_MAX = 0.58    # slope above this is lit at full strength
-RELIEF_BLUR = 5.0    # px sigma the slope is blurred by before the mask
+TARGET_SLOPE = 2.6     # p98 of |grad height| is scaled to this slope, which
+                       # sets how strong the relief is. 1.0 left the map nearly
+                       # flat (mean tilt 10 degrees), so N.L barely varied and
+                       # the light read as a wash; 2.6 gives mean tilt 25
+                       # degrees, p90 56 -- bumps that actually answer a light.
+SLOPE_MAX = 3.0        # clamp on the scaled slope, so the steepest art edges
+                       # cannot push the normal past ~72 degrees and strobe.
 
 # ---- moving-light constants; keep in sync with assets/depth_fog*.fs ----
-AMBIENT = 1.10       # what flat art is multiplied by
-LIGHT_HEIGHT = 0.35  # grazing light height, shared by all three lights
+# Standard tangent-space normal mapping: an ambient term plus two directional
+# lights (a warm key whose direction drifts, a cool fixed fill) and a
+# Blinn-Phong glint. No pools, no masks, no slope-only tricks.
+AMBIENT = 0.55       # floor, so shadowed slopes stay out of pitch black
+KEY_GAIN = 1.25
+KEY_COLOR = (1.00, 0.93, 0.82)
+FILL_GAIN = 0.30
+FILL_COLOR = (0.55, 0.70, 1.00)
+SPEC_POWER = 48.0
+SPEC_GAIN = 0.30
 FLASH_GAIN = 1.00    # thunder-spike lift; the decay envelope is C-side
-SPEC_POWER = 28.0
-SPEC_GAIN = 0.40
-ASPECT = 16.0 / 9.0
-# (path(t) -> (u, v) centre, radius, gain, tint)
-LIGHTS = [
-    (lambda t: (0.50 + 0.42 * math.sin(t * 0.100),
-                0.30 + 0.18 * math.sin(t * 0.067 + 1.7)),
-     0.62, 3.20, (1.00, 0.97, 0.90)),
-    (lambda t: (0.22 + 0.26 * math.cos(t * 0.073 + 0.6),
-                0.52 + 0.24 * math.sin(t * 0.073)),
-     0.55, 2.80, (0.90, 0.96, 1.00)),
-    (lambda t: (0.80 + 0.22 * math.sin(t * 0.055 + 2.9),
-                0.42 + 0.28 * math.cos(t * 0.049 + 1.1)),
-     0.58, 2.60, (1.00, 0.93, 0.88)),
-]
+
+
+def key_direction(t: float) -> np.ndarray:
+    """Drifting key-light direction (unit, z toward the viewer, y DOWN)."""
+    az = 0.90 * math.sin(t * 0.043) + 0.35 * math.sin(t * 0.017 + 1.3)
+    el = 0.55 + 0.18 * math.sin(t * 0.029)
+    v = np.array([math.sin(az) * math.cos(el), -math.sin(el), math.cos(az) * math.cos(el)])
+    return v / np.linalg.norm(v)
+
+
+FILL_DIRECTION = np.array([-0.55, 0.35, 0.75])
+FILL_DIRECTION = FILL_DIRECTION / np.linalg.norm(FILL_DIRECTION)
 # -----------------------------------------------------------------------
 
 
@@ -107,47 +110,16 @@ def normal_map(img: Image.Image) -> np.ndarray:
     mag = np.sqrt(gx * gx + gy * gy)
     p = float(np.percentile(mag, 98.0))
     s = TARGET_SLOPE / max(p, 1e-6)
-    nx, ny, nz = -gx * s, -gy * s, np.ones_like(h)
+    slope = np.minimum(mag * s, SLOPE_MAX)
+    ang = np.arctan2(gy, gx)
+    nx, ny, nz = -slope * np.cos(ang), -slope * np.sin(ang), np.ones_like(h)
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
-    # Alpha: the relief mask, computed from a blurred slope so that art edges
-    # -- which become one-pixel cliffs where the height field pins to 0/1 --
-    # ramp instead of flipping the mask in a single pixel.
-    relief = relief_mask(gaussian_blur(mag * s, RELIEF_BLUR))
     out = np.zeros(h.shape + (4,), dtype=np.uint8)
     out[..., 0] = np.clip((nx * inv * 0.5 + 0.5) * 255.0, 0, 255)
     out[..., 1] = np.clip((ny * inv * 0.5 + 0.5) * 255.0, 0, 255)
     out[..., 2] = np.clip((nz * inv * 0.5 + 0.5) * 255.0, 0, 255)
-    out[..., 3] = np.clip(relief * 255.0, 0, 255)
+    out[..., 3] = np.clip(h * 255.0, 0, 255)
     return out
-
-
-def gaussian_blur(a: np.ndarray, sigma: float) -> np.ndarray:
-    """Separable gaussian blur with edge padding (numpy only: PIL's
-    GaussianBlur cannot handle float arrays)."""
-    if sigma <= 0.0:
-        return a
-    radius = max(1, int(round(sigma * 3.0)))
-    x = np.arange(-radius, radius + 1, dtype=np.float64)
-    kernel = np.exp(-0.5 * (x / sigma) ** 2)
-    kernel /= kernel.sum()
-    out = a
-    for axis in (0, 1):
-        pad = [(0, 0)] * out.ndim
-        pad[axis] = (radius, radius)
-        padded = np.pad(out, pad, mode="edge")
-        acc = np.zeros_like(out)
-        for i in range(kernel.size):
-            src = [slice(None)] * out.ndim
-            src[axis] = slice(i, i + out.shape[axis])
-            acc += kernel[i] * padded[tuple(src)]
-        out = acc
-    return out
-
-
-def relief_mask(slope: np.ndarray) -> np.ndarray:
-    """Smoothstep mask from RELIEF_MIN to RELIEF_MAX over a slope field."""
-    ramp = np.clip((slope - RELIEF_MIN) / max(RELIEF_MAX - RELIEF_MIN, 1e-6), 0.0, 1.0)
-    return ramp * ramp * (3.0 - 2.0 * ramp)
 
 
 def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float,
@@ -158,36 +130,26 @@ def render_lights(normal_rgba: np.ndarray, base: np.ndarray, t: float,
     Its decay envelope lives in src/ui_board.c, so pass the amount you want
     to preview; this only mirrors the shader's FLASH_GAIN conversion.
     """
-    u = (np.arange(WIDTH, dtype=np.float64) + 0.5) / WIDTH
-    v = (np.arange(HEIGHT, dtype=np.float64) + 0.5) / HEIGHT
-    uu, vv = np.meshgrid(u, v)
     nx = normal_rgba[..., 0] / 255.0 * 2.0 - 1.0
     ny = normal_rgba[..., 1] / 255.0 * 2.0 - 1.0
     nz = normal_rgba[..., 2] / 255.0 * 2.0 - 1.0
     inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
     nx, ny, nz = nx * inv, ny * inv, nz * inv
-    relief = normal_rgba[..., 3] / 255.0  # baked mask, as the shader samples it
+
+    key = key_direction(t)
+    fill = FILL_DIRECTION
+    kd = np.clip(nx * key[0] + ny * key[1] + nz * key[2], 0.0, None)
+    fd = np.clip(nx * fill[0] + ny * fill[1] + nz * fill[2], 0.0, None)
+    # half-vector against the viewer (+z)
+    h = key + np.array([0.0, 0.0, 1.0])
+    h = h / np.linalg.norm(h)
+    spec = np.clip(nx * h[0] + ny * h[1] + nz * h[2], 0.0, None) ** SPEC_POWER
+
     flash_gain = 1.0 + FLASH_GAIN * flash
-    lit = np.full((HEIGHT, WIDTH, 3), AMBIENT * flash_gain, dtype=np.float64)
-    for path, radius, gain, tint in LIGHTS:
-        lu, lv = path(t)
-        dx = (lu - uu) * ASPECT
-        dy = lv - vv
-        d2 = dx * dx + dy * dy
-        inv_len = 1.0 / np.sqrt(d2 + LIGHT_HEIGHT * LIGHT_HEIGHT)
-        lx, ly, lz = dx * inv_len, dy * inv_len, LIGHT_HEIGHT * inv_len
-        # Relief response only: a flat normal contributes exactly zero, so
-        # the pools land on the bumps instead of washing the whole frame.
-        diff = np.clip(nx * lx + ny * ly, 0.0, None)
-        # half-vector with view = +z
-        hx, hy, hz = lx, ly, lz + 1.0
-        inv_h = 1.0 / np.sqrt(hx * hx + hy * hy + hz * hz)
-        spec = np.clip(nx * hx * inv_h + ny * hy * inv_h + nz * hz * inv_h,
-                       0.0, None) ** SPEC_POWER
-        atten = 1.0 / (1.0 + d2 / (radius * radius))
-        contrib = relief * flash_gain * (diff + SPEC_GAIN * spec) * atten * gain
-        for c in range(3):
-            lit[..., c] += contrib * tint[c]
+    lit = np.full(nx.shape + (3,), AMBIENT, dtype=np.float64) * flash_gain
+    for c in range(3):
+        lit[..., c] += flash_gain * (KEY_COLOR[c] * (kd * KEY_GAIN + spec * SPEC_GAIN)
+                                     + FILL_COLOR[c] * fd * FILL_GAIN)
     return np.clip(base * lit, 0.0, 1.0)
 
 

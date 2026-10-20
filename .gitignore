@@ -1,2 +1,5 @@
 # Player replay records are created next to the desktop executable.
 replays/
+
+# python tooling scratch
+tools/__pycache__/
