@@ -31,7 +31,7 @@ void main()
                                 -0.70710678 * cos(sunAngle), 0.70710678));
         float diffuse = clamp(dot(n, l), 0.0, 1.0);
         float directional = clamp((diffuse - l.z) / (1.0 - l.z), 0.0, 1.0);
-        float response = 0.90 * (0.35 * diffuse + 0.65 * directional);
+        float response = 0.90 * directional;
         blended = clamp(texel.rgb * (1.0 + normalTexel.a * response), vec3(0.0), vec3(1.0));
     }
 
