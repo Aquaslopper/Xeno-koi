@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Moving lights over background bump maps — 20 October 2026
+
+- Replaces the PR #58 Harvest "sweeping sun" prototype. Its normal texture was nearly flat (mean z 0.997), its height mask allowed a constant +22% on only 18% of the frame (the sweep cancelled itself out by construction: constant front elevation minus the l.z baseline), and its bake darkened Harvest — none of it read as a moving light.
+- `tools/make_bg_normal_maps.py` derives real bump maps (`assets/<name>_normal.png`, RGB tangent-space normals with height in alpha) from each non-Deus background's art. Relief is auto-normalized to a target slope so every background gets equally strong bumps. Deus is excluded on purpose and keeps its own look.
+- Both background shaders (`assets/depth_fog.fs`, `assets/depth_fog_web.fs`) light the bump with an ambient lift — every lit background is brighter than its art, so there is no night side — plus three wide soft lights drifting on independent slow paths, diffuse + mild specular. No spotlight cones. `--check` enforces desktop/web parity of the moving-light block, and the tool mirrors its constants for offline previews.
+- In-match drawing enables the effect per background whenever its normal map is loaded (`src/ui_board.c`); menus keep the static dimmed path. Fog values, vignette, cards, rules, scoring, AI, campaign, storage, and replay are untouched.
+- Verification actually run: `python3 tools/make_bg_normal_maps.py --check`; `./build.sh test` (500 simulated matches); `./tests/test_table_ui.sh`; strict C99 `-Wall -Wextra -Werror` syntax check of all `src/*.c` against Raylib 5.5 headers; offline simulation of the shader math (`--preview`) — mean background luma roughly doubles (Harvest 26.8 -> ~60), 50-60% of pixels change by more than 6 luma between samples 25 s apart as the pools travel, and only 2-5% of pixels clip at the brightest ridges.
+- Still to verify: maintainer GPU retest on desktop/web — light travel and bump read on the ridges, strength under fog + bloom + CRT, and that Deus is visually unchanged. Tuning lives in the moving-light block of both shaders (keep the tool in sync).
+
+
 - Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
 - Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
