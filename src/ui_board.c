@@ -206,6 +206,7 @@ void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
 void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
     Color gc = g_theme.base; gc.a = (unsigned char)(pulse_alpha * 255.0f);
     DrawRectangleLinesEx(dest, 1.5f, gc);
+    if (pulse_alpha >= 0.99f) ui_theme_draw_panel_flares(dest);
 }
 
 static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int player, float start_y) {
