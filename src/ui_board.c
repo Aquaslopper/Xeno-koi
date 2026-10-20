@@ -16,7 +16,7 @@ extern GameSettings settings;
 /* Event envelope uses wall time; overlapping events take the brighter pulse. */
 static double light_flash_start = -10.0;
 static float light_flash_peak;
-static float light_flash_duration = 0.6f;
+static float light_flash_duration = 1.2f;
 
 static float light_flash_value(void) {
     float age = (float)(GetTime() - light_flash_start);
@@ -27,7 +27,7 @@ static float light_flash_value(void) {
 void board_flash_light(int koi) {
     float peak = koi ? 0.32f : 0.18f;
     light_flash_peak = fmaxf(peak, light_flash_value());
-    light_flash_duration = koi ? 1.0f : 0.6f;
+    light_flash_duration = koi ? 2.0f : 1.2f;
     light_flash_start = GetTime();
 }
 
