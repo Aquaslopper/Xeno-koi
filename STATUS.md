@@ -32,6 +32,13 @@
 - Moved the additive lighting blend after fog, before vignette; fog no longer attenuates the light by up to 88%. The compact spatial footprint remains unchanged, so this is not a global brightness increase. Deus still contributes zero new lighting.
 - Verified desktop/web shader-body parity and diff whitespace. In-game visual testing remains pending; no GPU validation claimed.
 
+## Stronger relief, slower light behind fog — 20 October 2026
+
+- Regenerated all seven animated-light normal maps at strength 6.0 (previously 4.0) from original pre-bake art. Added tools/make_background_normals.py for repeatable generation from source commit c188a05; requires Pillow/NumPy and that commit in local Git history.
+- Halved wandering frequencies to 0.085/0.065, reduced diffuse/highlight gains to 0.65/1.30 and cool fill to 0.08, and restored lighting before fog. Localized event pulses also remain behind fog.
+- Slightly relaxed fog on normal-lit backgrounds only: gain 1.35→1.20 and opacity cap 0.88→0.78. Deus and missing-normal fallback keep original fog values. Baked JPGs remain unchanged.
+- Checks passed: desktop/web shader-body parity, RGB normal dimensions/unit-length tolerance, deterministic regeneration, unchanged JPG/Deus bytes, and diff whitespace. In-game visual assessment remains pending; no GPU test claimed.
+
 ## Status Summary
 ## Latest completed work
 
