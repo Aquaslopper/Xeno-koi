@@ -21,7 +21,7 @@ uniform float flashAmount;
 float lightLayer(float distanceFromCenter, float width)
 {
     float halfWidth = 0.5 * width;
-    return 1.0 - smoothstep(halfWidth - 0.1176, halfWidth, distanceFromCenter);
+    return 1.0 - smoothstep(halfWidth - 0.2352, halfWidth, distanceFromCenter);
 }
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
@@ -35,10 +35,10 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
     float xDistance = abs(dot(uv - lightUV, beamAxis));
-    float layer80 = 0.10 * lightLayer(xDistance, 1.568);
-    float layer60 = 0.20 * lightLayer(xDistance, 1.176);
-    float layer40 = 0.40 * lightLayer(xDistance, 0.784);
-    float layer20 = 0.80 * lightLayer(xDistance, 0.392);
+    float layer80 = 0.10 * lightLayer(xDistance, 3.136);
+    float layer60 = 0.20 * lightLayer(xDistance, 2.352);
+    float layer40 = 0.40 * lightLayer(xDistance, 1.568);
+    float layer20 = 0.80 * lightLayer(xDistance, 0.784);
     // Nested bands select the strongest local layer; they do not add into one blob.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
 
@@ -46,9 +46,9 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     float diffuse = max(dot(n, lightDir), 0.0);
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
-    float surfaceGate = mix(0.65, 1.0, heightMask); // preserve visible banding on flat areas
+    float surfaceGate = heightMask; // confine light to the normal-map alpha mask
     float flashGain = 1.0 + 3.0 * flashAmount;
-    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * 0.70 * 0.40 * flashGain;
+    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * 0.70 * 0.30 * flashGain;
     vec3 warm = vec3(1.0, 0.93, 0.80);
     vec3 highlight = min(warm * amount, vec3(0.98));
     return base + (vec3(1.0) - base) * highlight;
