@@ -20,14 +20,13 @@
 - Browser tooltip regression passed, generated wiki tables are current, and `git diff --check` passed.
 - Headless Raylib-API-stub timing harnesses passed, including the case where all five global flare slots were active on other panels: hover reached alpha 255 and 6 px thickness, faded to baseline by 400 ms, stayed dim while held, and flashed again after re-entry. These harnesses are temporary and are not a graphical playtest.
 - Raylib headers are not installed locally, so the Raylib table UI test and live graphical playtest were not run.
-- Windows and WebAssembly builds are tracked through the PR workflows; they were not run locally.
+- On PR #56, the WebAssembly/build, Windows build, guard, and stale checks passed; deploy was skipped.
 
 ## Still to verify
 
 - Visually check the 400 ms, 5 px growth of the panel flare, its return to baseline while the pointer remains over the panel, and re-entry behavior in the graphical build.
 - Visually playtest click/drag coexistence, selection feedback, and panel readability.
 - Check both combo windows, pagination, and timer pause/resume in live play and replay playback.
-- Review the latest Windows and WebAssembly CI results on PR #56; those targets were not built locally.
 - Refresh the stored gameplay screenshots when suitable captures are available. They predate the new sidebar; the generated table map is updated.
 
 ## Keeping this useful
