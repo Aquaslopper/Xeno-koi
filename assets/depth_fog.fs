@@ -23,14 +23,13 @@ uniform float flashAmount;
 float lightLayer(float distanceFromCenter, float width)
 {
     float halfWidth = 0.5 * width;
-    return 1.0 - smoothstep(halfWidth - 0.084, halfWidth, distanceFromCenter);
+    return 1.0 - smoothstep(halfWidth - 0.1176, halfWidth, distanceFromCenter);
 }
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 map = texture(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
-    n.xy = -n.xy; // test the opposite-facing relief zones
 
     // Drift is 30% slower than the previous pass; spin is 10% faster than drift.
     float driftPhase = time * 0.0488692; // 30% slower: 128.6-second round trip
@@ -38,10 +37,10 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
     float xDistance = abs(dot(uv - lightUV, beamAxis));
-    float layer80 = 0.10 * lightLayer(xDistance, 1.12);
-    float layer60 = 0.20 * lightLayer(xDistance, 0.84);
-    float layer40 = 0.40 * lightLayer(xDistance, 0.56);
-    float layer20 = 0.80 * lightLayer(xDistance, 0.28);
+    float layer80 = 0.10 * lightLayer(xDistance, 1.568);
+    float layer60 = 0.20 * lightLayer(xDistance, 1.176);
+    float layer40 = 0.40 * lightLayer(xDistance, 0.784);
+    float layer20 = 0.80 * lightLayer(xDistance, 0.392);
     // Nested bands select the strongest local layer; they do not add into one blob.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
 
