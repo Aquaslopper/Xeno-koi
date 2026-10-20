@@ -28,21 +28,19 @@ void main()
         float sweep = sin(time * 0.085);
         vec3 l = normalize(vec3(sweep * 0.95, -0.35, 0.55));
         vec3 h = normalize(l + vec3(0.0, 0.0, 1.0));
-        float relief = max(dot(n, l), 0.0);
-        float spec = pow(max(dot(n, h), 0.0), 28.0);
-        vec3 accent = vec3(0.78, 0.88, 1.0);
-        // Reject the flat-plane specular response so ridges catch the light.
-        float flatSpec = pow(max(h.z, 0.0), 28.0);
-        float ridgeSpec = max(spec - flatSpec, 0.0);
-        // Subtract the flat-plane response: broad light reveals relief rather
-        // than adding an even brightness wash to the whole image.
-        float ridgeDiffuse = max(relief - max(l.z, 0.0), 0.0);
-        vec3 surface = texel.rgb * ridgeDiffuse * 0.65 + accent * ridgeSpec * 1.30;
-        vec3 moving = surface;
-        vec3 pulse = surface * eventFlash * 4.0;
+        // Continuous, signed response around a flat reference plane.
+        // Do not threshold ridges: that produces fragmented embossed outlines.
+        float diffuseDelta = dot(n, l) - l.z;
+        float spec = pow(max(dot(n, h), 0.0), 12.0);
+        float flatSpec = pow(max(h.z, 0.0), 12.0);
+        float response = clamp(diffuseDelta * 0.35 + (spec - flatSpec) * 0.12,
+                               -0.20, 0.20);
+        vec3 moving = texel.rgb * response;
+        // Pulses remain surface-dependent, without a full-image brightness flash.
+        vec3 pulse = texel.rgb * max(response, 0.0) * eventFlash * 3.0;
         surfaceLight = moving + pulse;
     }
-    vec3 blended = min(texel.rgb + surfaceLight, vec3(1.0));
+    vec3 blended = clamp(texel.rgb + surfaceLight, vec3(0.0), vec3(1.0));
 
     // 1. The Y-Axis Mask:
     // Fog exists on bottom 62% of screen; skip trig waves completely above y = 0.38.

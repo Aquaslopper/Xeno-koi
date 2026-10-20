@@ -46,6 +46,12 @@
 - Kept strength-6 normal maps, current gains, behind-fog blending, relaxed fog, and Deus exclusion. JPGs and gameplay/event hooks unchanged.
 - Checks: desktop/web shader-body parity, sweep direction at four cycle positions, absence of spotlight falloff, and diff whitespace passed. Visual tuning still requires in-game testing.
 
+## Continuous lighting correction — 20 October 2026
+
+- Maintainer confirmed harsh fragmented relief after the directional-light change. Removed positive-only diffuse/specular ridge extraction and the additive cool-white highlight layer.
+- Replaced it with continuous signed diffuse/soft-specular modulation of the image's own colors, capped at ±20% before event pulses. Broad left/right motion, strength-6 normals, behind-fog blending, and Deus exclusion remain unchanged.
+- Checks: desktop/web shader-body parity, finite/bounded response over all seven normal maps at four sweep times, and diff whitespace passed. No graphical validation claimed; maintainer playtest remains required.
+
 ## Status Summary
 ## Latest completed work
 
