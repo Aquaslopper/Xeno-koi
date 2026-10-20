@@ -4,6 +4,13 @@
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
 **Last updated: 20 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
+## Background artwork update — 20 October 2026
+
+- Baked the approved TOP-light, Medium 4.0 bump effect into the seven 1280×720 backgrounds: Harvest, Hole, Arctic, Castle, City, Face, and Realm.
+- Applied final brightening gamma 1.20 (`output = input^(1/1.20)`) from the pre-gamma bumped images, replacing the stronger 1.40 trial.
+- Verified all seven JPEGs decode and retain 1280×720 dimensions; `assets/deus.png` matches HEAD byte-for-byte. No game code, rules, card artwork, or shaders changed. Local preview/scratch outputs are excluded from the PR.
+- Remaining verification: maintainer will test the backgrounds in-game and report back. Earlier UI work and its checks are recorded below; no new graphical game build was tested for this artwork update.
+
 ## Status Summary
 ## Latest completed work
 
