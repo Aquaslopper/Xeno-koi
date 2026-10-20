@@ -30,9 +30,9 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
     n.xy = -n.xy; // invert the beam's normal-map response
 
-    // Drift is 30% slower than the previous pass; spin is 10% faster than drift.
-    float driftPhase = time * 0.0488692; // 30% slower: 128.6-second round trip
-    float spinPhase = time * 0.0537561;  // 10% faster than the drift frequency
+    // Make drift and spin visibly trackable while keeping spin 10% faster.
+    float driftPhase = time * 0.1954768; // 4x faster: 32.1-second round trip
+    float spinPhase = time * 0.2150244;  // 10% faster than the drift frequency
     vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
     float xDistance = abs(dot(uv - lightUV, beamAxis));
@@ -47,7 +47,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     float diffuse = max(dot(n, lightDir), 0.0);
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
-    float surfaceGate = heightMask; // confine light to the normal-map alpha mask
+    float surfaceGate = mix(0.10, 1.0, heightMask); // feather to 10% at the masked edge
     float flashGain = 1.0 + 3.0 * flashAmount;
     float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * 0.70 * 0.60 * flashGain;
     vec3 warm = vec3(1.0, 0.93, 0.80);
