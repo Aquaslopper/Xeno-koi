@@ -19,6 +19,7 @@ void main()
 {
     vec4 texel = texture(texture0, fragTexCoord);
     float baseLum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 surfaceLight = vec3(0.0);
     // Additive surface lighting preserves the approved baked TOP/gamma baseline.
     // Decode the original image-space normals (positive Y points down).
     if (lightEnabled > 0.5) {
@@ -36,10 +37,10 @@ void main()
         // Reject the flat-plane specular response so ridges catch the light.
         float flatSpec = pow(max(h.z, 0.0), 28.0);
         float ridgeSpec = max(spec - flatSpec, 0.0);
-        vec3 surface = texel.rgb * relief * 0.30 + accent * ridgeSpec * 0.65;
+        vec3 surface = texel.rgb * relief * 0.90 + accent * (ridgeSpec * 1.80 + relief * 0.12);
         vec3 moving = surface * falloff;
-        vec3 pulse = surface * falloff * eventFlash * 2.0;
-        texel.rgb = min(texel.rgb + moving + pulse, vec3(1.0));
+        vec3 pulse = surface * falloff * eventFlash * 4.0;
+        surfaceLight = moving + pulse;
     }
     vec3 blended = texel.rgb;
 
@@ -64,6 +65,10 @@ void main()
         float fogAlpha = clamp(depthMask * yMask * patch * 1.35, 0.0, 0.88);
         blended = mix(texel.rgb, fogColor, fogAlpha);
     }
+
+    // Illuminate the fogged scene locally instead of extinguishing the light in fog.
+    // A zero contribution leaves Deus and missing-normal fallback unchanged.
+    blended = min(blended + surfaceLight, vec3(1.0));
 
     // 5. Ambient Vignette:
     vec2 uvCentered = fragTexCoord - vec2(0.5, 0.5);

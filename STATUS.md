@@ -26,6 +26,12 @@
 - Checks: matching desktop/web shader bodies, numerical footprint checks at four timestamps (over 59% of the image outside the light), and diff whitespace check passed. Headless GPU compilation was attempted but unavailable (`libGL.so not loaded`); graphical desktop/web verification remains pending.
 - No JPGs, normal maps, Deus handling, event timing, game rules, or UI code changed in this correction.
 
+## Stronger localized lighting — 20 October 2026
+
+- After maintainer feedback that the light remained too weak, increased diffuse gain from 0.30 to 0.90, ridge highlight gain from 0.65 to 1.80, and event multiplier from 2 to 4. Added a modest normal-dependent cool light component so dark surfaces can visibly catch the light.
+- Moved the additive lighting blend after fog, before vignette; fog no longer attenuates the light by up to 88%. The compact spatial footprint remains unchanged, so this is not a global brightness increase. Deus still contributes zero new lighting.
+- Verified desktop/web shader-body parity and diff whitespace. In-game visual testing remains pending; no GPU validation claimed.
+
 ## Status Summary
 ## Latest completed work
 
