@@ -130,12 +130,11 @@ void board_load_assets(BoardAssets *ba) {
     ba->fog_shader = LoadShader(0, get_path("assets/depth_fog.fs"));
 #endif
     ba->has_fog_shader = (ba->fog_shader.id > 0);
-    ba->fog_time_loc = ba->light_normal_loc = ba->light_enabled_loc = ba->light_height_range_loc = ba->light_flash_loc = -1;
+    ba->fog_time_loc = ba->light_normal_loc = ba->light_enabled_loc = ba->light_flash_loc = -1;
     if (ba->has_fog_shader) {
         ba->fog_time_loc = GetShaderLocation(ba->fog_shader, "time");
         ba->light_normal_loc = GetShaderLocation(ba->fog_shader, "normalMap");
         ba->light_enabled_loc = GetShaderLocation(ba->fog_shader, "lightEnabled");
-        ba->light_height_range_loc = GetShaderLocation(ba->fog_shader, "heightRange");
         ba->light_flash_loc = GetShaderLocation(ba->fog_shader, "flashAmount");
     }
 
@@ -267,11 +266,17 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
                       int easy_mode, int replay_mode, const char *status_msg) {
     float cur_time = (float)GetTime();
     float frame_dt = GetFrameTime();
-    static int prev_capture_fly = 0;
+    static int prev_captured = -1;
+    static int prev_koi = -1;
     static float thunder_flash = 0.0f;
-    int capture_fly = (anim && anim->active && anim->type == ANIM_CAPTURE_FLY);
-    if (capture_fly && !prev_capture_fly) thunder_flash = 1.0f;
-    prev_capture_fly = capture_fly;
+    int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
+    int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
+    if ((prev_captured >= 0 && cur_captured > prev_captured) ||
+        (prev_koi >= 0 && cur_koi > prev_koi)) {
+        thunder_flash = 1.0f;
+    }
+    prev_captured = cur_captured;
+    prev_koi = cur_koi;
     if (thunder_flash > 0.0f) {
         if (thunder_flash > 0.40f) {
             thunder_flash -= frame_dt * 2.8f;
@@ -283,22 +288,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
-        static const float height_ranges[8][2] = {
-            { 0.078f, 0.165f }, { 0.133f, 0.231f }, { 0.086f, 0.161f },
-            { 0.149f, 0.353f }, { 0.063f, 0.122f }, { 0.0f, 1.0f },
-            { 0.078f, 0.157f }, { 0.067f, 0.122f }
-        };
         int bg = ba->current_bg;
         float light_enabled = (bg >= 0 && bg < 8 && ba->bg_normals[bg].id > 0 &&
-                               ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0 &&
-                               ba->light_height_range_loc >= 0) ? 1.0f : 0.0f;
+                               ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
         SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
         SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
         if (ba->light_flash_loc >= 0)
             SetShaderValue(ba->fog_shader, ba->light_flash_loc, &thunder_flash, SHADER_UNIFORM_FLOAT);
-        if (light_enabled > 0.5f)
-            SetShaderValue(ba->fog_shader, ba->light_height_range_loc,
-                           height_ranges[bg], SHADER_UNIFORM_VEC2);
         BeginShaderMode(ba->fog_shader);
         if (light_enabled > 0.5f)
             SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, ba->bg_normals[bg]);

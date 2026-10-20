@@ -11,12 +11,12 @@ uniform vec4 colDiffuse;
 uniform float time;
 
 // moving-lights begin
-// One drifting, spinning 4-band light beam gated to 3D normal-map ridges.
-// RGB stores tangent-space normals; alpha stores smoothed luminance so already-bright
-// sky/highlight zones are damped while dark biomechanical structures light up without grey wash.
+// One drifting, spinning 4-band light beam over the tangent-space normal map.
+// Analytical slope response (dot(n, l) - l.z) is 0.0 on flat pixels, positive on
+// light-facing 3D ridges, and 0.0 on shadow-facing slopes, with multiplicative
+// diffuse plus wet-chitin specular sheen so dark biomechanical forms gleam without grey wash.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
-uniform vec2 heightRange;
 uniform float flashAmount;
 
 float lightLayer(float distanceFromCenter, float width)
@@ -48,21 +48,19 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float reach = exp(-dist2 / (0.85 * 0.85));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
-    float diffuse = max(dot(n, lightDir), 0.0);
+
+    // Analytical 3D slope response: 0.0 on flat pixels (n = 0,0,1), >0 on light-facing slopes.
+    float slope = max(dot(n, lightDir) - lightDir.z, 0.0);
     float spec = pow(max(dot(n, halfVec), 0.0), 20.0);
 
-    // Gate to 3D normal-map ridges and invert the bright-zone mask so dark structures receive the beam.
-    float ridgeMask = smoothstep(0.14, 0.52, length(n.xy));
-    float darkMask = 1.0 - smoothstep(heightRange.x, heightRange.y, map.a);
-    float surfaceGate = ridgeMask * mix(0.15, 1.0, darkMask);
-
     float baseLum = dot(base, vec3(0.299, 0.587, 0.114));
-    float structureMask = smoothstep(0.02, 0.09, baseLum);
+    float chitinMask = smoothstep(0.018, 0.075, baseLum) * smoothstep(0.65, 0.25, baseLum);
     float flashGain = 1.0 + 3.0 * flashAmount;
-    float amount = surfaceGate * layers * reach * (diffuse + 0.55 * spec) * 14.0 * flashGain;
+    float beam = layers * reach * flashGain;
     vec3 warm = vec3(1.0, 0.93, 0.80);
-    float ridgeGlint = structureMask * amount * 0.14;
-    return clamp(base * (vec3(1.0) + warm * amount) + warm * ridgeGlint, 0.0, 1.0);
+    float diffGain = beam * slope * 24.0;
+    float specSheen = chitinMask * beam * slope * (0.45 + 1.55 * spec) * 3.2;
+    return clamp(base * (vec3(1.0) + warm * diffGain) + warm * specSheen, 0.0, 1.0);
 }
 // moving-lights end
 

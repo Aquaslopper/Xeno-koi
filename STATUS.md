@@ -8,9 +8,9 @@
 ## Latest completed work
 
 - Added per-background normal-map lighting for the seven non-Deus table backgrounds (`src/ui_board.c`, `src/ui_board.h`, `assets/*_normal.png`, `assets/depth_fog.fs`, `assets/depth_fog_web.fs`; Deus remains unchanged):
-  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a capture thunder-flash spike (`ANIM_CAPTURE_FLY`) and slow exponential decay.
-  - Gated the beam to 3D normal-map ridges (`smoothstep(0.14, 0.52, length(n.xy))`) combined with an inverted alpha bright-zone mask (`1.0 - smoothstep(heightRange.x, heightRange.y, map.a)`) so already-bright sky/highlight areas do not blow out while dark biomechanical structures receive the light.
-  - Replaced the screen-blend wash with multiplicative lighting plus a luminance-gated ridge glint, and fed the lit color into the lower-board depth-fog luminance mask so lit ridges shine through the fog without turning black shadows into grey fog.
+  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a thunder-flash spike triggered on every card capture (`captured_count` rising edge) and Koi-Koi call (`koi_called` rising edge) plus slow exponential decay.
+  - Analytical 3D slope lighting (`max(dot(n, lightDir) - lightDir.z, 0.0)`) so flat pixels return `0.0` without threshold masks, light-facing 3D ridges glow, and shadow-facing slopes stay dark.
+  - Multiplicative diffuse plus wet-chitin specular sheen (`chitinMask * beam * slope * (0.45 + 1.55 * spec)`) so dark biomechanical structures gleam without washing black shadows into grey fog or blowing out bright horizon areas, and lower-board depth-fog luminance is taken from the lit color so lit ridges shine through the bottom fog.
 - Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
 - Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
