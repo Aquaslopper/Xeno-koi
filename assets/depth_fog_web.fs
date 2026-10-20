@@ -33,18 +33,21 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(phase)),
                         0.50 + 0.12 * sin(phase));
     float xDistance = abs(uv.x - lightUV.x);
-    float layers = 0.10 * lightLayer(xDistance, 0.80)
-                 + 0.20 * lightLayer(xDistance, 0.60)
-                 + 0.40 * lightLayer(xDistance, 0.40)
-                 + 0.80 * lightLayer(xDistance, 0.20);
+    float layer80 = 0.10 * lightLayer(xDistance, 0.80);
+    float layer60 = 0.20 * lightLayer(xDistance, 0.60);
+    float layer40 = 0.40 * lightLayer(xDistance, 0.40);
+    float layer20 = 0.80 * lightLayer(xDistance, 0.20);
+    // Nested bands select the strongest local layer; they do not add into one blob.
+    float layers = max(max(layer80, layer60), max(layer40, layer20));
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     float diffuse = max(dot(n, lightDir), 0.0);
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
-    float amount = heightMask * layers * diffuse * 8.0; // exaggerated test strength
+    float surfaceGate = mix(0.65, 1.0, heightMask); // preserve visible banding on flat areas
+    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30; // exaggerated test strength
     vec3 warm = vec3(1.0, 0.93, 0.80);
-    vec3 highlight = vec3(1.0) - exp(-warm * amount);
+    vec3 highlight = min(warm * amount, vec3(0.90));
     return base + (vec3(1.0) - base) * highlight;
 }
 // moving-lights end
