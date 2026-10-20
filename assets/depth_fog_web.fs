@@ -17,20 +17,32 @@ uniform sampler2D normalMap;
 uniform float lightEnabled;
 uniform vec2 heightRange;
 
+float lightLayer(float distanceFromCenter, float width)
+{
+    float halfWidth = 0.5 * width;
+    return 1.0 - smoothstep(halfWidth - 0.06, halfWidth, distanceFromCenter);
+}
+
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 map = texture2D(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
-    float phase = time * 0.0698132; // one slow 360-degree loop per 90 seconds
+
+    // Layer three drives the group center through a slow left-right 360 loop.
+    float phase = time * 0.0698132; // one loop per 90 seconds
     vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(phase)),
                         0.50 + 0.12 * sin(phase));
+    float xDistance = abs(uv.x - lightUV.x);
+    float layers = 0.10 * lightLayer(xDistance, 0.80)
+                 + 0.20 * lightLayer(xDistance, 0.60)
+                 + 0.40 * lightLayer(xDistance, 0.40)
+                 + 0.80 * lightLayer(xDistance, 0.20);
+
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
-    float dist2 = dot(toLight, toLight);
-    float attenuation = exp(-dist2 / (0.72 * 0.72));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     float diffuse = max(dot(n, lightDir), 0.0);
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
-    float amount = heightMask * attenuation * diffuse * 8.0; // intentionally exaggerated for visual testing
+    float amount = heightMask * layers * diffuse * 8.0; // exaggerated test strength
     vec3 warm = vec3(1.0, 0.93, 0.80);
     vec3 highlight = vec3(1.0) - exp(-warm * amount);
     return base + (vec3(1.0) - base) * highlight;
