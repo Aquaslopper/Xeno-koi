@@ -28,6 +28,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 {
     vec4 map = texture2D(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
+    n.xy = -n.xy; // invert the beam's normal-map response
 
     // Drift is 30% slower than the previous pass; spin is 10% faster than drift.
     float driftPhase = time * 0.0488692; // 30% slower: 128.6-second round trip
@@ -48,7 +49,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float heightMask = smoothstep(heightRange.x, heightRange.y, map.a);
     float surfaceGate = heightMask; // confine light to the normal-map alpha mask
     float flashGain = 1.0 + 3.0 * flashAmount;
-    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * 0.70 * 0.30 * flashGain;
+    float amount = surfaceGate * layers * diffuse * 8.0 * 0.30 * 0.70 * 0.60 * flashGain;
     vec3 warm = vec3(1.0, 0.93, 0.80);
     vec3 highlight = min(warm * amount, vec3(0.98));
     return base + (vec3(1.0) - base) * highlight;
