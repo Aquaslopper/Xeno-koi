@@ -1,12 +1,16 @@
-> **Development handoff (last updated 20 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 21 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 20 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 21 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
 
+- Added per-background normal-map lighting for the seven non-Deus table backgrounds (`src/ui_board.c`, `src/ui_board.h`, `assets/*_normal.png`, `assets/depth_fog.fs`, `assets/depth_fog_web.fs`; Deus remains unchanged):
+  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a capture thunder-flash spike (`ANIM_CAPTURE_FLY`) and slow exponential decay.
+  - Gated the beam to 3D normal-map ridges (`smoothstep(0.14, 0.52, length(n.xy))`) combined with an inverted alpha bright-zone mask (`1.0 - smoothstep(heightRange.x, heightRange.y, map.a)`) so already-bright sky/highlight areas do not blow out while dark biomechanical structures receive the light.
+  - Replaced the screen-blend wash with multiplicative lighting plus a luminance-gated ridge glint, and fed the lit color into the lower-board depth-fog luminance mask so lit ridges shine through the fog without turning black shadows into grey fog.
 - Added click-to-select / click-to-play alongside existing dragging. Selection and matching field cards remain outlined; clicking the selected card again, right-clicking, or pressing Esc cancels selection. Small pointer movements are tolerated as clicks.
 - Enlarged and brightened the ruleset label. Combo summaries now have fixed bounds and shortened preview names instead of overflowing.
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
@@ -16,14 +20,15 @@
 
 ## Verification last completed in this session
 
-- Engine integrity suite passed, including 500 full simulated matches.
-- Browser tooltip regression passed, generated wiki tables are current, and `git diff --check` passed.
-- Compiled `src/ui_theme.c` with `-Wall -Wextra -Werror` against a temporary Raylib API stub. Stub harnesses passed the 3–5-per-box bounds and independent storage, keyed flare continuity as card rectangles move, panel-scoped flash (other boxes stay dim), the 400 ms +3 px pulse, no retrigger while held, re-entry, and travel around all four perimeter sides. These are not a graphical playtest.
-- Raylib headers are not installed locally, so the Raylib table UI test and live graphical playtest were not run.
-- CI results for each pushed revision are tracked on PR #56.
+- Engine integrity suite (`./build.sh test`) passed, including 500 full simulated matches.
+- Headless table UI and combo-panel regression suite (`./tests/test_table_ui.sh`) passed against Raylib 5.5 headers.
+- Strict C99 syntax check (`gcc -std=c99 -Wall -Wextra -Werror -fsyntax-only`) across all `src/*.c` passed.
+- Generated wiki tables check (`python3 tools/gen_wiki_tables.py --check`), desktop/web `moving-lights` shader-block parity, and `git diff --check` passed.
+- Offline full-pipeline shader simulation (normal-map lighting + depth fog + vignette + table dim + gamma 1.40) verified across all seven non-Deus backgrounds and capture flash states.
 
 ## Still to verify
 
+- Visually check the moving/spinning 4-band background beam, 3D ridge gating, and capture thunder flash on a live GPU across desktop and web builds, and confirm Deus remains unchanged.
 - Visually check the 400 ms, +3 px flare growth, perimeter movement (including the highlighted cards), speed variation, and return to baseline while the pointer remains over the panel.
 - Visually playtest click/drag coexistence, selection feedback, and panel readability.
 - Check both combo windows, pagination, and timer pause/resume in live play and replay playback.

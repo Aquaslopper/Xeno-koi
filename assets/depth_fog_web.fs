@@ -11,43 +11,58 @@ uniform vec4 colDiffuse;
 uniform float time;
 
 // moving-lights begin
-// Bump lighting for the table background. normalMap RGB holds a
-// tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias),
-// alpha holds the height field (unused here, kept for inspection).
-// Three wide soft lights drift on independent slow paths; the ambient
-// lift keeps every background brighter than its art, so there is no
-// night side and no hard spotlight cone.
+// One drifting, spinning 4-band light beam gated to 3D normal-map ridges.
+// RGB stores tangent-space normals; alpha stores smoothed luminance so already-bright
+// sky/highlight zones are damped while dark biomechanical structures light up without grey wash.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
+uniform vec2 heightRange;
+uniform float flashAmount;
 
-vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float height, float gain, vec3 tint)
+float lightLayer(float distanceFromCenter, float width)
 {
-    vec2 d = (lp - uv) * vec2(1.7777778, 1.0); // aspect-corrected offset, uv y is down
-    float dist2 = dot(d, d);
-    vec3 l = normalize(vec3(d, height));
-    float diff = max(dot(n, l), 0.0);
-    vec3 h = normalize(l + vec3(0.0, 0.0, 1.0)); // half-vector, view = +z
-    float spec = pow(max(dot(n, h), 0.0), 28.0);
-    float atten = 1.0 / (1.0 + dist2 / (radius * radius));
-    return tint * (diff + 0.40 * spec) * atten * gain;
+    float halfWidth = 0.5 * width;
+    return 1.0 - smoothstep(halfWidth - 0.1176, halfWidth, distanceFromCenter);
 }
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
-    vec4 normalTexel = texture2D(normalMap, uv);
-    vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
-    float t = time;
-    vec3 lit = vec3(1.22); // ambient lift
-    lit += movingLight(n, uv,
-        vec2(0.50 + 0.42 * sin(t * 0.100), 0.30 + 0.18 * sin(t * 0.067 + 1.7)),
-        0.62, 0.55, 1.15, vec3(1.00, 0.97, 0.90));
-    lit += movingLight(n, uv,
-        vec2(0.22 + 0.26 * cos(t * 0.073 + 0.6), 0.52 + 0.24 * sin(t * 0.073)),
-        0.55, 0.50, 1.00, vec3(0.90, 0.96, 1.00));
-    lit += movingLight(n, uv,
-        vec2(0.80 + 0.22 * sin(t * 0.055 + 2.9), 0.42 + 0.28 * cos(t * 0.049 + 1.1)),
-        0.58, 0.55, 0.95, vec3(1.00, 0.93, 0.88));
-    return clamp(base * lit, 0.0, 1.0);
+    vec4 map = texture2D(normalMap, uv);
+    vec3 n = normalize(map.rgb * 2.0 - 1.0);
+
+    // Drift left-right on a 32.1-second round trip; spin 10% faster than drift.
+    float driftPhase = time * 0.1954768;
+    float spinPhase = time * 0.2150244;
+    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
+    vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
+    float xDistance = abs(dot(uv - lightUV, beamAxis));
+    float layer80 = 0.10 * lightLayer(xDistance, 1.568);
+    float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
+    float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
+    float layer20 = 0.20 * lightLayer(xDistance, 0.392);
+    // Nested bands select the strongest local layer; they do not add into one blob.
+    float layers = max(max(layer80, layer60), max(layer40, layer20));
+
+    vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
+    float dist2 = dot(toLight, toLight);
+    float reach = exp(-dist2 / (0.85 * 0.85));
+    vec3 lightDir = normalize(vec3(toLight, 0.42));
+    vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
+    float diffuse = max(dot(n, lightDir), 0.0);
+    float spec = pow(max(dot(n, halfVec), 0.0), 20.0);
+
+    // Gate to 3D normal-map ridges and invert the bright-zone mask so dark structures receive the beam.
+    float ridgeMask = smoothstep(0.14, 0.52, length(n.xy));
+    float darkMask = 1.0 - smoothstep(heightRange.x, heightRange.y, map.a);
+    float surfaceGate = ridgeMask * mix(0.15, 1.0, darkMask);
+
+    float baseLum = dot(base, vec3(0.299, 0.587, 0.114));
+    float structureMask = smoothstep(0.02, 0.09, baseLum);
+    float flashGain = 1.0 + 3.0 * flashAmount;
+    float amount = surfaceGate * layers * reach * (diffuse + 0.55 * spec) * 14.0 * flashGain;
+    vec3 warm = vec3(1.0, 0.93, 0.80);
+    float ridgeGlint = structureMask * amount * 0.14;
+    return clamp(base * (vec3(1.0) + warm * amount) + warm * ridgeGlint, 0.0, 1.0);
 }
 // moving-lights end
 
@@ -68,7 +83,7 @@ void main()
         float yMask = smoothstep(0.38, 0.88, fragTexCoord.y);
 
         // 2. The Depth Mask (Luminance):
-        float lum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+        float lum = dot(blended, vec3(0.299, 0.587, 0.114));
         float depthMask = smoothstep(0.78, 0.18, lum);
 
         // 3. The Patchy Drift:

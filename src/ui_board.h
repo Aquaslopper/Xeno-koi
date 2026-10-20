@@ -14,10 +14,15 @@ typedef struct {
     Texture2D coin_silver;
     Texture2D coin_bronze;
     Texture2D bgs[8];
+    Texture2D bg_normals[8];
     int current_bg;
     int assets_loaded;
     Shader fog_shader;
     int fog_time_loc;
+    int light_normal_loc;
+    int light_enabled_loc;
+    int light_height_range_loc;
+    int light_flash_loc;
     int has_fog_shader;
 } BoardAssets;
 
