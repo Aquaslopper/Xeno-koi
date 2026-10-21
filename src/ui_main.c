@@ -188,7 +188,7 @@ static void update_draw_frame(void) {
         if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 10) + 1));
         else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 9)) % 10) + 1);
     } else {
-        audio_set_reverb(0.0f);
+        audio_set_capture_stage(0);
         audio_play_menu_music(&audio);
     }
 

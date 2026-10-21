@@ -501,9 +501,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     static int prev_koi = -1;
     static int capture_streak = 0;
     static float thunder_flash = 0.0f;
-    static float reverb_energy = 0.0f;
-    static float reverb_mid = 0.0f;
-    static float reverb_curve = 0.0f;
+    static int   capture_stage = 0;     /* 0..3: reverb -> +stereo -> +bass */
+    static float stage_hold = 0.0f;     /* seconds before the stage steps down */
     int cur_round = g ? g->current_round : -1;
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_field = g ? g->field_count : 0;
@@ -514,7 +513,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         prev_field = cur_field;
         prev_koi = cur_koi;
         capture_streak = 0;
-        reverb_energy = reverb_mid = reverb_curve = 0.0f;
+        capture_stage = 0;
+        stage_hold = 0.0f;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
@@ -540,25 +540,25 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    /* Audio reverb follows a smooth S-curve (never a spike):
-       clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
-       builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.21f;
-    if (koi_edge)           reverb_energy += 0.45f;
-    if (reverb_energy > 1.0f) reverb_energy = 1.0f;
-    float tau_energy = (reverb_energy > reverb_curve) ? 2.70f : 1.40f;
-    reverb_energy *= expf(-frame_dt / tau_energy);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.16f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.16f));
-    if (reverb_curve > 1.0f) reverb_curve = 1.0f;
-    if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
-        reverb_energy = reverb_mid = reverb_curve = 0.0f;
+    /* Audio stages. Every capture or Koi-Koi call is one event, and the events
+       stack up to three: 1 = reverb, 2 = +stereo, 3 = +mono bass. The step
+       holds while the player keeps chaining and releases after STAGE_HOLD_RELEASE,
+       so the tail keeps running while cards are still flying. The per-stage
+       levels themselves live in src/ui_audio.c (k_stage_rev / _side / _bass). */
+    const float STAGE_HOLD_RELEASE = 2.50f;   /* quiet time before one step drops */
+    const float STAGE_HOLD_STEP    = 1.10f;   /* gap between the remaining steps  */
+    if (capture_edge || koi_edge) {
+        capture_stage++;
+        if (capture_stage > 3) capture_stage = 3;
+        stage_hold = STAGE_HOLD_RELEASE;
+    } else if (capture_stage > 0) {
+        stage_hold -= frame_dt;
+        if (stage_hold <= 0.0f) {
+            capture_stage--;
+            stage_hold = STAGE_HOLD_STEP;
+        }
     }
-    float syn_x = reverb_curve / 0.62f;
-    if (syn_x < 0.0f) syn_x = 0.0f;
-    if (syn_x > 1.0f) syn_x = 1.0f;
-    float reverb_synergy = 0.35f * syn_x + 0.65f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
-    audio_set_reverb(reverb_synergy);
+    audio_set_capture_stage(capture_stage);
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {

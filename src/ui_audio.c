@@ -1,64 +1,87 @@
 #include "ui_audio.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
-/* Real-time stereo reverb + subtle Haas widener attached to music streams.
-   Driven by a smooth, hard-limited synergy curve via audio_set_reverb(amount):
-   starts subtle on the first capture, blooms on stacked captures, and ducks its
-   tail under the dry music so it never smears or spikes. */
-#define REVERB_COMB_COUNT 4
-#define REVERB_COMB_MAX   5504
-#define REVERB_AP_COUNT   2
-#define REVERB_AP_MAX     640
-#define REVERB_PREDELAY_MAX 6400
+/* ======================================================================
+   Capture reverb + stereo + mono bass, staged over a capture streak.
 
-static const int k_comb_len_l[REVERB_COMB_COUNT] = { 2903, 3571, 4219, 4967 };
-static const int k_comb_len_r[REVERB_COMB_COUNT] = { 3251, 3917, 4603, 5381 };
-static const int k_ap_len_l[REVERB_AP_COUNT]     = { 431, 163 };
-static const int k_ap_len_r[REVERB_AP_COUNT]     = { 509, 211 };
-static const int k_pre_len_l = 3607; /* ~75 ms stereo slapback L */
-static const int k_pre_len_r = 5897; /* ~123 ms stereo slapback R */
+   The game only reports how many capture events are stacked:
+       audio_set_capture_stage(0..3)
+   Everything else lives here, so tuning means editing numbers in one block.
 
-static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
-static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
-static int   s_comb_idx_l[REVERB_COMB_COUNT];
-static int   s_comb_idx_r[REVERB_COMB_COUNT];
-static float s_comb_lp_l[REVERB_COMB_COUNT];
-static float s_comb_lp_r[REVERB_COMB_COUNT];
+   Signal flow - one send, dry stays mono-safe:
 
-static float s_ap_buf_l[REVERB_AP_COUNT][REVERB_AP_MAX];
-static float s_ap_buf_r[REVERB_AP_COUNT][REVERB_AP_MAX];
-static int   s_ap_idx_l[REVERB_AP_COUNT];
-static int   s_ap_idx_r[REVERB_AP_COUNT];
+     dry L/R ----------------------------------------------+
+       |                                                    |
+       +-- HP 250 -- LP 9k -- pre-delay 29 ms               |
+             -- 4 combs -- 2 allpass -- wet L/R             |
+                  |                                         |
+          mid = (L+R)/2   side = (L-R)/2                     |
+          mid : low-band comp, +bass shelf                   |
+          side: HP 250 (2nd order), de-ess 7k, no boost      |
+                  |                                         |
+          wet_mid x rev + wet_side x stereo ------------------+
+                                                             v
+              dry + wet -> duck -> bus comp (HPF detector) -> limiter
+   ====================================================================== */
 
-static float s_pre_buf_l[REVERB_PREDELAY_MAX];
-static float s_pre_buf_r[REVERB_PREDELAY_MAX];
-static int   s_pre_idx_l = 0;
-static int   s_pre_idx_r = 0;
+#define AUDIO_SR 44100.0f
+#define PI_F     3.14159265f
 
+/* ---- tunables -------------------------------------------------------- */
+#define REV_IN_HP_HZ      250.0f   /* low cut into the reverb send           */
+#define REV_IN_LP_HZ     9000.0f   /* high cut into the reverb send          */
+#define REV_SIDE_HP_HZ    250.0f   /* low cut on the wet side (mono lows)    */
+#define DEESS_HZ         7000.0f   /* side-only ear protection               */
+#define PRE_DELAY_MS       29.0f   /* 20-60 ms reads as space, not slapback  */
+#define BASS_SHELF_HZ     120.0f   /* mono bass boost corner                 */
+#define BASS_BOOST_DB       6.0f   /* boost at full bass stage               */
+#define LOWCOMP_HZ        200.0f   /* low-band compressor on the wet mid     */
+#define LOWCOMP_TH        0.155f   /* ~-16 dBFS                              */
+#define BUSCOMP_HP_HZ     100.0f   /* detector low cut: bass drives nothing  */
+#define BUSCOMP_TH        0.89f    /* ~-1 dBFS: spikes only                  */
+#define LIMIT_KNEE        0.94f
+#define LIMIT_CEIL        0.99f
+#define DUCK_MAX_DB         2.5f   /* music dip under a capture SFX          */
+#define STAGE_ATTACK_S     0.04f   /* soft entry, no click                   */
+#define STAGE_TAIL_S       2.50f   /* the tail: stays up while cards fly     */
+
+/* Per-event levels: stage 0 silent, 1..3 as designed. */
+static const float k_stage_rev[4]  = { 0.00f, 0.40f, 0.50f, 0.60f };
+static const float k_stage_side[4] = { 0.00f, 0.20f, 0.40f, 0.50f };
+static const float k_stage_bass[4] = { 0.00f, 0.20f, 0.20f, 0.40f };
+
+/* ---- building blocks ------------------------------------------------- */
 typedef struct {
-    float x1, x2;
-    float y1, y2;
-} BiquadState;
+    float b0, b1, b2, a1, a2;
+    float x1, x2, y1, y2;
+} Biquad;
 
-static BiquadState s_in_hp_l, s_in_hp_r;
-static BiquadState s_in_lp_l, s_in_lp_r;
+/* RBJ cookbook, Q = 0.7071 (Butterworth), designed for 44.1 kHz. */
+static void biquad_design(Biquad *q, float fc, int highpass) {
+    float w  = 2.0f * PI_F * fc / AUDIO_SR;
+    float cw = cosf(w), sw = sinf(w);
+    float alpha = sw / (2.0f * 0.70710678f);
+    float a0 = 1.0f + alpha;
+    if (highpass) {
+        q->b0 =  (1.0f + cw) * 0.5f / a0;
+        q->b1 = -(1.0f + cw) / a0;
+    } else {
+        q->b0 =  (1.0f - cw) * 0.5f / a0;
+        q->b1 =  (1.0f - cw) / a0;
+    }
+    q->b2 = q->b0;
+    q->a1 = -2.0f * cw / a0;
+    q->a2 = (1.0f - alpha) / a0;
+    q->x1 = q->x2 = q->y1 = q->y2 = 0.0f;
+}
 
-static float s_sc_env = 0.0f;
-static float s_mid_bass_lp = 0.0f;
-static float s_side_low_lp = 0.0f;
-static float s_side_deess_lp = 0.0f;
-static float s_side_presence_lp = 0.0f;
-static float s_deess_env = 0.0f;
-static float s_comp_env = 0.0f;
-
-static volatile float s_reverb_target = 0.0f;
-static float s_reverb_cur = 0.0f;
-
-void audio_set_reverb(float amount) {
-    if (amount < 0.0f) amount = 0.0f;
-    if (amount > 1.0f) amount = 1.0f;
-    s_reverb_target = amount;
+static float biquad_run(Biquad *q, float x) {
+    float y = q->b0 * x + q->b1 * q->x1 + q->b2 * q->x2 - q->a1 * q->y1 - q->a2 * q->y2;
+    q->x2 = q->x1; q->x1 = x;
+    q->y2 = q->y1; q->y1 = y;
+    return y;
 }
 
 static float clamp_range(float x, float lo, float hi) {
@@ -67,27 +90,10 @@ static float clamp_range(float x, float lo, float hi) {
     return x;
 }
 
-/* 2nd-order Butterworth High-Pass (150 Hz, 12 dB/oct, sr = 44100 Hz) */
-static float biquad_hp150(BiquadState *s, float x) {
-    const float b0 =  0.9850018f, b1 = -1.9700035f, b2 = 0.9850018f;
-    const float a1 = -1.9697786f, a2 =  0.9702285f;
-    float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
-    s->x2 = s->x1; s->x1 = x;
-    s->y2 = s->y1; s->y1 = y;
-    return y;
-}
+/* One-pole coefficient for a -3 dB corner at fc. */
+static float onepole_k(float fc) { return 1.0f - expf(-2.0f * PI_F * fc / AUDIO_SR); }
 
-/* 2nd-order Butterworth Low-Pass (5 kHz, 12 dB/oct, sr = 44100 Hz) */
-static float biquad_lp5000(BiquadState *s, float x) {
-    const float b0 =  0.0831599f, b1 = 0.1663197f, b2 = 0.0831599f;
-    const float a1 = -1.0351712f, a2 = 0.3678107f;
-    float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
-    s->x2 = s->x1; s->x1 = x;
-    s->y2 = s->y1; s->y1 = y;
-    return y;
-}
-
-/* Soft-knee peak limiter: 1:1 linear below knee, smoothly compressed above knee */
+/* Soft-knee peak limiter: 1:1 below the knee, smoothly bounded above it. */
 static float soft_knee_limit(float x, float knee, float max_val) {
     float ax = (x < 0.0f) ? -x : x;
     if (ax <= knee) return x;
@@ -97,152 +103,243 @@ static float soft_knee_limit(float x, float knee, float max_val) {
     return (x < 0.0f) ? -out : out;
 }
 
+/* ---- state ---------------------------------------------------------- */
+#define REVERB_COMB_COUNT 4
+#define REVERB_COMB_MAX   5504
+#define REVERB_AP_COUNT   2
+#define REVERB_AP_MAX     640
+#define PREDELAY_MAX      1400
+
+static const int k_comb_len_l[REVERB_COMB_COUNT] = { 2903, 3571, 4219, 4967 };
+static const int k_comb_len_r[REVERB_COMB_COUNT] = { 3251, 3917, 4603, 5381 };
+static const int k_ap_len_l[REVERB_AP_COUNT]     = { 431, 163 };
+static const int k_ap_len_r[REVERB_AP_COUNT]     = { 509, 211 };
+
+static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
+static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
+static int   s_comb_idx_l[REVERB_COMB_COUNT];
+static int   s_comb_idx_r[REVERB_COMB_COUNT];
+static float s_comb_lp_l[REVERB_COMB_COUNT];
+static float s_comb_lp_r[REVERB_COMB_COUNT];
+static float s_ap_buf_l[REVERB_AP_COUNT][REVERB_AP_MAX];
+static float s_ap_buf_r[REVERB_AP_COUNT][REVERB_AP_MAX];
+static int   s_ap_idx_l[REVERB_AP_COUNT];
+static int   s_ap_idx_r[REVERB_AP_COUNT];
+static float s_pre_buf_l[PREDELAY_MAX];
+static float s_pre_buf_r[PREDELAY_MAX];
+static int   s_pre_idx_l, s_pre_idx_r, s_pre_len;
+
+static Biquad s_in_hp_l, s_in_lp_l, s_in_hp_r, s_in_lp_r;
+static Biquad s_side_hp, s_side_hp2;
+static int    s_dsp_ready;
+
+static float s_side_deess_lp;
+static float s_deess_env;
+static float s_mid_low_lp;
+static float s_bass_lp;
+static float s_low_env;
+static float s_sc_env;
+static float s_duck_env;
+static float s_hp_lp_l, s_hp_lp_r;
+static float s_comp_env;
+
+static float s_rev_env, s_side_env, s_bass_env;
+
+static volatile int   s_stage;
+static volatile float s_duck_target;
+
+void audio_set_capture_stage(int stage) {
+    if (stage < 0) stage = 0;
+    if (stage > 3) stage = 3;
+    s_stage = stage;
+}
+
+void audio_duck_music(float amount) {
+    if (amount < 0.0f) amount = 0.0f;
+    if (amount > 1.0f) amount = 1.0f;
+    s_duck_target = amount;
+}
+
+static void dsp_init_once(void) {
+    if (s_dsp_ready) return;
+    biquad_design(&s_in_hp_l, REV_IN_HP_HZ, 1);
+    biquad_design(&s_in_hp_r, REV_IN_HP_HZ, 1);
+    biquad_design(&s_in_lp_l, REV_IN_LP_HZ, 0);
+    biquad_design(&s_in_lp_r, REV_IN_LP_HZ, 0);
+    biquad_design(&s_side_hp, REV_SIDE_HP_HZ, 1);
+    biquad_design(&s_side_hp2, REV_SIDE_HP_HZ, 1);   /* 4th order: lows really leave the side */
+    s_pre_len = (int)(PRE_DELAY_MS * AUDIO_SR / 1000.0f);
+    if (s_pre_len < 1) s_pre_len = 1;
+    if (s_pre_len >= PREDELAY_MAX) s_pre_len = PREDELAY_MAX - 1;
+    s_pre_idx_l = s_pre_idx_r = 0;
+    s_dsp_ready = 1;
+}
+
+/* Block-rate one-pole follower; the tail is what makes captures overlap. */
+static void advance_env(float *cur, float target, float dt, float attack, float release) {
+    float tau = (target > *cur) ? attack : release;
+    float k = 1.0f - expf(-dt / tau);
+    *cur += (target - *cur) * k;
+}
+
+/* ---- the processor --------------------------------------------------- */
 static void music_reverb_processor(void *buffer, unsigned int frames) {
     float *pcm = (float *)buffer;
     if (!pcm || frames == 0) return;
-    float target = clamp_range(s_reverb_target, 0.0f, 1.0f);
+    dsp_init_once();
+
+    float dt = (float)frames / AUDIO_SR;
+    int stage = s_stage;
+    if (stage < 0) stage = 0;
+    if (stage > 3) stage = 3;
+    advance_env(&s_rev_env,  k_stage_rev[stage],  dt, STAGE_ATTACK_S, STAGE_TAIL_S);
+    advance_env(&s_side_env, k_stage_side[stage], dt, STAGE_ATTACK_S, STAGE_TAIL_S);
+    advance_env(&s_bass_env, k_stage_bass[stage], dt, STAGE_ATTACK_S, STAGE_TAIL_S);
+    advance_env(&s_duck_env, s_duck_target, dt, 0.005f, 0.150f);
+
+    const float rev    = s_rev_env;
+    const float side_g = s_side_env;
+    const float bass_g = powf(10.0f, (BASS_BOOST_DB * s_bass_env) / 20.0f);
+    const float duck_g = powf(10.0f, (-DUCK_MAX_DB * s_duck_env) / 20.0f);
+
+    const float k_deess = onepole_k(DEESS_HZ);
+    const float k_midlp = onepole_k(LOWCOMP_HZ);
+    const float k_bass  = onepole_k(BASS_SHELF_HZ);
+    const float k_schp  = onepole_k(BUSCOMP_HP_HZ);
+
+    /* envelope rates, expressed once per block */
+    const float deess_atk = 1.0f - expf(-dt / 0.003f), deess_rel = 1.0f - expf(-dt / 0.080f);
+    const float low_atk   = 1.0f - expf(-dt / 0.025f), low_rel   = 1.0f - expf(-dt / 0.180f);
+    const float sc_atk    = 1.0f - expf(-dt / 0.003f), sc_rel    = 1.0f - expf(-dt / 0.080f);
+    const float comp_atk  = 1.0f - expf(-dt / 0.030f), comp_rel  = 1.0f - expf(-dt / 0.100f);
+
+    int active = (rev > 0.0005f) || (side_g > 0.0005f) || (s_bass_env > 0.0005f);
 
     for (unsigned int f = 0; f < frames; f++) {
-        float rate = (target > s_reverb_cur) ? 0.0018f : 0.0012f;
-        s_reverb_cur += (target - s_reverb_cur) * rate;
-        float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
+        float out_l = dry_l * duck_g;
+        float out_r = dry_r * duck_g;
 
-        /* 1. Sidechain detector on dry music (3 ms attack = 0.00753, 80 ms release = 0.000283) */
-        float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
-        float sc_rate = (dry_abs > s_sc_env) ? 0.007530f : 0.000283f;
-        s_sc_env += (dry_abs - s_sc_env) * sc_rate;
-        float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
-        float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
+        /* 1. EQ into the send: low cut, high cut. Runs every block so the
+              pre-delay line is never fed stale or unfiltered samples. */
+        float bp_l = biquad_run(&s_in_lp_l, biquad_run(&s_in_hp_l, dry_l));
+        float bp_r = biquad_run(&s_in_lp_r, biquad_run(&s_in_hp_r, dry_r));
 
-        /* 2. Reverb Input Bandpass ONLY (150 Hz High-Pass + 5 kHz Low-Pass on reverb input, not output) */
-        float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp150(&s_in_hp_l, dry_l));
-        float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp150(&s_in_hp_r, dry_r));
-
+        /* 2. Pre-delay, same time both sides (no Haas slapback). */
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.50f + slap_r * 0.18f, -0.70f, 0.70f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.50f - slap_l * 0.18f, -0.70f, 0.70f);
-        if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
-        if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
+        s_pre_buf_l[s_pre_idx_l] = bp_l;
+        s_pre_buf_r[s_pre_idx_r] = bp_r;
+        if (++s_pre_idx_l >= s_pre_len) s_pre_idx_l = 0;
+        if (++s_pre_idx_r >= s_pre_len) s_pre_idx_r = 0;
 
-        float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        float feed_l = bp_in_l * 0.50f + slap_r * 0.20f;
-        float feed_r = bp_in_r * 0.50f + slap_l * 0.20f;
-        float feedback = 0.68f - 0.10f * tail_releasing;
-        const float damp = 0.42f;
-        float acc_l = 0.0f, acc_r = 0.0f;
+        if (active) {
+            /* 3. Tank. */
+            float feed_l = bp_l * 0.50f + slap_r * 0.12f;
+            float feed_r = bp_r * 0.50f + slap_l * 0.12f;
+            const float feedback = 0.68f;
+            const float damp = 0.42f;
+            float acc_l = 0.0f, acc_r = 0.0f;
 
-        for (int c = 0; c < REVERB_COMB_COUNT; c++) {
-            int il = s_comb_idx_l[c];
-            float out_l = s_comb_buf_l[c][il];
-            s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
-            if (++il >= k_comb_len_l[c]) il = 0;
-            s_comb_idx_l[c] = il;
-            acc_l += s_comb_lp_l[c];
+            for (int c = 0; c < REVERB_COMB_COUNT; c++) {
+                int il = s_comb_idx_l[c];
+                float o_l = s_comb_buf_l[c][il];
+                s_comb_lp_l[c] = o_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
+                s_comb_buf_l[c][il] = feed_l + s_comb_lp_l[c] * feedback;
+                if (++il >= k_comb_len_l[c]) il = 0;
+                s_comb_idx_l[c] = il;
+                acc_l += s_comb_lp_l[c];
 
-            int ir = s_comb_idx_r[c];
-            float out_r = s_comb_buf_r[c][ir];
-            s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.80f, 0.80f);
-            if (++ir >= k_comb_len_r[c]) ir = 0;
-            s_comb_idx_r[c] = ir;
-            acc_r += s_comb_lp_r[c];
+                int ir = s_comb_idx_r[c];
+                float o_r = s_comb_buf_r[c][ir];
+                s_comb_lp_r[c] = o_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
+                s_comb_buf_r[c][ir] = feed_r + s_comb_lp_r[c] * feedback;
+                if (++ir >= k_comb_len_r[c]) ir = 0;
+                s_comb_idx_r[c] = ir;
+                acc_r += s_comb_lp_r[c];
+            }
+            acc_l *= 0.38f;
+            acc_r *= 0.38f;
+
+            for (int a = 0; a < REVERB_AP_COUNT; a++) {
+                int il = s_ap_idx_l[a];
+                float bl = s_ap_buf_l[a][il];
+                float inl = acc_l;
+                acc_l = -inl + bl;
+                s_ap_buf_l[a][il] = inl + bl * 0.48f;
+                if (++il >= k_ap_len_l[a]) il = 0;
+                s_ap_idx_l[a] = il;
+
+                int ir = s_ap_idx_r[a];
+                float br = s_ap_buf_r[a][ir];
+                float inr = acc_r;
+                acc_r = -inr + br;
+                s_ap_buf_r[a][ir] = inr + br * 0.48f;
+                if (++ir >= k_ap_len_r[a]) ir = 0;
+                s_ap_idx_r[a] = ir;
+            }
+
+            float wet_l = acc_l + slap_l * 0.24f;
+            float wet_r = acc_r + slap_r * 0.24f;
+
+            /* 4. M/S split on the wet: mid keeps the body, side carries width. */
+            float wet_mid  = 0.5f * (wet_l + wet_r);
+            float wet_side = 0.5f * (wet_l - wet_r);
+
+            /* mid: low-band compressor so the bloom cannot wobble, then bass shelf */
+            s_mid_low_lp += (wet_mid - s_mid_low_lp) * k_midlp;
+            float mid_low  = s_mid_low_lp;
+            float mid_high = wet_mid - mid_low;
+            float la = (mid_low < 0.0f) ? -mid_low : mid_low;
+            s_low_env += (la - s_low_env) * ((la > s_low_env) ? low_atk : low_rel);
+            if (s_low_env > LOWCOMP_TH) {
+                mid_low *= (LOWCOMP_TH + (s_low_env - LOWCOMP_TH) * 0.5f) / s_low_env;
+            }
+            float mid_out = mid_high + mid_low;
+            /* bass shelf below BASS_SHELF_HZ, on the mono mid only */
+            s_bass_lp += (mid_out - s_bass_lp) * k_bass;
+            mid_out += s_bass_lp * (bass_g - 1.0f);
+
+            /* side: 2nd-order low cut, gentle de-ess, unity gain - no boost */
+            float side_hp = biquad_run(&s_side_hp2, biquad_run(&s_side_hp, wet_side));
+            s_side_deess_lp += (side_hp - s_side_deess_lp) * k_deess;
+            float sib = side_hp - s_side_deess_lp;
+            float sa = (sib < 0.0f) ? -sib : sib;
+            s_deess_env += (sa - s_deess_env) * ((sa > s_deess_env) ? deess_atk : deess_rel);
+            float deess_gain = 1.0f / (1.0f + 2.0f * s_deess_env);
+            float side_out = s_side_deess_lp + sib * deess_gain;
+
+            /* 5. Duck the tail under the dry music (textbook reverb ducking). */
+            float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) +
+                                    (dry_r < 0.0f ? -dry_r : dry_r));
+            s_sc_env += (dry_abs - s_sc_env) * ((dry_abs > s_sc_env) ? sc_atk : sc_rel);
+            float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
+            float sc_dim = 1.0f / (1.0f + 1.6f * sc_over);
+
+            float wet_gain = rev * sc_dim;
+            float mid_wet  = mid_out  * wet_gain;
+            float side_wet = side_out * (side_g * sc_dim);
+            out_l += mid_wet + side_wet;
+            out_r += mid_wet - side_wet;
         }
 
-        acc_l *= 0.38f;
-        acc_r *= 0.38f;
-
-        for (int a = 0; a < REVERB_AP_COUNT; a++) {
-            int il = s_ap_idx_l[a];
-            float buf_l = s_ap_buf_l[a][il];
-            float in_l = acc_l;
-            acc_l = -in_l + buf_l;
-            s_ap_buf_l[a][il] = in_l + buf_l * 0.48f;
-            if (++il >= k_ap_len_l[a]) il = 0;
-            s_ap_idx_l[a] = il;
-
-            int ir = s_ap_idx_r[a];
-            float buf_r = s_ap_buf_r[a][ir];
-            float in_r = acc_r;
-            acc_r = -in_r + buf_r;
-            s_ap_buf_r[a][ir] = in_r + buf_r * 0.48f;
-            if (++ir >= k_ap_len_r[a]) ir = 0;
-            s_ap_idx_r[a] = ir;
-        }
-
-        float wet_l = acc_l + slap_l * 0.24f;
-        float wet_r = acc_r + slap_r * 0.24f;
-
-        /* 3. Mid (mono center) & Side (stereo) stage:
-              - Mid is mono in the middle; gently boost mono bass (<140 Hz) when the reverb effect takes place
-              - Side is stereo; cut lows (<180 Hz) from Side, lift the mids/highs so snares and presence
-                actually register as width, and de-ess only true sibilance (>6 kHz) */
-        float mono_mid = 0.5f * (dry_l + dry_r);
-        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz mono bass */
-
-        float wet_mono   = 0.5f * (wet_l + wet_r);
-        float wet_stereo = 0.5f * (wet_l - wet_r);
-        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
-        float side_hi = wet_stereo - s_side_low_lp;
-
-        /* De-ess only true sibilance (3 ms attack, 80 ms release). The split used to sit at
-           ~2.8 kHz, inside the snare crack, so every hit got pulled back out of the stereo
-           field; ~6 kHz keeps the de-esser on sibilance and off the mid/high content. */
-        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.575f; /* ~6 kHz split */
-        float side_sibilance = side_hi - s_side_deess_lp;
-        float sib_abs = (side_sibilance < 0.0f) ? -side_sibilance : side_sibilance;
-        float deess_rate = (sib_abs > s_deess_env) ? 0.007530f : 0.000283f;
-        s_deess_env += (sib_abs - s_deess_env) * deess_rate;
-        float deess_gain = 1.0f / (1.0f + 5.0f * s_deess_env);
-        float clean_wet_stereo = s_side_deess_lp + side_sibilance * deess_gain;
-
-        /* Presence lift on the Side only. The reverb bloom is spectrally flat, but music is
-           already much wider in the mids/highs than in the bass, so a flat side reads as
-           "only the low end got stereo". Lifting everything above ~1.2 kHz puts the snare
-           and presence into the width. The Mid path is untouched, so the centre keeps its
-           exact level and the mono sum is unchanged. */
-        s_side_presence_lp += (clean_wet_stereo - s_side_presence_lp) * 0.17f; /* ~1.2 kHz split */
-        clean_wet_stereo += (clean_wet_stereo - s_side_presence_lp) * 0.70f;   /* ~+4.6 dB above 1.2 kHz */
-
-        float out_l = dry_l;
-        float out_r = dry_r;
-
-        if (rev > 0.0005f) {
-            /* Gentle stereo width (0.30 -> 0.66) with loudness compensation */
-            float stereo_w = 0.30f + 0.36f * (rev * rev);
-            float stereo_comp = 1.0f / (1.0f + 0.20f * stereo_w);
-            float wet_gain = rev * 0.76f * sc_dim * stereo_comp * (1.0f - 0.18f * tail_releasing);
-
-            /* Gentle dry ducking (max 9%) + gentle mono middle bass boost */
-            float dry_gain = 1.0f - rev * 0.09f;
-            float mono_bass_boost = s_mid_bass_lp * (0.12f * rev);
-            float rev_mid  = wet_mono * wet_gain + mono_bass_boost;
-            float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
-
-            out_l = dry_l * dry_gain + rev_mid + rev_side;
-            out_r = dry_r * dry_gain + rev_mid - rev_side;
-        }
-
-        /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
-              high threshold (0.60, gentle 2.0:1 ratio) so normal music is untouched and only spikes are caught */
-        float pk_l = (out_l < 0.0f) ? -out_l : out_l;
-        float pk_r = (out_r < 0.0f) ? -out_r : out_r;
-        float pk = (pk_r > pk_l) ? pk_r : pk_l;
-        float comp_rate = (pk > s_comp_env) ? 0.007530f : 0.000283f;
-        s_comp_env += (pk - s_comp_env) * comp_rate;
-        const float thresh = 0.60f;
-        if (s_comp_env > thresh) {
-            float over = s_comp_env - thresh;
-            float target_lvl = thresh + over * 0.50f;
-            float cg = target_lvl / s_comp_env;
+        /* 6. Bus compressor: detector high-passed, so bass cannot pump it.
+              Only spikes above ~-1 dBFS are caught, at 2:1. */
+        s_hp_lp_l += (out_l - s_hp_lp_l) * k_schp;
+        s_hp_lp_r += (out_r - s_hp_lp_r) * k_schp;
+        float hl = out_l - s_hp_lp_l, hr = out_r - s_hp_lp_r;
+        float pk = fmaxf(fabsf(hl), fabsf(hr));
+        s_comp_env += (pk - s_comp_env) * ((pk > s_comp_env) ? comp_atk : comp_rel);
+        if (s_comp_env > BUSCOMP_TH) {
+            float over = s_comp_env - BUSCOMP_TH;
+            float cg = (BUSCOMP_TH + over * 0.50f) / s_comp_env;
             out_l *= cg;
             out_r *= cg;
         }
-        pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.68f, 0.82f);
-        pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.68f, 0.82f);
+
+        pcm[f * 2 + 0] = soft_knee_limit(out_l, LIMIT_KNEE, LIMIT_CEIL);
+        pcm[f * 2 + 1] = soft_knee_limit(out_r, LIMIT_KNEE, LIMIT_CEIL);
     }
 }
 
@@ -357,8 +454,7 @@ void audio_update(AudioAssets *a) {
 }
 
 void audio_play_menu_music(AudioAssets *a) {
-    s_reverb_target = 0.0f;
-    s_reverb_cur = 0.0f;
+    audio_set_capture_stage(0);
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;
     if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -371,8 +467,7 @@ void audio_play_menu_music(AudioAssets *a) {
 }
 
 void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
-    s_reverb_target = 0.0f;
-    s_reverb_cur = 0.0f;
+    audio_set_capture_stage(0);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
     if (a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -410,8 +505,6 @@ int audio_is_match_music_finished(const AudioAssets *a) {
 }
 
 void audio_stop_music(AudioAssets *a) {
-    s_reverb_target = 0.0f;
-    s_reverb_cur = 0.0f;
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
     if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -424,6 +517,7 @@ void audio_play_drop(AudioAssets *a)    { if (a->has_sfx_drop) PlaySound(a->sfx_
 void audio_play_capture(AudioAssets *a) {
     if (a->has_sfx_capture) PlaySound(a->sfx_capture);
     else if (a->has_sfx_drop) PlaySound(a->sfx_drop);
+    audio_duck_music(1.0f);   /* duck the music instead of turning the SFX up */
 }
 void audio_play_koi(AudioAssets *a)     { if (a->has_sfx_koi) PlaySound(a->sfx_koi); }
 void audio_play_win(AudioAssets *a)     { if (a->has_sfx_win) PlaySound(a->sfx_win); }
