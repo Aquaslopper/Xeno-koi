@@ -144,8 +144,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
         float feed_l = bp_in_l * 0.65f + slap_r * 0.15f;
         float feed_r = bp_in_r * 0.65f + slap_l * 0.15f;
-        float feedback = 0.72f - 0.10f * tail_releasing;
-        const float damp = 0.28f;
+        float feedback = 0.84f - 0.10f * tail_releasing;
+        const float damp = 0.22f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
@@ -248,7 +248,7 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float pk = (pk_r > pk_l) ? pk_r : pk_l;
         float comp_rate = (pk > s_comp_env) ? 0.007530f : 0.000283f;
         s_comp_env += (pk - s_comp_env) * comp_rate;
-        const float thresh = 0.60f;
+        const float thresh = 0.70f;
         if (s_comp_env > thresh) {
             float over = s_comp_env - thresh;
             float target_lvl = thresh + over * 0.50f;
@@ -256,8 +256,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             out_l *= cg;
             out_r *= cg;
         }
-        pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.68f, 0.82f);
-        pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.68f, 0.82f);
+        pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.72f, 0.88f);
+        pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.72f, 0.88f);
     }
 }
 
