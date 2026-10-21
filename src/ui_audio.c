@@ -48,6 +48,7 @@ static float s_sc_env = 0.0f;
 static float s_mid_bass_lp = 0.0f;
 static float s_side_low_lp = 0.0f;
 static float s_side_deess_lp = 0.0f;
+static float s_side_presence_lp = 0.0f;
 static float s_deess_env = 0.0f;
 static float s_comp_env = 0.0f;
 
@@ -177,7 +178,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
 
         /* 3. Mid (mono center) & Side (stereo) stage:
               - Mid is mono in the middle; gently boost mono bass (<140 Hz) when the reverb effect takes place
-              - Side is stereo; cut lows (<180 Hz) from Side and gently de-ess highs (>2.8 kHz) going into stereo */
+              - Side is stereo; cut lows (<180 Hz) from Side, lift the mids/highs so snares and presence
+                actually register as width, and de-ess only true sibilance (>6 kHz) */
         float mono_mid = 0.5f * (dry_l + dry_r);
         s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz mono bass */
 
@@ -186,14 +188,24 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
         float side_hi = wet_stereo - s_side_low_lp;
 
-        /* De-ess high frequencies in the stereo Side channel (3 ms attack, 80 ms release) */
-        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.32f; /* ~2.8 kHz split */
+        /* De-ess only true sibilance (3 ms attack, 80 ms release). The split used to sit at
+           ~2.8 kHz, inside the snare crack, so every hit got pulled back out of the stereo
+           field; ~6 kHz keeps the de-esser on sibilance and off the mid/high content. */
+        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.575f; /* ~6 kHz split */
         float side_sibilance = side_hi - s_side_deess_lp;
         float sib_abs = (side_sibilance < 0.0f) ? -side_sibilance : side_sibilance;
         float deess_rate = (sib_abs > s_deess_env) ? 0.007530f : 0.000283f;
         s_deess_env += (sib_abs - s_deess_env) * deess_rate;
         float deess_gain = 1.0f / (1.0f + 5.0f * s_deess_env);
-        float clean_wet_stereo = s_side_deess_lp + side_sibilance * deess_gain * 0.72f;
+        float clean_wet_stereo = s_side_deess_lp + side_sibilance * deess_gain;
+
+        /* Presence lift on the Side only. The reverb bloom is spectrally flat, but music is
+           already much wider in the mids/highs than in the bass, so a flat side reads as
+           "only the low end got stereo". Lifting everything above ~1.2 kHz puts the snare
+           and presence into the width. The Mid path is untouched, so the centre keeps its
+           exact level and the mono sum is unchanged. */
+        s_side_presence_lp += (clean_wet_stereo - s_side_presence_lp) * 0.17f; /* ~1.2 kHz split */
+        clean_wet_stereo += (clean_wet_stereo - s_side_presence_lp) * 0.70f;   /* ~+4.6 dB above 1.2 kHz */
 
         float out_l = dry_l;
         float out_r = dry_r;
