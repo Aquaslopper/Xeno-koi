@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Fixed-ear synthetic width removed (22 October 2026)
+
+- Further listening feedback reported a broken/left-pulled image. Equal L/R RMS and nominal correlation had missed that the generated Hilbert Side retained one quadrature polarity regardless of input channel orientation. Added a channel-exchange test **before** changing DSP: the shipped implementation failed with maximum sample error 0.228065 at only 25% width. This demonstrates a fixed-side defect, not a claim that the player's exact playback setup has been reproduced.
+- Removed the Hilbert coefficients/convolution and all synthetic Side generation from Mid. Width now scales existing dry and room Side, preserving the mono centre and source-aware power guards; mono remains mono with Reverb zero. Retained the strong upper range, existing bass compressor/limiter, reverb tank/filter parameters, and fixed 64-sample dry/bypass timing (~1.45 ms at 44.1 kHz). Width also expands the existing room Side; it no longer depends on fake phase stereo to sound wide.
+- New exchange test passes with **zero** error at 25/50/100% width, bass off/on, hot peaks and 44.1/48/96 kHz (Reverb zero isolates width/bass). Mono noise/tones have zero added Side; all simultaneous mono-tone bins measure 0.0000 dB L/R, onset and settled. Replaced the old mono-to-stereo strength fixture with actual centre-heavy stereo parts: Side/Mid RMS 0.225/0.361/1.000 at 25/50/100% across all three rates, with unchanged strength/mono-preservation assertions. Width impulse output after 5 ms remains zero.
+- Reprocessed both shipped MP3s offline: game3 source correlation 0.936 → width-only 0.214 (~39% Side energy, still far stronger than the original conservative ~7%); width-only L/R balance −0.104 dB. Game1 source −0.218 → −0.223. Aligned low-level mono-null error <6e-10; all-max peaks 0.95877/0.97248. Bass-only gains remain unchanged. These are numerical measurements, not a listening playtest.
+- Full engine/audio/settings/UI suite, table UI, ASan/UBSan DSP checks, strict C99 syntax, generated wiki tables, strict MkDocs and whitespace checks passed. Reviewed online Airwindows MidSide encoding as an independent sum/difference reference; no copied implementation or dependency.
+- Touched width routing, focused regressions and docs only. UI/settings/audition routing, bass processing, tank/delay/filter parameters, action triggers, rules/cards/scoring/AI/campaign/assets and dependencies unchanged. Live speaker/headphone confirmation, the player's exact track/settings, and complete Windows/web builds remain to verify. Earlier entries below describe superseded revisions.
+
+
 ### Stronger stereo width (22 October 2026)
 
 - Follow-up listening feedback found the balanced width too subtle. Expanded the Hilbert filter from 17 to 129 taps for lower-mid coverage, increased the upper slider drive, and raised the maximum Side/Mid power budget from 0.49 to 1.0. Both dry channels and bypass now share 64-sample alignment (~1.45 ms at 44.1 kHz); no reverb/delayed-repeat feed was introduced. The source-aware guard remains, and adaptive covariance correction is blended with the room amount rather than colouring the already-quadrature FIR alone.

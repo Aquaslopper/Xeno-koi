@@ -9,7 +9,7 @@
    starts subtle on the first capture, blooms on stacked captures, and ducks its
    tail under the dry music so it never smears or spikes. */
 #define WIDTH_DELAY 64
-#define WIDTH_HISTORY (2*WIDTH_DELAY + 1)
+#define WIDTH_HISTORY (WIDTH_DELAY + 1)
 
 #define REVERB_COMB_COUNT 4
 #define REVERB_COMB_MAX   5504
@@ -282,30 +282,10 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
-        /* Antisymmetric, Hamming-windowed Hilbert FIR: every frequency is in
-           quadrature with the SAME 64-sample-delayed dry centre. Unlike two
-           different all-passes, this cannot boost L highs and R lows. No tank feed. */
-        static const float hilbert[WIDTH_DELAY/2] = {
-            0.636267028f, 0.211150055f, 0.125568714f, 0.088500177f,
-            0.067611501f, 0.054086936f, 0.044537697f, 0.037383905f,
-            0.031790437f, 0.027274858f, 0.023539388f, 0.020390526f,
-            0.017697249f, 0.015367786f, 0.013335999f, 0.011553029f,
-            0.009981983f, 0.008594439f, 0.007368084f, 0.006285080f,
-            0.005330909f, 0.004493540f, 0.003762823f, 0.003130041f,
-            0.002587567f, 0.002128614f, 0.001747039f, 0.001437197f,
-            0.001193827f, 0.001011962f, 0.000886872f, 0.000814005f
-        };
+        /* Retain fixed dry/bypass timing. No synthetic Side from Mid: a fixed
+           quadrature polarity makes one ear lead, despite equal L/R levels. */
         s_width_history[s_width_index][0] = dry_l;
         s_width_history[s_width_index][1] = dry_r;
-        float clean_width_side = 0;
-        for (int j = 0; j < WIDTH_DELAY/2; j++) {
-            int k = 2*j + 1;
-            int a = (s_width_index - WIDTH_DELAY + k + WIDTH_HISTORY) % WIDTH_HISTORY;
-            int b = (s_width_index - WIDTH_DELAY - k + WIDTH_HISTORY) % WIDTH_HISTORY;
-            float newer = 0.5f*(s_width_history[a][0] + s_width_history[a][1]);
-            float older = 0.5f*(s_width_history[b][0] + s_width_history[b][1]);
-            clean_width_side += hilbert[j]*(newer - older);
-        }
         int aligned = (s_width_index - WIDTH_DELAY + WIDTH_HISTORY) % WIDTH_HISTORY;
         dry_l = s_width_history[aligned][0];
         dry_r = s_width_history[aligned][1];
@@ -325,10 +305,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
                Equal Mid/Side power at maximum is wide without negative correlation. */
             float width_drive = spread * (1.20f + 4.80f * spread * spread);
             float side_limit = 0.49f + 0.51f * spread * spread;
-            float extra = dry_side * spread * 1.20f
-                        + clean_width_side * width_drive + room_side * wet_gain;
-            /* The FIR is already quadrature: do not colour it with an adaptive
-               projection. Blend that correction in for the non-quadrature room.
+            /* Widen EXISTING dry/room stereo only. This commutes with L/R
+               exchange and leaves a mono source mono when room is off. */
+            float extra = dry_side * dry_gain * width_drive
+                        + room_side * wet_gain * (1 + width_drive);
+            /* Correct correlated room return, never invent a fixed-ear phase lead.
                Cap added Side RMS at/below Mid RMS; preserve the original pan. */
             const float meter = 0.00015f; /* ~150 ms; avoids bass-cycle pumping */
             s_width_mid_power += (mid*mid - s_width_mid_power) * meter;

@@ -64,6 +64,33 @@ static double bass_tail(float room) {
     return energy(sample_rate + sample_rate/10, sample_rate*2, 0) + energy(sample_rate + sample_rate/10, sample_rate*2, 1);
 }
 
+/* A fixed-ear synthetic phase lead can pass every equal-level test. Width
+   must instead commute with exchanging L/R, even with bass/peak protection. */
+static void width_channel_swap(void) {
+    for (int step = 1; step <= 3; step++) for (int bass = 0; bass <= 1; bass++) {
+        float setting = step == 3 ? 1 : step*0.25f;
+        for (int swap = 0; swap < 2; swap++) {
+            prepare(setting, bass, 0, 1);
+            for (int i = 0; i < sample_rate; i++) {
+                double t = 6.283185307179586*i/sample_rate;
+                float mid = 0.6f*sin(100*t) + 0.12f*sin(3000*t);
+                float side = 0.05f*sin(300*t) + 0.02f*sin(8000*t);
+                signal[2*i+swap] = mid+side;
+                signal[2*i+1-swap] = mid-side;
+            }
+            music_reverb_processor(signal, sample_rate);
+            if (!swap) memcpy(original, signal, sample_rate*2*sizeof(float));
+            else {
+                float error = 0;
+                for (int i = 0; i < sample_rate; i++) for (int c = 0; c < 2; c++)
+                    error = fmaxf(error, fabsf(signal[2*i+c] - original[2*i+1-c]));
+                printf("%d Hz width %.2f, bass %d: channel-swap error %.9g\n", sample_rate, setting, bass, error);
+                assert(error < 2e-7f);
+            }
+        }
+    }
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     /* Hot stereo input stays bit-identical AFTER the fixed 64-sample alignment, even off. */
@@ -77,6 +104,7 @@ int main(void) {
 
     for (int sr = 0; sr < 3; sr++) {
         sample_rate = sr == 0 ? 44100 : sr == 1 ? 48000 : 96000;
+        width_channel_swap();
         /* Width must not borrow echoes from the tank, at any slider position. */
         for (int step = 1; step <= 4; step++) {
             prepare(step * 0.25f, 0, 0, 1);
@@ -89,7 +117,7 @@ int main(void) {
             printf("%d Hz width %.2f: impulse tail after 5ms %.9g\n", sample_rate, step*0.25f, echo);
             assert(echo < 1e-6f); /* Old width path emitted ~40-120ms slapback/tails. */
         }
-        /* A mono source must widen into BOTH ears, with its mono centre preserved. */
+        /* Width alone must not invent stereo or an ear lead on mono material. */
         prepare(1, 0, 0, 1);
         noise(sample_rate*3, 0.02f);
         memcpy(original, signal, sample_rate*6*sizeof(float));
@@ -102,9 +130,9 @@ int main(void) {
         }
         double balance = 10*log10(ll/rr), correlation = lr/sqrt(ll*rr);
         printf("%d Hz width: L/R %+.3f dB, correlation %.3f, Side/Mid %.3f\n", sample_rate, balance, correlation, sqrt(ss/(ll + rr - 2*ss)*2));
-        assert(fabs(balance) < 0.5 && correlation > -0.03 && correlation < 0.05 && ss > 0.20*(ll+rr));
-        /* Bass-heavy, music-like mono: the upper range must actually spread it,
-           not merely pass the noise test with near-centred lows. */
+        assert(fabs(balance) < 1e-6 && fabs(correlation - 1) < 1e-6 && ss < 1e-16);
+        /* A centre-heavy STEREO fixture must actually widen. The small source
+           Side contains distinct parts, not a synthetic phase-shift of Mid. */
         double previous_spread = 0;
         for (int step = 0; step < 3; step++) {
             float setting = step == 0 ? 0.25f : step == 1 ? 0.5f : 1;
@@ -114,7 +142,8 @@ int main(void) {
                 float envelope = 0.65f + 0.35f*cos(2*t);
                 float x = envelope * (0.08f*sin(100*t) + 0.014f*sin(300*t)
                                       + 0.008f*sin(2000*t) + 0.006f*sin(5000*t));
-                signal[2*i] = signal[2*i+1] = x;
+                float side = envelope * (0.012f*sin(400*t) + 0.006f*sin(7000*t));
+                signal[2*i] = x + side; signal[2*i+1] = x - side;
             }
             memcpy(original, signal, sample_rate*6*sizeof(float));
             music_reverb_processor(signal, sample_rate*3);
@@ -123,7 +152,7 @@ int main(void) {
                 double mid = 0.5*(signal[2*i] + signal[2*i+1]);
                 double side = 0.5*(signal[2*i] - signal[2*i+1]);
                 mid_power += mid*mid; side_power += side*side;
-                assert(fabs(mid - original[2*(i-WIDTH_DELAY)]) < 2e-7);
+                assert(fabs(mid - 0.5*(original[2*(i-WIDTH_DELAY)] + original[2*(i-WIDTH_DELAY)+1])) < 2e-7);
             }
             double spread = sqrt(side_power/mid_power);
             printf("%d Hz bass-heavy width %.2f: Side/Mid %.3f\n", sample_rate, setting, spread);
@@ -147,7 +176,7 @@ int main(void) {
             }
             balance = 10*log10(energy(sample_rate, sample_rate*3, 0)/energy(sample_rate, sample_rate*3, 1));
             printf("  mono %.0f Hz: balance %+.3f dB, side RMS %.6f\n", freqs[j], balance, sqrt(side_energy/(sample_rate*2)));
-            assert(fabs(balance) < 0.5 && side_energy > 1e-9);
+            assert(fabs(balance) < 1e-6 && side_energy < 1e-16);
         }
         /* Overall balance and isolated tones missed spectral panning: test ALL
            centred tones at once, at several widths, then measure each ear/bin. */
@@ -162,8 +191,7 @@ int main(void) {
             }
             music_reverb_processor(signal, sample_rate*3);
             for (int window = 0; window < 2; window++) {
-                /* Measure from the aligned centre; allow <0.2 dB at FIR onset,
-                   retaining the <0.1 dB settled per-frequency balance limit. */
+                /* Pure mono must stay identical in both ears, including onset. */
                 int begin = window == 0 ? WIDTH_DELAY : sample_rate;
                 int end = window == 0 ? WIDTH_DELAY + sample_rate/10 : sample_rate*3;
                 double worst = 0;
@@ -178,10 +206,10 @@ int main(void) {
                     }
                     double balance = 10*log10((re[0]*re[0]+im[0]*im[0])/(re[1]*re[1]+im[1]*im[1]));
                     worst = fmax(worst, fabs(balance));
-                    if (fabs(balance) >= (window == 0 ? 0.2 : 0.1))
+                    if (fabs(balance) >= 1e-6)
                         printf("Spectral balance: %d Hz, width %.2f, window %d, %.0f Hz: %+.4f dB\n",
                                sample_rate, setting, window, mixed_hz[j], balance);
-                    assert(fabs(balance) < (window == 0 ? 0.2 : 0.1));
+                    assert(fabs(balance) < 1e-6);
                 }
                 printf("%d Hz mixed tones, width %.2f, %s: worst spectral L/R %.4f dB\n",
                        sample_rate, setting, window == 0 ? "first 100ms" : "settled", worst);
