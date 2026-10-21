@@ -1,6 +1,6 @@
 # How to Play
 
-Koi-Koi is a trick-taking card game played with a 48-card Hanafuda deck. You are trying to **capture** cards that form scoring combinations (called **yaku**). The first to a higher total across the chosen number of rounds wins the match.
+Koi-Koi is a matching and capture game played with a 48-card Hanafuda deck. You are trying to **capture** cards that form scoring combinations (called **yaku**). The first to a higher total across the chosen number of rounds wins the match.
 
 ## Match structure
 

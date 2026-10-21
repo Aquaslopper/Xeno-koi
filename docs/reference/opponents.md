@@ -2,7 +2,7 @@
 
 The campaign has **twelve CPU opponents**, one per month, plus the final boss **[Entity 13 // DEUS SUPREMUS](deus-supremus.md)**. Each opponent has a favourite card, a favourite yaku, and their own taunts.
 
-Opponents unlock in order when your earned bronze, silver, and gold coins meet the cumulative requirement shown on each locked-sector dossier. See [Modes](modes.md) for how to earn coins and the unlock thresholds.
+Opponents unlock in order when your earned bronze, silver, and gold coins meet the cumulative requirement shown on each locked-sector dossier. See [Modes & Settings](modes.md#campaign-and-unlocks) for how to earn coins and the complete unlock thresholds.
 
 <div class="figure-zoom" id="campaign-live"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/campaign.webp" width="1920" height="1080" loading="lazy" alt="The campaign select screen: twelve portrait tiles in a row labelled M-01 to M-12, the first nine open and the last three reading LOCKED, the ninth selected with a large portrait beside a dossier that names the unit, its priority yaku, its signature target and three clearance buttons, with START MATCH and BACK below."></div><a class="figure-zoom-btn" href="#campaign-live">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
 
@@ -10,7 +10,7 @@ Opponents unlock in order when your earned bronze, silver, and gold coins meet t
 
 <div class="figure-zoom" id="grid-tiles"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/opponent-grid.webp" width="1487" height="210" loading="lazy" alt="The twelve tiles in a row: nine Giger portraits of the monthly units with their slot captions M-01 to M-09, the ninth framed by its selection border, and M-10, M-11 and M-12 as empty cells reading LOCKED."></div><a class="figure-zoom-btn" href="#grid-tiles">zoom the tiles</a><a class="figure-zoom-btn" href="#">close</a></div>
 
-*The three clearance buttons — Master (3 rounds), Hard (6 rounds), Easy (9 rounds) — set the difficulty and the match length. To unlock the next opponent, win a match against the newest unlocked one with enough rounds for the difficulty: 3 or more on Master, 6 or more on Hard, 9 or more on Easy.*
+*The three clearance buttons — Master (3 rounds), Hard (6 rounds), Easy (9 rounds) — set the difficulty and the match length. Win a sufficiently long match against any unlocked opponent to earn that opponent’s coin for the chosen tier: 3 or more rounds on Master, 6 or more on Hard, 9 or more on Easy. Opening the next sector depends on your cumulative bronze, silver and gold totals, not just the newest opponent.*
 
 <div class="figure-zoom" id="dossier"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/dossier-row.webp" width="1014" height="129" loading="lazy" alt="Three lines of the selected opponent's dossier: PRIORITY YAKU: Animals, SIGNATURE TARGET: 09-A Sake Cup (#33), and CLEARANCE PROTOCOL with three buttons reading MASTER (3 RDS), HARD (6 RDS) and EASY (9 RDS), the last one lit."></div><a class="figure-zoom-btn" href="#dossier">zoom the row</a><a class="figure-zoom-btn" href="#">close</a></div>
 

@@ -7,6 +7,8 @@
 ## Status Summary
 ## Latest completed work
 
+- Refreshed wiki prose for cumulative per-tier campaign coins and the exact M-01–M-12 gates, the actual M-12 condition for DEUS, desktop-only replays, and recent table visual/audio feedback. Corrected the stale “newest opponent” unlock explanation; no game code, scoring, card art, or saved data changed.
+
 - Added per-background normal-map lighting for the seven non-Deus table backgrounds (`src/ui_board.c`, `src/ui_board.h`, `assets/*_normal.png`, `assets/depth_fog.fs`, `assets/depth_fog_web.fs`; Deus remains unchanged):
   - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a toned-down thunder-flash spike (`1.0 + 0.95 * flashAmount` plus `0.065` wide glow) triggered on every card capture (`captured_count` rising edge) and Koi-Koi call (`koi_called` rising edge) that peaks smoothly, drops to 40%, and decays slowly (`tau = 3.40 s`).
   - Smooth 3D relief with wrapped directional bias (`smoothstep(0.015, 0.30, length(n.xy)) * (0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(n.xy, lightDir.xy)))`) so flat pixels return `0.0` without creating a center cutout at `lightUV` or hard shadow cutoffs on ridges.
@@ -29,7 +31,12 @@
 - Card data, matching rules, scoring, AI decision logic, artwork, and the intentional Deus unlock were not changed.
 - Corrected campaign progression to derive open sectors from earned bronze/silver/gold totals (repairing stale saved unlock counts); capture card SFX now stay at or above 40% while SFX is enabled, with mute still respected.
 
-## Verification last completed in this session
+## Wiki verification (21 October 2026)
+
+- `python3 tools/gen_wiki_tables.py --check`, `python3 -m mkdocs build --strict` (via temporary installed dependencies), generated card/screenshot/flow/table-map checks, and `git diff --check` passed. The 12 campaign gate rows were compared directly with `UNLOCK_REQ_B/S/G` in `src/campaign.c`.
+- `./build.sh test` passed the 500-match engine suite but **failed** the audio DSP presence-band check (Side −18.7 dB vs required −12.5 dB). No DSP implementation was changed in this docs-only update; see `docs/errata.md`.
+
+## Verification last recorded for game changes
 
 - Engine integrity suite (`./build.sh test`) passed, including 500 full simulated matches and the audio DSP/capture-SFX regression checks.
 - Headless table UI, combo-panel, and campaign coin-unlock regression suite (`./tests/test_table_ui.sh`) passed against Raylib 5.5 headers.

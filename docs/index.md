@@ -14,6 +14,7 @@ The five **Brights** — the most valuable cards in the deck:
 - **New to Koi-Koi?** Read [How to Play](how-to-play.md) first. It covers the deal, a turn, calling Koi-Koi or Shobu, and how a round ends.
 - **Choosing a rule set?** See [Rulesets](rulesets/index.md). The Options menu lets you pick one of five.
 - **Want the exact scoring?** See [Yaku & Scoring](scoring/yaku.md) and [Multipliers](scoring/multipliers.md).
+- **Working through the campaign?** See [Modes & Settings](reference/modes.md#campaign-and-unlocks) for clearance coins and sector requirements.
 - **Looking up a card or opponent?** See [Cards](reference/cards.md) and [Opponents](reference/opponents.md).
 
 ## Rule sets at a glance

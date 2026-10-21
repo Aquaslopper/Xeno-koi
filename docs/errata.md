@@ -33,10 +33,12 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 
 ## Known issues
 
-1. **[DEUS SUPREMUS](reference/deus-supremus.md) is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require clearing all twelve. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.
+1. **[DEUS SUPREMUS](reference/deus-supremus.md) is open to everyone, on purpose.** `src/campaign.c` defines `DEUS_UNLOCKED_FOR_TESTING` as `1`, so the final opponent does not require unlocking the twelfth sector. The maintainer keeps it open while testing the mode. This is intentional, not a bug. Revisit it when the maintainer decides the mode is ready.
 2. **FudaWiki's Koi-Koi take-back is not implemented.** The handoff mentions it. The game does not offer it.
 3. **[DEUS SUPREMUS](reference/deus-supremus.md) logic.** The DEUS SUPREMUS difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
 4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes & Settings](reference/modes.md).
+
+5. **Audio DSP verification is currently failing.** On this checkout, `./build.sh test` passes the engine simulations but fails the headless `tests/test_audio_dsp.c` presence-band check: stereo Side is −18.7 dB relative to Mid in the 2–5 kHz band, below the test’s −12.5 dB minimum. The capture-driven processor is present in `src/ui_audio.c`, but its intended width has not passed this regression check; live listening still needs verification.
 
 ## Campaign progression correction
 
