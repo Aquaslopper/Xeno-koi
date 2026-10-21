@@ -30,7 +30,7 @@ These settings are saved in `settings.txt` next to the game:
 
 <div class="figure-zoom" id="options-live"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/options.webp" width="1920" height="1080" loading="lazy" alt="The System Configuration screen: Match Length at 9 Rounds, Ruleset YAKUZA on a red band, Difficulty EASY, Master Timer marked MASTER ONLY, then Terminal Color TEAL, Background 3: Castle with a small preview, Anim Speed at NORMAL, two volume sliders at 70% and 30%, Fullscreen BORDERLESS, Bloom MID, CRT Filter 2: MID, Display Gamma 1.40, and BACK (SAVE) at the bottom."></div><a class="figure-zoom-btn" href="#options-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
 
-*Every row the game has. The bands on the Ruleset row are its own colour code: green for Nintendo and KK-ADD-10, amber for FudaWiki, red for Tournament and Yakuza (`src/ui_screens.c:167-170`). This player's file differs from a fresh install on three rows only - 9 rounds instead of 2, Yakuza instead of KK-ADD-10, Castle instead of Harvest - plus BGM at 70%, Normal animation, Borderless and Bloom on.*
+*Every row the game has. The bands on the Ruleset row are its own colour code: green for Nintendo and KK-ADD-10, amber for FudaWiki, red for Tournament and Yakuza (`src/ui_screens.c:167-170`). This player's file differs from a fresh install on most rows - 9 rounds instead of 2, Yakuza instead of KK-ADD-10, Castle instead of Harvest, BGM at 70% instead of 100%, SFX at 30% instead of 50%, Normal animation instead of Slow, Borderless, and Gamma 1.40 instead of 1.00. The capture itself predates these defaults.*
 
 The left column is the label the screen shows. The right column is what you get before `settings.txt`
 exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
@@ -44,10 +44,10 @@ exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
 | Background | Harvest, Hole, Arctic, Castle, City, Face, Realm — seven, because index 5 is his and both arrows step over it (`src/ui_screens.c:273-274`). The row shows a live 46 x 26 preview of the frame you are on | Harvest (0) |
 | Terminal colour | Green, Amber, Teal, Crimson, Violet. The name list in `src/ui_screens.c:193` has a sixth, DARK, which the selector's `% 5` at `:272` never lands on: it is what playing DEUS sets, and leaving him puts you back on Teal | Teal (2) |
 | Anim Speed | Slow, Normal, Fast | Slow |
-| BGM Volume / SFX Volume | Sliders, shown as a percentage | 50% / 30% |
-| Bloom Effect | Off, Mid, Full | Off |
+| BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
+| Bloom Effect | Off, Mid, Full | Mid |
 | CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
-| Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.40 |
+| Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.00 |
 | Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) | Windowed |
 
 Nothing here is per-match: BACK (SAVE) writes `settings.txt` and returns you to the menu
