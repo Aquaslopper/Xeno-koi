@@ -540,23 +540,23 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         }
     }
     /* Audio reverb follows a smooth S-curve (never a spike):
-       gentle/centered on the 1st capture (~30% reverb, ~9% stereo spread),
-       builds on the 2nd capture, and reaches full wide stereo synergy on the 3rd capture. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.155f;
-    if (koi_edge)           reverb_energy += 0.35f;
+       clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
+       builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.21f;
+    if (koi_edge)           reverb_energy += 0.45f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
-    float tau_energy = (reverb_energy > reverb_curve) ? 3.10f : 1.45f;
+    float tau_energy = (reverb_energy > reverb_curve) ? 2.70f : 1.40f;
     reverb_energy *= expf(-frame_dt / tau_energy);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.18f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.18f));
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.16f));
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.16f));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
     }
-    float syn_x = reverb_curve / 0.60f;
+    float syn_x = reverb_curve / 0.62f;
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
-    float reverb_synergy = syn_x * syn_x * (3.0f - 2.0f * syn_x);
+    float reverb_synergy = 0.35f * syn_x + 0.65f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
     audio_set_reverb(reverb_synergy);
 
     /* 1. Background with depth fog and a localized normal-map light */
