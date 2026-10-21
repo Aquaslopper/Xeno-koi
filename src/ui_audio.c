@@ -230,8 +230,6 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float out_r = dry_r;
 
         if (rev > 0.0005f) {
-            /* Phase-safe, subtle stereo widening: keep the side contribution in-phase
-               for both ears, but make the right channel smaller so it doesn't cancel. */
             float stereo_w = 0.30f + 0.24f * (rev * rev);
             float stereo_comp = 1.0f / (1.0f + 0.15f * stereo_w);
             float impact_boost = (target > s_reverb_cur) ? 1.18f : 1.0f;
@@ -242,8 +240,11 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             float rev_mid = wet_mono * wet_gain + mono_bass_boost;
             float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
 
+            /* Mid/Side reconstruction: the Side has to be anti-phase (added to one
+               channel, subtracted from the other). Adding it to both channels sums
+               into the Mid and cancels the width, which is what the DSP test guards. */
             out_l = dry_l * dry_gain + rev_mid + rev_side * 0.92f;
-            out_r = dry_r * dry_gain + rev_mid + rev_side * 0.42f;
+            out_r = dry_r * dry_gain + rev_mid - rev_side * 0.92f;
         }
 
         /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
