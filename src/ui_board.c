@@ -514,6 +514,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         prev_field = cur_field;
         prev_koi = cur_koi;
         capture_streak = 0;
+        reverb_energy = reverb_mid = reverb_curve = 0.0f;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);

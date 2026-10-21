@@ -258,7 +258,6 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
         a->music_menu = LoadMusicStream(p_menu);
         a->has_music_menu = 1;
         SetMusicVolume(a->music_menu, a->bgm_volume);
-        AttachAudioStreamProcessor(a->music_menu.stream, music_reverb_processor);
     }
 
     for (int i = 0; i < 10; i++) {
@@ -346,6 +345,8 @@ void audio_update(AudioAssets *a) {
 }
 
 void audio_play_menu_music(AudioAssets *a) {
+    s_reverb_target = 0.0f;
+    s_reverb_cur = 0.0f;
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;
     if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -358,6 +359,8 @@ void audio_play_menu_music(AudioAssets *a) {
 }
 
 void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
+    s_reverb_target = 0.0f;
+    s_reverb_cur = 0.0f;
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
     if (a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -395,6 +398,8 @@ int audio_is_match_music_finished(const AudioAssets *a) {
 }
 
 void audio_stop_music(AudioAssets *a) {
+    s_reverb_target = 0.0f;
+    s_reverb_cur = 0.0f;
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
     if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -415,7 +420,6 @@ void audio_play_click(AudioAssets *a)   { if (a->has_sfx_click) PlaySound(a->sfx
 
 void audio_close(AudioAssets *a) {
     if (a->has_music_menu) {
-        DetachAudioStreamProcessor(a->music_menu.stream, music_reverb_processor);
         UnloadMusicStream(a->music_menu);
     }
     for (int i = 0; i < 10; i++) {
