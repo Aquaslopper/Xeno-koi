@@ -133,7 +133,7 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float sfx_scaling = card_sfx_volume(target) * 0.15f; // Keep it subtle (15% max blend)
         bp_in_l += dry_l * sfx_scaling;
         bp_in_r += dry_r * sfx_scaling;
-       
+        
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
         s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.65f + slap_r * 0.12f, -0.70f, 0.70f);
@@ -225,20 +225,20 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float out_r = dry_r;
 
         if (rev > 0.0005f) {
-            /* Gentle stereo width (0.30 -> 0.66) with loudness compensation */
-            float stereo_w = 0.45f + 0.45f * (rev * rev);
-            float stereo_comp = 1.0f / (1.0f + 0.08f * stereo_w);
-            float impact_boost = (target > s_reverb_cur) ? 1.35f : 1.0f;
-            float wet_gain = rev * 0.85f * sc_dim * stereo_comp * (1.0f - 0.12f * tail_releasing);
+            /* Phase-safe, subtle stereo widening: keep the side contribution in-phase
+               for both ears, but make the right channel smaller so it doesn't cancel. */
+            float stereo_w = 0.30f + 0.24f * (rev * rev);
+            float stereo_comp = 1.0f / (1.0f + 0.15f * stereo_w);
+            float impact_boost = (target > s_reverb_cur) ? 1.18f : 1.0f;
+            float wet_gain = rev * 0.76f * sc_dim * stereo_comp * impact_boost * (1.0f - 0.10f * tail_releasing);
 
-            /* Gentle dry ducking (max 9%) + gentle mono middle bass boost */
-            float dry_gain = 1.0f - rev * 0.22f;
-            float mono_bass_boost = s_mid_bass_lp * (0.12f * rev);
-            float rev_mid  = wet_mono * wet_gain + mono_bass_boost;
-            float rev_side = (clean_wet_stereo * 1.45f) * (wet_gain * stereo_w);
+            float dry_gain = 1.0f - rev * 0.12f;
+            float mono_bass_boost = s_mid_bass_lp * (0.10f * rev);
+            float rev_mid = wet_mono * wet_gain + mono_bass_boost;
+            float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
 
-            out_l = dry_l * dry_gain + rev_mid + rev_side;
-            out_r = dry_r * dry_gain + rev_mid - rev_side;
+            out_l = dry_l * dry_gain + rev_mid + rev_side * 0.92f;
+            out_r = dry_r * dry_gain + rev_mid + rev_side * 0.42f;
         }
 
         /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
