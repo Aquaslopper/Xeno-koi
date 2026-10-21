@@ -554,9 +554,6 @@ static void update_draw_frame(void) {
                                     bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
                                                            (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
                                                            (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
-                                    if (settings.current_opponent == settings.unlocked_opponents - 1 && meets_clearance && settings.unlocked_opponents < 12) {
-                                        settings.unlocked_opponents++;
-                                    }
                                     /* Award clearance coin for this opponent on the difficulty played (sticky, no cascade) */
                                     if (meets_clearance) {
                                         int bit = settings.current_opponent * 3;

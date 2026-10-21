@@ -5,16 +5,17 @@ around the match itself - unlocks, rounds, options and the records the game keep
 
 ## Campaign and unlocks
 
-- **Opponents 1 to 12** unlock in order. The next opponent unlocks when you win a match against the newest unlocked opponent with enough rounds for the difficulty you played.
+- **Opponents 1 to 12** unlock in order when your permanent bronze, silver, and gold coin totals meet the requirement shown on each locked-sector dossier. Coins are never spent. Each opponent can award one coin of each type.
+- Win a match with enough rounds to earn a clearance coin: Easy awards bronze, Hard awards silver, and Master awards gold. Coin thresholds are cumulative; for example, M-05 needs 4 bronze + 1 silver, while M-08 needs 7 bronze + 6 silver + 1 gold. Easy wins alone cannot bypass missing silver or gold requirements.
 - **Clearance rounds:**
 
-  | Difficulty | Rounds needed to unlock the next opponent |
+  | Difficulty | Rounds needed to earn a clearance coin |
   |---|---:|
   | Easy | 9 or more |
   | Hard | 6 or more |
   | Master | 3 or more |
 
-- A win with fewer rounds still counts as a match win, but it does **not** unlock the next opponent. The results screen tells you so.
+- A win with fewer rounds still counts as a match win, but earns no clearance coin. On the newest sector, the results screen says clearance is unfulfilled.
 - **[DEUS SUPREMUS](deus-supremus.md)** normally requires all twelve opponents to be cleared. The maintainer currently keeps it **open to everyone on purpose**, while the mode is being tested. See [Errata & Known Issues](../errata.md).
 
 ## Rounds

@@ -26,14 +26,15 @@
 - Made both combo panels open paginated details with full names, points, card images, and multiplier breakdowns. Gameplay, CPU/replay progress, animations, and the turn timer pause during inspection; closing the window consumes the input rather than playing through it.
 - Reworked the existing moving flares from a five-dot global pool into independent per-box pools: each bordered UI panel/button and audited direct-outline UI box gets 3–5 dots moving around its perimeter at varied speeds. On entry, only that box's dots flash white and grow by 3 px (1 px to 4 px total) for 400 ms; other boxes stay dim, and the pulse does not retrigger while held. Covered campaign portrait slots/buttons, option slider/ruleset/preview boxes, active turn boxes, and the cinematic notice, plus selected, matching, hovered, and animated card highlights (keyed so their dots follow card motion). Ordinary unhighlighted card-art borders remain plain to avoid crowding the play area.
 - Added headless table UI regression tests and a CI step to run them. Updated the controls documentation and regenerated the table map.
-- Card data, matching rules, scoring, opponent logic, artwork, and the intentional Deus unlock were not changed.
+- Card data, matching rules, scoring, AI decision logic, artwork, and the intentional Deus unlock were not changed.
+- Corrected campaign progression to derive open sectors from earned bronze/silver/gold totals (repairing stale saved unlock counts); capture card SFX now stay at or above 40% while SFX is enabled, with mute still respected.
 
 ## Verification last completed in this session
 
-- Engine integrity suite (`./build.sh test`) passed, including 500 full simulated matches and the new headless audio DSP checks.
-- Headless table UI and combo-panel regression suite (`./tests/test_table_ui.sh`) passed against Raylib 5.5 headers.
+- Engine integrity suite (`./build.sh test`) passed, including 500 full simulated matches and the audio DSP/capture-SFX regression checks.
+- Headless table UI, combo-panel, and campaign coin-unlock regression suite (`./tests/test_table_ui.sh`) passed against Raylib 5.5 headers.
 - Strict C99 syntax check (`gcc -std=c99 -Wall -Wextra -Werror -fsyntax-only`) across all `src/*.c` passed.
-- Generated wiki tables check (`python3 tools/gen_wiki_tables.py --check`), desktop/web `moving-lights` shader-block parity, and `git diff --check` passed.
+- Generated wiki tables (`python3 tools/gen_wiki_tables.py --check`), strict MkDocs build, and `git diff --check` passed; the previously checked shader parity/simulation was unaffected.
 - Offline full-pipeline shader simulation (normal-map lighting + depth fog + vignette + table dim + gamma 1.40) verified across all seven non-Deus backgrounds and capture flash states.
 
 ## Still to verify

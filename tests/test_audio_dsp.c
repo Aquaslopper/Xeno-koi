@@ -135,6 +135,27 @@ int main(void) {
         printf("  ok\n");
     }
 
+    /* --- 3. Captures keep audible card feedback, including the drop fallback. --- */
+    AudioAssets capture_audio = {0};
+    capture_audio.has_sfx_drop = 1; /* capture.wav is optional; card_drop.wav is the fallback */
+    audio_set_sfx_volume(&capture_audio, 0.10f);
+    if (fabsf(raylib_stub_last_sound_volume - 0.40f) > 1e-6f) {
+        printf("  FAIL: card SFX fell below the 40%% minimum\n");
+        failures++;
+    }
+    int play_count = raylib_stub_play_sound_count;
+    audio_play_capture(&capture_audio);
+    if (raylib_stub_play_sound_count != play_count + 1) {
+        printf("  FAIL: capture did not play the fallback card SFX\n");
+        failures++;
+    }
+    audio_set_sfx_volume(&capture_audio, 0.0f);
+    if (raylib_stub_last_sound_volume != 0.0f) {
+        printf("  FAIL: the SFX mute setting was not preserved\n");
+        failures++;
+    }
+    if (!failures) printf("capture card SFX: >= 40%% when enabled; mute still works\n  ok\n");
+
     if (failures) {
         printf("\n%d check(s) failed\n", failures);
         return 1;

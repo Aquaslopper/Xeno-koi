@@ -67,6 +67,13 @@ static float clamp_range(float x, float lo, float hi) {
     return x;
 }
 
+static float card_sfx_volume(float master_volume) {
+    if (master_volume <= 0.0f) return 0.0f; /* Preserve the user's mute setting. */
+    float volume = master_volume * 1.90f;
+    if (volume < 0.40f) volume = 0.40f;
+    return clamp_range(volume, 0.0f, 1.0f);
+}
+
 /* 2nd-order Butterworth High-Pass (150 Hz, 12 dB/oct, sr = 44100 Hz) */
 static float biquad_hp150(BiquadState *s, float x) {
     const float b0 =  0.9850018f, b1 = -1.9700035f, b2 = 0.9850018f;
@@ -288,17 +295,17 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     const char *p_flip = get_path("assets/sfx/card_flip.wav");
     if (FileExists(p_flip)) {
         a->sfx_flip = LoadSound(p_flip); a->has_sfx_flip = 1;
-        SetSoundVolume(a->sfx_flip, clamp_range(a->sfx_volume * 1.90f, 0.0f, 1.0f));
+        SetSoundVolume(a->sfx_flip, card_sfx_volume(a->sfx_volume));
     }
     const char *p_drop = get_path("assets/sfx/card_drop.wav");
     if (FileExists(p_drop)) {
         a->sfx_drop = LoadSound(p_drop); a->has_sfx_drop = 1;
-        SetSoundVolume(a->sfx_drop, clamp_range(a->sfx_volume * 1.90f, 0.0f, 1.0f));
+        SetSoundVolume(a->sfx_drop, card_sfx_volume(a->sfx_volume));
     }
     const char *p_cap = get_path("assets/sfx/capture.wav");
     if (FileExists(p_cap)) {
         a->sfx_capture = LoadSound(p_cap); a->has_sfx_capture = 1;
-        SetSoundVolume(a->sfx_capture, clamp_range(a->sfx_volume * 1.90f, 0.0f, 1.0f));
+        SetSoundVolume(a->sfx_capture, card_sfx_volume(a->sfx_volume));
     }
     const char *p_koi = get_path("assets/sfx/koi_call.wav");
     if (FileExists(p_koi)) {
@@ -336,7 +343,7 @@ void audio_set_sfx_volume(AudioAssets *a, float volume) {
     if (volume < 0.0f) volume = 0.0f;
     if (volume > 1.0f) volume = 1.0f;
     a->sfx_volume = volume;
-    float card_vol = clamp_range(volume * 1.90f, 0.0f, 1.0f);
+    float card_vol = card_sfx_volume(volume);
     if (a->has_sfx_flip) SetSoundVolume(a->sfx_flip, card_vol);
     if (a->has_sfx_drop) SetSoundVolume(a->sfx_drop, card_vol);
     if (a->has_sfx_capture) SetSoundVolume(a->sfx_capture, card_vol);

@@ -38,6 +38,10 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 3. **[DEUS SUPREMUS](reference/deus-supremus.md) logic.** The DEUS SUPREMUS difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
 4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes & Settings](reference/modes.md).
 
+## Campaign progression correction
+
+A clearance previously advanced the saved opponent count directly, bypassing the dossier's silver/gold coin requirements; old saves also kept that inflated count. Unlocks are now recalculated from earned coins, so progress beyond bronze-only sectors requires the displayed silver and gold totals.
+
 ## Table UI updates
 
 - **Alternative card control:** click a hand card, then a matching field card (or empty field if unmatched). Dragging remains available; matching and scoring are unchanged.
