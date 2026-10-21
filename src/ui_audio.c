@@ -43,8 +43,6 @@ typedef struct {
 
 static BiquadState s_in_hp_l, s_in_hp_r;
 static BiquadState s_in_lp_l, s_in_lp_r;
-static BiquadState s_out_hp_l, s_out_hp_r;
-static BiquadState s_out_lp_l, s_out_lp_r;
 
 static float s_sc_env = 0.0f;
 static float s_mid_bass_lp = 0.0f;
@@ -68,20 +66,20 @@ static float clamp_range(float x, float lo, float hi) {
     return x;
 }
 
-/* 2nd-order Butterworth Low-Cut (72 Hz, 12 dB/oct) matching the reverb EQ curve */
-static float biquad_hp72(BiquadState *s, float x) {
-    const float b0 =  0.9927726f, b1 = -1.9855451f, b2 = 0.9927726f;
-    const float a1 = -1.9854929f, a2 =  0.9855974f;
+/* 2nd-order Butterworth High-Pass (150 Hz, 12 dB/oct, sr = 44100 Hz) */
+static float biquad_hp150(BiquadState *s, float x) {
+    const float b0 =  0.9850018f, b1 = -1.9700035f, b2 = 0.9850018f;
+    const float a1 = -1.9697786f, a2 =  0.9702285f;
     float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
     s->x2 = s->x1; s->x1 = x;
     s->y2 = s->y1; s->y1 = y;
     return y;
 }
 
-/* 2nd-order Butterworth High-Cut (3.6 kHz, 12 dB/oct) matching the reverb EQ curve */
-static float biquad_lp3600(BiquadState *s, float x) {
-    const float b0 =  0.0477663f, b1 = 0.0955325f, b2 = 0.0477663f;
-    const float a1 = -1.2937273f, a2 = 0.4847923f;
+/* 2nd-order Butterworth Low-Pass (5 kHz, 12 dB/oct, sr = 44100 Hz) */
+static float biquad_lp5000(BiquadState *s, float x) {
+    const float b0 =  0.0831599f, b1 = 0.1663197f, b2 = 0.0831599f;
+    const float a1 = -1.0351712f, a2 = 0.3678107f;
     float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
     s->x2 = s->x1; s->x1 = x;
     s->y2 = s->y1; s->y1 = y;
@@ -110,30 +108,29 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
 
-        /* 1. Sidechain detector on dry music (dims the reverb during loud beats, no heavy dry ducking) */
+        /* 1. Sidechain detector on dry music (3 ms attack = 0.00753, 80 ms release = 0.000283) */
         float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
-        float sc_rate = (dry_abs > s_sc_env) ? 0.008f : 0.00035f;
+        float sc_rate = (dry_abs > s_sc_env) ? 0.007530f : 0.000283f;
         s_sc_env += (dry_abs - s_sc_env) * sc_rate;
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
-        float sc_dim = 1.0f / (1.0f + 2.4f * sc_over);
+        float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* 2. Abbey Road Reverb Bandpass (72 Hz Low-Cut + 3.6 kHz High-Cut, flat 0 dB from 150 Hz..2 kHz)
-              applied once going into the tank so bass never smears and highs never resonate/spike */
-        float bp_in_l = biquad_lp3600(&s_in_lp_l, biquad_hp72(&s_in_hp_l, dry_l));
-        float bp_in_r = biquad_lp3600(&s_in_lp_r, biquad_hp72(&s_in_hp_r, dry_r));
+        /* 2. Reverb Input Bandpass ONLY (150 Hz High-Pass + 5 kHz Low-Pass on reverb input, not output) */
+        float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp150(&s_in_hp_l, dry_l));
+        float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp150(&s_in_hp_r, dry_r));
 
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.52f + slap_r * 0.20f, -0.70f, 0.70f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.52f - slap_l * 0.20f, -0.70f, 0.70f);
+        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.50f + slap_r * 0.18f, -0.70f, 0.70f);
+        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.50f - slap_l * 0.18f, -0.70f, 0.70f);
         if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
         if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
 
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        float feed_l = bp_in_l * 0.52f + slap_r * 0.22f;
-        float feed_r = bp_in_r * 0.52f + slap_l * 0.22f;
-        float feedback = 0.70f - 0.10f * tail_releasing;
-        const float damp = 0.44f;
+        float feed_l = bp_in_l * 0.50f + slap_r * 0.20f;
+        float feed_r = bp_in_r * 0.50f + slap_l * 0.20f;
+        float feedback = 0.68f - 0.10f * tail_releasing;
+        const float damp = 0.42f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
@@ -154,8 +151,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             acc_r += s_comb_lp_r[c];
         }
 
-        acc_l *= 0.40f;
-        acc_r *= 0.40f;
+        acc_l *= 0.38f;
+        acc_r *= 0.38f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
             int il = s_ap_idx_l[a];
@@ -175,63 +172,65 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             s_ap_idx_r[a] = ir;
         }
 
-        /* Post-tank Low-Cut (72 Hz) + High-Cut (3.6 kHz) */
-        float wet_bp_l = biquad_lp3600(&s_out_lp_l, biquad_hp72(&s_out_hp_l, acc_l + slap_l * 0.28f));
-        float wet_bp_r = biquad_lp3600(&s_out_lp_r, biquad_hp72(&s_out_hp_r, acc_r + slap_r * 0.28f));
+        float wet_l = acc_l + slap_l * 0.24f;
+        float wet_r = acc_r + slap_r * 0.24f;
 
-        /* 3. Mid/Side (M/S) stage:
-              - Mid keeps the warm low-mids; dry Mid lows get a gentle warmth boost (+1.2 dB)
-              - Side has lows (<180 Hz) cut out so bass stays centered in Mid, and highs (>2.6 kHz)
-                are dynamically de-essed before going into the gentle stereo spread */
-        float dry_mid  = 0.5f * (dry_l + dry_r);
-        float dry_side = 0.5f * (dry_l - dry_r);
-        s_mid_bass_lp += (dry_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz Mid low-pass */
+        /* 3. Mid (mono center) & Side (stereo) stage:
+              - Mid is mono in the middle; gently boost mono bass (<140 Hz) when the reverb effect takes place
+              - Side is stereo; cut lows (<180 Hz) from Side and gently de-ess highs (>2.8 kHz) going into stereo */
+        float mono_mid = 0.5f * (dry_l + dry_r);
+        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz mono bass */
 
-        float wet_mid  = 0.5f * (wet_bp_l + wet_bp_r);
-        float wet_side = 0.5f * (wet_bp_l - wet_bp_r);
-        s_side_low_lp += (wet_side - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
-        float side_hi = wet_side - s_side_low_lp;
+        float wet_mono   = 0.5f * (wet_l + wet_r);
+        float wet_stereo = 0.5f * (wet_l - wet_r);
+        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
+        float side_hi = wet_stereo - s_side_low_lp;
 
-        /* De-ess high frequencies in the stereo Side channel */
-        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.30f; /* ~2.6 kHz split */
+        /* De-ess high frequencies in the stereo Side channel (3 ms attack, 80 ms release) */
+        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.32f; /* ~2.8 kHz split */
         float side_sibilance = side_hi - s_side_deess_lp;
         float sib_abs = (side_sibilance < 0.0f) ? -side_sibilance : side_sibilance;
-        float deess_rate = (sib_abs > s_deess_env) ? 0.08f : 0.0015f;
+        float deess_rate = (sib_abs > s_deess_env) ? 0.007530f : 0.000283f;
         s_deess_env += (sib_abs - s_deess_env) * deess_rate;
-        float deess_gain = 1.0f / (1.0f + 7.5f * s_deess_env);
-        float clean_wet_side = s_side_deess_lp + side_sibilance * deess_gain * 0.60f;
+        float deess_gain = 1.0f / (1.0f + 5.0f * s_deess_env);
+        float clean_wet_stereo = s_side_deess_lp + side_sibilance * deess_gain * 0.72f;
+
+        float out_l = dry_l;
+        float out_r = dry_r;
 
         if (rev > 0.0005f) {
-            /* Gentle stereo width (0.30 on 1st card -> 0.70 max on 3rd card) with loudness compensation */
-            float stereo_w = 0.30f + 0.40f * (rev * rev);
-            float stereo_comp = 1.0f / (1.0f + 0.22f * stereo_w);
-            float wet_gain = rev * 0.78f * sc_dim * stereo_comp * (1.0f - 0.18f * tail_releasing);
+            /* Gentle stereo width (0.28 -> 0.64) with loudness compensation */
+            float stereo_w = 0.28f + 0.36f * (rev * rev);
+            float stereo_comp = 1.0f / (1.0f + 0.20f * stereo_w);
+            float wet_gain = rev * 0.74f * sc_dim * stereo_comp * (1.0f - 0.18f * tail_releasing);
 
-            /* Gentle dry ducking (max 12%) + gentle Mid low boost */
-            float dry_gain = 1.0f - rev * 0.12f;
-            float out_mid  = dry_mid * dry_gain + s_mid_bass_lp * (0.12f * rev) + wet_mid * wet_gain;
-            float out_side = dry_side * dry_gain + clean_wet_side * (wet_gain * stereo_w);
+            /* Gentle dry ducking (max 9%) + gentle mono middle bass boost */
+            float dry_gain = 1.0f - rev * 0.09f;
+            float mono_bass_boost = s_mid_bass_lp * (0.10f * rev);
+            float rev_mid  = wet_mono * wet_gain + mono_bass_boost;
+            float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
 
-            float out_l = out_mid + out_side;
-            float out_r = out_mid - out_side;
-
-            /* 4. Master Glue Bus Compressor (catches spikes above 0.34, 3.2:1 ratio) + safety ceiling */
-            float pk = (out_l < 0.0f ? -out_l : out_l);
-            float pk_r = (out_r < 0.0f ? -out_r : out_r);
-            if (pk_r > pk) pk = pk_r;
-            float comp_rate = (pk > s_comp_env) ? 0.012f : 0.0003f;
-            s_comp_env += (pk - s_comp_env) * comp_rate;
-            const float thresh = 0.34f;
-            if (s_comp_env > thresh) {
-                float over = s_comp_env - thresh;
-                float target_lvl = thresh + over * 0.31f;
-                float cg = target_lvl / s_comp_env;
-                out_l *= cg;
-                out_r *= cg;
-            }
-            pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.48f, 0.62f);
-            pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.48f, 0.62f);
+            out_l = dry_l * dry_gain + rev_mid + rev_side;
+            out_r = dry_r * dry_gain + rev_mid - rev_side;
         }
+
+        /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
+              high threshold (0.60, gentle 2.0:1 ratio) so normal music is untouched and only spikes are caught */
+        float pk_l = (out_l < 0.0f) ? -out_l : out_l;
+        float pk_r = (out_r < 0.0f) ? -out_r : out_r;
+        float pk = (pk_r > pk_l) ? pk_r : pk_l;
+        float comp_rate = (pk > s_comp_env) ? 0.007530f : 0.000283f;
+        s_comp_env += (pk - s_comp_env) * comp_rate;
+        const float thresh = 0.60f;
+        if (s_comp_env > thresh) {
+            float over = s_comp_env - thresh;
+            float target_lvl = thresh + over * 0.50f;
+            float cg = target_lvl / s_comp_env;
+            out_l *= cg;
+            out_r *= cg;
+        }
+        pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.68f, 0.82f);
+        pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.68f, 0.82f);
     }
 }
 
