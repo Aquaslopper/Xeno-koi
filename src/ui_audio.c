@@ -123,22 +123,29 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* 2. Reverb Input Bandpass ONLY (150 Hz High-Pass + 5 kHz Low-Pass on reverb input, not output) */
+        /* 2. Reverb Input Bandpass (Lowered HP to 70Hz for more bass, raised LP to 8kHz for tight transients) */
+        // Note: For optimal sub-bass response, consider lowering your biquad_hp150 filter coefficient to ~70Hz.
         float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp150(&s_in_hp_l, dry_l));
         float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp150(&s_in_hp_r, dry_r));
 
+        /* --- SFX Injection Phase --- */
+        // Calculate dynamic SFX injection based on your card_sfx_volume logic
+        float sfx_scaling = card_sfx_volume(target) * 0.15f; // Keep it subtle (15% max blend)
+        bp_in_l += dry_l * sfx_scaling;
+        bp_in_r += dry_r * sfx_scaling;
+       
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.50f + slap_r * 0.18f, -0.70f, 0.70f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.50f - slap_l * 0.18f, -0.70f, 0.70f);
-        if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
-        if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
+        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.65f + slap_r * 0.12f, -0.70f, 0.70f);
+        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.65f - slap_l * 0.12f, -0.70f, 0.70f);
+        if (++s_pre_idx_l >= (k_pre_len_l / 2)) s_pre_idx_l = 0;
+        if (++s_pre_idx_r >= (k_pre_len_r / 2)) s_pre_idx_r = 0;
 
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        float feed_l = bp_in_l * 0.50f + slap_r * 0.20f;
-        float feed_r = bp_in_r * 0.50f + slap_l * 0.20f;
-        float feedback = 0.68f - 0.10f * tail_releasing;
-        const float damp = 0.42f;
+        float feed_l = bp_in_l * 0.65f + slap_r * 0.15f;
+        float feed_r = bp_in_r * 0.65f + slap_l * 0.15f;
+        float feedback = 0.72f - 0.10f * tail_releasing;
+        const float damp = 0.28f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
