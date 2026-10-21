@@ -1,7 +1,7 @@
 /* Headless regression test for the capture-reverb DSP in src/ui_audio.c.
  *
  * Guards the two properties that the stereo reverb kept losing:
- *   1. With no reverb requested samples must be unchanged after the eight-sample alignment.
+ *   1. With no reverb requested samples must be unchanged after the fixed phase alignment.
  *   2. At full reverb the mid/high band (snare crack, hats, presence) must
  *      actually be present in the Side/stereo channel - not only the low end.
  *
@@ -86,7 +86,7 @@ int main(void) {
         float d = fabsf(buf[i] - (i >= 2*WIDTH_DELAY ? original[i - 2*WIDTH_DELAY] : 0));
         if (d > max_diff) max_diff = d;
     }
-    printf("bypass (reverb 0, 8-sample alignment): max |out - delayed in| = %.9f\n", (double)max_diff);
+    printf("bypass (reverb 0, %d-sample alignment): max |out - delayed in| = %.9f\n", WIDTH_DELAY, (double)max_diff);
     if (max_diff > BYPASS_MAX_DIFF) {
         printf("  FAIL: the DSP alters dry samples after compensating for phase alignment\n");
         failures++;

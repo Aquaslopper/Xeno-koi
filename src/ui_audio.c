@@ -8,7 +8,7 @@
    Driven by a smooth, hard-limited synergy curve via audio_set_reverb(amount):
    starts subtle on the first capture, blooms on stacked captures, and ducks its
    tail under the dry music so it never smears or spikes. */
-#define WIDTH_DELAY 8
+#define WIDTH_DELAY 64
 #define WIDTH_HISTORY (2*WIDTH_DELAY + 1)
 
 #define REVERB_COMB_COUNT 4
@@ -283,13 +283,22 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
         /* Antisymmetric, Hamming-windowed Hilbert FIR: every frequency is in
-           quadrature with the SAME eight-sample-delayed dry centre. Unlike two
+           quadrature with the SAME 64-sample-delayed dry centre. Unlike two
            different all-passes, this cannot boost L highs and R lows. No tank feed. */
-        static const float hilbert[4] = {0.61432827f, 0.15194721f, 0.04634154f, 0.01046016f};
+        static const float hilbert[WIDTH_DELAY/2] = {
+            0.636267028f, 0.211150055f, 0.125568714f, 0.088500177f,
+            0.067611501f, 0.054086936f, 0.044537697f, 0.037383905f,
+            0.031790437f, 0.027274858f, 0.023539388f, 0.020390526f,
+            0.017697249f, 0.015367786f, 0.013335999f, 0.011553029f,
+            0.009981983f, 0.008594439f, 0.007368084f, 0.006285080f,
+            0.005330909f, 0.004493540f, 0.003762823f, 0.003130041f,
+            0.002587567f, 0.002128614f, 0.001747039f, 0.001437197f,
+            0.001193827f, 0.001011962f, 0.000886872f, 0.000814005f
+        };
         s_width_history[s_width_index][0] = dry_l;
         s_width_history[s_width_index][1] = dry_r;
         float clean_width_side = 0;
-        for (int j = 0; j < 4; j++) {
+        for (int j = 0; j < WIDTH_DELAY/2; j++) {
             int k = 2*j + 1;
             int a = (s_width_index - WIDTH_DELAY + k + WIDTH_HISTORY) % WIDTH_HISTORY;
             int b = (s_width_index - WIDTH_DELAY - k + WIDTH_HISTORY) % WIDTH_HISTORY;
@@ -311,27 +320,33 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             float wet_gain = room * rev * 1.10f * sc_dim * (1 - 0.10f * tail_releasing);
             float dry_gain = 1 - 0.30f * room * rev;
             float mid = dry_mid * dry_gain + room_mid * wet_gain;
-            float extra = dry_side * width * rev * 0.60f
-                        + clean_width_side * (width * rev * 1.20f) + room_side * wet_gain;
-            /* Remove sustained correlation with Mid from the ADDED Side only.
-               Otherwise a centred tone can lean into one ear. Cap added Side RMS
-               below Mid RMS; never remove/invert the original centre or original pan. */
+            float spread = width * rev;
+            /* Top half is deliberately expansive, not just a subtle image trim.
+               Equal Mid/Side power at maximum is wide without negative correlation. */
+            float width_drive = spread * (1.20f + 4.80f * spread * spread);
+            float side_limit = 0.49f + 0.51f * spread * spread;
+            float extra = dry_side * spread * 1.20f
+                        + clean_width_side * width_drive + room_side * wet_gain;
+            /* The FIR is already quadrature: do not colour it with an adaptive
+               projection. Blend that correction in for the non-quadrature room.
+               Cap added Side RMS at/below Mid RMS; preserve the original pan. */
             const float meter = 0.00015f; /* ~150 ms; avoids bass-cycle pumping */
             s_width_mid_power += (mid*mid - s_width_mid_power) * meter;
             s_width_side_power += (extra*extra - s_width_side_power) * meter;
             s_width_cross += (mid*extra - s_width_cross) * meter;
-            float projection = s_width_cross / fmaxf(s_width_mid_power, 1e-12f);
+            float projection = room * s_width_cross / fmaxf(s_width_mid_power, 1e-12f);
             extra -= mid * projection;
-            float residual = fmaxf(0, s_width_side_power - s_width_cross * projection);
-            if (residual > 0.49f * s_width_mid_power)
-                extra *= sqrtf(0.49f * s_width_mid_power / residual);
+            float residual = fmaxf(0, s_width_side_power - 2*s_width_cross*projection
+                                     + projection*projection*s_width_mid_power);
+            if (residual > side_limit * s_width_mid_power)
+                extra *= sqrtf(side_limit * s_width_mid_power / residual);
             /* An already-wide/anti-correlated source gets no extra Side-energy
                budget: do not aggravate phase problems present in a custom MP3. */
             float base = dry_side * dry_gain;
             s_width_base_power += (base*base - s_width_base_power) * meter;
             s_width_extra_power += (extra*extra - s_width_extra_power) * meter;
             s_width_base_cross += (base*extra - s_width_base_cross) * meter;
-            float budget = fmaxf(s_width_base_power, 0.49f*s_width_mid_power) - s_width_base_power;
+            float budget = fmaxf(s_width_base_power, side_limit*s_width_mid_power) - s_width_base_power;
             if (s_width_extra_power > 1e-12f) {
                 float cross = s_width_base_cross;
                 float gain = (sqrtf(cross*cross + s_width_extra_power*budget) - cross) / s_width_extra_power;
@@ -343,7 +358,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         }
 
         /* Stereo-linked protection: one gain for both ears, no image shift.
-           Dry bypass (including hot input) retains the same eight-sample alignment when off. */
+           Dry bypass (including hot input) retains the same fixed alignment when off. */
         float peak = fmaxf(fabsf(out_l), fabsf(out_r));
         if (rev > 0.00001f && width + bass + room > 0.00001f && peak > 0.88f) {
             float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;

@@ -7,6 +7,15 @@
 ## Status Summary
 ## Latest completed work
 
+### Stronger stereo width (22 October 2026)
+
+- Follow-up listening feedback found the balanced width too subtle. Expanded the Hilbert filter from 17 to 129 taps for lower-mid coverage, increased the upper slider drive, and raised the maximum Side/Mid power budget from 0.49 to 1.0. Both dry channels and bypass now share 64-sample alignment (~1.45 ms at 44.1 kHz); no reverb/delayed-repeat feed was introduced. The source-aware guard remains, and adaptive covariance correction is blended with the room amount rather than colouring the already-quadrature FIR alone.
+- Actual first-30-second bundled MP3 checks: game3 width-only correlation is now 0.183 versus the prior 0.860 (source 0.936), increasing Side energy from ~7% to ~41% compared with the previous maximum. Game1 is already wide/anti-correlated: source −0.218, new width-only −0.222. Aligned low-level mono-null error <1e-9; all-max peaks 0.96255/0.97343. Bass-only gains remain +0.058/+5.902 dB overall and +5.422/+6.425 dB in the four-pole 140 Hz band. These are offline numerical results, not live listening or LUFS measurements.
+- Added bass-heavy modulated harmonic regression: maximum Side/Mid RMS 0.996–0.998 across 44.1/48/96 kHz, with each slider step required to increase spread meaningfully. Mono noise reaches equal Mid/Side power, near-zero correlation. Simultaneous-tone ear balance remains <0.027 dB settled; longer-filter startup is <0.143 dB over the first aligned 100 ms. Explicit onset bound changed from 0.1 to 0.2 dB for the stronger path; settled bound remains 0.1 dB. Width impulse output after 5 ms remains zero.
+- Full engine/audio/settings/UI suite, table UI suite, ASan/UBSan DSP tests, strict C99 syntax, generated tables, strict MkDocs and whitespace checks passed. Offline DSP CPU cost ~0.28–0.46 s per 30 s audio in this sandbox, not a device-wide guarantee.
+- Touched width DSP/guards, focused tests and docs. Bass/reverb algorithms and control tuning, UI/settings/preview routing, action triggers, rules/cards/scoring/AI/campaign/assets and dependencies were not changed. Live headphone/speaker listening and complete Windows/web builds remain to verify. Earlier work entries below describe their respective revisions, not the current filter length/range.
+
+
 ### Per-frequency stereo balance correction (22 October 2026)
 
 - Reproduced the reported one-sided image: the independent-all-pass width path measured +13.388 dB L/R at 8 kHz and −10.710 dB at 100 Hz with six centred tones together. Existing aggregate and isolated-tone balance checks had missed this spectral tilt.
