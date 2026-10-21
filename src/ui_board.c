@@ -323,7 +323,7 @@ void board_load_assets(BoardAssets *ba) {
     };
     const char *normal_names[8] = {
         "assets/harvest_normal.png", "assets/hole_normal.png", "assets/arctic_normal.png",
-        "assets/castle_normal.png", "assets/city_normal.png", "",
+        "assets/castle_normal.png", "assets/city_normal.png", "assets/deus_normal.png",
         "assets/face_normal.png", "assets/realm_normal.png"
     };
     for (int i = 0; i < 8; i++) {
