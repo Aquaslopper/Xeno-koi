@@ -8,6 +8,9 @@
    Driven by a smooth, hard-limited synergy curve via audio_set_reverb(amount):
    starts subtle on the first capture, blooms on stacked captures, and ducks its
    tail under the dry music so it never smears or spikes. */
+#define WIDTH_DELAY 8
+#define WIDTH_HISTORY (2*WIDTH_DELAY + 1)
+
 #define REVERB_COMB_COUNT 4
 #define REVERB_COMB_MAX   5504
 #define REVERB_AP_COUNT   2
@@ -52,11 +55,8 @@ static float s_bass_env;
 static float s_width_mid_power, s_width_side_power, s_width_cross;
 static float s_width_base_power, s_width_extra_power, s_width_base_cross;
 static float s_effect_cur[3] = {0.5f, 0.0f, 0.5f};
-static float s_side_low_lp = 0.0f;
-static float s_side_deess_lp = 0.0f;
-static float s_side_presence_lp = 0.0f;
-static float s_deess_env = 0.0f;
-static float s_width_ap_x[2], s_width_ap_y[2];
+static float s_width_history[WIDTH_HISTORY][2];
+static int s_width_index;
 
 #if __GCC_ATOMIC_INT_LOCK_FREE != 2
 #error Audio controls require lock-free unsigned int atomics
@@ -95,10 +95,9 @@ static void reset_music_dsp(void) {
     s_pre_idx_l = s_pre_idx_r = 0;
     s_in_hp_l = s_in_hp_r = s_in_lp_l = s_in_lp_r = (BiquadState){0};
     s_bass_l = s_bass_r = (BiquadState){0};
-    s_sc_env = s_bass_env = s_side_low_lp = s_side_deess_lp = s_side_presence_lp = 0;
-    s_deess_env = s_reverb_cur = 0;
-    memset(s_width_ap_x, 0, sizeof(s_width_ap_x));
-    memset(s_width_ap_y, 0, sizeof(s_width_ap_y));
+    s_sc_env = s_bass_env = s_reverb_cur = 0;
+    memset(s_width_history, 0, sizeof(s_width_history));
+    s_width_index = 0;
     s_width_mid_power = s_width_side_power = s_width_cross = 0;
     s_width_base_power = s_width_extra_power = s_width_base_cross = 0;
 }
@@ -181,8 +180,10 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float bass_peak = fmaxf(fabsf(added_l), fabsf(added_r));
         s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.00452f : 0.000189f);
         float bass_gain = s_bass_env > 0.35f ? powf(s_bass_env / 0.35f, (1 / (1 + 3*bass_amount)) - 1) : 1;
-        dry_l += added_l * bass_gain;
-        dry_r += added_r * bass_gain;
+        if (bass_amount > 0.00001f) {
+            dry_l += added_l * bass_gain;
+            dry_r += added_r * bass_gain;
+        }
 
         /* 1. Sidechain detector on dry music (3 ms attack = 0.00753, 80 ms release = 0.000283) */
         float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
@@ -281,35 +282,25 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
-        /* Width has NO path from the reverb/slapback tank. Two one-sample
-           first-order all-passes, H(z)=(a+z^-1)/(1+a*z^-1), give short phase
-           decorrelation, not a delayed copy. |a|=.65: tail is negligible in <2ms. */
-        float centre = 0.5f * (dry_l + dry_r), phase[2];
-        for (int i = 0; i < 2; i++) {
-            float a = i == 0 ? 0.65f : -0.65f;
-            phase[i] = a*centre + s_width_ap_x[i] - a*s_width_ap_y[i];
-            s_width_ap_x[i] = centre;
-            s_width_ap_y[i] = phase[i];
+        /* Antisymmetric, Hamming-windowed Hilbert FIR: every frequency is in
+           quadrature with the SAME eight-sample-delayed dry centre. Unlike two
+           different all-passes, this cannot boost L highs and R lows. No tank feed. */
+        static const float hilbert[4] = {0.61432827f, 0.15194721f, 0.04634154f, 0.01046016f};
+        s_width_history[s_width_index][0] = dry_l;
+        s_width_history[s_width_index][1] = dry_r;
+        float clean_width_side = 0;
+        for (int j = 0; j < 4; j++) {
+            int k = 2*j + 1;
+            int a = (s_width_index - WIDTH_DELAY + k + WIDTH_HISTORY) % WIDTH_HISTORY;
+            int b = (s_width_index - WIDTH_DELAY - k + WIDTH_HISTORY) % WIDTH_HISTORY;
+            float newer = 0.5f*(s_width_history[a][0] + s_width_history[a][1]);
+            float older = 0.5f*(s_width_history[b][0] + s_width_history[b][1]);
+            clean_width_side += hilbert[j]*(newer - older);
         }
-        float width_side = 0.5f * (phase[0] - phase[1]);
-        s_side_low_lp += (width_side - s_side_low_lp) * 0.030f;
-        float side_hi = width_side - s_side_low_lp * (1 - width);
-
-        /* De-ess only true sibilance (3 ms attack, 80 ms release). The split used to sit at
-           ~2.8 kHz, inside the snare crack, so every hit got pulled back out of the stereo
-           field; ~6 kHz keeps the de-esser on sibilance and off the mid/high content. */
-        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.575f; /* ~6 kHz split */
-        float side_sibilance = side_hi - s_side_deess_lp;
-        float sib_abs = (side_sibilance < 0.0f) ? -side_sibilance : side_sibilance;
-        float deess_rate = (sib_abs > s_deess_env) ? 0.007530f : 0.000283f;
-        s_deess_env += (sib_abs - s_deess_env) * deess_rate;
-        float deess_gain = 1.0f / (1.0f + 5.0f * s_deess_env);
-        float clean_width_side = s_side_deess_lp + side_sibilance * deess_gain;
-
-        /* Presence lift on the short phase-derived Side only. This width path
-           never reads the reverb delay buffers; the original Mid remains untouched. */
-        s_side_presence_lp += (clean_width_side - s_side_presence_lp) * 0.17f; /* ~1.2 kHz split */
-        clean_width_side += (clean_width_side - s_side_presence_lp) * 0.70f;   /* ~+4.6 dB above 1.2 kHz */
+        int aligned = (s_width_index - WIDTH_DELAY + WIDTH_HISTORY) % WIDTH_HISTORY;
+        dry_l = s_width_history[aligned][0];
+        dry_r = s_width_history[aligned][1];
+        if (++s_width_index == WIDTH_HISTORY) s_width_index = 0;
 
         float out_l = dry_l;
         float out_r = dry_r;
@@ -352,13 +343,12 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         }
 
         /* Stereo-linked protection: one gain for both ears, no image shift.
-           True bypass (including hot input) when the action/controls are off. */
+           Dry bypass (including hot input) retains the same eight-sample alignment when off. */
         float peak = fmaxf(fabsf(out_l), fabsf(out_r));
         if (rev > 0.00001f && width + bass + room > 0.00001f && peak > 0.88f) {
             float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;
             out_l *= gain; out_r *= gain;
         }
-        if (rev <= 0.00001f || width + bass + room <= 0.00001f) continue;
         pcm[f * 2 + 0] = out_l;
         pcm[f * 2 + 1] = out_r;
     }

@@ -7,6 +7,14 @@
 ## Status Summary
 ## Latest completed work
 
+### Per-frequency stereo balance correction (22 October 2026)
+
+- Reproduced the reported one-sided image: the independent-all-pass width path measured +13.388 dB L/R at 8 kHz and −10.710 dB at 100 Hz with six centred tones together. Existing aggregate and isolated-tone balance checks had missed this spectral tilt.
+- Replaced that width path with a 17-tap antisymmetric, Hamming-windowed Hilbert FIR. Both dry channels (including bypass) have the same fixed eight-sample alignment (~0.18 ms at 44.1 kHz), ensuring quadrature per frequency without an audible echo. Removed the phase-shifting width IIR stages; retained the mono/Side guard and bass/reverb tuning. Bypass/mono tests now explicitly compare aligned samples, not zero-latency samples; chunking/ON/OFF timing stays constant.
+- Added simultaneous-tone per-frequency ear measurements at 25/50/100% width and 44.1/48/96 kHz, both first-100-ms and settled windows. Worst differences: <0.09 dB on onset and <0.0121 dB settled. Existing impulse/no-echo, bass loudness, post-kick, safety and audition checks pass; reprocessed both shipped MP3s offline and checked aligned mono preservation. Full regression suite, ASan/UBSan, strict C99, generated tables, strict docs and whitespace checks passed.
+- Touched width DSP, focused tests, and docs only. No new dependency, card/rules/scoring/AI/trigger/settings/UI change. Live listening with the revised Test Effect (Reverb=0 isolates width) and full platform/device checks remain to verify.
+
+
 ### Width delay / bass loudness correction (22 October 2026)
 
 - Listening feedback exposed two issues the initial tests missed: width borrowed the long reverb/slapback return, and the 8:1 bass compressor ducked the entire track. Width now uses a separate pair of one-sample all-pass phase filters, with no reverb-tank feed. Bass compresses only its added shelf component (up to 4:1), over the unchanged dry music; removed the whole-track bus compressor. Linked peak limiting now starts at 0.88 and caps below 0.98 to leave more boost headroom. Reverb's intentional delay/tail, late bass return and existing mono/Side guards remain.

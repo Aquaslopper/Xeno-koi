@@ -66,13 +66,13 @@ static double bass_tail(float room) {
 
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
-    /* Hot stereo input must remain bit-identical without an action or with all controls off. */
+    /* Hot stereo input stays bit-identical AFTER the fixed eight-sample alignment, even off. */
     for (int off = 0; off < 2; off++) {
         prepare(off ? 0 : 1, off ? 0 : 1, off ? 0 : 1, off ? 1 : 0);
         tone(sample_rate*2, 997, 0.95f, -0.4f);
         memcpy(original, signal, sample_rate*4*sizeof(float));
         music_reverb_processor(signal, sample_rate*2);
-        assert(memcmp(original, signal, sample_rate*4*sizeof(float)) == 0);
+        assert(memcmp(original, signal + 2*WIDTH_DELAY, (sample_rate*2 - WIDTH_DELAY)*2*sizeof(float)) == 0);
     }
 
     for (int sr = 0; sr < 3; sr++) {
@@ -97,7 +97,7 @@ int main(void) {
         double ll = 0, rr = 0, lr = 0, ss = 0;
         for (int i = sample_rate; i < sample_rate*3; i++) {
             double l = signal[2*i], r = signal[2*i + 1], side = (l-r)*0.5;
-            assert(fabs((l+r)*0.5 - original[2*i]) < 2e-7);
+            assert(fabs((l+r)*0.5 - original[2*(i - WIDTH_DELAY)]) < 2e-7);
             ll += l*l; rr += r*r; lr += l*r; ss += side*side;
         }
         double balance = 10*log10(ll/rr), correlation = lr/sqrt(ll*rr);
@@ -114,11 +114,44 @@ int main(void) {
             for (int i = sample_rate; i < sample_rate*3; i++) {
                 float d = (signal[2*i] - signal[2*i + 1])*0.5f;
                 side_energy += d*d;
-                assert(fabsf((signal[2*i] + signal[2*i + 1])*0.5f - original[2*i]) < 2e-7f);
+                assert(fabsf((signal[2*i] + signal[2*i + 1])*0.5f - original[2*(i - WIDTH_DELAY)]) < 2e-7f);
             }
             balance = 10*log10(energy(sample_rate, sample_rate*3, 0)/energy(sample_rate, sample_rate*3, 1));
             printf("  mono %.0f Hz: balance %+.3f dB, side RMS %.6f\n", freqs[j], balance, sqrt(side_energy/(sample_rate*2)));
             assert(fabs(balance) < 0.5 && side_energy > 1e-9);
+        }
+        /* Overall balance and isolated tones missed spectral panning: test ALL
+           centred tones at once, at several widths, then measure each ear/bin. */
+        float mixed_hz[] = {100, 300, 1000, 3000, 8000, 15000};
+        for (int step = 1; step <= 3; step++) {
+            float setting = step == 3 ? 1.0f : step*0.25f;
+            prepare(setting, 0, 0, 1);
+            for (int i = 0; i < sample_rate*3; i++) {
+                float x = 0;
+                for (int j = 0; j < 6; j++) x += 0.01f*sinf(6.28318530718f*mixed_hz[j]*i/sample_rate);
+                signal[2*i] = signal[2*i+1] = x;
+            }
+            music_reverb_processor(signal, sample_rate*3);
+            for (int window = 0; window < 2; window++) {
+                int begin = window == 0 ? 0 : sample_rate;
+                int end = window == 0 ? sample_rate/10 : sample_rate*3;
+                double worst = 0;
+                for (int j = 0; j < 6; j++) {
+                    double re[2] = {0}, im[2] = {0};
+                    for (int i = begin; i < end; i++) {
+                        double phase = 6.283185307179586*mixed_hz[j]*i/sample_rate;
+                        for (int c = 0; c < 2; c++) {
+                            re[c] += signal[2*i+c]*cos(phase);
+                            im[c] += signal[2*i+c]*sin(phase);
+                        }
+                    }
+                    double balance = 10*log10((re[0]*re[0]+im[0]*im[0])/(re[1]*re[1]+im[1]*im[1]));
+                    worst = fmax(worst, fabs(balance));
+                    assert(fabs(balance) < 0.1);
+                }
+                printf("%d Hz mixed tones, width %.2f, %s: worst spectral L/R %.4f dB\n",
+                       sample_rate, setting, window == 0 ? "first 100ms" : "settled", worst);
+            }
         }
         float quiet = bass_gain(1, 0.01f, 20), half = bass_gain(0.5f, 0.01f, 20);
         float loud = bass_gain(1, 0.8f, 20), high = bass_gain(1, 0.01f, 8000);
@@ -178,7 +211,7 @@ int main(void) {
     audio_set_effects(1, 1, 1);
     for (int i = 0; i < sample_rate*2; i++) signal[i] = 0.05f;
     music_reverb_processor(signal, sample_rate);
-    assert(fabsf(signal[0] - 0.05f) < 0.001f && fabsf(signal[1] - 0.05f) < 0.001f);
+    assert(fabsf(signal[2*WIDTH_DELAY] - 0.05f) < 0.001f && fabsf(signal[2*WIDTH_DELAY + 1] - 0.05f) < 0.001f);
     finite_peak(sample_rate, 0.98001f);
 
     prepare(1, 1, 1, 1);
@@ -191,7 +224,7 @@ int main(void) {
     tone(sample_rate, 1000, 0.1f, 1);
     memcpy(original, signal, sample_rate*2*sizeof(float));
     music_reverb_processor(signal, sample_rate);
-    assert(memcmp(original, signal, sample_rate*2*sizeof(float)) == 0); /* Action fades out. */
+    assert(memcmp(original, signal + 2*WIDTH_DELAY, (sample_rate - WIDTH_DELAY)*2*sizeof(float)) == 0); /* Action fades out. */
 
     /* The callback must be independent of audio device chunk sizes. */
     prepare(0.7f, 0.4f, 0.9f, 1);
@@ -239,7 +272,7 @@ int main(void) {
     noise(sample_rate, 0.02f);
     memcpy(original, signal, sample_rate*2*sizeof(float));
     music_reverb_processor(signal, sample_rate);
-    assert(memcmp(original, signal, sample_rate*2*sizeof(float)) == 0); /* Same DSP now dry. */
+    assert(memcmp(original, signal + 2*WIDTH_DELAY, (sample_rate - WIDTH_DELAY)*2*sizeof(float)) == 0); /* Same DSP now dry. */
     raylib_stub_music_playing = false;
     audio_preview_effect(&a, 0);
     assert(a.current_game_track == 1); /* Continue when the test track ends. */
