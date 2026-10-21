@@ -7,6 +7,7 @@
 #include "ui_input.h"
 #include "ui_combos.h"
 #include "ui_motion.h"
+#include "campaign.h"
 
 Font font_body;
 TerminalTheme g_theme;
@@ -168,8 +169,26 @@ static void test_combos(void) {
     }
     assert(drawn_cards && saw_cup && saw_full_name);
 }
+static unsigned long long medal_mask(int bronze, int silver, int gold) {
+    unsigned long long mask = 0;
+    for (int i = 0; i < bronze; i++) mask |= 1ULL << (i * 3);
+    for (int i = 0; i < silver; i++) mask |= 1ULL << (i * 3 + 1);
+    for (int i = 0; i < gold; i++) mask |= 1ULL << (i * 3 + 2);
+    return mask;
+}
+static void test_campaign_unlocks(void) {
+    GameSettings settings = {0};
+    settings.unlocked_opponents = 12; /* stale saves must not bypass medal gates */
+    assert(campaign_update_unlocks(&settings) && settings.unlocked_opponents == 1);
+    settings.cleared_mask = medal_mask(11, 0, 0);
+    assert(campaign_update_unlocks(&settings) && settings.unlocked_opponents == 4);
+    settings.cleared_mask = medal_mask(7, 6, 0);
+    assert(campaign_update_unlocks(&settings) && settings.unlocked_opponents == 7);
+    settings.cleared_mask = medal_mask(7, 6, 1);
+    assert(campaign_update_unlocks(&settings) && settings.unlocked_opponents == 8);
+}
 int main(void) {
-    test_clicks_and_drag(); test_combos();
-    puts("All table input and combo panel tests passed.");
+    test_clicks_and_drag(); test_combos(); test_campaign_unlocks();
+    puts("All table input, campaign unlock, and combo panel tests passed.");
     return 0;
 }

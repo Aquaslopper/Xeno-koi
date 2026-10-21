@@ -2,7 +2,7 @@
 
 The campaign has **twelve CPU opponents**, one per month, plus the final boss **[Entity 13 // DEUS SUPREMUS](deus-supremus.md)**. Each opponent has a favourite card, a favourite yaku, and their own taunts.
 
-Opponents unlock in order. You win a match against the newest opponent to unlock the next one. See [Modes](modes.md) for the unlock rules.
+Opponents unlock in order when your earned bronze, silver, and gold coins meet the cumulative requirement shown on each locked-sector dossier. See [Modes](modes.md) for how to earn coins and the unlock thresholds.
 
 <div class="figure-zoom" id="campaign-live"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/campaign.webp" width="1920" height="1080" loading="lazy" alt="The campaign select screen: twelve portrait tiles in a row labelled M-01 to M-12, the first nine open and the last three reading LOCKED, the ninth selected with a large portrait beside a dossier that names the unit, its priority yaku, its signature target and three clearance buttons, with START MATCH and BACK below."></div><a class="figure-zoom-btn" href="#campaign-live">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
 

@@ -7,6 +7,9 @@
 
 #include <stdbool.h>
 
+static float raylib_stub_last_sound_volume;
+static int raylib_stub_play_sound_count;
+
 typedef struct rAudioBuffer rAudioBuffer;
 typedef struct rAudioProcessor rAudioProcessor;
 
@@ -51,8 +54,8 @@ static inline float GetMusicTimePlayed(Music music) { (void)music; return 0.0f; 
 
 static inline Sound LoadSound(const char *fileName) { (void)fileName; Sound s = {0}; return s; }
 static inline void UnloadSound(Sound sound) { (void)sound; }
-static inline void PlaySound(Sound sound) { (void)sound; }
-static inline void SetSoundVolume(Sound sound, float volume) { (void)sound; (void)volume; }
+static inline void PlaySound(Sound sound) { (void)sound; raylib_stub_play_sound_count++; }
+static inline void SetSoundVolume(Sound sound, float volume) { (void)sound; raylib_stub_last_sound_volume = volume; }
 
 static inline void AttachAudioStreamProcessor(AudioStream stream, AudioCallback process) { (void)stream; (void)process; }
 static inline void DetachAudioStreamProcessor(AudioStream stream, AudioCallback process) { (void)stream; (void)process; }

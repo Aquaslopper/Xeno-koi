@@ -318,20 +318,17 @@ static void count_coins(unsigned long long mask, int *b, int *s, int *g) {
 
 int campaign_update_unlocks(GameSettings *settings) {
     if (!settings) return 0;
-    int changed = 0;
     int b, s, g;
     count_coins(settings->cleared_mask, &b, &s, &g);
-    while (settings->unlocked_opponents < 12) {
-        int idx = settings->unlocked_opponents; /* 0-based opponent index to unlock */
-        if (idx < 0 || idx > 11) break;
-        if (b >= UNLOCK_REQ_B[idx] && s >= UNLOCK_REQ_S[idx] && g >= UNLOCK_REQ_G[idx]) {
-            settings->unlocked_opponents++;
-            changed = 1;
-        } else {
-            break;
-        }
+
+    /* Unlocks are derived from earned coins, not trusted from an older save. */
+    int unlocked = 1;
+    while (unlocked < CAMPAIGN_OPPONENT_COUNT) {
+        int idx = unlocked; /* 0-based opponent index to unlock */
+        if (b < UNLOCK_REQ_B[idx] || s < UNLOCK_REQ_S[idx] || g < UNLOCK_REQ_G[idx]) break;
+        unlocked++;
     }
-    if (settings->unlocked_opponents > 12) settings->unlocked_opponents = 12;
-    if (settings->unlocked_opponents < 1) settings->unlocked_opponents = 1;
-    return changed;
+    if (settings->unlocked_opponents == unlocked) return 0;
+    settings->unlocked_opponents = unlocked;
+    return 1;
 }
