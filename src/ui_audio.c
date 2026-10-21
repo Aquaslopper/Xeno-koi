@@ -36,12 +36,22 @@ static float s_pre_buf_r[REVERB_PREDELAY_MAX];
 static int   s_pre_idx_l = 0;
 static int   s_pre_idx_r = 0;
 
-static float s_hp_lp_l = 0.0f;
-static float s_hp_lp_r = 0.0f;
-static float s_in_lp_l = 0.0f;
-static float s_in_lp_r = 0.0f;
-static float s_wet_lp_l = 0.0f;
-static float s_wet_lp_r = 0.0f;
+typedef struct {
+    float x1, x2;
+    float y1, y2;
+} BiquadState;
+
+static BiquadState s_in_hp_l, s_in_hp_r;
+static BiquadState s_in_lp_l, s_in_lp_r;
+static BiquadState s_out_hp_l, s_out_hp_r;
+static BiquadState s_out_lp_l, s_out_lp_r;
+
+static float s_sc_env = 0.0f;
+static float s_mid_bass_lp = 0.0f;
+static float s_side_low_lp = 0.0f;
+static float s_side_deess_lp = 0.0f;
+static float s_deess_env = 0.0f;
+static float s_comp_env = 0.0f;
 
 static volatile float s_reverb_target = 0.0f;
 static float s_reverb_cur = 0.0f;
@@ -58,8 +68,27 @@ static float clamp_range(float x, float lo, float hi) {
     return x;
 }
 
-/* Soft-knee peak limiter: 1:1 linear below knee (zero volume loss on normal signal),
-   smoothly compressed above knee with a strict ceiling at max_val. */
+/* 2nd-order Butterworth Low-Cut (72 Hz, 12 dB/oct) matching the reverb EQ curve */
+static float biquad_hp72(BiquadState *s, float x) {
+    const float b0 =  0.9927726f, b1 = -1.9855451f, b2 = 0.9927726f;
+    const float a1 = -1.9854929f, a2 =  0.9855974f;
+    float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
+    s->x2 = s->x1; s->x1 = x;
+    s->y2 = s->y1; s->y1 = y;
+    return y;
+}
+
+/* 2nd-order Butterworth High-Cut (3.6 kHz, 12 dB/oct) matching the reverb EQ curve */
+static float biquad_lp3600(BiquadState *s, float x) {
+    const float b0 =  0.0477663f, b1 = 0.0955325f, b2 = 0.0477663f;
+    const float a1 = -1.2937273f, a2 = 0.4847923f;
+    float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
+    s->x2 = s->x1; s->x1 = x;
+    s->y2 = s->y1; s->y1 = y;
+    return y;
+}
+
+/* Soft-knee peak limiter: 1:1 linear below knee, smoothly compressed above knee */
 static float soft_knee_limit(float x, float knee, float max_val) {
     float ax = (x < 0.0f) ? -x : x;
     if (ax <= knee) return x;
@@ -75,37 +104,43 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
     float target = clamp_range(s_reverb_target, 0.0f, 1.0f);
 
     for (unsigned int f = 0; f < frames; f++) {
-        /* Smooth audio-rate glide, strictly hard-limited to [0, 1] */
         float rate = (target > s_reverb_cur) ? 0.0018f : 0.0012f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
         float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
 
-        /* 1. Fixed, constant-gain tank parameters so the reverb NEVER blows up nonlinearly
-              or gets louder than the dry music at high synergy */
-        s_in_lp_l += (dry_l - s_in_lp_l) * 0.28f;
-        s_in_lp_r += (dry_r - s_in_lp_r) * 0.28f;
+        /* 1. Sidechain detector on dry music (dims the reverb during loud beats, no heavy dry ducking) */
+        float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
+        float sc_rate = (dry_abs > s_sc_env) ? 0.008f : 0.00035f;
+        s_sc_env += (dry_abs - s_sc_env) * sc_rate;
+        float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
+        float sc_dim = 1.0f / (1.0f + 2.4f * sc_over);
+
+        /* 2. Abbey Road Reverb Bandpass (72 Hz Low-Cut + 3.6 kHz High-Cut, flat 0 dB from 150 Hz..2 kHz)
+              applied once going into the tank so bass never smears and highs never resonate/spike */
+        float bp_in_l = biquad_lp3600(&s_in_lp_l, biquad_hp72(&s_in_hp_l, dry_l));
+        float bp_in_r = biquad_lp3600(&s_in_lp_r, biquad_hp72(&s_in_hp_r, dry_r));
 
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(s_in_lp_l * 0.50f + slap_r * 0.20f, -0.70f, 0.70f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(s_in_lp_r * 0.50f - slap_l * 0.20f, -0.70f, 0.70f);
+        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.52f + slap_r * 0.20f, -0.70f, 0.70f);
+        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.52f - slap_l * 0.20f, -0.70f, 0.70f);
         if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
         if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
 
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        float feed_l = s_in_lp_l * 0.48f + slap_r * 0.20f;
-        float feed_r = s_in_lp_r * 0.48f + slap_l * 0.20f;
-        float feedback = 0.68f - 0.10f * tail_releasing;
-        const float damp = 0.52f;
+        float feed_l = bp_in_l * 0.52f + slap_r * 0.22f;
+        float feed_r = bp_in_r * 0.52f + slap_l * 0.22f;
+        float feedback = 0.70f - 0.10f * tail_releasing;
+        const float damp = 0.44f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
             int il = s_comb_idx_l[c];
             float out_l = s_comb_buf_l[c][il];
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.75f, 0.75f);
+            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
             if (++il >= k_comb_len_l[c]) il = 0;
             s_comb_idx_l[c] = il;
             acc_l += s_comb_lp_l[c];
@@ -113,14 +148,14 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             int ir = s_comb_idx_r[c];
             float out_r = s_comb_buf_r[c][ir];
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.75f, 0.75f);
+            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.80f, 0.80f);
             if (++ir >= k_comb_len_r[c]) ir = 0;
             s_comb_idx_r[c] = ir;
             acc_r += s_comb_lp_r[c];
         }
 
-        acc_l *= 0.36f;
-        acc_r *= 0.36f;
+        acc_l *= 0.40f;
+        acc_r *= 0.40f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
             int il = s_ap_idx_l[a];
@@ -140,28 +175,62 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             s_ap_idx_r[a] = ir;
         }
 
-        /* 2. Stereo width starts gentle on the 1st card and widens on 2nd/3rd card;
-              warm low-pass (~2.2 kHz) prevents high-frequency spikes */
-        float stereo_w = 0.30f + 0.70f * (rev * rev);
-        float acc_mid = 0.5f * (acc_l + acc_r);
-        float raw_wet_l = acc_mid * (1.0f - stereo_w) + (acc_l + slap_l * 0.25f) * stereo_w;
-        float raw_wet_r = acc_mid * (1.0f - stereo_w) + (acc_r + slap_r * 0.25f) * stereo_w;
-        s_hp_lp_l += (raw_wet_l - s_hp_lp_l) * 0.010f;
-        s_hp_lp_r += (raw_wet_r - s_hp_lp_r) * 0.010f;
-        float hp_l = raw_wet_l - s_hp_lp_l;
-        float hp_r = raw_wet_r - s_hp_lp_r;
-        s_wet_lp_l += (hp_l - s_wet_lp_l) * 0.25f;
-        s_wet_lp_r += (hp_r - s_wet_lp_r) * 0.25f;
+        /* Post-tank Low-Cut (72 Hz) + High-Cut (3.6 kHz) */
+        float wet_bp_l = biquad_lp3600(&s_out_lp_l, biquad_hp72(&s_out_hp_l, acc_l + slap_l * 0.28f));
+        float wet_bp_r = biquad_lp3600(&s_out_lp_r, biquad_hp72(&s_out_hp_r, acc_r + slap_r * 0.28f));
+
+        /* 3. Mid/Side (M/S) stage:
+              - Mid keeps the warm low-mids; dry Mid lows get a gentle warmth boost (+1.2 dB)
+              - Side has lows (<180 Hz) cut out so bass stays centered in Mid, and highs (>2.6 kHz)
+                are dynamically de-essed before going into the gentle stereo spread */
+        float dry_mid  = 0.5f * (dry_l + dry_r);
+        float dry_side = 0.5f * (dry_l - dry_r);
+        s_mid_bass_lp += (dry_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz Mid low-pass */
+
+        float wet_mid  = 0.5f * (wet_bp_l + wet_bp_r);
+        float wet_side = 0.5f * (wet_bp_l - wet_bp_r);
+        s_side_low_lp += (wet_side - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
+        float side_hi = wet_side - s_side_low_lp;
+
+        /* De-ess high frequencies in the stereo Side channel */
+        s_side_deess_lp += (side_hi - s_side_deess_lp) * 0.30f; /* ~2.6 kHz split */
+        float side_sibilance = side_hi - s_side_deess_lp;
+        float sib_abs = (side_sibilance < 0.0f) ? -side_sibilance : side_sibilance;
+        float deess_rate = (sib_abs > s_deess_env) ? 0.08f : 0.0015f;
+        s_deess_env += (sib_abs - s_deess_env) * deess_rate;
+        float deess_gain = 1.0f / (1.0f + 7.5f * s_deess_env);
+        float clean_wet_side = s_side_deess_lp + side_sibilance * deess_gain * 0.60f;
 
         if (rev > 0.0005f) {
-            /* 3. Unity-loudness wet/dry mix: wet_gain scales linearly (rev * 0.58) and dry_gain
-                  dips by at most 14% so total volume stays within +/-0.3 dB of the dry music */
-            float wet_gain = rev * 0.58f * (1.0f - 0.18f * tail_releasing);
-            float dry_gain = 1.0f - rev * 0.14f;
-            float out_l = dry_l * dry_gain + soft_knee_limit(s_wet_lp_l * wet_gain, 0.24f, 0.34f);
-            float out_r = dry_r * dry_gain + soft_knee_limit(s_wet_lp_r * wet_gain, 0.24f, 0.34f);
-            pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.52f, 0.68f);
-            pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.52f, 0.68f);
+            /* Gentle stereo width (0.30 on 1st card -> 0.70 max on 3rd card) with loudness compensation */
+            float stereo_w = 0.30f + 0.40f * (rev * rev);
+            float stereo_comp = 1.0f / (1.0f + 0.22f * stereo_w);
+            float wet_gain = rev * 0.78f * sc_dim * stereo_comp * (1.0f - 0.18f * tail_releasing);
+
+            /* Gentle dry ducking (max 12%) + gentle Mid low boost */
+            float dry_gain = 1.0f - rev * 0.12f;
+            float out_mid  = dry_mid * dry_gain + s_mid_bass_lp * (0.12f * rev) + wet_mid * wet_gain;
+            float out_side = dry_side * dry_gain + clean_wet_side * (wet_gain * stereo_w);
+
+            float out_l = out_mid + out_side;
+            float out_r = out_mid - out_side;
+
+            /* 4. Master Glue Bus Compressor (catches spikes above 0.34, 3.2:1 ratio) + safety ceiling */
+            float pk = (out_l < 0.0f ? -out_l : out_l);
+            float pk_r = (out_r < 0.0f ? -out_r : out_r);
+            if (pk_r > pk) pk = pk_r;
+            float comp_rate = (pk > s_comp_env) ? 0.012f : 0.0003f;
+            s_comp_env += (pk - s_comp_env) * comp_rate;
+            const float thresh = 0.34f;
+            if (s_comp_env > thresh) {
+                float over = s_comp_env - thresh;
+                float target_lvl = thresh + over * 0.31f;
+                float cg = target_lvl / s_comp_env;
+                out_l *= cg;
+                out_r *= cg;
+            }
+            pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.48f, 0.62f);
+            pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.48f, 0.62f);
         }
     }
 }
