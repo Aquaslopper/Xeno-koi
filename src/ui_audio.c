@@ -133,7 +133,7 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float sfx_scaling = card_sfx_volume(target) * 0.15f; // Keep it subtle (15% max blend)
         bp_in_l += dry_l * sfx_scaling;
         bp_in_r += dry_r * sfx_scaling;
-       
+        
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
         s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.65f + slap_r * 0.12f, -0.70f, 0.70f);
