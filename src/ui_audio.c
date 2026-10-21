@@ -240,11 +240,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
 
             float dry_gain = 1.0f - rev * 0.12f;
             float mono_bass_boost = s_mid_bass_lp * (0.30f * rev);
-            float rev_mid = wet_mono * wet_gain + mono_bass_boost;
-            float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
+            float rev_mid = wet_mono * (wet_gain * 0.50f) + mono_bass_boost;
+            float rev_wet = wet_gain * 0.90f;
 
-            out_l = dry_l * dry_gain + rev_mid + rev_side * 0.92f;
-            out_r = dry_r * dry_gain + rev_mid + rev_side * 0.42f;
+            out_l = dry_l * dry_gain + rev_mid + wet_l * rev_wet;
+            out_r = dry_r * dry_gain + rev_mid + wet_r * rev_wet;
         }
 
         /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
