@@ -7,6 +7,15 @@
 ## Status Summary
 ## Latest completed work
 
+### Stronger, verified chorus range (22 October 2026)
+
+- Maintainer reports no audible chorus, with or without other effects; clarified that Space reverb is audible with Test Effect ON. Inspected UI/startup binding, atomic controls and preview routing. The initial chorus had a quiet averaged return and slow/shallow modulation, and existing checks accepted a merely nonzero effect rather than a useful signal level.
+- Changed only three chorus parameters: maximum parallel return 0.35 → 1.0 of the two-voice average, depth 3 → 6 ms, nominal rate 0.30 → 0.60 Hz. Direct signal, identical-channel processing, no-feedback routing and shared peak protection retained. Bass, space reverb, UI/settings/defaults/action/preview routing and all gameplay/assets/dependencies untouched.
+- Added a real-callback quiet-noise wet/dry RMS acceptance check at 25/50/75/100% and 44.1/48/96 kHz. It fails the prior code; maximum now measures 0.579–0.580 with required bounds 0.50–0.75. Existing actual modulation, fixed-pan/channel-exchange, 40 ms tail, bypass, smoothing and chunk tests remain.
+- Actual first-30-second bundled MP3 comparisons at identical quiet input levels and with no active limiter isolate processed-minus-dry chorus. Maximum layer: game1 −12.32 → −2.96 dB relative to dry; game3 −13.06 → −2.60 dB. Zero chorus has exactly zero difference. This quantifies a stronger modulated layer rather than inferring strength from overall volume. Full-level all-max peaks 0.96687/0.97471, L/R balance −0.370/−0.180 dB; low-level mono-fold commutation error <2e-9. Bass-only gains remain unchanged.
+- Full engine/audio/settings/UI suite, ASan/UBSan DSP tests, strict C99, generated tables, strict docs and whitespace checks passed. Touched chorus tuning, focused test and docs only. Live listening on the maintainer's build remains unverified; these measurements are not a guarantee of perceived quality. Previous entry's chorus parameters/measurements are superseded.
+
+
 ### Chorus replaces widening; scalable space reverb (22 October 2026)
 
 - Maintainer explicitly abandoned stereo widening and requested chorus plus a room-to-large-space reverb. Removed every width/covariance/power-budget state and the 64-sample alignment buffer. The interrupted, uncommitted fixed-width experiment/test is not shipped. All-off bypass is bit-identical at zero latency again.

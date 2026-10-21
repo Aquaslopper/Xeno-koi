@@ -303,10 +303,10 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         s_chorus_history[1][s_chorus_index] = out_r;
         float amount = chorus*rev;
         if (amount > 0.00001f) {
-            float depth = 132*chorus; /* up to 3 ms at nominal 44.1 kHz */
+            float depth = 264*chorus; /* up to 6 ms at nominal 44.1 kHz */
             float d1 = 662 + depth*sinf(s_chorus_phase);
             float d2 = 1014 + depth*cosf(s_chorus_phase);
-            float mix = 0.35f*amount;
+            float mix = amount; /* At maximum, the averaged voices have unity return gain. */
             float voice_l = 0.5f*(delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d1)
                                 + delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d2));
             float voice_r = 0.5f*(delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d1)
@@ -315,7 +315,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             out_r += mix*voice_r;
         }
         if (++s_chorus_index == CHORUS_HISTORY) s_chorus_index = 0;
-        s_chorus_phase += 6.28318530718f*0.30f/44100;
+        s_chorus_phase += 6.28318530718f*0.60f/44100;
         if (s_chorus_phase >= 6.28318530718f) s_chorus_phase -= 6.28318530718f;
 
         /* Stereo-linked protection: one gain for both ears, no image shift.

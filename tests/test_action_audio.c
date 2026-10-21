@@ -118,6 +118,21 @@ static void chorus_behaviour(void) {
         printf("%d Hz chorus %.2f: modulation RMS %.6f, fixed pan preserved\n", sample_rate, amount, sqrt(motion/sample_rate));
         assert(motion/sample_rate > 1e-8); /* Actually modulated, not just a static echo. */
         finite_peak(sample_rate*4, 0.98001f);
+        /* Nonzero output is not enough: the wet layer must have a useful level.
+           Quiet noise avoids peak limiting; subtract the exact same dry frames. */
+        prepare(amount, 0, 0, 1);
+        noise(sample_rate*3, 0.02f);
+        memcpy(original, signal, sample_rate*6*sizeof(float));
+        music_reverb_processor(signal, sample_rate*3);
+        double dry_power = 0, wet_power = 0;
+        for (int i = sample_rate; i < sample_rate*3; i++) {
+            double dry = original[2*i], wet = signal[2*i] - dry;
+            dry_power += dry*dry; wet_power += wet*wet;
+            assert(signal[2*i] == signal[2*i+1]);
+        }
+        double ratio = sqrt(wet_power/dry_power);
+        printf("%d Hz chorus %.2f: wet/dry RMS %.3f\n", sample_rate, amount, ratio);
+        assert(ratio > 0.50*amount && ratio < 0.75*amount);
     }
 }
 
