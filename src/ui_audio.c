@@ -212,8 +212,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
 
         if (rev > 0.0005f) {
             /* Gentle stereo width (0.30 -> 0.66) with loudness compensation */
-            float stereo_w = 0.30f + 0.36f * (rev * rev);
-            float stereo_comp = 1.0f / (1.0f + 0.20f * stereo_w);
+            float stereo_w = 0.40f + 0.50f * (rev * rev);
+            float stereo_comp = 1.0f / (1.0f + 0.08f * stereo_w);
             float wet_gain = rev * 0.76f * sc_dim * stereo_comp * (1.0f - 0.18f * tail_releasing);
 
             /* Gentle dry ducking (max 9%) + gentle mono middle bass boost */
