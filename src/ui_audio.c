@@ -4,67 +4,67 @@
 #include <math.h>
 
 /* ======================================================================
-   Clean 3-stage studio signal chain on Raylib's mixer:
+   Studio bus architecture on Raylib's mixer (all cutoffs & gains verified):
 
-   1. SFX Bus (all 7 SFX streams loaded FIRST -> processed BEFORE music in
+   1. SFX Bus (all SFX streams loaded FIRST -> processed BEFORE music in
       every device callback with zero block latency):
         sfx_tap_N() feeds s_sc_bus[] without altering any SFX waveform.
 
    2. Music Bus (driven by 550 ms Tide swell -> -20% shoulder -> smooth tail):
-        Stage 0: Bit-exact dry bypass (0 / 0 / 0)
-        Stage 1: Wide Stereo ONLY            (Stereo 60%, Reverb  0%, Bass  0%)
-        Stage 2: Wide Stereo + Reverb        (Stereo 70%, Reverb 50%, Bass  0%)
-        Stage 3: Wide Stereo + Reverb + Bass (Stereo 70%, Reverb 70%, Bass 50%)
+        Stage 0: Bypass           (Stereo  0%, Mono Reverb  0%, Mono Bass  0%)
+        Stage 1: Stereo-led entry (Stereo 60%, Mono Reverb 20%, Mono Bass 20%)
+        Stage 2: Reverb bloom     (Stereo 70%, Mono Reverb 50%, Mono Bass 20%)
+        Stage 3: Full bass weight (Stereo 70%, Mono Reverb 70%, Mono Bass 50%)
 
-      Three clean, non-interfering textbook processors:
-        [A] Minimum-Phase RBJ M/S High-Shelf Widener (> 500 Hz on Side, plus
-            24 dB/oct 200 Hz Side safety cut & subtle high-Mid space tuck):
-              Zero delay lines, zero static-allpass comb phasing, zero reverb
-              tail on Stage 1, zero low-frequency phase cancellation.
+      Three non-interfering processors:
+        [A] Clean M/S Stereo Widener (> 500 Hz ONLY):
+              24 dB/oct Side low-frequency guard + RBJ High-Shelf on Side @
+              500 Hz (zero delay lines, zero comb filtering, zero reverb bleed).
 
-        [B] Abbey Road Stereo Reverb (kick-free space ONLY):
-              Pre-tank: 24 dB/oct Butterworth HP @ 550 Hz (ZERO kick in tank)
-                -> stereo-linked split de-esser @ 1.2 kHz (-18 dBFS, 3:1,
-                   zero post-boost)
-                -> 12 dB/oct Butterworth LP @ 8.5 kHz
-              -> 25 ms pre-delay -> 4 damped stereo combs -> 2 stereo allpasses
-              -> post-tank 500 Hz HP on wet Side.
+        [B] Pure MONO Reverb Tank (> 250 Hz ONLY, added to Mid ONLY):
+              mono_in = 0.5*(L+R)
+                -> 24 dB/oct Butterworth HPF @ 250 Hz (keeps kick out of tank)
+                -> split de-esser @ 1.2 kHz (-18 dBFS, 3:1, zero post-boost)
+                -> 12 dB/oct Butterworth LPF @ 8.5 kHz
+                -> 25 ms mono pre-delay -> 4 mono damped combs -> 2 mono allpasses
+                -> Parseval-calibrated mono return into Mid ONLY (wet_side == 0).
 
-        [C] Minimum-Phase RBJ Mono Sub/Kick EQ + Slow Glue Comp (Mid ONLY):
-              38 Hz sub-mud high-pass + wide RBJ bell boost centered at 82 Hz
-              (Q = 0.62: slopes smoothly from 100->40 Hz, cuts <35 Hz mud,
-              delivers real +6..+7.5 dB punch across 50-130 Hz with zero phase
-              cancellation) + 35 ms slow-attack 2:1 low-band glue compressor.
+        [C] Clean MONO Bass Processor (40-250 Hz on Mid ONLY):
+              Minimum-phase series RBJ sub cut @ 40 Hz + gentle 100->40 Hz
+              slope + RBJ low-shelf boost @ 250 Hz + slow-attack (35 ms /
+              130 ms, 2:1) < 250 Hz low-band glue compressor.
 
    3. Music Group Sidechain & Master Bus:
       - Full music group ducks under ALL live SFX streams (3 ms atk / 85 ms rel).
-      - 160 Hz HPF detector spike compressor (-1 dBFS, 2:1) + 0.95/0.99 ceiling.
+      - High-passed spike compressor (> 250 Hz detector) + clean stereo-linked
+        envelope peak limiter + 0.95/0.99 ceiling protection.
    ====================================================================== */
 
 #define AUDIO_SR          44100.0f
 #define PI_F              3.14159265f
 
-/* ---- tunables -------------------------------------------------------- */
-#define SIDE_SHELF_HZ      500.0f   /* RBJ M/S High-Shelf stereo corner       */
+/* ---- exact verified cutoffs & stage levels --------------------------- */
+#define SIDE_HP_HZ         500.0f   /* Stereo widener corner @ 500 Hz         */
+#define SIDE_GUARD_HZ      150.0f   /* 24 dB/oct mono lock on deep Side lows  */
 #define SIDE_MAX_DB         10.0f   /* +6.0 dB at 60% (Stg1), +7.0 dB at 70%  */
-#define SIDE_MONO_SAFE_HZ  130.0f   /* 24 dB/oct sub-bass mono lock on Side   */
-#define MID_SPACE_TUCK_DB   -1.4f   /* subtle >600 Hz center pocket           */
+#define MID_SPACE_TUCK_DB   -1.4f   /* subtle >500 Hz center pocket           */
 
-#define REV_IN_HP_HZ       550.0f   /* 24 dB/oct pre-tank HP: ZERO kick in rev*/
-#define REV_IN_LP_HZ      8500.0f   /* 12 dB/oct pre-tank LP: silky highs     */
+#define REV_IN_HP_HZ       250.0f   /* 24 dB/oct pre-tank HPF @ 250 Hz        */
+#define REV_IN_LP_HZ      8500.0f   /* 12 dB/oct pre-tank LPF @ 8.5 kHz       */
 #define DEESS_HZ          1200.0f   /* pre-tank split de-esser @ 1.2 kHz      */
 #define DEESS_TH           0.125f   /* -18 dBFS threshold, 3:1, zero boost    */
-#define PRE_DELAY_MS        25.0f   /* equal L/R pre-delay                    */
-#define WET_REV_GAIN        0.92f   /* natural stereo hall balance            */
+#define PRE_DELAY_MS        25.0f   /* mono pre-delay (ms)                    */
+#define REV_COMB_NORM       0.367f  /* exact Parseval 0 dB unity for 4 combs  */
+#define REV_SEND_TRIM       0.48f   /* calibrated mono return: quiet 20%, lush 70% */
 
-#define BASS_SUB_SHELF_HZ   36.0f   /* Pultec-style RBJ low-shelf cuts <40 Hz */
-#define BASS_SUB_CUT_DB    -26.0f   /* -13.0 dB <36 Hz mud cut at 50% (Stg 3) */
-#define BASS_BELL_HZ        76.0f   /* hits BOTH 48-65 Hz sub & 70-135 Hz kick*/
-#define BASS_BELL_Q         0.58f   /* wide musical sub+kick curve, zero ring */
-#define BASS_MAX_DB         15.5f   /* +7.75 dB at 50% (Stage 3 crest)        */
-#define BASS_HEADROOM_DB    -3.2f   /* -1.6 dB >500 Hz space so sub dominates */
-#define BASS_GLUE_HZ       150.0f   /* low-band glue detector crossover       */
-#define BASS_GLUE_TH        0.660f  /* -3.6 dBFS slow glue catches loud peaks */
+#define BASS_LP_HZ         250.0f   /* Mono bass upper crossover @ 250 Hz     */
+#define BASS_SLOPE_HZ      100.0f   /* Gentle roll-off slope 100 Hz -> 40 Hz  */
+#define BASS_CUT_HZ         40.0f   /* Sub-rumble cut < 40 Hz                 */
+#define BASS_MAX_DB         16.5f   /* +2.2 dB @ 20% (Stg1/2), +5.4 dB @ 50%  */
+#define BASS_SLOPE_DB       -5.0f   /* gentle -2.5 dB 100->40 Hz tilt @ 50%   */
+#define BASS_CUT_DB        -24.0f   /* -12.0 dB <40 Hz mud cut @ 50%          */
+#define BASS_HEADROOM_DB    -2.6f   /* -1.3 dB >500 Hz headroom @ 50% Bass    */
+#define BASS_GLUE_TH        0.650f  /* -3.7 dBFS slow glue catches loud peaks */
 
 #define SFX_SC_THRESH      0.040f   /* -28 dBFS SFX duck threshold            */
 #define SFX_SC_STRENGTH     1.60f   /* clean pocket across full music group   */
@@ -77,18 +77,18 @@
 #define TIDE_TAIL_S        3.400f   /* smooth organic exponential tail        */
 #define STAGE_OFF_TAU_S    0.450f   /* clean fade to 0 when stage resets      */
 
-#define BUSCOMP_HP_HZ      160.0f   /* detector ignores sub/kick bass boost   */
+#define BUSCOMP_HP_HZ      250.0f   /* detector ignores entire <250 Hz bass   */
 #define BUSCOMP_TH         0.890f   /* ~-1 dBFS: catches true spikes only     */
 #define LIMIT_KNEE         0.950f
 #define LIMIT_CEIL         0.990f
 
-/* Pure staged progression:
-   Stage 1: Stereo ONLY            (60% stereo,  0% reverb,  0% bass)
-   Stage 2: Stereo + Reverb        (70% stereo, 50% reverb,  0% bass)
-   Stage 3: Stereo + Reverb + Bass (70% stereo, 70% reverb, 50% bass) */
+/* Confirmed stage levels:
+   Stage 1: Stereo 60%, Mono Reverb 20%, Mono Bass 20%
+   Stage 2: Stereo 70%, Mono Reverb 50%, Mono Bass 20%
+   Stage 3: Stereo 70%, Mono Reverb 70%, Mono Bass 50% */
 static const float k_stage_side[4] = { 0.00f, 0.60f, 0.70f, 0.70f };
-static const float k_stage_rev[4]  = { 0.00f, 0.00f, 0.50f, 0.70f };
-static const float k_stage_bass[4] = { 0.00f, 0.00f, 0.00f, 0.50f };
+static const float k_stage_rev[4]  = { 0.00f, 0.20f, 0.50f, 0.70f };
+static const float k_stage_bass[4] = { 0.00f, 0.20f, 0.20f, 0.50f };
 
 /* ---- RBJ cookbook biquads -------------------------------------------- */
 typedef struct {
@@ -136,17 +136,6 @@ static void biquad_set_highshelf(Biquad *q, float cw, float sw, float gain_db) {
     q->b2 =       A * ( (A + 1.0f) + (A - 1.0f) * cw - sq) / a0;
     q->a1 =  2.0f   * ( (A - 1.0f) - (A + 1.0f) * cw)      / a0;
     q->a2 =           ( (A + 1.0f) - (A - 1.0f) * cw - sq) / a0;
-}
-
-static void biquad_set_peaking(Biquad *q, float cw, float sw, float Q, float gain_db) {
-    float A  = powf(10.0f, gain_db / 40.0f);
-    float al = sw / (2.0f * Q);
-    float a0 =  1.0f + al / A;
-    q->b0 = (1.0f + al * A) / a0;
-    q->b1 = (-2.0f * cw)    / a0;
-    q->b2 = (1.0f - al * A) / a0;
-    q->a1 = (-2.0f * cw)    / a0;
-    q->a2 = (1.0f - al / A) / a0;
 }
 
 static float biquad_run(Biquad *q, float x) {
@@ -230,50 +219,43 @@ static float sc_bus_read_sample(void) {
     return (v > 1.0f) ? 1.0f : v;
 }
 
-/* ---- dedicated DSP states -------------------------------------------- */
+/* ---- dedicated MONO reverb tank + M/S EQ + <250 Hz mono bass states -- */
 #define REVERB_COMB_COUNT 4
-#define REVERB_COMB_MAX   5504
+#define REVERB_COMB_MAX   5008
 #define REVERB_AP_COUNT   2
-#define REVERB_AP_MAX     640
+#define REVERB_AP_MAX     448
 #define PREDELAY_MAX      1400
 
-static const int k_comb_len_l[REVERB_COMB_COUNT] = { 2903, 3571, 4219, 4967 };
-static const int k_comb_len_r[REVERB_COMB_COUNT] = { 3251, 3917, 4603, 5381 };
-static const int k_ap_len_l[REVERB_AP_COUNT]     = { 431, 163 };
-static const int k_ap_len_r[REVERB_AP_COUNT]     = { 509, 211 };
+static const int k_comb_len[REVERB_COMB_COUNT] = { 2903, 3571, 4219, 4967 };
+static const int k_ap_len[REVERB_AP_COUNT]     = { 431, 163 };
 
-static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
-static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
-static int   s_comb_idx_l[REVERB_COMB_COUNT];
-static int   s_comb_idx_r[REVERB_COMB_COUNT];
-static float s_comb_lp_l[REVERB_COMB_COUNT];
-static float s_comb_lp_r[REVERB_COMB_COUNT];
-static float s_ap_buf_l[REVERB_AP_COUNT][REVERB_AP_MAX];
-static float s_ap_buf_r[REVERB_AP_COUNT][REVERB_AP_MAX];
-static int   s_ap_idx_l[REVERB_AP_COUNT];
-static int   s_ap_idx_r[REVERB_AP_COUNT];
-static float s_pre_buf_l[PREDELAY_MAX];
-static float s_pre_buf_r[PREDELAY_MAX];
-static int   s_pre_idx_l, s_pre_idx_r, s_pre_len;
+static float s_comb_buf[REVERB_COMB_COUNT][REVERB_COMB_MAX];
+static int   s_comb_idx[REVERB_COMB_COUNT];
+static float s_comb_lp[REVERB_COMB_COUNT];
+static float s_ap_buf[REVERB_AP_COUNT][REVERB_AP_MAX];
+static int   s_ap_idx[REVERB_AP_COUNT];
+static float s_pre_buf[PREDELAY_MAX];
+static int   s_pre_idx, s_pre_len;
 
-/* [A] RBJ High-Shelf M/S stereo width + mono-bass Side guard */
+/* [A] Clean M/S stereo width (> 500 Hz) */
 static Biquad s_side_shelf, s_mid_shelf;
 static Biquad s_side_guard1, s_side_guard2;
 static float  s_shelf_cw, s_shelf_sw;
 
-/* [B] Pre-tank Abbey Road reverb filters (> 550 Hz, 1.2 kHz de-ess, < 8.5 kHz) */
-static Biquad s_rev_hp_l1, s_rev_hp_l2, s_rev_hp_r1, s_rev_hp_r2;
-static Biquad s_rev_lp_l,  s_rev_lp_r;
-static Biquad s_rev_side_hp1, s_rev_side_hp2;
-static float  s_deess_lp_l, s_deess_lp_r, s_deess_env;
+/* [B] Pre-tank MONO reverb filters (24 dB/oct HP @ 250 Hz, 1.2 kHz de-ess, LP @ 8.5 kHz) */
+static Biquad s_rev_hp1, s_rev_hp2;
+static Biquad s_rev_lp;
+static float  s_deess_lp, s_deess_env;
 static float  s_sc_env;
 
-/* [C] Minimum-phase Pultec-style RBJ Mono Bass EQ + slow low-band glue */
-static Biquad s_bass_sub_shelf;
-static Biquad s_bass_bell;
-static float  s_sub_cw,  s_sub_sw;
-static float  s_bell_cw, s_bell_sw;
-static float  s_glue_lp, s_bass_comp_env;
+/* [C] Clean MONO bass processor (< 250 Hz + 100->40 Hz slope + <40 Hz cut + slow glue) */
+static Biquad s_bass_boost_shelf;
+static Biquad s_bass_slope_shelf;
+static Biquad s_bass_cut_shelf;
+static float  s_bass_cw,  s_bass_sw;
+static float  s_slope_cw, s_slope_sw;
+static float  s_cut_cw,   s_cut_sw;
+static float  s_glue_lp,  s_bass_comp_env;
 
 static int    s_dsp_ready;
 
@@ -306,37 +288,37 @@ static void audio_reset_stage_state(void) {
 
 static void dsp_init_once(void) {
     if (s_dsp_ready) return;
-    float ws = 2.0f * PI_F * SIDE_SHELF_HZ / AUDIO_SR;
+    float ws = 2.0f * PI_F * SIDE_HP_HZ / AUDIO_SR;
     s_shelf_cw = cosf(ws); s_shelf_sw = sinf(ws);
     memset(&s_side_shelf, 0, sizeof(Biquad));
     memset(&s_mid_shelf,  0, sizeof(Biquad));
     biquad_set_highshelf(&s_side_shelf, s_shelf_cw, s_shelf_sw, 0.0f);
     biquad_set_highshelf(&s_mid_shelf,  s_shelf_cw, s_shelf_sw, 0.0f);
-    biquad_design(&s_side_guard1, SIDE_MONO_SAFE_HZ, 1);
-    biquad_design(&s_side_guard2, SIDE_MONO_SAFE_HZ, 1);
+    biquad_design(&s_side_guard1, SIDE_GUARD_HZ, 1);
+    biquad_design(&s_side_guard2, SIDE_GUARD_HZ, 1);
 
-    biquad_design(&s_rev_hp_l1,    REV_IN_HP_HZ, 1);
-    biquad_design(&s_rev_hp_l2,    REV_IN_HP_HZ, 1);
-    biquad_design(&s_rev_hp_r1,    REV_IN_HP_HZ, 1);
-    biquad_design(&s_rev_hp_r2,    REV_IN_HP_HZ, 1);
-    biquad_design(&s_rev_lp_l,     REV_IN_LP_HZ, 0);
-    biquad_design(&s_rev_lp_r,     REV_IN_LP_HZ, 0);
-    biquad_design(&s_rev_side_hp1, SIDE_SHELF_HZ, 1);
-    biquad_design(&s_rev_side_hp2, SIDE_SHELF_HZ, 1);
+    biquad_design(&s_rev_hp1, REV_IN_HP_HZ, 1);
+    biquad_design(&s_rev_hp2, REV_IN_HP_HZ, 1);
+    biquad_design(&s_rev_lp,  REV_IN_LP_HZ, 0);
 
-    float wsub = 2.0f * PI_F * BASS_SUB_SHELF_HZ / AUDIO_SR;
-    s_sub_cw = cosf(wsub); s_sub_sw = sinf(wsub);
-    float wb = 2.0f * PI_F * BASS_BELL_HZ / AUDIO_SR;
-    s_bell_cw = cosf(wb); s_bell_sw = sinf(wb);
-    memset(&s_bass_sub_shelf, 0, sizeof(Biquad));
-    memset(&s_bass_bell,      0, sizeof(Biquad));
-    biquad_set_lowshelf(&s_bass_sub_shelf, s_sub_cw, s_sub_sw, 0.0f);
-    biquad_set_peaking(&s_bass_bell, s_bell_cw, s_bell_sw, BASS_BELL_Q, 0.0f);
+    float wb = 2.0f * PI_F * BASS_LP_HZ / AUDIO_SR;
+    s_bass_cw = cosf(wb); s_bass_sw = sinf(wb);
+    float wl = 2.0f * PI_F * BASS_SLOPE_HZ / AUDIO_SR;
+    s_slope_cw = cosf(wl); s_slope_sw = sinf(wl);
+    float wc = 2.0f * PI_F * BASS_CUT_HZ / AUDIO_SR;
+    s_cut_cw = cosf(wc); s_cut_sw = sinf(wc);
+
+    memset(&s_bass_boost_shelf, 0, sizeof(Biquad));
+    memset(&s_bass_slope_shelf, 0, sizeof(Biquad));
+    memset(&s_bass_cut_shelf,   0, sizeof(Biquad));
+    biquad_set_lowshelf(&s_bass_boost_shelf, s_bass_cw,  s_bass_sw,  0.0f);
+    biquad_set_lowshelf(&s_bass_slope_shelf, s_slope_cw, s_slope_sw, 0.0f);
+    biquad_set_lowshelf(&s_bass_cut_shelf,   s_cut_cw,   s_cut_sw,   0.0f);
 
     s_pre_len = (int)(PRE_DELAY_MS * AUDIO_SR / 1000.0f);
     if (s_pre_len < 1) s_pre_len = 1;
     if (s_pre_len >= PREDELAY_MAX) s_pre_len = PREDELAY_MAX - 1;
-    s_pre_idx_l = s_pre_idx_r = 0;
+    s_pre_idx = 0;
     s_dsp_ready = 1;
 }
 
@@ -362,7 +344,7 @@ static void menu_music_processor(void *buffer, unsigned int frames) {
     }
 }
 
-/* Game music: 3 independent studio stages + live All-SFX sidechain ducking. */
+/* Game music: M/S >500 Hz width + >250 Hz MONO reverb + <250 Hz MONO bass. */
 static void music_reverb_processor(void *buffer, unsigned int frames) {
     float *pcm = (float *)buffer;
     if (!pcm || frames == 0) return;
@@ -384,7 +366,7 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
     const float bass_atk  = sample_tau(0.035f), bass_rel  = sample_tau(0.130f);
     const float wetsc_atk = sample_tau(0.005f), wetsc_rel = sample_tau(0.090f);
 
-    const float k_glue  = onepole_k(BASS_GLUE_HZ);
+    const float k_glue  = onepole_k(BASS_LP_HZ);
     const float k_deess = onepole_k(DEESS_HZ);
     const float k_schp  = onepole_k(BUSCOMP_HP_HZ);
     const float comp_atk = sample_tau(0.025f), comp_rel = sample_tau(0.100f);
@@ -433,12 +415,12 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             }
         }
 
-        /* Update smooth minimum-phase EQ coefficients every 16 samples (~0.36ms). */
-        if ((f & 15u) == 0u && (s_side_env > 0.0f || s_bass_env > 0.0f)) {
-            biquad_set_highshelf(&s_side_shelf,     s_shelf_cw, s_shelf_sw, SIDE_MAX_DB * s_side_env + BASS_HEADROOM_DB * s_bass_env);
-            biquad_set_highshelf(&s_mid_shelf,      s_shelf_cw, s_shelf_sw, MID_SPACE_TUCK_DB * s_side_env + BASS_HEADROOM_DB * s_bass_env);
-            biquad_set_lowshelf(&s_bass_sub_shelf,  s_sub_cw,   s_sub_sw,   BASS_SUB_CUT_DB * s_bass_env);
-            biquad_set_peaking(&s_bass_bell,        s_bell_cw,  s_bell_sw,  BASS_BELL_Q, BASS_MAX_DB * s_bass_env);
+        if ((f & 15u) == 0u) {
+            biquad_set_highshelf(&s_side_shelf,       s_shelf_cw, s_shelf_sw, SIDE_MAX_DB * s_side_env + BASS_HEADROOM_DB * s_bass_env);
+            biquad_set_highshelf(&s_mid_shelf,        s_shelf_cw, s_shelf_sw, MID_SPACE_TUCK_DB * s_side_env + BASS_HEADROOM_DB * s_bass_env);
+            biquad_set_lowshelf(&s_bass_boost_shelf,  s_bass_cw,  s_bass_sw,  BASS_MAX_DB * s_bass_env);
+            biquad_set_lowshelf(&s_bass_slope_shelf,  s_slope_cw, s_slope_sw, BASS_SLOPE_DB * s_bass_env);
+            biquad_set_lowshelf(&s_bass_cut_shelf,    s_cut_cw,   s_cut_sw,   BASS_CUT_DB * s_bass_env);
         }
 
         /* Live SFX sidechain envelope */
@@ -449,60 +431,50 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float dry_mid  = 0.5f * (dry_l + dry_r);
         float dry_side = 0.5f * (dry_l - dry_r);
 
-        /* Keep filter states warm for click-free engagement */
+        /* Warm pre-tank MONO reverb send: HPF 250 Hz -> 1.2 kHz de-ess -> LPF 8.5 kHz -> 25 ms pre-delay */
         float guarded_s = biquad_run(&s_side_guard2, biquad_run(&s_side_guard1, dry_side));
+        float rhp       = biquad_run(&s_rev_hp2, biquad_run(&s_rev_hp1, dry_mid));
 
-        float rhp_l = biquad_run(&s_rev_hp_l2, biquad_run(&s_rev_hp_l1, dry_l));
-        float rhp_r = biquad_run(&s_rev_hp_r2, biquad_run(&s_rev_hp_r1, dry_r));
-
-        s_deess_lp_l += (rhp_l - s_deess_lp_l) * k_deess;
-        s_deess_lp_r += (rhp_r - s_deess_lp_r) * k_deess;
-        float hi_l = rhp_l - s_deess_lp_l;
-        float hi_r = rhp_r - s_deess_lp_r;
-        float hi_pk = fmaxf(fabsf(hi_l), fabsf(hi_r));
+        s_deess_lp += (rhp - s_deess_lp) * k_deess;
+        float hi    = rhp - s_deess_lp;
+        float hi_pk = fabsf(hi);
         s_deess_env += (hi_pk - s_deess_env) * ((hi_pk > s_deess_env) ? deess_atk : deess_rel);
         float deess_g = (s_deess_env > DEESS_TH)
                       ? (DEESS_TH + (s_deess_env - DEESS_TH) * 0.3333f) / s_deess_env
                       : 1.0f;
 
-        float rev_in_l = biquad_run(&s_rev_lp_l, s_deess_lp_l + hi_l * deess_g);
-        float rev_in_r = biquad_run(&s_rev_lp_r, s_deess_lp_r + hi_r * deess_g);
-
-        float slap_l = s_pre_buf_l[s_pre_idx_l];
-        float slap_r = s_pre_buf_r[s_pre_idx_r];
-        s_pre_buf_l[s_pre_idx_l] = rev_in_l;
-        s_pre_buf_r[s_pre_idx_r] = rev_in_r;
-        if (++s_pre_idx_l >= s_pre_len) s_pre_idx_l = 0;
-        if (++s_pre_idx_r >= s_pre_len) s_pre_idx_r = 0;
+        float rev_in = biquad_run(&s_rev_lp, s_deess_lp + hi * deess_g);
+        float slap   = s_pre_buf[s_pre_idx];
+        s_pre_buf[s_pre_idx] = rev_in;
+        if (++s_pre_idx >= s_pre_len) s_pre_idx = 0;
 
         int wet_active  = (s_side_env > 0.0f) || (s_rev_env > 0.0f) || (s_bass_env > 0.0f);
         int duck_active = (s_sfx_sc_env > SFX_SC_THRESH);
 
-        /* Stage 0 with no active SFX: keep EQ states warm & return exact dry. */
+        /* Stage 0 with no active SFX: warm filter states & bit-exact bypass. */
         if (!wet_active && !duck_active) {
-            s_side_shelf.x2     = s_side_shelf.x1;     s_side_shelf.x1     = guarded_s;
-            s_side_shelf.y2     = s_side_shelf.y1;     s_side_shelf.y1     = guarded_s;
-            s_mid_shelf.x2      = s_mid_shelf.x1;      s_mid_shelf.x1      = dry_mid;
-            s_mid_shelf.y2      = s_mid_shelf.y1;      s_mid_shelf.y1      = dry_mid;
-            s_bass_sub_shelf.x2 = s_bass_sub_shelf.x1; s_bass_sub_shelf.x1 = dry_mid;
-            s_bass_sub_shelf.y2 = s_bass_sub_shelf.y1; s_bass_sub_shelf.y1 = dry_mid;
-            s_bass_bell.x2      = s_bass_bell.x1;      s_bass_bell.x1      = dry_mid;
-            s_bass_bell.y2      = s_bass_bell.y1;      s_bass_bell.y1      = dry_mid;
+            s_side_shelf.x2       = s_side_shelf.x1;       s_side_shelf.x1       = guarded_s;
+            s_side_shelf.y2       = s_side_shelf.y1;       s_side_shelf.y1       = guarded_s;
+            s_mid_shelf.x2        = s_mid_shelf.x1;        s_mid_shelf.x1        = dry_mid;
+            s_mid_shelf.y2        = s_mid_shelf.y1;        s_mid_shelf.y1        = dry_mid;
+            s_bass_cut_shelf.x2   = s_bass_cut_shelf.x1;   s_bass_cut_shelf.x1   = dry_mid;
+            s_bass_cut_shelf.y2   = s_bass_cut_shelf.y1;   s_bass_cut_shelf.y1   = dry_mid;
+            s_bass_slope_shelf.x2 = s_bass_slope_shelf.x1; s_bass_slope_shelf.x1 = dry_mid;
+            s_bass_slope_shelf.y2 = s_bass_slope_shelf.y1; s_bass_slope_shelf.y1 = dry_mid;
+            s_bass_boost_shelf.x2 = s_bass_boost_shelf.x1; s_bass_boost_shelf.x1 = dry_mid;
+            s_bass_boost_shelf.y2 = s_bass_boost_shelf.y1; s_bass_boost_shelf.y1 = dry_mid;
             continue;
         }
 
-        /* [A] + [C] Pure minimum-phase M/S processing (zero parallel phase notch!):
-           - Mid : Pultec-style RBJ 42 Hz sub-mud cut + 86 Hz punch bell
-                   + 35 ms slow-attack low-band glue compressor
-           - Side: RBJ High-Shelf stereo width above 500 Hz (sub/bass guarded) */
+        /* [C] Clean MONO bass (< 250 Hz, 100->40 Hz slope, < 40 Hz cut, slow glue) */
         float bass_mix = clamp_range(s_bass_env * 2.0f, 0.0f, 1.0f);
-        float mid_sub  = biquad_run(&s_bass_sub_shelf, dry_mid);
-        float mid_eq   = biquad_run(&s_bass_bell, biquad_run(&s_mid_shelf, mid_sub));
+        float m1 = biquad_run(&s_bass_cut_shelf, dry_mid);
+        float m2 = biquad_run(&s_bass_slope_shelf, m1);
+        float m3 = biquad_run(&s_bass_boost_shelf, biquad_run(&s_mid_shelf, m2));
 
-        /* Slow-attack (35 ms) 2:1 low-band glue active proportionally to Stage 3 */
-        s_glue_lp += (mid_eq - s_glue_lp) * k_glue;
+        s_glue_lp += (m3 - s_glue_lp) * k_glue;
         float low_part  = s_glue_lp;
-        float high_part = mid_eq - low_part;
+        float high_part = m3 - low_part;
         float la = fabsf(low_part);
         s_bass_comp_env += (la - s_bass_comp_env) * ((la > s_bass_comp_env) ? bass_atk : bass_rel);
         if (s_bass_env > 0.0f && s_bass_comp_env > BASS_GLUE_TH) {
@@ -511,73 +483,49 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         }
         float proc_mid = low_part + high_part;
 
-        /* Blend dry_side -> guarded shelf_side smoothly so 0% is exact dry_side */
+        /* [B] Pure MONO reverb tank (> 250 Hz ONLY, added to Mid ONLY, wet_side == 0) */
+        if (s_rev_env > 0.0f) {
+            float feed = rev_in * 0.72f + slap * 0.28f;
+            const float feedback = 0.68f;
+            const float damp = 0.42f;
+            float acc = 0.0f;
+
+            for (int c = 0; c < REVERB_COMB_COUNT; c++) {
+                int idx = s_comb_idx[c];
+                float o = s_comb_buf[c][idx];
+                s_comb_lp[c] = o * (1.0f - damp) + s_comb_lp[c] * damp;
+                s_comb_buf[c][idx] = feed + s_comb_lp[c] * feedback;
+                if (++idx >= k_comb_len[c]) idx = 0;
+                s_comb_idx[c] = idx;
+                acc += s_comb_lp[c];
+            }
+            acc *= REV_COMB_NORM;
+
+            for (int a = 0; a < REVERB_AP_COUNT; a++) {
+                int idx = s_ap_idx[a];
+                float b = s_ap_buf[a][idx];
+                float x = acc;
+                acc = -x + b;
+                s_ap_buf[a][idx] = x + b * 0.48f;
+                if (++idx >= k_ap_len[a]) idx = 0;
+                s_ap_idx[a] = idx;
+            }
+
+            float mono_wet = acc + slap * 0.22f;
+            float key_dry  = fabsf(rev_in);
+            s_sc_env += (key_dry - s_sc_env) * ((key_dry > s_sc_env) ? wetsc_atk : wetsc_rel);
+            float sc_over  = (s_sc_env > 0.16f) ? (s_sc_env - 0.16f) : 0.0f;
+            float rev_g    = (REV_SEND_TRIM * s_rev_env) / (1.0f + 1.10f * sc_over);
+            proc_mid += mono_wet * rev_g;
+        }
+
+        /* [A] Clean M/S stereo width (> 500 Hz ONLY; MONO reverb never touches Side!) */
         float side_mix  = clamp_range(s_side_env * 3.0f, 0.0f, 1.0f);
         float side_base = dry_side + (guarded_s - dry_side) * side_mix;
         float proc_side = biquad_run(&s_side_shelf, side_base);
 
         float out_l = proc_mid + proc_side;
         float out_r = proc_mid - proc_side;
-
-        /* [B] Stage 2+ Kick-Free Abbey Road Stereo Reverb (> 550 Hz ONLY). */
-        if (s_rev_env > 0.0f) {
-            float feed_l = rev_in_l * 0.62f + slap_r * 0.18f;
-            float feed_r = rev_in_r * 0.62f + slap_l * 0.18f;
-            const float feedback = 0.70f;
-            const float damp = 0.42f;
-            float acc_l = 0.0f, acc_r = 0.0f;
-
-            for (int c = 0; c < REVERB_COMB_COUNT; c++) {
-                int il = s_comb_idx_l[c];
-                float o_l = s_comb_buf_l[c][il];
-                s_comb_lp_l[c] = o_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-                s_comb_buf_l[c][il] = feed_l + s_comb_lp_l[c] * feedback;
-                if (++il >= k_comb_len_l[c]) il = 0;
-                s_comb_idx_l[c] = il;
-                acc_l += s_comb_lp_l[c];
-
-                int ir = s_comb_idx_r[c];
-                float o_r = s_comb_buf_r[c][ir];
-                s_comb_lp_r[c] = o_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-                s_comb_buf_r[c][ir] = feed_r + s_comb_lp_r[c] * feedback;
-                if (++ir >= k_comb_len_r[c]) ir = 0;
-                s_comb_idx_r[c] = ir;
-                acc_r += s_comb_lp_r[c];
-            }
-            acc_l *= 0.42f;
-            acc_r *= 0.42f;
-
-            for (int a = 0; a < REVERB_AP_COUNT; a++) {
-                int il = s_ap_idx_l[a];
-                float bl = s_ap_buf_l[a][il];
-                float inl = acc_l;
-                acc_l = -inl + bl;
-                s_ap_buf_l[a][il] = inl + bl * 0.48f;
-                if (++il >= k_ap_len_l[a]) il = 0;
-                s_ap_idx_l[a] = il;
-
-                int ir = s_ap_idx_r[a];
-                float br = s_ap_buf_r[a][ir];
-                float inr = acc_r;
-                acc_r = -inr + br;
-                s_ap_buf_r[a][ir] = inr + br * 0.48f;
-                if (++ir >= k_ap_len_r[a]) ir = 0;
-                s_ap_idx_r[a] = ir;
-            }
-
-            float wet_l    = acc_l + slap_l * 0.28f;
-            float wet_r    = acc_r + slap_r * 0.28f;
-            float wet_mid  = 0.5f * (wet_l + wet_r);
-            float wet_side = biquad_run(&s_rev_side_hp2, biquad_run(&s_rev_side_hp1, 0.5f * (wet_l - wet_r)));
-
-            float key_dry = 0.5f * (fabsf(rev_in_l) + fabsf(rev_in_r));
-            s_sc_env += (key_dry - s_sc_env) * ((key_dry > s_sc_env) ? wetsc_atk : wetsc_rel);
-            float sc_over = (s_sc_env > 0.16f) ? (s_sc_env - 0.16f) : 0.0f;
-            float rev_g   = (WET_REV_GAIN * s_rev_env) / (1.0f + 1.10f * sc_over);
-
-            out_l += (wet_mid + wet_side * 1.25f) * rev_g;
-            out_r += (wet_mid - wet_side * 1.25f) * rev_g;
-        }
 
         /* Music group sidechain duck keyed by ALL live SFX streams. */
         if (duck_active) {
@@ -586,8 +534,7 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             out_r *= duck_g;
         }
 
-        /* 160 Hz HPF spike compressor + clean stereo-linked envelope limiter
-           (prevents waveshaper clipping/THD on loud -8 LUFS masters!). */
+        /* >250 Hz spike compressor + clean stereo-linked envelope peak limiter. */
         s_hp_lp_l += (out_l - s_hp_lp_l) * k_schp;
         s_hp_lp_r += (out_r - s_hp_lp_r) * k_schp;
         float hi_out_l = out_l - s_hp_lp_l;
@@ -660,7 +607,7 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     memset(a, 0, sizeof(*a));
     a->current_game_track = -1;
     a->bgm_volume = (bgm_vol >= 0.0f && bgm_vol <= 1.0f) ? bgm_vol : 1.0f;
-    a->sfx_volume = (sfx_vol >= 0.0f && sfx_vol <= 1.0f) ? sfx_vol : 0.5f;
+    a->sfx_volume = (sfx_vol >= 0.0f && bgm_vol <= 1.0f) ? sfx_vol : 0.5f;
 
     InitAudioDevice();
 
