@@ -397,18 +397,26 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    /* Audio reverb follows a smooth, rounded bi-exponential curve (not a spike)
-       and stacks proportionally with the number of cards captured. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.30f;
-    if (koi_edge)           reverb_energy += 0.60f;
-    if (reverb_energy > 3.0f) reverb_energy = 3.0f;
-    reverb_energy *= expf(-frame_dt / 3.40f);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.48f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.42f));
+    /* Audio reverb follows a smooth, hard-limited S-curve (never a spike):
+       subtle on the first capture, building into a full synergy by the 3rd card/capture
+       in a row, with a faster-ducking tail so it never smears the music. */
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.17f;
+    if (koi_edge)           reverb_energy += 0.34f;
+    if (reverb_energy > 1.0f) reverb_energy = 1.0f;
+    float tau_energy = (reverb_energy > reverb_curve) ? 2.10f : 1.35f;
+    reverb_energy *= expf(-frame_dt / tau_energy);
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.50f));
+    float tau_curve = (reverb_mid >= reverb_curve) ? 0.45f : 0.28f;
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / tau_curve));
+    if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
     }
-    audio_set_reverb(1.25f * (1.0f - expf(-reverb_curve * 1.35f)));
+    float syn_x = reverb_curve / 0.72f;
+    if (syn_x < 0.0f) syn_x = 0.0f;
+    if (syn_x > 1.0f) syn_x = 1.0f;
+    float reverb_synergy = syn_x * syn_x * (3.0f - 2.0f * syn_x);
+    audio_set_reverb(reverb_synergy);
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
