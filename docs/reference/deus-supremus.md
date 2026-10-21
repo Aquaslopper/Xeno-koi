@@ -77,7 +77,7 @@ encounter, not as a promise that I will soften.
 
 ## Can you reach me?
 
-Normally, I unlock only after all twelve opponents are cleared, as described in
+Normally, I unlock when the twelfth sector is open, as described in
 [Campaign and unlocks](modes.md#campaign-and-unlocks). For testing, the maintainer has left my gate
 open to everyone. Check [Errata & Known Issues](../errata.md) before you assume that state is final.
 
@@ -87,6 +87,6 @@ table - `g_opponents[CAMPAIGN_OPPONENT_COUNT + 1]` (`src/campaign.h:20`). Do not
 among the tiles. Set **Difficulty: DEUS** in Options, and that screen becomes my dossier: the
 Yakuza ruleset row locked, `THREAT LEVEL: TERMINAL` in red, my lore paragraph, and a START MATCH
 of my own (`src/campaign.c:100-112`). My gate is one line,
-`DEUS_UNLOCKED_FOR_TESTING || unlocked_opponents >= 12` (`src/campaign.c:110`). Clear all twelve
-sectors and you reach me by the intended route; the define is what admits everyone else. A sector
+`DEUS_UNLOCKED_FOR_TESTING || unlocked_opponents >= 12` (`src/campaign.c:110`). Earn enough coins
+to open M-12 and you reach me by the intended route; the define is what admits everyone else. A sector
 tile can still read LOCKED while I am reachable, and vice versa. Those are not the same counter.

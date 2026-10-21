@@ -125,6 +125,8 @@ Two things about them are not accidents:
   Captions quote them as what a picture shows; the rules pages still get their totals from the
   generated tables, which is the difference between a screenshot and a screenshot used as a source.
 
+Some stored captures predate the new combo sidebar and Stats coin rows. Treat them as examples of the pictured match, not a live inventory of every current control; the prose and source describe the current UI. See [Modes & Settings](reference/modes.md) for coin rows and [How to Play](how-to-play.md#controls) for the combo windows.
+
 Capturing a new one: reach the state, screenshot the whole window at any size, save a PNG, drop it
 in a folder and run the import with `--from`. Do not crop or export it as JPEG - the crop is the
 tool's job, and a second lossy pass over the game's own scanlines is not worth the kilobytes.
