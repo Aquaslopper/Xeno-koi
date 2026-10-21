@@ -17,7 +17,10 @@ static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float
 
 static void draw_centered_text(Font font, const char *text, float cx, float y, float fsz, float sp, Color col) {
     Vector2 ts = MeasureTextEx(font, text, fsz, sp);
-    draw_text_ex_snapped(font, text, (Vector2){ cx - ts.x / 2.0f, y }, fsz, sp, col);
+    Vector2 pos = { floorf(cx - ts.x / 2.0f), floorf(y) };
+    DrawTextEx(font, text, pos, fsz, sp, col);
+    if (font.texture.id == font_title.texture.id && fsz >= 26.0f)
+        ui_theme_draw_text_flares(font, text, pos, fsz, sp, col);
 }
 
 static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fsz, float sp, Color col) {
@@ -30,7 +33,9 @@ static int draw_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, Color txt
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
     ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
     Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
-    draw_text_ex_snapped(font_title, txt, (Vector2){ r.x + (r.width - ts.x) * 0.5f, r.y + (r.height - fsz) * 0.5f }, (float)fsz, 1.2f, txt_col);
+    Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - fsz) * 0.5f) };
+    DrawTextEx(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
+    if (hov) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
     return hov;
 }
 
@@ -68,8 +73,24 @@ static int check_selector_click(Vector2 vm, float y) {
 }
 
 static void draw_bg_if_loaded(const BoardAssets *ba, unsigned char alpha) {
-    if (ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0)
-        DrawTexturePro(ba->bgs[ba->current_bg], (Rectangle){0,0,1280,720}, (Rectangle){0,0,1280,720}, (Vector2){0}, 0, WHITE);
+    int bg = ba->current_bg;
+    if (bg >= 0 && bg < 8 && ba->bgs[bg].id > 0) {
+        if (ba->has_fog_shader) {
+            float cur_time = (float)GetTime();
+            float light_enabled = (ba->bg_normals[bg].id > 0 &&
+                                   ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
+            float flash_zero = 0.0f;
+            SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
+            if (ba->light_flash_loc >= 0)
+                SetShaderValue(ba->fog_shader, ba->light_flash_loc, &flash_zero, SHADER_UNIFORM_FLOAT);
+            BeginShaderMode(ba->fog_shader);
+            if (light_enabled > 0.5f)
+                SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, ba->bg_normals[bg]);
+        }
+        DrawTexturePro(ba->bgs[bg], (Rectangle){0,0,1280,720}, (Rectangle){0,0,1280,720}, (Vector2){0}, 0, WHITE);
+        if (ba->has_fog_shader) EndShaderMode();
+    }
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, alpha });
 }
 
@@ -100,9 +121,9 @@ static void draw_yaku_cards(const BoardAssets *ba, const int *cards, int count, 
 }
 
 void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, float saved_timer) {
-    (void)st; draw_bg_if_loaded(ba, 140);
-    draw_centered_text(font_title, "[XENO / KOI]", 640.0f, 78.0f, 84.0f, 2.0f, COLOR_PHOSPHOR);
-    draw_centered_text(font_body, "BIOMECHANICAL EDITION", 640.0f, 190.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
+    (void)st; draw_bg_if_loaded(ba, 95);
+    draw_centered_text(font_title, "[XENO / KOI]", 640.0f, 52.0f, 136.0f, 3.0f, COLOR_PHOSPHOR);
+    draw_centered_text(font_body, "BIOMECHANICAL EDITION", 640.0f, 220.0f, 26.0f, 3.0f, COLOR_PHOSPHOR_DIM);
     const char *lbls[6] = { "START MATCH", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
     for (int i = 0; i < 6; i++) draw_btn((Rectangle){ 490, 320 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
     if (saved_timer > 0.0f) draw_centered_text(font_body, "ALL FILES SAVED", 640.0f, 630.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);

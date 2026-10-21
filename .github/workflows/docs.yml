@@ -14,7 +14,6 @@ on:
       - 'build.sh'
       - '.github/workflows/docs.yml'
   pull_request:
-    branches: [ main ]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
@@ -85,6 +84,9 @@ jobs:
 
       - name: Run table UI regression tests (headless)
         run: ./tests/test_table_ui.sh
+
+      - name: Run audio DSP regression tests (headless)
+        run: ./tests/test_audio_dsp.sh
 
       - name: Build WebAssembly bundle into /play/
         run: |

@@ -11,43 +11,87 @@ uniform vec4 colDiffuse;
 uniform float time;
 
 // moving-lights begin
-// Bump lighting for the table background. normalMap RGB holds a
-// tangent-space normal (x right, y DOWN, z toward the viewer, 0.5 bias),
-// alpha holds the height field (unused here, kept for inspection).
-// Three wide soft lights drift on independent slow paths; the ambient
-// lift keeps every background brighter than its art, so there is no
-// night side and no hard spotlight cone.
+// One drifting, spinning 4-band light beam over the tangent-space normal map
+// with a multi-tap light-only bloom halo and soft-knee highlight rolloff so
+// 3D biomechanical ridges glow smoothly without sharp cutoffs or grey wash.
 uniform sampler2D normalMap;
 uniform float lightEnabled;
+uniform float flashAmount;
 
-vec3 movingLight(vec3 n, vec2 uv, vec2 lp, float radius, float height, float gain, vec3 tint)
+float lightLayer(float distanceFromCenter, float width)
 {
-    vec2 d = (lp - uv) * vec2(1.7777778, 1.0); // aspect-corrected offset, uv y is down
-    float dist2 = dot(d, d);
-    vec3 l = normalize(vec3(d, height));
-    float diff = max(dot(n, l), 0.0);
-    vec3 h = normalize(l + vec3(0.0, 0.0, 1.0)); // half-vector, view = +z
-    float spec = pow(max(dot(n, h), 0.0), 28.0);
-    float atten = 1.0 / (1.0 + dist2 / (radius * radius));
-    return tint * (diff + 0.40 * spec) * atten * gain;
+    float halfWidth = 0.5 * width;
+    float feather = max(0.24, halfWidth * 0.65);
+    return 1.0 - smoothstep(halfWidth - feather, halfWidth + 0.08, distanceFromCenter);
+}
+
+float sampleRidgeEmit(vec2 sampleUV, vec2 lightDirXY)
+{
+    vec2 cUV = clamp(sampleUV, vec2(0.001), vec2(0.999));
+    vec3 sn = normalize(texture2D(normalMap, cUV).rgb * 2.0 - 1.0);
+    vec3 sb = texture2D(texture0, cUV).rgb;
+    float sLum = dot(sb, vec3(0.299, 0.587, 0.114));
+    float sMask = smoothstep(0.014, 0.065, sLum);
+    float sRelief = smoothstep(0.015, 0.30, length(sn.xy));
+    float sDir = 0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(sn.xy, lightDirXY));
+    return sRelief * sDir * sMask;
 }
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
-    vec4 normalTexel = texture2D(normalMap, uv);
-    vec3 n = normalize(normalTexel.rgb * 2.0 - 1.0);
-    float t = time;
-    vec3 lit = vec3(1.22); // ambient lift
-    lit += movingLight(n, uv,
-        vec2(0.50 + 0.42 * sin(t * 0.100), 0.30 + 0.18 * sin(t * 0.067 + 1.7)),
-        0.62, 0.55, 1.15, vec3(1.00, 0.97, 0.90));
-    lit += movingLight(n, uv,
-        vec2(0.22 + 0.26 * cos(t * 0.073 + 0.6), 0.52 + 0.24 * sin(t * 0.073)),
-        0.55, 0.50, 1.00, vec3(0.90, 0.96, 1.00));
-    lit += movingLight(n, uv,
-        vec2(0.80 + 0.22 * sin(t * 0.055 + 2.9), 0.42 + 0.28 * cos(t * 0.049 + 1.1)),
-        0.58, 0.55, 0.95, vec3(1.00, 0.93, 0.88));
-    return clamp(base * lit, 0.0, 1.0);
+    vec4 map = texture2D(normalMap, uv);
+    vec3 n = normalize(map.rgb * 2.0 - 1.0);
+
+    // Drift left-right on a 32.1-second round trip; spin 10% faster than drift.
+    float driftPhase = time * 0.1954768;
+    float spinPhase = time * 0.2150244;
+    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
+    vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
+    float xDistance = abs(dot(uv - lightUV, beamAxis));
+    float layer80 = 0.10 * lightLayer(xDistance, 1.568);
+    float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
+    float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
+    float layer20 = 0.20 * lightLayer(xDistance, 0.392);
+    // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
+    float layers = max(max(layer80, layer60), max(layer40, layer20));
+    layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
+
+    vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
+    float dist2 = dot(toLight, toLight);
+    float reach = exp(-dist2 / (0.90 * 0.90));
+    vec3 lightDir = normalize(vec3(toLight, 0.42));
+    vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
+
+    // Smooth 3D relief with wrapped directional bias (no center hole or half-ridge cutoff).
+    float relief = smoothstep(0.015, 0.30, length(n.xy));
+    float dirBias = 0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(n.xy, lightDir.xy));
+    float slope = relief * dirBias;
+    float spec = pow(max(dot(n, halfVec), 0.0), 14.0);
+
+    float baseLum = dot(base, vec3(0.299, 0.587, 0.114));
+    float surfaceMask = smoothstep(0.014, 0.065, baseLum);
+
+    // 8-tap two-ring bloom kernel around uv so the light itself glows softly over ridges.
+    const vec2 r1 = vec2(7.0 / 1280.0, 7.0 / 720.0);
+    const vec2 r2 = vec2(13.0 / 1280.0, 13.0 / 720.0);
+    float bloomEnergy = 0.125 * (
+        sampleRidgeEmit(uv + vec2(-r1.x, 0.0), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2( r1.x, 0.0), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(0.0, -r1.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(0.0,  r1.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(-r2.x, -r2.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2( r2.x, -r2.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2(-r2.x,  r2.y), lightDir.xy) +
+        sampleRidgeEmit(uv + vec2( r2.x,  r2.y), lightDir.xy)
+    );
+
+    float flashGain = 1.0 + 0.95 * flashAmount;
+    float beam = layers * reach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
+    vec3 warm = vec3(1.0, 0.93, 0.80);
+    float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
+    float lightBloom = beam * (surfaceMask * slope * (0.32 + 1.05 * spec) * 0.95 + bloomEnergy * 1.15);
+    vec3 lightAdd = base * warm * diffGain + warm * lightBloom;
+    return clamp(base + (vec3(1.0) - base) * (vec3(1.0) - exp(-lightAdd)), 0.0, 1.0);
 }
 // moving-lights end
 
@@ -68,7 +112,7 @@ void main()
         float yMask = smoothstep(0.38, 0.88, fragTexCoord.y);
 
         // 2. The Depth Mask (Luminance):
-        float lum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+        float lum = dot(blended, vec3(0.299, 0.587, 0.114));
         float depthMask = smoothstep(0.78, 0.18, lum);
 
         // 3. The Patchy Drift:
@@ -80,7 +124,7 @@ void main()
 
         // 4. Fog Blend (#050505):
         const vec3 fogColor = vec3(0.0196, 0.0196, 0.0196);
-        float fogAlpha = clamp(depthMask * yMask * patch * 1.35, 0.0, 0.88);
+        float fogAlpha = clamp(depthMask * yMask * patch * 0.80, 0.0, 0.55);
         blended = mix(blended, fogColor, fogAlpha);
     }
 

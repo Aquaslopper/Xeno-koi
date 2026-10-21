@@ -187,7 +187,10 @@ static void update_draw_frame(void) {
     if (in_game) {
         if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 10) + 1));
         else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 9)) % 10) + 1);
-    } else audio_play_menu_music(&audio);
+    } else {
+        audio_set_reverb(0.0f);
+        audio_play_menu_music(&audio);
+    }
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -515,6 +518,8 @@ static void update_draw_frame(void) {
                                 if (g.hand_count[0] < hand_before) {
                                     if (g.last_captured_count > 0) audio_play_capture(&audio);
                                     else audio_play_drop(&audio);
+                                } else if (g.phase == PHASE_HAND_CHOICE) {
+                                    audio_play_drop(&audio);
                                 }
                             }
                         }
@@ -743,10 +748,10 @@ int main(int argc, char **argv) {
     board_load_assets(&assets); assets.current_bg = settings.background;
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
 
-    font_title = LoadFontEx("assets/audiowide.ttf", 48, NULL, 0);
-    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 48, NULL, 0);
+    font_title = LoadFontEx("assets/audiowide.ttf", 96, NULL, 0);
+    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 96, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
-    else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_BILINEAR); }
+    else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
 
     font_body = LoadFontEx("assets/play.ttf", 36, NULL, 0);
     if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
