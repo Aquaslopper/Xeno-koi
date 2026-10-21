@@ -10,13 +10,13 @@ typedef struct {
     int master_timer;      /* 15 or 30 (seconds), default 15 */
     Ruleset ruleset;       /* NINTENDO, FUDAWIKI, KK_ADD_10 */
     int background;        /* 0..4 or 6..7; 5 is reserved for Deus */
-    float bgm_volume;      /* 0.0 .. 1.0, default 0.8f */
-    float sfx_volume;      /* 0.0 .. 1.0, default 0.8f */
+    float bgm_volume;      /* 0.0 .. 1.0, default 1.0f */
+    float sfx_volume;      /* 0.0 .. 1.0, default 0.5f */
     int anim_speed;        /* 0: Slow (600ms), 1: Normal (400ms), 2: Fast (250ms) */
     int terminal_color;    /* 0: Green, 1: Amber, 2: Teal, 3: Crimson, 4: Violet */
     int fullscreen;        /* 0: Windowed, 1: Borderless */
-    int bloom;             /* 0: OFF, 1: MID, 2: FULL */
-    int crt_filter;        /* 0: OFF, 1: LOW, 2: MID, 3: HIGH */
+    int bloom;             /* 0: OFF, 1: MID, 2: FULL (default 1) */
+    int crt_filter;        /* 0: OFF, 1: LOW, 2: MID, 3: HIGH (default 2) */
     float gamma;           /* 0.5 .. 2.0, default 1.0f */
     int unlocked_opponents;/* 1..12, default 1 */
     int current_opponent;  /* 0..11, default 0 */

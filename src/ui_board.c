@@ -28,15 +28,22 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
     draw_text_ex_snapped(font, text, (Vector2){ b.x + (b.width - ts.x) / 2.0f, b.y + (b.height - fsz) / 2.0f }, fsz, sp, col);
 }
 
-#define ASH_COUNT 95
-#define ASH_BURST_MAX 128
+#define ASH_COUNT 155
+#define ASH_BURST_MAX 240
 
-typedef struct { Vector2 pos; float speed_y, sway_speed, sway_amp; int size; unsigned char alpha; float phase; } AshParticle;
+typedef struct {
+    Vector2 pos;
+    float speed_x, speed_y, sway_speed, sway_amp;
+    int size_w, size_h;
+    unsigned char alpha;
+    float phase;
+} AshParticle;
+
 typedef struct {
     Vector2 pos;
     Vector2 vel;
     int card_id;
-    int size;
+    int size_w, size_h;
     unsigned char base_alpha;
     float follow;
     float phase;
@@ -50,14 +57,39 @@ static AshParticle g_ash[ASH_COUNT];
 static AshBurstParticle g_ash_burst[ASH_BURST_MAX];
 static int g_ash_initialized = 0;
 
+static void pick_dark_particle_dims(int roll, int *out_w, int *out_h) {
+    /* Wide variety of particle sizes: fine dust (1-2px), medium flakes (3-4px),
+       large dark embers (5-7px), and occasional big fragments (8-10px). */
+    int base;
+    if (roll < 38)      base = 1 + (roll & 1);          /* 1..2 px */
+    else if (roll < 72) base = 3 + (roll % 2);          /* 3..4 px */
+    else if (roll < 92) base = 5 + (roll % 3);          /* 5..7 px */
+    else                base = 8 + (roll % 3);          /* 8..10 px */
+    *out_w = base;
+    *out_h = (base >= 5 && (roll & 1)) ? (base - 1) : base;
+}
+
+static void draw_dark_particle(int x, int y, int w, int h, unsigned char alpha) {
+    if (alpha == 0) return;
+    if (w >= 5 || h >= 5) {
+        unsigned char halo_a = (unsigned char)((unsigned int)alpha * 110u / 255u);
+        if (halo_a > 0) {
+            DrawRectangle(x - 1, y - 1, w + 2, h + 2, (Color){ 4, 4, 4, halo_a });
+        }
+    }
+    DrawRectangle(x, y, w, h, (Color){ 5, 5, 5, alpha });
+}
+
 static void ash_init(void) {
     for (int i = 0; i < ASH_COUNT; i++) {
+        int roll = rand() % 100;
+        pick_dark_particle_dims(roll, &g_ash[i].size_w, &g_ash[i].size_h);
         g_ash[i].pos = (Vector2){ (float)(rand() % 1280), (float)(rand() % 720) };
-        g_ash[i].speed_y = 12.0f + (float)(rand() % 24);
-        g_ash[i].sway_speed = 0.8f + (float)(rand() % 100) / 70.0f;
-        g_ash[i].sway_amp = 8.0f + (float)(rand() % 12);
-        g_ash[i].size = (int)(1.5f + (float)(rand() % 16) / 10.0f);
-        float a = 0.22f + (float)(rand() % 28) / 100.0f;
+        g_ash[i].speed_y = 11.0f + (float)(rand() % 28) + (float)g_ash[i].size_w * 1.4f;
+        g_ash[i].speed_x = ((float)(rand() % 41) - 20.0f) * 0.65f;
+        g_ash[i].sway_speed = 0.7f + (float)(rand() % 110) / 70.0f;
+        g_ash[i].sway_amp = 9.0f + (float)(rand() % 20);
+        float a = 0.24f + (float)(rand() % 38) / 100.0f;
         g_ash[i].alpha = (unsigned char)(255.0f * a);
         g_ash[i].phase = (float)(rand() % 628) / 100.0f;
     }
@@ -86,7 +118,7 @@ static void ash_spawn_capture_burst(const GameState *g) {
         int rw = (int)fmaxf(1.0f, r.width);
         int rh = (int)fmaxf(1.0f, r.height);
 
-        for (int n = 0; n < 28; n++) {
+        for (int n = 0; n < 44; n++) {
             AshBurstParticle *p = NULL;
             for (int i = 0; i < ASH_BURST_MAX; i++) {
                 int idx = (slot + i) % ASH_BURST_MAX;
@@ -94,17 +126,20 @@ static void ash_spawn_capture_burst(const GameState *g) {
             }
             if (!p) { p = &g_ash_burst[slot % ASH_BURST_MAX]; slot++; }
 
+            int roll = rand() % 100;
+            pick_dark_particle_dims(roll, &p->size_w, &p->size_h);
+            if (roll >= 88) { p->size_w += 1; p->size_h += 1; } /* up to 11px burst fragments */
+
             float ang = (float)(rand() % 628) / 100.0f;
-            float spd = 38.0f + (float)(rand() % 92);
+            float spd = 34.0f + (float)(rand() % 108);
             p->pos = (Vector2){ r.x + (float)(rand() % rw), r.y + (float)(rand() % rh) };
             p->vel = (Vector2){ cosf(ang) * spd, sinf(ang) * spd - 14.0f };
             p->card_id = cid;
-            p->size = 2 + (rand() % 3);
-            p->base_alpha = (unsigned char)(195 + (rand() % 55));
-            p->follow = 0.24f + (float)(rand() % 18) / 100.0f;
+            p->base_alpha = (unsigned char)(200 + (rand() % 52));
+            p->follow = 0.22f + (float)(rand() % 22) / 100.0f;
             p->phase = (float)(rand() % 628) / 100.0f;
-            p->sway_speed = 2.4f + (float)(rand() % 28) / 10.0f;
-            p->max_life = 0.85f + (float)(rand() % 45) / 100.0f;
+            p->sway_speed = 2.2f + (float)(rand() % 30) / 10.0f;
+            p->max_life = 0.85f + (float)(rand() % 50) / 100.0f;
             p->life = p->max_life;
             p->active = 1;
         }
@@ -117,13 +152,16 @@ static void ash_draw_and_update(float dt) {
     for (int i = 0; i < ASH_COUNT; i++) {
         AshParticle *p = &g_ash[i];
         p->pos.y -= p->speed_y * dt;
-        if (p->pos.y < -10.0f) {
+        p->pos.x += p->speed_x * dt;
+        if (p->pos.y < -14.0f) {
             p->pos.y = 730.0f + (float)(rand() % 30);
             p->pos.x = (float)(rand() % 1280);
         }
+        if (p->pos.x < -20.0f) p->pos.x += 1320.0f;
+        else if (p->pos.x > 1300.0f) p->pos.x -= 1320.0f;
         if (p->alpha == 0) continue;
         float sway_x = p->pos.x + sinf(p->phase + cur_time * p->sway_speed) * p->sway_amp;
-        DrawRectangle((int)sway_x, (int)p->pos.y, p->size, p->size, (Color){ 5, 5, 5, p->alpha });
+        draw_dark_particle((int)sway_x, (int)p->pos.y, p->size_w, p->size_h, p->alpha);
     }
 }
 
@@ -151,7 +189,7 @@ static void ash_burst_draw_and_update(float dt) {
         float frac = p->life / p->max_life;
         float fade = (frac < 0.35f) ? (frac / 0.35f) : 1.0f;
         unsigned char a = (unsigned char)((float)p->base_alpha * fade);
-        if (a > 0) DrawRectangle((int)p->pos.x, (int)p->pos.y, p->size, p->size, (Color){ 5, 5, 5, a });
+        draw_dark_particle((int)p->pos.x, (int)p->pos.y, p->size_w, p->size_h, a);
     }
 }
 
@@ -397,22 +435,22 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    /* Audio reverb follows a smooth, hard-limited S-curve (never a spike):
+    /* Audio reverb follows a tight, smooth, hard-limited S-curve (never a spike):
        subtle on the first capture, building into a full synergy by the 3rd card/capture
        in a row, with a faster-ducking tail so it never smears the music. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.17f;
-    if (koi_edge)           reverb_energy += 0.34f;
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.18f;
+    if (koi_edge)           reverb_energy += 0.36f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
-    float tau_energy = (reverb_energy > reverb_curve) ? 2.10f : 1.35f;
+    float tau_energy = (reverb_energy > reverb_curve) ? 1.85f : 1.15f;
     reverb_energy *= expf(-frame_dt / tau_energy);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.50f));
-    float tau_curve = (reverb_mid >= reverb_curve) ? 0.45f : 0.28f;
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.26f));
+    float tau_curve = (reverb_mid >= reverb_curve) ? 0.24f : 0.20f;
     reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / tau_curve));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
     }
-    float syn_x = reverb_curve / 0.72f;
+    float syn_x = reverb_curve / 0.68f;
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
     float reverb_synergy = syn_x * syn_x * (3.0f - 2.0f * syn_x);

@@ -61,8 +61,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
     float target = clamp_range(s_reverb_target, 0.0f, 1.0f);
 
     for (unsigned int f = 0; f < frames; f++) {
-        /* Smooth audio-rate glide with faster tail ducking on release, strictly hard-limited */
-        float rate = (target > s_reverb_cur) ? 0.00045f : 0.00065f;
+        /* Tighter, smooth audio-rate glide with faster tail ducking on release, strictly hard-limited */
+        float rate = (target > s_reverb_cur) ? 0.00080f : 0.00095f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
         float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
         float dry_l = pcm[f * 2 + 0];
@@ -141,10 +141,10 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             /* Sidechain + tail ducking keeps the dry music crisp; hard-limited wet ceiling prevents spikes */
             float tail_phase = (target < s_reverb_cur) ? 0.72f : 1.0f;
             float sc_duck = tail_phase / (1.0f + s_dry_env * 1.45f);
-            float wet_gain = rev * 0.50f * sc_duck;
-            float dry_gain = 1.0f - rev * 0.14f;
-            float mix_wet_l = clamp_range(wet_l * wet_gain, -0.36f, 0.36f);
-            float mix_wet_r = clamp_range(wet_r * wet_gain, -0.36f, 0.36f);
+            float wet_gain = rev * 0.55f * sc_duck;
+            float dry_gain = 1.0f - rev * 0.16f;
+            float mix_wet_l = clamp_range(wet_l * wet_gain, -0.40f, 0.40f);
+            float mix_wet_r = clamp_range(wet_r * wet_gain, -0.40f, 0.40f);
             pcm[f * 2 + 0] = clamp_range(dry_l * dry_gain + mix_wet_l, -0.98f, 0.98f);
             pcm[f * 2 + 1] = clamp_range(dry_r * dry_gain + mix_wet_r, -0.98f, 0.98f);
         }
@@ -165,8 +165,8 @@ static const char* get_path(const char* sub) {
 void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     memset(a, 0, sizeof(*a));
     a->current_game_track = -1;
-    a->bgm_volume = (bgm_vol >= 0.0f && bgm_vol <= 1.0f) ? bgm_vol : 0.8f;
-    a->sfx_volume = (sfx_vol >= 0.0f && sfx_vol <= 1.0f) ? sfx_vol : 0.8f;
+    a->bgm_volume = (bgm_vol >= 0.0f && bgm_vol <= 1.0f) ? bgm_vol : 1.0f;
+    a->sfx_volume = (sfx_vol >= 0.0f && sfx_vol <= 1.0f) ? sfx_vol : 0.5f;
 
     InitAudioDevice();
 
