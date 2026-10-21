@@ -499,19 +499,26 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     static int prev_captured = -1;
     static int prev_field = -1;
     static int prev_koi = -1;
+    static int prev_p0_cap = -1;
+    static int prev_p0_koi = -1;
     static int capture_streak = 0;
     static float thunder_flash = 0.0f;
     static int   capture_stage = 0;     /* 0..3: reverb -> +stereo -> +bass */
-    static float stage_hold = 0.0f;     /* seconds before the stage steps down */
+    static float stage_hold = 0.0f;     /* idle seconds before stepping down */
     int cur_round = g ? g->current_round : -1;
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_field = g ? g->field_count : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
-    if (cur_round != prev_round || cur_captured < prev_captured || (g && g->phase == PHASE_DEALER_SELECT)) {
+    int cur_p0_cap = g ? (replay_mode ? cur_captured : g->captured_count[0]) : 0;
+    int cur_p0_koi = g ? (replay_mode ? cur_koi      : g->koi_called[0])     : 0;
+    if (cur_round != prev_round || cur_captured < prev_captured ||
+        cur_p0_cap < prev_p0_cap || (g && g->phase == PHASE_DEALER_SELECT)) {
         prev_round = cur_round;
         prev_captured = cur_captured;
         prev_field = cur_field;
         prev_koi = cur_koi;
+        prev_p0_cap = cur_p0_cap;
+        prev_p0_koi = cur_p0_koi;
         capture_streak = 0;
         capture_stage = 0;
         stage_hold = 0.0f;
@@ -519,6 +526,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
     int koi_edge = (prev_koi >= 0 && cur_koi > prev_koi);
+    int player_cap_edge = (prev_p0_cap >= 0 && cur_p0_cap > prev_p0_cap);
+    int player_koi_edge = (prev_p0_koi >= 0 && cur_p0_koi > prev_p0_koi);
     if (capture_edge) {
         capture_streak += (delta_captured >= 4) ? 2 : 1;
         if (capture_streak > 5) capture_streak = 5;
@@ -529,6 +538,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     prev_captured = cur_captured;
     prev_field = cur_field;
     prev_koi = cur_koi;
+    prev_p0_cap = cur_p0_cap;
+    prev_p0_koi = cur_p0_koi;
     if (capture_edge || koi_edge) {
         thunder_flash = 1.0f;
     } else if (thunder_flash > 0.0f) {
@@ -540,18 +551,19 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    /* Audio stages. Every capture or Koi-Koi call is one event, and the events
-       stack up to three: 1 = reverb, 2 = +stereo, 3 = +mono bass. The step
-       holds while the player keeps chaining and releases after STAGE_HOLD_RELEASE,
-       so the tail keeps running while cards are still flying. The per-stage
-       levels themselves live in src/ui_audio.c (k_stage_rev / _side / _bass). */
-    const float STAGE_HOLD_RELEASE = 2.50f;   /* quiet time before one step drops */
-    const float STAGE_HOLD_STEP    = 1.10f;   /* gap between the remaining steps  */
-    if (capture_edge || koi_edge) {
+    /* Audio stages: only the player's own captures / Koi-Koi calls advance the
+       chain (CPU never turns reverb on before the player acts). The timer pauses
+       while cards are still moving and counts down only while settled, so fast
+       play chains 1 -> 2 -> 3 and stopping returns cleanly to dry silence. */
+    const float STAGE_HOLD_RELEASE = 3.50f;
+    const float STAGE_HOLD_STEP    = 1.15f;
+    int cards_moving = (anim && anim_is_blocking(anim)) || cinematic_is_active() ||
+                       motion_is_reflowing(g) || (g && g->hitlag_timer > 0.0f);
+    if (player_cap_edge || player_koi_edge) {
         capture_stage++;
         if (capture_stage > 3) capture_stage = 3;
         stage_hold = STAGE_HOLD_RELEASE;
-    } else if (capture_stage > 0) {
+    } else if (capture_stage > 0 && !cards_moving) {
         stage_hold -= frame_dt;
         if (stage_hold <= 0.0f) {
             capture_stage--;

@@ -36,8 +36,7 @@ void audio_update(AudioAssets *a);
 
 void audio_set_bgm_volume(AudioAssets *a, float volume);
 void audio_set_sfx_volume(AudioAssets *a, float volume);
-void audio_set_capture_stage(int stage);   /* 0 = off, 1..3 = stacked captures */
-void audio_duck_music(float amount);       /* 0..1, music dips under a capture SFX */
+void audio_set_capture_stage(int stage);   /* 0 = off, 1..3 = stacked events */
 
 void audio_play_menu_music(AudioAssets *a);
 void audio_start_match_music(AudioAssets *a, int track_1_to_10);

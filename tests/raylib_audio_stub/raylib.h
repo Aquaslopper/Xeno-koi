@@ -56,5 +56,7 @@ static inline void SetSoundVolume(Sound sound, float volume) { (void)sound; (voi
 
 static inline void AttachAudioStreamProcessor(AudioStream stream, AudioCallback process) { (void)stream; (void)process; }
 static inline void DetachAudioStreamProcessor(AudioStream stream, AudioCallback process) { (void)stream; (void)process; }
+static inline void AttachAudioMixedProcessor(AudioCallback process) { (void)process; }
+static inline void DetachAudioMixedProcessor(AudioCallback process) { (void)process; }
 
 #endif /* RAYLIB_STUB_H */
