@@ -74,10 +74,10 @@ static float card_sfx_volume(float master_volume) {
     return clamp_range(volume, 0.0f, 1.0f);
 }
 
-/* 2nd-order Butterworth High-Pass (150 Hz, 12 dB/oct, sr = 44100 Hz) */
-static float biquad_hp150(BiquadState *s, float x) {
-    const float b0 =  0.9850018f, b1 = -1.9700035f, b2 = 0.9850018f;
-    const float a1 = -1.9697786f, a2 =  0.9702285f;
+/* 2nd-order Butterworth High-Pass (300 Hz, 12 dB/oct, sr = 44100 Hz) */
+static float biquad_hp300(BiquadState *s, float x) {
+    const float b0 =  0.9702284f, b1 = -1.9404568f, b2 = 0.9702284f;
+    const float a1 = -1.9395702f, a2 =  0.9413433f;
     float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
     s->x2 = s->x1; s->x1 = x;
     s->y2 = s->y1; s->y1 = y;
@@ -124,10 +124,9 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* 2. Reverb Input Bandpass (Lowered HP to 70Hz for more bass, raised LP to 8kHz for tight transients) */
-        // Note: For optimal sub-bass response, consider lowering your biquad_hp150 filter coefficient to ~70Hz.
-        float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp150(&s_in_hp_l, dry_l));
-        float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp150(&s_in_hp_r, dry_r));
+        /* 2. Reverb Input Bandpass (300 Hz HP / 5 kHz LP, 12 dB/oct each) */
+        float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp300(&s_in_hp_l, dry_l));
+        float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp300(&s_in_hp_r, dry_r));
 
         /* --- SFX Injection Phase --- */
         // Calculate dynamic SFX injection based on your card_sfx_volume logic
@@ -202,11 +201,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
               - Side is stereo; cut lows (<180 Hz) from Side, lift the mids/highs so snares and presence
                 actually register as width, and de-ess only true sibilance (>6 kHz) */
         float mono_mid = 0.5f * (dry_l + dry_r);
-        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz mono bass */
+        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.030f; /* ~140 Hz mono bass */
 
         float wet_mono   = 0.5f * (wet_l + wet_r);
         float wet_stereo = 0.5f * (wet_l - wet_r);
-        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
+        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.030f; /* ~180 Hz Side low-cut */
         float side_hi = wet_stereo - s_side_low_lp;
 
         /* De-ess only true sibilance (3 ms attack, 80 ms release). The split used to sit at
@@ -240,7 +239,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             float wet_gain = rev * 0.76f * sc_dim * stereo_comp * impact_boost * (1.0f - 0.10f * tail_releasing);
 
             float dry_gain = 1.0f - rev * 0.12f;
-            float mono_bass_boost = s_mid_bass_lp * (0.10f * rev);
+            float mono_bass_boost = s_mid_bass_lp * (0.30f * rev);
             float rev_mid = wet_mono * wet_gain + mono_bass_boost;
             float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
 
