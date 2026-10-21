@@ -86,6 +86,7 @@ typedef struct {
     Rectangle bounds;
     PanelFlare flares[MAX_FLARES_PER_BOX];
     double last_seen;
+    float glow_floor;
     int key;
     int active;
 } PanelFlareBox;
@@ -161,6 +162,7 @@ static PanelFlareBox *panel_flare_box_get(Rectangle bounds, double now, int key)
     if (!free_box) return NULL;
     free_box->bounds = bounds;
     free_box->last_seen = now;
+    free_box->glow_floor = 0.0f;
     free_box->key = key;
     free_box->active = 1;
     for (int i = 0; i < MAX_FLARES_PER_BOX; i++) free_box->flares[i].active = 0;
@@ -299,12 +301,17 @@ static void panel_flares_draw(Rectangle r, int key) {
     double now = GetTime();
     PanelFlareBox *box = panel_flare_box_get(bounds, now, key);
     if (!box) return;
+    float glow_floor = box->glow_floor;
+    box->glow_floor = 0.0f;
     int held_card = (key > 0);
     int hovered = s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, bounds);
     int entered = hovered && (!s_previous_panel_mouse_valid ||
                               !CheckCollisionPointRec(s_previous_panel_mouse, bounds));
+    int target_dots = MIN_FLARES_PER_BOX;
+    if (held_card || glow_floor >= 0.65f) target_dots = MAX_FLARES_PER_BOX;
+    else if (glow_floor >= 0.25f) target_dots = 4;
     panel_flares_update(now);
-    panel_flare_ensure_minimum(box, now, held_card ? MAX_FLARES_PER_BOX : MIN_FLARES_PER_BOX, held_card);
+    panel_flare_ensure_minimum(box, now, target_dots, held_card);
     if (entered || held_card) panel_flare_shine(box, now);
 
     int count = panel_flare_count(box);
@@ -330,11 +337,21 @@ static void panel_flares_draw(Rectangle r, int key) {
                 shine = 1.0f - (float)(elapsed / PANEL_SHINE_DURATION);
             else f->flash_active = 0;
         }
+        if (glow_floor > shine) shine = glow_floor;
         unsigned char alpha = (unsigned char)(22.0f + 233.0f * shine);
         Color flare = (Color){ 255, 255, 255, alpha };
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
                           1.0f + 2.0f * shine, flare);
     }
+}
+
+void ui_theme_set_panel_flare_glow(Rectangle r, float glow) {
+    Rectangle bounds = panel_flare_bounds(r);
+    if (bounds.width < 12.0f || bounds.height < 12.0f) return;
+    if (glow < 0.0f) glow = 0.0f;
+    if (glow > 1.0f) glow = 1.0f;
+    PanelFlareBox *box = panel_flare_box_get(bounds, GetTime(), 0);
+    if (box && glow > box->glow_floor) box->glow_floor = glow;
 }
 
 void ui_theme_draw_panel_flares(Rectangle r) {

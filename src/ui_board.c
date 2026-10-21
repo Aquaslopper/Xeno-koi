@@ -29,7 +29,7 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
 }
 
 #define ASH_COUNT 155
-#define ASH_BURST_MAX 240
+#define ASH_BURST_MAX 420
 
 typedef struct {
     Vector2 pos;
@@ -171,9 +171,11 @@ static void ash_init(void) {
     g_ash_initialized = 1;
 }
 
-static void ash_spawn_capture_burst(const GameState *g) {
+static void ash_spawn_capture_burst(const GameState *g, int streak) {
     if (!g_ash_initialized) ash_init();
     if (!g || g->last_captured_count <= 0) return;
+    if (streak < 1) streak = 1;
+    if (streak > 5) streak = 5;
 
     Rectangle table_rect = { 640.0f, 240.0f, FIELD_CARD_W, FIELD_CARD_H };
     for (int k = g->last_captured_count - 1; k >= 0; k--) {
@@ -184,6 +186,10 @@ static void ash_spawn_capture_burst(const GameState *g) {
         }
     }
 
+    int per_card = 28 + (streak - 1) * 24;
+    float spd_scale = 1.0f + 0.16f * (float)(streak - 1);
+    int size_bonus = (streak >= 3) ? 2 : (streak >= 2) ? 1 : 0;
+
     int slot = 0;
     for (int k = 0; k < g->last_captured_count; k++) {
         int cid = g->last_captured[k];
@@ -192,7 +198,7 @@ static void ash_spawn_capture_burst(const GameState *g) {
         int rw = (int)fmaxf(1.0f, r.width);
         int rh = (int)fmaxf(1.0f, r.height);
 
-        for (int n = 0; n < 44; n++) {
+        for (int n = 0; n < per_card; n++) {
             AshBurstParticle *p = NULL;
             for (int i = 0; i < ASH_BURST_MAX; i++) {
                 int idx = (slot + i) % ASH_BURST_MAX;
@@ -202,11 +208,12 @@ static void ash_spawn_capture_burst(const GameState *g) {
 
             int roll = rand() % 100;
             pick_dark_particle_dims(roll, &p->size_w, &p->size_h);
-            if (roll >= 88) { p->size_w += 1; p->size_h += 1; } /* up to 11px burst fragments */
+            if (roll >= 85) { p->size_w += 1 + size_bonus; p->size_h += 1 + size_bonus; }
+            else if (roll >= 55 && size_bonus > 0) { p->size_w += 1; p->size_h += 1; }
             p->shape = rand() & 7;
 
             float ang = (float)(rand() % 628) / 100.0f;
-            float spd = 34.0f + (float)(rand() % 108);
+            float spd = (34.0f + (float)(rand() % 108)) * spd_scale;
             p->pos = (Vector2){ r.x + (float)(rand() % rw), r.y + (float)(rand() % rh) };
             p->vel = (Vector2){ cosf(ang) * spd, sinf(ang) * spd - 14.0f };
             p->card_id = cid;
@@ -214,7 +221,7 @@ static void ash_spawn_capture_burst(const GameState *g) {
             p->follow = 0.22f + (float)(rand() % 22) / 100.0f;
             p->phase = (float)(rand() % 628) / 100.0f;
             p->sway_speed = 2.2f + (float)(rand() % 30) / 10.0f;
-            p->max_life = 0.85f + (float)(rand() % 50) / 100.0f;
+            p->max_life = 0.85f + (float)(rand() % 55) / 100.0f + 0.08f * (float)(streak - 1);
             p->life = p->max_life;
             p->active = 1;
         }
@@ -456,6 +463,7 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             Color fill_glow = COLOR_PHOSPHOR;
             fill_glow.a = (unsigned char)(70.0f * flash_alpha);
             DrawRectangleRec(lr, fill_glow);
+            ui_theme_set_panel_flare_glow(lr, flash_alpha);
         }
         ui_draw_panel_border(lr, (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (flash_alpha > 0.001f) {
@@ -489,25 +497,37 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     float frame_dt = fminf(0.05f, GetFrameTime());
     static int prev_round = -1;
     static int prev_captured = -1;
+    static int prev_field = -1;
     static int prev_koi = -1;
+    static int capture_streak = 0;
     static float thunder_flash = 0.0f;
     static float reverb_energy = 0.0f;
     static float reverb_mid = 0.0f;
     static float reverb_curve = 0.0f;
     int cur_round = g ? g->current_round : -1;
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
+    int cur_field = g ? g->field_count : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
     if (cur_round != prev_round || cur_captured < prev_captured || (g && g->phase == PHASE_DEALER_SELECT)) {
         prev_round = cur_round;
         prev_captured = cur_captured;
+        prev_field = cur_field;
         prev_koi = cur_koi;
+        capture_streak = 0;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
     int koi_edge = (prev_koi >= 0 && cur_koi > prev_koi);
+    if (capture_edge) {
+        capture_streak += (delta_captured >= 4) ? 2 : 1;
+        if (capture_streak > 5) capture_streak = 5;
+        ash_spawn_capture_burst(g, capture_streak);
+    } else if (prev_field >= 0 && cur_field > prev_field) {
+        capture_streak = 0;
+    }
     prev_captured = cur_captured;
+    prev_field = cur_field;
     prev_koi = cur_koi;
-    if (capture_edge) ash_spawn_capture_burst(g);
     if (capture_edge || koi_edge) {
         thunder_flash = 1.0f;
     } else if (thunder_flash > 0.0f) {
@@ -576,10 +596,14 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (turn_flash_alpha < 0.0f) turn_flash_alpha = 0.0f;
     }
 
-    board_draw_info_box((Rectangle){ 12, 12, CAPTURE_PANEL_W, 30 }, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
+    Rectangle cpu_score_box = { 12, 12, CAPTURE_PANEL_W, 30 };
+    Rectangle you_score_box = { 12, 678, CAPTURE_PANEL_W, 30 };
+    if (active_turn == 1 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(cpu_score_box, turn_flash_alpha);
+    board_draw_info_box(cpu_score_box, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
     draw_capture_lanes(ba, g, 1, 46.0f, (active_turn == 1) ? turn_flash_alpha : 0.0f);
     draw_capture_lanes(ba, g, 0, 508.0f, (active_turn == 0) ? turn_flash_alpha : 0.0f);
-    board_draw_info_box((Rectangle){ 12, 678, CAPTURE_PANEL_W, 30 }, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
+    if (active_turn == 0 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(you_score_box, turn_flash_alpha);
+    board_draw_info_box(you_score_box, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
 
     /* 3. CPU Hand */
     int cpu_count = g->hand_count[1];
@@ -728,7 +752,14 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
     board_draw_status_message(status_msg);
 
-    /* 11. Fixed-size, clickable combo summaries. */
+    /* 11. Fixed-size, clickable combo summaries (perimeter dots glow brighter as more combos stack). */
+    for (int p = 0; p < 2; p++) {
+        ScoreResult cs = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
+        if (cs.yaku_count > 0) {
+            float cglow = fminf(1.0f, 0.28f * (float)cs.yaku_count);
+            ui_theme_set_panel_flare_glow(combos_panel_rect(p), cglow);
+        }
+    }
     combos_draw_sidebar(g);
 
     Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
