@@ -732,7 +732,7 @@ int main(int argc, char **argv) {
 #endif
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
-    audio_set_effects(settings.effect_stereo, settings.effect_bass, settings.effect_reverb);
+    audio_set_effects(settings.effect_chorus, settings.effect_bass, settings.effect_reverb);
 #ifndef __EMSCRIPTEN__
     if (settings.music_folder[0]) audio_set_music_folder(&audio, settings.music_folder);
 #endif

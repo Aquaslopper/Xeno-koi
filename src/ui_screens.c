@@ -264,7 +264,7 @@ static void handle_audio_options(GameSettings *s, AudioAssets *audio, Vector2 vm
         audio_test_state = -1;
         audio_test_unavailable = 1;
     }
-    float *values[] = { &s->effect_stereo, &s->effect_bass, &s->effect_reverb };
+    float *values[] = { &s->effect_chorus, &s->effect_bass, &s->effect_reverb };
     for (int i = 0; i < 3; i++) {
         float y = 320.0f + i * 64.0f;
         float value = *values[i];
@@ -276,7 +276,7 @@ static void handle_audio_options(GameSettings *s, AudioAssets *audio, Vector2 vm
         }
         *values[i] = fmaxf(0, fminf(1, value));
     }
-    if (audio) audio_set_effects(s->effect_stereo, s->effect_bass, s->effect_reverb);
+    if (audio) audio_set_effects(s->effect_chorus, s->effect_bass, s->effect_reverb);
 }
 
 void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
@@ -298,11 +298,11 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
 #endif
         draw_section_header("Audio effect options", 230);
         draw_centered_text(font_body, "These settings change the Action card audio effect.", 640, 268, 17, 1, COLOR_TEXT_INFO);
-        draw_slider(320, s->effect_stereo, "Stereo wide:", TextFormat("%d%%", (int)(100 * s->effect_stereo + 0.5f)), vm);
+        draw_slider(320, s->effect_chorus, "Chorus:", TextFormat("%d%%", (int)(100 * s->effect_chorus + 0.5f)), vm);
         draw_slider(384, s->effect_bass, "Bass boost:", TextFormat("+%.1f dB", 10 * s->effect_bass), vm);
-        draw_slider(448, s->effect_reverb, "Reverb:", TextFormat("%d%%", (int)(100 * s->effect_reverb + 0.5f)), vm);
+        draw_slider(448, s->effect_reverb, "Space reverb:", TextFormat("%d%%", (int)(100 * s->effect_reverb + 0.5f)), vm);
         draw_centered_text(font_body, "Triggered by captures and Koi-Koi calls; fades afterwards.", 640, 510, 17, 1, COLOR_TEXT_INFO);
-        draw_centered_text(font_body, "Reverb includes bass only near maximum. Zero disables each effect.", 640, 542, 16, 1, COLOR_TEXT_INFO);
+        draw_centered_text(font_body, "More reverb means a larger space. Bass enters near maximum.", 640, 542, 16, 1, COLOR_TEXT_INFO);
         draw_btn((Rectangle){490, 580, 300, 36}, audio_test_state == 1 ? "TEST EFFECT: ON" : "TEST EFFECT: OFF", 18, vm, COLOR_PHOSPHOR);
         draw_centered_text(font_body, audio_test_unavailable ? "No playable match music. Choose a folder or restore music assets."
                            : "ON tests full strength; OFF compares the same track dry.", 640, 626, 15, 1, COLOR_TEXT_INFO);

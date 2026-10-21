@@ -14,7 +14,7 @@ typedef struct {
     Ruleset ruleset;       /* NINTENDO, FUDAWIKI, KK_ADD_10 */
     int background;        /* 0..4 or 6..7; 5 is reserved for Deus */
     float bgm_volume;      /* 0.0 .. 1.0, default 1.0f */
-    float effect_stereo;   /* 0..1 capture/Koi-Koi effect controls */
+    float effect_chorus;   /* 0..1 capture/Koi-Koi effect controls */
     float effect_bass;
     float effect_reverb;
     float sfx_volume;      /* 0.0 .. 1.0, default 0.5f */

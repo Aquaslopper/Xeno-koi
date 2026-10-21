@@ -37,7 +37,7 @@ void storage_load_settings(GameSettings *s) {
     s->background = 0;
     s->bgm_volume = 1.00f;
     s->sfx_volume = 0.50f;
-    s->effect_stereo = 0.50f;
+    s->effect_chorus = 0.0f;
     s->effect_bass = 0.0f;
     s->effect_reverb = 0.50f;
     s->anim_speed = 0;
@@ -93,11 +93,11 @@ void storage_load_settings(GameSettings *s) {
             } else if (strcmp(k, "bgm_volume") == 0) {
                 float vol = (float)atof(v);
                 s->bgm_volume = (vol < 0.0f) ? 0.0f : (vol > 1.0f) ? 1.0f : vol;
-            } else if (strcmp(k, "effect_stereo") == 0 || strcmp(k, "effect_bass") == 0 || strcmp(k, "effect_reverb") == 0) {
+            } else if (strcmp(k, "effect_chorus") == 0 || strcmp(k, "effect_bass") == 0 || strcmp(k, "effect_reverb") == 0) {
                 float value = strtof(v, NULL);
                 if (!(value >= 0.0f)) value = 0.0f; /* Includes NaN. */
                 if (value > 1.0f) value = 1.0f;
-                if (strcmp(k, "effect_stereo") == 0) s->effect_stereo = value;
+                if (strcmp(k, "effect_chorus") == 0) s->effect_chorus = value;
                 else if (strcmp(k, "effect_bass") == 0) s->effect_bass = value;
                 else s->effect_reverb = value;
             } else if (strcmp(k, "sfx_volume") == 0) {
@@ -169,7 +169,7 @@ void storage_save_settings(const GameSettings *s) {
              "background=%d\n"
              "bgm_volume=%.2f\n"
              "sfx_volume=%.2f\n"
-             "effect_stereo=%.2f\n"
+             "effect_chorus=%.2f\n"
              "effect_bass=%.2f\n"
              "effect_reverb=%.2f\n"
              "anim_speed=%d\n"
@@ -182,7 +182,7 @@ void storage_save_settings(const GameSettings *s) {
              "current_opponent=%d\n"
              "cleared_mask=%llu\n",
              s->music_folder, s->rounds, diff_str, s->master_timer, rule_str, s->background,
-             s->bgm_volume, s->sfx_volume, s->effect_stereo, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
+             s->bgm_volume, s->sfx_volume, s->effect_chorus, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
              s->fullscreen, s->bloom, s->crt_filter, s->gamma,
              s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask);
     safe_write_text("settings.txt", buf);

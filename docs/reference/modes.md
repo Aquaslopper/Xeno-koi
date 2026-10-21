@@ -57,7 +57,7 @@ exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
 | Anim Speed | Slow, Normal, Fast | Slow |
 | BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
 | Music Folder (desktop, page 2) | Folder path for up to 10 custom MP3 match tracks; Use Default restores shipped tracks | Built-in music |
-| Action audio (page 2) | Stereo wide, Bass boost, Reverb; controls capture/Koi-Koi-triggered music processing | 50%, +0 dB, 50% |
+| Action audio (page 2) | Chorus, Bass boost, Space reverb; controls capture/Koi-Koi-triggered music processing | Off, +0 dB, 50% |
 | Bloom Effect | Off, Mid, Full | Mid |
 | CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
 | Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.00 |
@@ -84,13 +84,13 @@ This option is **desktop-only**. Browser builds cannot read a local folder path 
 
 On **Options page 2**, beneath **Audio effect options**, the three sliders change the **music effect triggered by taking/capturing cards or calling Koi-Koi**. They do not apply continuously or replace card SFX. The existing action envelope builds and fades; sliders set its maximum strength.
 
-- **Stereo wide:** the upper half strongly expands the track's existing stereo content while retaining its mono centre. It does not create artificial phase-shift stereo from a mono source: **with Reverb zero, mono stays mono**. Width also expands existing stereo ambience when Reverb is enabled. It uses no inter-ear delay or slapback; dry and bypass retain the same fixed 64-sample timing alignment (~1.45 ms at 44.1 kHz). Set Reverb to zero to isolate width. Already-wide/anti-correlated sources are guarded; the slider does not convert the music to pure Side, which would disappear in mono.
+- **Chorus:** replaces the discontinued stereo widener. Adds two gently pitch-modulated short-delay voices over the direct music. Raising the control increases their level and modulation depth. The two channels use identical modulation and fixed gains: this is a layered chorus, **not an auto-panner**. The deliberate chorus modulation remains audible; set Chorus to zero if you do not want that movement.
 - **Bass boost:** maximum is a **+10 dB low shelf with stereo-linked compression of only the added bass** (up to 4:1). The original music is not ducked by the bass compressor. The displayed dB value is the low-frequency pre-compression ceiling at full action strength; loud material receives less additional gain to prevent clipping.
-- **Reverb:** maximum gives a heavy, wide, full-band return, including bass. Bass joins the reverb return over its **last 20%**; it stays predominantly dry below that, rather than muddying the whole range early. This does not require turning the separate bass-boost control up.
+- **Space reverb:** increasing the slider expands reflection spacing and diffusion, and lengthens the decay from a small room toward a large hall—not just a louder copy of the same room. At nominal 44.1 kHz, measured impulse-decay estimates are about 0.6 s at 25%, 1.1 s at 50%, and 6 s at maximum. The largest setting includes low-frequency ambience in the centre of the return; bass opens over the final 20%, while the stereo diffuse field stays focused on mids/highs. Dry music remains present. This is algorithmic room/hall reverb, not a recorded impulse response or a shimmer/pitch-shifting reverb.
 
 Use **TEST EFFECT: ON/OFF** below the sliders to audition your settings. **ON** plays match music from your selected folder (or the built-in playlist) through the real effect at full action strength, with slider changes applied live. **OFF** keeps that same track playing dry for comparison, with a short smooth release rather than an abrupt cut. Finished tracks advance through the loaded playlist. BGM volume/mute is respected. Leaving page 2 or using **BACK (SAVE)** stops the audition and restores menu music. Test state is temporary, never saved; with no playable tracks the page displays a warning instead of starting a silent test. This control works in the browser too, using bundled music.
 
-Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls in `settings.txt` (`effect_stereo`, `effect_bass`, `effect_reverb`). Fresh defaults are 50% width, +0 dB bass, 50% reverb. The effect sliders also work in browser builds; the local folder control remains desktop-only. See [DSP design, sources and numerical verification](audio-dsp.md) for mono-safety checks and device-rate limitations.
+Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls in `settings.txt` (`effect_chorus`, `effect_bass`, `effect_reverb`). Fresh defaults are Chorus off, +0 dB bass, 50% space reverb. Old `effect_stereo` values are ignored rather than turning a different effect on automatically. With all effects off, music is unchanged with no added latency. The effect sliders also work in browser builds; the local folder control remains desktop-only. See [DSP design, sources and numerical verification](audio-dsp.md) for mono-safety checks and device-rate limitations.
 
 ### Fullscreen
 

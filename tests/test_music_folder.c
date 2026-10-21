@@ -61,16 +61,16 @@ int main(void) {
     GameSettings s, restored;
     storage_load_settings(&s);
     assert(!s.music_folder[0]);
-    assert(s.effect_stereo == 0.5f && s.effect_bass == 0 && s.effect_reverb == 0.5f);
+    assert(s.effect_chorus == 0 && s.effect_bass == 0 && s.effect_reverb == 0.5f);
     const char *folder = "C:\\My Music\\日本語 = mix";
     strcpy(s.music_folder, folder);
     s.bgm_volume = 0.63f;
-    s.effect_stereo = 0.81f; s.effect_bass = 0.67f; s.effect_reverb = 0.93f;
+    s.effect_chorus = 0.81f; s.effect_bass = 0.67f; s.effect_reverb = 0.93f;
     storage_save_settings(&s);
     storage_load_settings(&restored);
     assert(strcmp(restored.music_folder, folder) == 0);
     assert(fabsf(restored.bgm_volume - 0.63f) < 0.001f);
-    assert(fabsf(restored.effect_stereo - 0.81f) < 0.001f);
+    assert(fabsf(restored.effect_chorus - 0.81f) < 0.001f);
     assert(fabsf(restored.effect_bass - 0.67f) < 0.001f);
     assert(fabsf(restored.effect_reverb - 0.93f) < 0.001f);
     memset(s.music_folder, 'x', sizeof(s.music_folder) - 1);
@@ -99,10 +99,17 @@ int main(void) {
     assert(strcmp(restored.music_folder, "/Music with spaces") == 0 && restored.rounds == 9);
     f = fopen("settings.txt", "w");
     assert(f);
-    fputs("effect_stereo=nan\neffect_bass=-1\neffect_reverb=inf\n", f);
+    fputs("effect_chorus=nan\neffect_bass=-1\neffect_reverb=inf\n", f);
     fclose(f);
     storage_load_settings(&restored);
-    assert(restored.effect_stereo == 0 && restored.effect_bass == 0 && restored.effect_reverb == 1);
+    assert(restored.effect_chorus == 0 && restored.effect_bass == 0 && restored.effect_reverb == 1);
+    f = fopen("settings.txt", "w");
+    assert(f);
+    fputs("effect_stereo=1\neffect_bass=0.25\n", f);
+    fclose(f);
+    storage_load_settings(&restored);
+    assert(restored.effect_chorus == 0 && restored.effect_bass == 0.25f);
+    /* The abandoned width setting must not turn on a different effect. */
     puts("All custom music folder / settings checks passed.");
     return 0;
 }

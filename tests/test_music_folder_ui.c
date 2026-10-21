@@ -81,14 +81,14 @@ int main(void) {
     assert(screens_audio_test_state() == 1);
     down = 1;
     screens_handle_options_click(&s, &ba, &a, (Vector2){872, 330});
-    assert(s.effect_stereo == 1 && effects[0] == 1 && screens_audio_test_state() == 1);
+    assert(s.effect_chorus == 1 && effects[0] == 1 && screens_audio_test_state() == 1);
     screens_handle_options_click(&s, &ba, &a, (Vector2){780, 395});
     assert(fabsf(s.effect_bass - 0.5f) < 1e-6f && fabsf(effects[1] - 0.5f) < 1e-6f);
     screens_handle_options_click(&s, &ba, &a, (Vector2){688, 458});
     assert(s.effect_reverb == 0 && effects[2] == 0 && s.sfx_volume == 0.43f);
     down = 0;
     screens_handle_options_click(&s, &ba, &a, (Vector2){890, 330}); /* + at maximum clamps. */
-    assert(s.effect_stereo == 1);
+    assert(s.effect_chorus == 1);
     screens_handle_options_click(&s, &ba, &a, (Vector2){665, 458}); /* - at minimum clamps. */
     assert(s.effect_reverb == 0);
     screens_handle_options_click(&s, &ba, &a, (Vector2){700, 140});

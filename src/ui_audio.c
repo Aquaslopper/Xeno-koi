@@ -4,25 +4,22 @@
 #include <stdlib.h>
 #include <math.h>
 
-/* Action-triggered stereo width, bass shelf/compression, and reverb on match music.
+/* Action-triggered chorus, bass shelf/compression, and space reverb on match music.
    Driven by a smooth, hard-limited synergy curve via audio_set_reverb(amount):
    starts subtle on the first capture, blooms on stacked captures, and ducks its
    tail under the dry music so it never smears or spikes. */
-#define WIDTH_DELAY 64
-#define WIDTH_HISTORY (WIDTH_DELAY + 1)
+#define CHORUS_HISTORY 2048
+#define REVERB_COMB_COUNT 8
+#define REVERB_COMB_MAX   4096
+#define REVERB_AP_COUNT   4
+#define REVERB_AP_MAX     1536
+#define REVERB_PREDELAY_MAX 4096
 
-#define REVERB_COMB_COUNT 4
-#define REVERB_COMB_MAX   5504
-#define REVERB_AP_COUNT   2
-#define REVERB_AP_MAX     640
-#define REVERB_PREDELAY_MAX 6400
-
-static const int k_comb_len_l[REVERB_COMB_COUNT] = { 2903, 3571, 4219, 4967 };
-static const int k_comb_len_r[REVERB_COMB_COUNT] = { 3251, 3917, 4603, 5381 };
-static const int k_ap_len_l[REVERB_AP_COUNT]     = { 431, 163 };
-static const int k_ap_len_r[REVERB_AP_COUNT]     = { 509, 211 };
-static const int k_pre_len_l = 3607; /* ~75 ms stereo slapback L */
-static const int k_pre_len_r = 5897; /* ~123 ms stereo slapback R */
+/* Independently chosen tunings for the classic parallel-comb/serial-diffuser topology. */
+static const int k_comb_len_l[REVERB_COMB_COUNT] = {1123, 1201, 1289, 1367, 1433, 1499, 1571, 1627};
+static const int k_comb_len_r[REVERB_COMB_COUNT] = {1147, 1229, 1307, 1399, 1459, 1523, 1597, 1657};
+static const int k_ap_len_l[REVERB_AP_COUNT] = {557, 443, 337, 227};
+static const int k_ap_len_r[REVERB_AP_COUNT] = {577, 461, 359, 251};
 
 static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
 static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
@@ -52,11 +49,9 @@ static BiquadState s_in_lp_l, s_in_lp_r;
 static float s_sc_env = 0.0f;
 static BiquadState s_bass_l, s_bass_r;
 static float s_bass_env;
-static float s_width_mid_power, s_width_side_power, s_width_cross;
-static float s_width_base_power, s_width_extra_power, s_width_base_cross;
-static float s_effect_cur[3] = {0.5f, 0.0f, 0.5f};
-static float s_width_history[WIDTH_HISTORY][2];
-static int s_width_index;
+static float s_effect_cur[3] = {0.0f, 0.0f, 0.5f};
+static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase;
+static int s_chorus_index;
 
 #if __GCC_ATOMIC_INT_LOCK_FREE != 2
 #error Audio controls require lock-free unsigned int atomics
@@ -65,7 +60,7 @@ static int s_width_index;
 /* C99 builds: lock-free, one-word snapshots between UI and audio threads.
    Never allocate, lock, or read GameSettings from the real-time callback. */
 static unsigned int s_reverb_target;
-static unsigned int s_effect_settings = 500u | (500u << 20);
+static unsigned int s_effect_settings = 500u << 20;
 static unsigned int s_reset_epoch;
 static float s_reverb_cur;
 
@@ -78,11 +73,11 @@ void audio_set_reverb(float amount) {
     __atomic_store_n(&s_reverb_target, (unsigned int)(clamp_range(amount, 0, 1) * 1000000), __ATOMIC_RELAXED);
 }
 
-void audio_set_effects(float stereo, float bass, float reverb) {
-    unsigned int w = (unsigned int)(clamp_range(stereo, 0, 1) * 1000 + 0.5f);
+void audio_set_effects(float chorus, float bass, float reverb) {
+    unsigned int c = (unsigned int)(clamp_range(chorus, 0, 1) * 1000 + 0.5f);
     unsigned int b = (unsigned int)(clamp_range(bass, 0, 1) * 1000 + 0.5f);
     unsigned int r = (unsigned int)(clamp_range(reverb, 0, 1) * 1000 + 0.5f);
-    __atomic_store_n(&s_effect_settings, w | (b << 10) | (r << 20), __ATOMIC_RELAXED);
+    __atomic_store_n(&s_effect_settings, c | (b << 10) | (r << 20), __ATOMIC_RELAXED);
 }
 
 static void reset_music_dsp(void) {
@@ -96,10 +91,9 @@ static void reset_music_dsp(void) {
     s_in_hp_l = s_in_hp_r = s_in_lp_l = s_in_lp_r = (BiquadState){0};
     s_bass_l = s_bass_r = (BiquadState){0};
     s_sc_env = s_bass_env = s_reverb_cur = 0;
-    memset(s_width_history, 0, sizeof(s_width_history));
-    s_width_index = 0;
-    s_width_mid_power = s_width_side_power = s_width_cross = 0;
-    s_width_base_power = s_width_extra_power = s_width_base_cross = 0;
+    memset(s_chorus_history, 0, sizeof(s_chorus_history));
+    s_chorus_index = 0;
+    s_chorus_phase = 0;
 }
 
 static float card_sfx_volume(float master_volume) {
@@ -148,6 +142,16 @@ static float soft_knee_limit(float x, float knee, float max_val) {
     return (x < 0.0f) ? -out : out;
 }
 
+/* Linear interpolation permits smooth room-size and chorus delay changes.
+   All requested delays are >= 1 and below the corresponding ring capacity. */
+static float delay_tap(const float *buffer, int capacity, int write, float delay) {
+    float position = write - delay;
+    if (position < 0) position += capacity;
+    int index = (int)position;
+    float fraction = position - index;
+    return buffer[index] + fraction*(buffer[(index + 1) % capacity] - buffer[index]);
+}
+
 static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, unsigned int frames) {
     float *pcm = (float *)music_buffer;
     float *sfx = (float *)sfx_buffer; // Cast the SFX stream
@@ -170,7 +174,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             s_effect_cur[i] += (controls[i] - s_effect_cur[i]) * 0.001f;
             if (fabsf(controls[i] - s_effect_cur[i]) < 0.0001f) s_effect_cur[i] = controls[i];
         }
-        float width = s_effect_cur[0], bass = s_effect_cur[1], room = s_effect_cur[2];
+        float chorus = s_effect_cur[0], bass = s_effect_cur[1], room = s_effect_cur[2];
         float bass_amount = bass * rev;
         float shelf_mix = (powf(10, 0.5f * bass_amount) - 1) / 2.16227766f;
         /* Parallel bass: compress ONLY the added shelf component. The original
@@ -192,9 +196,10 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* 2. Existing stereo comb/all-pass tank (no allocation in the callback). */
-        /* Full-band tank receives the bass-processed stereo signal. Low frequencies
-           are excluded at the RETURN until the final 20% of the reverb control. */
+        /* Room dimensions depend on the saved slider, not the action pulse:
+           size 0.65..2.2, feedback 0.55..0.93, increasingly diffuse late field. */
+        float size = 0.65f + 1.55f*room;
+        float diffusion = 0.50f + 0.15f*room;
         float bp_in_l = dry_l;
         float bp_in_r = dry_r;
 
@@ -210,65 +215,65 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             bp_in_r += sfx_r * sfx_scaling;
         }
         
-        float slap_l = s_pre_buf_l[s_pre_idx_l];
-        float slap_r = s_pre_buf_r[s_pre_idx_r];
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(bp_in_l * 0.65f + slap_r * 0.12f, -0.70f, 0.70f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(bp_in_r * 0.65f - slap_l * 0.12f, -0.70f, 0.70f);
-        if (++s_pre_idx_l >= (k_pre_len_l / 2)) s_pre_idx_l = 0;
-        if (++s_pre_idx_r >= (k_pre_len_r / 2)) s_pre_idx_r = 0;
-
+        float pre_delay = 220 + 1980*room; /* ~5..50 ms at nominal 44.1 kHz. */
+        float early_l = delay_tap(s_pre_buf_l, REVERB_PREDELAY_MAX, s_pre_idx_l, pre_delay);
+        float early_r = delay_tap(s_pre_buf_r, REVERB_PREDELAY_MAX, s_pre_idx_r, pre_delay);
+        s_pre_buf_l[s_pre_idx_l] = bp_in_l;
+        s_pre_buf_r[s_pre_idx_r] = bp_in_r;
+        if (++s_pre_idx_l == REVERB_PREDELAY_MAX) s_pre_idx_l = 0;
+        if (++s_pre_idx_r == REVERB_PREDELAY_MAX) s_pre_idx_r = 0;
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        float feed_l = bp_in_l * 0.65f + slap_r * 0.15f;
-        float feed_r = bp_in_r * 0.65f + slap_l * 0.15f;
-        float feedback = 0.84f - 0.10f * tail_releasing;
-        const float damp = 0.22f;
+        /* Low fixed input gain reserves feedback headroom, not an auto-gain. */
+        float feed_l = early_l*0.020f + early_r*0.005f;
+        float feed_r = early_r*0.020f + early_l*0.005f;
+        float feedback = (0.55f + 0.38f*room) - 0.08f*tail_releasing;
+        float damp = 0.40f - 0.20f*room;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
             int il = s_comb_idx_l[c];
-            float out_l = s_comb_buf_l[c][il];
+            float out_l = delay_tap(s_comb_buf_l[c], REVERB_COMB_MAX, il, k_comb_len_l[c]*size);
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
             s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
-            if (++il >= k_comb_len_l[c]) il = 0;
+            if (++il == REVERB_COMB_MAX) il = 0;
             s_comb_idx_l[c] = il;
             acc_l += s_comb_lp_l[c];
 
             int ir = s_comb_idx_r[c];
-            float out_r = s_comb_buf_r[c][ir];
+            float out_r = delay_tap(s_comb_buf_r[c], REVERB_COMB_MAX, ir, k_comb_len_r[c]*size);
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
             s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.80f, 0.80f);
-            if (++ir >= k_comb_len_r[c]) ir = 0;
+            if (++ir == REVERB_COMB_MAX) ir = 0;
             s_comb_idx_r[c] = ir;
             acc_r += s_comb_lp_r[c];
         }
 
-        acc_l *= 0.38f;
-        acc_r *= 0.38f;
+        /* Restore the 20x input staging, then normalize eight returns (~1/sqrt(8)). */
+        acc_l *= 7.0f;
+        acc_r *= 7.0f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
             int il = s_ap_idx_l[a];
-            float buf_l = s_ap_buf_l[a][il];
+            float buf_l = delay_tap(s_ap_buf_l[a], REVERB_AP_MAX, il, k_ap_len_l[a]*size);
             float in_l = acc_l;
-            acc_l = -in_l + buf_l;
-            s_ap_buf_l[a][il] = in_l + buf_l * 0.48f;
-            if (++il >= k_ap_len_l[a]) il = 0;
+            acc_l = buf_l - diffusion*in_l;
+            s_ap_buf_l[a][il] = in_l + diffusion*acc_l;
+            if (++il == REVERB_AP_MAX) il = 0;
             s_ap_idx_l[a] = il;
 
             int ir = s_ap_idx_r[a];
-            float buf_r = s_ap_buf_r[a][ir];
+            float buf_r = delay_tap(s_ap_buf_r[a], REVERB_AP_MAX, ir, k_ap_len_r[a]*size);
             float in_r = acc_r;
-            acc_r = -in_r + buf_r;
-            s_ap_buf_r[a][ir] = in_r + buf_r * 0.48f;
-            if (++ir >= k_ap_len_r[a]) ir = 0;
+            acc_r = buf_r - diffusion*in_r;
+            s_ap_buf_r[a][ir] = in_r + diffusion*acc_r;
+            if (++ir == REVERB_AP_MAX) ir = 0;
             s_ap_idx_r[a] = ir;
         }
 
-        float wet_l = acc_l + slap_l * 0.24f;
-        float wet_r = acc_r + slap_r * 0.24f;
+        float wet_l = acc_l + early_l * 0.12f;
+        float wet_r = acc_r + early_r * 0.12f;
 
-        /* Independent M/S widening. Equal-and-opposite Side is the correct decode:
-           L=M+S, R=M-S; unlike the old unequal 0.92/0.42 mix it cannot shift the centre.
-           Keeping M (not making the whole signal Side) preserves the mono fold-down. */
+        /* Stereo room return, with no width/covariance automation. */
         float wet_mono = 0.5f * (wet_l + wet_r);
         float wet_stereo = 0.5f * (wet_l - wet_r);
         float bass_late = clamp_range((room - 0.8f) * 5, 0, 1);
@@ -276,72 +281,47 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float room_mid_hp = biquad_hp300(&s_in_hp_l, wet_mono);
         float room_side_hp = biquad_hp300(&s_in_hp_r, wet_stereo);
         float room_mid = room_mid_hp + (wet_mono - room_mid_hp) * bass_late;
-        float room_side = room_side_hp + (wet_stereo - room_side_hp) * bass_late;
+        /* Deep room bass stays centred; diffusion occupies the mid/high field. */
+        float room_side = room_side_hp;
         /* Darker at low room settings; full-band at maximum. */
         float room_mid_lp = biquad_lp5000(&s_in_lp_l, room_mid);
         float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
-        /* Retain fixed dry/bypass timing. No synthetic Side from Mid: a fixed
-           quadrature polarity makes one ear lead, despite equal L/R levels. */
-        s_width_history[s_width_index][0] = dry_l;
-        s_width_history[s_width_index][1] = dry_r;
-        int aligned = (s_width_index - WIDTH_DELAY + WIDTH_HISTORY) % WIDTH_HISTORY;
-        dry_l = s_width_history[aligned][0];
-        dry_r = s_width_history[aligned][1];
-        if (++s_width_index == WIDTH_HISTORY) s_width_index = 0;
-
-        float out_l = dry_l;
-        float out_r = dry_r;
-
-        if (rev > 0.00001f && width + bass + room > 0.00001f) {
-            float dry_mid = 0.5f * (dry_l + dry_r);
-            float dry_side = 0.5f * (dry_l - dry_r);
-            float wet_gain = room * rev * 1.10f * sc_dim * (1 - 0.10f * tail_releasing);
-            float dry_gain = 1 - 0.30f * room * rev;
-            float mid = dry_mid * dry_gain + room_mid * wet_gain;
-            float spread = width * rev;
-            /* Top half is deliberately expansive, not just a subtle image trim.
-               Equal Mid/Side power at maximum is wide without negative correlation. */
-            float width_drive = spread * (1.20f + 4.80f * spread * spread);
-            float side_limit = 0.49f + 0.51f * spread * spread;
-            /* Widen EXISTING dry/room stereo only. This commutes with L/R
-               exchange and leaves a mono source mono when room is off. */
-            float extra = dry_side * dry_gain * width_drive
-                        + room_side * wet_gain * (1 + width_drive);
-            /* Correct correlated room return, never invent a fixed-ear phase lead.
-               Cap added Side RMS at/below Mid RMS; preserve the original pan. */
-            const float meter = 0.00015f; /* ~150 ms; avoids bass-cycle pumping */
-            s_width_mid_power += (mid*mid - s_width_mid_power) * meter;
-            s_width_side_power += (extra*extra - s_width_side_power) * meter;
-            s_width_cross += (mid*extra - s_width_cross) * meter;
-            float projection = room * s_width_cross / fmaxf(s_width_mid_power, 1e-12f);
-            extra -= mid * projection;
-            float residual = fmaxf(0, s_width_side_power - 2*s_width_cross*projection
-                                     + projection*projection*s_width_mid_power);
-            if (residual > side_limit * s_width_mid_power)
-                extra *= sqrtf(side_limit * s_width_mid_power / residual);
-            /* An already-wide/anti-correlated source gets no extra Side-energy
-               budget: do not aggravate phase problems present in a custom MP3. */
-            float base = dry_side * dry_gain;
-            s_width_base_power += (base*base - s_width_base_power) * meter;
-            s_width_extra_power += (extra*extra - s_width_extra_power) * meter;
-            s_width_base_cross += (base*extra - s_width_base_cross) * meter;
-            float budget = fmaxf(s_width_base_power, side_limit*s_width_mid_power) - s_width_base_power;
-            if (s_width_extra_power > 1e-12f) {
-                float cross = s_width_base_cross;
-                float gain = (sqrtf(cross*cross + s_width_extra_power*budget) - cross) / s_width_extra_power;
-                extra *= clamp_range(gain, 0, 1);
-            }
-            float side = base + extra;
-            out_l = mid + side;
-            out_r = mid - side;
+        float wet_gain = room * rev * 2.20f * sc_dim * (1 - 0.10f * tail_releasing);
+        float dry_gain = 1 - 0.30f * room * rev;
+        float out_l = dry_l, out_r = dry_r;
+        if (room * rev > 0.00001f) {
+            out_l = dry_l*dry_gain + (room_mid + room_side)*wet_gain;
+            out_r = dry_r*dry_gain + (room_mid - room_side)*wet_gain;
         }
 
+        /* Separate, feed-forward two-voice chorus AFTER the room. Identical tap
+           modulation in both channels preserves pan; gains never follow the LFO.
+           Parallel return retains the direct signal instead of ducking it. */
+        s_chorus_history[0][s_chorus_index] = out_l;
+        s_chorus_history[1][s_chorus_index] = out_r;
+        float amount = chorus*rev;
+        if (amount > 0.00001f) {
+            float depth = 132*chorus; /* up to 3 ms at nominal 44.1 kHz */
+            float d1 = 662 + depth*sinf(s_chorus_phase);
+            float d2 = 1014 + depth*cosf(s_chorus_phase);
+            float mix = 0.35f*amount;
+            float voice_l = 0.5f*(delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d1)
+                                + delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d2));
+            float voice_r = 0.5f*(delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d1)
+                                + delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d2));
+            out_l += mix*voice_l;
+            out_r += mix*voice_r;
+        }
+        if (++s_chorus_index == CHORUS_HISTORY) s_chorus_index = 0;
+        s_chorus_phase += 6.28318530718f*0.30f/44100;
+        if (s_chorus_phase >= 6.28318530718f) s_chorus_phase -= 6.28318530718f;
+
         /* Stereo-linked protection: one gain for both ears, no image shift.
-           Dry bypass (including hot input) retains the same fixed alignment when off. */
+           Dry bypass (including hot input) is zero-latency when all effects are off. */
         float peak = fmaxf(fabsf(out_l), fabsf(out_r));
-        if (rev > 0.00001f && width + bass + room > 0.00001f && peak > 0.88f) {
+        if (rev > 0.00001f && chorus + bass + room > 0.00001f && peak > 0.88f) {
             float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;
             out_l *= gain; out_r *= gain;
         }

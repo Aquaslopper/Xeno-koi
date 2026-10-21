@@ -40,7 +40,7 @@ int audio_set_music_folder(AudioAssets *a, const char *folder);
 void audio_set_bgm_volume(AudioAssets *a, float volume);
 void audio_set_sfx_volume(AudioAssets *a, float volume);
 void audio_set_reverb(float amount); /* Existing action envelope, not the Options slider. */
-void audio_set_effects(float stereo, float bass, float reverb);
+void audio_set_effects(float chorus, float bass, float reverb);
 
 void audio_play_menu_music(AudioAssets *a);
 void audio_preview_effect(AudioAssets *a, int enabled); /* Same match stream, wet/dry A/B. */
