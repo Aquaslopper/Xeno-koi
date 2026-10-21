@@ -1,21 +1,21 @@
-/* Headless regression test for the staged capture DSP + live SFX sidechain bus
- * in src/ui_audio.c.
+/* Headless regression test for the Tide-enveloped M/S capture DSP + live SFX
+ * sidechain bus in src/ui_audio.c.
  *
  * Verifies:
  *   1. Stage 0 is a bit-exact bypass even on full-scale (1.00 peak) music.
- *   2. Block-size invariance: 256-frame callbacks match 2048-frame callbacks.
- *   3. Live SFX sidechain bus: ANY SFX stream (flip, drop, koi, click, ...)
- *      ducks the music proportionally to its waveform and releases back to
- *      exact bypass after the SFX ends (cannot stick).
- *   4. Stages 1 -> 2 -> 3 audibly stack across all three effects:
- *      reverb mid (1 < 2 < 3), stereo side (1 < 2 < 3), and mono low bass
- *      (<180 Hz, stage 3 > stage 1).
- *   5. Wet Side low band sits >=25 dB below its own high band (mono kick/bass).
- *   6. Clean shutdown: returning from stage 3 to stage 0 restores bit-exact
- *      bypass within 3 seconds instead of ringing indefinitely.
- *   7. Driven hard on both music and master mix buses, output stays < 1.000.
- *
- * Builds against tests/raylib_audio_stub/raylib.h. Run via ./tests/test_audio_dsp.sh
+ *   2. Live All-SFX sidechain bus ducks music under non-capture SFX (flip +
+ *      click) and releases back to bit-exact 0.000000000 bypass.
+ *   3. Block-size invariance: 256-frame callbacks match 2048-frame callbacks.
+ *   4. Tide envelope shape: swells smoothly from t=0 to peak at 550 ms, drops
+ *      20% onto its shoulder at ~740 ms, then glides monotonically down its
+ *      smooth exponential tail.
+ *   5. Stage order & targets:
+ *      - Stage 1 (60% stereo, 20% rev, 20% bass): wide stereo opens first
+ *      - Stage 2 (70% stereo, 50% rev, 20% bass): reverb blooms second (>2x)
+ *      - Stage 3 (70% stereo, 70% rev, 50% bass): mono bass drops third (>2x)
+ *   6. Low roll-off (100->40 Hz gentle slope + <40 Hz cut), 1.2 kHz pre-tank
+ *      de-esser, and 500 Hz 24 dB/oct Side high-pass (>=35 dB Side low cut).
+ *   7. Clean shutdown to bit-exact 0 bypass & < 1.000 master ceiling.
  */
 #include <stdio.h>
 #include <math.h>
@@ -41,23 +41,44 @@ static float next_noise(void) {
     return ((float)rng_state / (float)0x7fffffff) * 2.0f - 1.0f;
 }
 
-/* Full-bandwidth mono music source containing real low end (95 Hz + 145 Hz)
-   plus broadband body so all bands (reverb, side, mono bass) are exercised. */
+/* Full-bandwidth source with real 62 Hz kick fundamental + 125 Hz bass + mids */
 static void fill_program(float *dst, int frames, float scale) {
     rng_state = 424242u;
     for (int i = 0; i < frames; i++) {
         float t = (float)i / (float)SR;
-        float bass = 0.45f * sinf(2.0f * PI_F * 105.0f * t) +
-                     0.30f * sinf(2.0f * PI_F * 155.0f * t);
-        float body = 0.25f * next_noise();
-        float v = scale * (bass + body);
+        float kick = 0.42f * sinf(2.0f * PI_F * 62.0f * t) +
+                     0.28f * sinf(2.0f * PI_F * 125.0f * t);
+        float body = 0.30f * next_noise();
+        float v = scale * (kick + body);
         dst[i * 2 + 0] = v;
         dst[i * 2 + 1] = v;
     }
 }
 
-static void run_blocks(float *pcm, int frames, int stage, int block_sz) {
-    audio_set_capture_stage(stage);
+static void reset_all_dsp(void) {
+    audio_reset_stage_state();
+    sc_bus_flush();
+    s_sfx_sc_env = 0.0f;
+    memset(s_comb_buf_l, 0, sizeof(s_comb_buf_l));
+    memset(s_comb_buf_r, 0, sizeof(s_comb_buf_r));
+    memset(s_comb_lp_l, 0, sizeof(s_comb_lp_l));
+    memset(s_comb_lp_r, 0, sizeof(s_comb_lp_r));
+    memset(s_ap_buf_l, 0, sizeof(s_ap_buf_l));
+    memset(s_ap_buf_r, 0, sizeof(s_ap_buf_r));
+    memset(s_pre_buf_l, 0, sizeof(s_pre_buf_l));
+    memset(s_pre_buf_r, 0, sizeof(s_pre_buf_r));
+    memset(s_wide_ap1, 0, sizeof(s_wide_ap1));
+    memset(s_wide_ap2, 0, sizeof(s_wide_ap2));
+    s_wide_i1 = s_wide_i2 = 0;
+    s_slope_lp_l = s_slope_lp_r = 0.0f;
+    s_deess_lp_l = s_deess_lp_r = s_deess_env = 0.0f;
+    s_low_env = s_sc_env = 0.0f;
+    s_hp_lp_l = s_hp_lp_r = s_comp_env = 0.0f;
+    s_mix_hp_l = s_mix_hp_r = s_mix_env = 0.0f;
+    s_dsp_ready = 0;
+}
+
+static void run_stream(float *pcm, int frames, int block_sz) {
     int pos = 0;
     while (pos < frames) {
         int n = (frames - pos < block_sz) ? (frames - pos) : block_sz;
@@ -90,18 +111,21 @@ static double rms_val(const float *v, int count) {
 static void wet_bands(const float *out, const float *dry, int frames,
                       double *side_lo, double *side_hi,
                       double *mid_lo, double *mid_hi) {
-    const float k120 = 1.0f - expf(-2.0f * PI_F * 120.0f / (float)SR);
-    const float k180 = 1.0f - expf(-2.0f * PI_F * 180.0f / (float)SR);
-    float sl1 = 0, sl2 = 0, ml1 = 0, ml2 = 0;
+    Biquad slo1, slo2, shi1, shi2, mlo1, mlo2, mhi1, mhi2;
+    biquad_design(&slo1, 180.0f, 0); biquad_design(&slo2, 180.0f, 0);
+    biquad_design(&shi1, 500.0f, 1); biquad_design(&shi2, 500.0f, 1);
+    biquad_design(&mlo1, 180.0f, 0); biquad_design(&mlo2, 180.0f, 0);
+    biquad_design(&mhi1, 250.0f, 1); biquad_design(&mhi2, 250.0f, 1);
     double sl = 0, sh = 0, ml = 0, mh = 0;
     for (int i = 0; i < frames; i++) {
         float side = 0.5f * (out[i * 2 + 0] - out[i * 2 + 1]) - 0.5f * (dry[i * 2 + 0] - dry[i * 2 + 1]);
         float mid  = 0.5f * (out[i * 2 + 0] + out[i * 2 + 1]) - 0.5f * (dry[i * 2 + 0] + dry[i * 2 + 1]);
-        sl1 += (side - sl1) * k120; sl2 += (sl1 - sl2) * k120;
-        ml1 += (mid  - ml1) * k180; ml2 += (ml1 - ml2) * k180;
-        float s_hi = side - sl2, m_hi = mid - ml2;
-        sl += (double)sl2 * sl2; sh += (double)s_hi * s_hi;
-        ml += (double)ml2 * ml2; mh += (double)m_hi * m_hi;
+        float s_lo = biquad_run(&slo2, biquad_run(&slo1, side));
+        float s_hi = biquad_run(&shi2, biquad_run(&shi1, side));
+        float m_lo = biquad_run(&mlo2, biquad_run(&mlo1, mid));
+        float m_hi = biquad_run(&mhi2, biquad_run(&mhi1, mid));
+        sl += (double)s_lo * s_lo; sh += (double)s_hi * s_hi;
+        ml += (double)m_lo * m_lo; mh += (double)m_hi * m_hi;
     }
     *side_lo = sqrt(sl / frames); *side_hi = sqrt(sh / frames);
     *mid_lo  = sqrt(ml / frames); *mid_hi  = sqrt(mh / frames);
@@ -114,22 +138,23 @@ static void check(int ok, const char *what) {
 }
 
 int main(void) {
-    printf("staged capture DSP + live SFX sidechain checks\n");
+    printf("Tide-enveloped M/S capture DSP + live SFX sidechain checks\n");
 
     /* 1. Stage 0 bit-exact bypass on a full-scale 1.00-peak signal */
-    audio_reset_stage_state();
+    reset_all_dsp();
     fill_program(buf_a, TEST_FRAMES, 1.0f);
     memcpy(dry_ref, buf_a, sizeof(dry_ref));
-    run_blocks(buf_a, TEST_FRAMES, 0, BLOCK);
+    audio_set_capture_stage(0);
+    run_stream(buf_a, TEST_FRAMES, BLOCK);
     float diff0 = max_abs_diff(buf_a, dry_ref, TEST_FRAMES * 2);
     printf("  stage 0 (peak %.2f): max |out-in| = %.9f\n", peak_val(dry_ref, TEST_FRAMES * 2), diff0);
     check(diff0 == 0.0f, "stage 0 is bit-exact bypass even at full-scale 1.0 peak");
 
     /* 2. Live SFX sidechain bus works for non-capture SFX too AND releases cleanly */
     {
+        reset_all_dsp();
         fill_program(buf_a, BLOCK * 40, 0.4f);
         memcpy(buf_b, buf_a, sizeof(float) * BLOCK * 40 * 2);
-        /* Fire sfx_tap_0 (flip) and sfx_tap_6 (click) for 3 blocks, then silence */
         for (int b = 0; b < 40; b++) {
             if (b < 3) {
                 for (int i = 0; i < BLOCK * 2; i++) sfx_buf[i] = 0.55f;
@@ -149,72 +174,95 @@ int main(void) {
 
     /* 3. Block-size invariance (256 vs 2048 frames) */
     {
-        audio_reset_stage_state();
-        fill_program(warm, WARMUP_FRAMES, 0.30f);
-        run_blocks(warm, WARMUP_FRAMES, 2, 256);
+        reset_all_dsp();
         fill_program(buf_a, TEST_FRAMES, 0.30f);
-        run_blocks(buf_a, TEST_FRAMES, 2, 256);
+        audio_set_capture_stage(2);
+        run_stream(buf_a, TEST_FRAMES, 256);
 
-        audio_reset_stage_state();
-        memset(s_comb_buf_l, 0, sizeof(s_comb_buf_l));
-        memset(s_comb_buf_r, 0, sizeof(s_comb_buf_r));
-        memset(s_comb_lp_l, 0, sizeof(s_comb_lp_l));
-        memset(s_comb_lp_r, 0, sizeof(s_comb_lp_r));
-        memset(s_ap_buf_l, 0, sizeof(s_ap_buf_l));
-        memset(s_ap_buf_r, 0, sizeof(s_ap_buf_r));
-        memset(s_pre_buf_l, 0, sizeof(s_pre_buf_l));
-        memset(s_pre_buf_r, 0, sizeof(s_pre_buf_r));
-        s_dsp_ready = 0;
-
-        fill_program(warm, WARMUP_FRAMES, 0.30f);
-        run_blocks(warm, WARMUP_FRAMES, 2, 2048);
+        reset_all_dsp();
         fill_program(buf_b, TEST_FRAMES, 0.30f);
-        run_blocks(buf_b, TEST_FRAMES, 2, 2048);
+        audio_set_capture_stage(2);
+        run_stream(buf_b, TEST_FRAMES, 2048);
 
         double db_diff = fabs(20.0 * log10(rms_val(buf_a, TEST_FRAMES * 2) / rms_val(buf_b, TEST_FRAMES * 2)));
         printf("  block invariance (256 vs 2048): %.4f dB diff\n", db_diff);
         check(db_diff < 0.01, "DSP output is invariant to callback block size");
     }
 
-    /* 4. Stages 1 -> 2 -> 3 stack across reverb mid, stereo side, AND mono bass */
-    fill_program(dry_ref, TEST_FRAMES, 0.30f);
+    /* 4. Tide envelope shape: 550 ms peak -> -20% drop at 740 ms -> smooth tail */
+    {
+        reset_all_dsp();
+        audio_set_capture_stage(1); /* target stereo = 0.60 */
+        fill_program(warm, (int)(0.25 * SR), 0.25f);
+        run_stream(warm, (int)(0.25 * SR), 64);
+        float e_mid = s_side_env;
+
+        fill_program(warm, (int)(0.30 * SR), 0.25f);
+        run_stream(warm, (int)(0.30 * SR), 64); /* t = 0.550 s */
+        float e_peak = s_side_env;
+
+        fill_program(warm, (int)(0.19 * SR), 0.25f);
+        run_stream(warm, (int)(0.19 * SR), 64); /* t = 0.740 s */
+        float e_shoulder = s_side_env;
+
+        fill_program(warm, (int)(1.50 * SR), 0.25f);
+        run_stream(warm, (int)(1.50 * SR), 64); /* t = 2.240 s */
+        float e_tail = s_side_env;
+
+        printf("  tide curve (target 0.600): t=250ms %.3f -> peak@550ms %.3f -> shoulder@740ms %.3f (%.0f%%) -> tail@2.24s %.3f\n",
+               e_mid, e_peak, e_shoulder, 100.0f * (e_shoulder / e_peak), e_tail);
+        check(e_mid > 0.20f && e_mid < 0.52f && fabsf(e_peak - 0.60f) < 0.005f,
+              "tide curve swells smoothly from 0 to exact peak at 550 ms");
+        check(fabsf((e_shoulder / e_peak) - 0.80f) < 0.015f && e_tail < e_shoulder * 0.72f && e_tail > 0.15f,
+              "tide curve drops 20% onto shoulder then glides smoothly along tail");
+    }
+
+    /* 5. Stages 1 -> 2 -> 3 match exact design:
+          1: wide stereo (60% side, 20% rev, 20% bass)
+          2: +reverb     (70% side, 50% rev, 20% bass)
+          3: +mono bass  (70% side, 70% rev, 50% bass) */
+    fill_program(dry_ref, TEST_FRAMES, 0.28f);
     double side_hi[4] = {0}, side_lo[4] = {0}, mid_hi[4] = {0}, mid_lo[4] = {0};
     for (int st = 1; st <= 3; st++) {
-        fill_program(warm, WARMUP_FRAMES, 0.30f);
-        run_blocks(warm, WARMUP_FRAMES, st, BLOCK);
-        fill_program(buf_a, TEST_FRAMES, 0.30f);
-        run_blocks(buf_a, TEST_FRAMES, st, BLOCK);
+        reset_all_dsp();
+        fill_program(warm, SR / 2, 0.28f);
+        run_stream(warm, SR / 2, BLOCK); /* prime dry warm buffers */
+        audio_set_capture_stage(st);
+        fill_program(buf_a, TEST_FRAMES, 0.28f);
+        run_stream(buf_a, TEST_FRAMES, BLOCK);
         wet_bands(buf_a, dry_ref, TEST_FRAMES, &side_lo[st], &side_hi[st], &mid_lo[st], &mid_hi[st]);
-        printf("  stage %d: mid_hi %.5f | side_hi %.5f | mono_bass(<180) %.5f\n",
-               st, mid_hi[st], side_hi[st], mid_lo[st]);
+        printf("  stage %d: side_hi %.5f | mid_reverb %.5f | mono_bass(<200) %.5f\n",
+               st, side_hi[st], mid_hi[st], mid_lo[st]);
     }
-    check(mid_hi[2] > mid_hi[1] * 1.15 && mid_hi[3] > mid_hi[2] * 1.12, "reverb Mid grows across stages 1 < 2 < 3");
-    check(side_hi[2] > side_hi[1] * 1.80 && side_hi[3] > side_hi[2] * 1.18, "stereo Side grows across stages 1 < 2 < 3");
-    check(mid_lo[3] > mid_lo[2] * 1.35, "stage 3 mono bass boost clearly lifts low body over stage 2");
+    check(side_hi[1] > 0.015 && side_hi[2] > side_hi[1] * 1.10,
+          "stage 1 opens wide stereo immediately and stage 2 widens further");
+    check(mid_hi[2] > mid_hi[1] * 2.00 && mid_hi[3] > mid_hi[2] * 1.25,
+          "stage 2 surges centered reverb (>2x stage 1) and stage 3 deepens further");
+    check(mid_lo[3] > mid_lo[2] * 1.90,
+          "stage 3 surges mono bass weight (>1.9x stage 2)");
 
-    /* 5. Lows stay out of Side */
+    /* 6. 500 Hz 24 dB/oct Side high-pass keeps kick/bass/low-mids strictly mono */
     {
         double slope = 20.0 * log10((side_hi[3] + 1e-12) / (side_lo[3] + 1e-12));
-        printf("  stage 3 Side high/low ratio: %.1f dB\n", slope);
-        check(slope >= 25.0, "wet Side low band sits >=25 dB below Side high band");
+        printf("  stage 3 Side high/low ratio (500 Hz 24 dB/oct HPF): %.1f dB\n", slope);
+        check(slope >= 34.0, "wet Side <160 Hz sits >=34 dB below Side high band");
     }
 
-    /* 6. Clean tail shutoff back to true bypass */
+    /* 7. Clean tail shutoff back to true bypass + < 1.000 ceiling */
     {
-        fill_program(warm, SR * 4, 0.30f);
-        run_blocks(warm, SR * 4, 0, BLOCK);
-        fill_program(buf_a, BLOCK * 8, 0.30f);
+        audio_set_capture_stage(0);
+        fill_program(warm, SR * 4, 0.28f);
+        run_stream(warm, SR * 4, BLOCK);
+        fill_program(buf_a, BLOCK * 8, 0.28f);
         memcpy(buf_b, buf_a, sizeof(float) * BLOCK * 8 * 2);
-        run_blocks(buf_a, BLOCK * 8, 0, BLOCK);
+        run_stream(buf_a, BLOCK * 8, BLOCK);
         float off_diff = max_abs_diff(buf_a, buf_b, BLOCK * 8 * 2);
-        printf("  after tail release to stage 0: max |out-in| = %.9f\n", off_diff);
-        check(off_diff == 0.0f, "reverb shuts completely off back to exact bypass after release");
-    }
+        printf("  after release to stage 0: max |out-in| = %.9f\n", off_diff);
+        check(off_diff == 0.0f, "shuts completely off back to bit-exact bypass after release");
 
-    /* 7. Headroom on both music processor and master mix processor */
-    {
         fill_program(buf_a, TEST_FRAMES, 1.25f);
-        run_blocks(buf_a, TEST_FRAMES, 3, BLOCK);
+        audio_set_capture_stage(3);
+        run_stream(buf_a, TEST_FRAMES, BLOCK);
         master_mix_processor(buf_a, TEST_FRAMES);
         float pk = peak_val(buf_a, TEST_FRAMES * 2);
         printf("  driven hard at stage 3 + master bus: peak = %.3f\n", pk);
@@ -225,6 +273,6 @@ int main(void) {
         printf("\n%d check(s) failed\n", failures);
         return 1;
     }
-    printf("\nall staged capture DSP + sidechain checks passed\n");
+    printf("\nall Tide-enveloped M/S DSP + sidechain checks passed\n");
     return 0;
 }

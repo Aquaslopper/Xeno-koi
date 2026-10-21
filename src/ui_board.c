@@ -520,6 +520,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         prev_p0_cap = cur_p0_cap;
         prev_p0_koi = cur_p0_koi;
         capture_streak = 0;
+        if (capture_stage > 0) audio_set_capture_stage(0);
         capture_stage = 0;
         stage_hold = 0.0f;
     }
@@ -551,26 +552,27 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    /* Audio stages: only the player's own captures / Koi-Koi calls advance the
-       chain (CPU never turns reverb on before the player acts). The timer pauses
-       while cards are still moving and counts down only while settled, so fast
-       play chains 1 -> 2 -> 3 and stopping returns cleanly to dry silence. */
-    const float STAGE_HOLD_RELEASE = 3.50f;
-    const float STAGE_HOLD_STEP    = 1.15f;
+    /* Audio Tide chain: only the player's own captures / Koi-Koi calls trigger
+       waves (1: wide stereo -> 2: +reverb -> 3: +mono bass). Each player event
+       triggers a fresh 550 ms tide swell peaking right after thunder settles,
+       dropping 20% onto its smooth exponential tail. The chain window pauses
+       while cards are moving and returns cleanly to dry 0 once play settles. */
+    const float STAGE_HOLD_RELEASE = 7.50f;
     int cards_moving = (anim && anim_is_blocking(anim)) || cinematic_is_active() ||
                        motion_is_reflowing(g) || (g && g->hitlag_timer > 0.0f);
     if (player_cap_edge || player_koi_edge) {
         capture_stage++;
         if (capture_stage > 3) capture_stage = 3;
         stage_hold = STAGE_HOLD_RELEASE;
+        audio_set_capture_stage(capture_stage);
     } else if (capture_stage > 0 && !cards_moving) {
         stage_hold -= frame_dt;
         if (stage_hold <= 0.0f) {
-            capture_stage--;
-            stage_hold = STAGE_HOLD_STEP;
+            capture_stage = 0;
+            stage_hold = 0.0f;
+            audio_set_capture_stage(0);
         }
     }
-    audio_set_capture_stage(capture_stage);
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
