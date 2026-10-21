@@ -88,6 +88,8 @@ On **Options page 2**, beneath **Audio effect options**, the three sliders chang
 - **Bass boost:** maximum is a **+10 dB low shelf before stereo-linked heavy compression** (up to 8:1). The displayed dB value is the low-frequency pre-compression ceiling at full action strength, not the final loudness of compressed bass.
 - **Reverb:** maximum gives a heavy, wide, full-band return, including bass. Bass joins the reverb return over its **last 20%**; it stays predominantly dry below that, rather than muddying the whole range early. This does not require turning the separate bass-boost control up.
 
+Use **TEST EFFECT: ON/OFF** below the sliders to audition your settings. **ON** plays match music from your selected folder (or the built-in playlist) through the real effect at full action strength, with slider changes applied live. **OFF** keeps that same track playing dry for comparison, with a short smooth release rather than an abrupt cut. Finished tracks advance through the loaded playlist. BGM volume/mute is respected. Leaving page 2 or using **BACK (SAVE)** stops the audition and restores menu music. Test state is temporary, never saved; with no playable tracks the page displays a warning instead of starting a silent test. This control works in the browser too, using bundled music.
+
 Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls in `settings.txt` (`effect_stereo`, `effect_bass`, `effect_reverb`). Fresh defaults are 50% width, +0 dB bass, 50% reverb. The effect sliders also work in browser builds; the local folder control remains desktop-only. See [DSP design, sources and numerical verification](audio-dsp.md) for mono-safety checks and device-rate limitations.
 
 ### Fullscreen

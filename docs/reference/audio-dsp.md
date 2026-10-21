@@ -4,7 +4,7 @@ Player controls are on [Options page 2](modes.md#action-card-audio-effects). Thi
 
 ## Signal path and safety
 
-The existing capture/Koi-Koi envelope in `src/ui_board.c` still drives the effect. Its strength ramps up, can build across successive actions, and fades. The new sliders set the maximum amounts, not a permanent effect on all music. Menu music has no attached processor. Ordinary card sound files are not replaced or routed into this processor.
+The existing capture/Koi-Koi envelope in `src/ui_board.c` still drives the effect. Its strength ramps up, can build across successive actions, and fades. The new sliders set the maximum amounts, not a permanent effect on all music. The page-2 **Test Effect** switch explicitly auditions that maximum: it routes a match track through this same callback with the action target held at 1 (ON) or released to 0 (OFF). OFF retains the same stream/position for dry comparison, not a second sample or a simulated filter. Leaving page 2 restores menu playback. No audition state is saved. Menu music has no attached processor. Ordinary card sound files are not replaced or routed into this processor.
 
 The callback in `src/ui_audio.c` uses the existing fixed-size stereo comb/diffusion tank. Added processing is local to that callback:
 
@@ -35,7 +35,7 @@ To avoid changing or rebuilding the game's Raylib dependency, this change retain
 
 Additional offline checks decoded the first **30 seconds each** of the shipped `game1.mp3` and `game3.mp3` with Raylib's bundled `dr_mp3`, and ran width-only, bass-only and all-maximum settings through the callback. Both decoded as 44.1 kHz stereo. Output stayed finite and below 0.88 full scale. Low-level width-only mono-null error stayed below **10⁻⁹**. `game1.mp3` already had negative correlation (**−0.218**); width-only kept it at **−0.218**, rather than making it more negative. These are offline numerical measurements, **not a claim of listening on speakers or headphones**.
 
-Pagination, slider bounds, modal click blocking, save/load and bad settings are covered by `./tests/test_music_folder.sh`. Live layout, perceived strength on different music/headphones, and complete Windows/web builds remain to verify.
+Audition tests additionally check ON/OFF target values, actual wet sample changes versus exact dry samples after release, no track restart on a toggle, end-of-track advance, unavailable-music fallback, and automatic exit on page navigation/Back. Pagination, slider bounds, modal click blocking, save/load and bad settings are covered by `./tests/test_music_folder.sh`. Live layout, perceived strength on different music/headphones, and complete Windows/web builds remain to verify.
 
 ## Online source material reviewed
 

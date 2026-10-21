@@ -7,6 +7,13 @@
 ## Status Summary
 ## Latest completed work
 
+### Action-audio audition switch (22 October 2026)
+
+- Added **TEST EFFECT: ON/OFF** on Options page 2. It plays a real loaded match track through the existing callback at full action strength; sliders update live. OFF releases the effect smoothly while retaining the same stream/position for dry A/B comparison. Finished tracks advance; leaving the page or Back restores menu music. Preview state is not saved, BGM mute/volume stays respected, and missing music gets a visible warning. Browser audition uses bundled match tracks.
+- Touched only Options UI/routing, a small audio preview helper, tests/stubs, and related docs. Did not change DSP maths, capture/Koi-Koi triggers, gameplay, saved-setting formats, or dependencies. Existing shared function signatures are unchanged.
+- Verified full engine/audio/settings/UI regression suite, strict C99 syntax checking, ASan/UBSan DSP and UI tests, generated wiki tables, strict MkDocs build, and whitespace checks. Added tests assert wet versus dry sample output through the real callback, no restart on toggles, playlist advance, missing-track handling, and clearing test state on page/Back navigation. Live listening/layout and full Windows/web builds still need manual verification.
+
+
 ### Options page 2 / Action audio (22 October 2026)
 
 - Added bottom-right arrows and page numbers. Page 1 retains its original settings; page 2 holds the music folder, the requested Audio effect options header/explanation, and saved Stereo wide, Bass boost, Reverb sliders. Browser page 2 exposes effect sliders but explicitly marks local folders desktop-only. Back saves both pages; folder modals block navigation/underlying inputs.

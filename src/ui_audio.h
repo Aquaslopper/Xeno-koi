@@ -43,6 +43,7 @@ void audio_set_reverb(float amount); /* Existing action envelope, not the Option
 void audio_set_effects(float stereo, float bass, float reverb);
 
 void audio_play_menu_music(AudioAssets *a);
+void audio_preview_effect(AudioAssets *a, int enabled); /* Same match stream, wet/dry A/B. */
 void audio_start_match_music(AudioAssets *a, int track_1_to_10);
 void audio_resume_match_music(AudioAssets *a);
 int  audio_is_match_music_finished(const AudioAssets *a);

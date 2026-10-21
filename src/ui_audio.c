@@ -520,6 +520,13 @@ void audio_update(AudioAssets *a) {
     }
 }
 
+void audio_preview_effect(AudioAssets *a, int enabled) {
+    if (a->game_track_count == 0) { audio_play_menu_music(a); return; }
+    if (a->current_music != 2) audio_start_match_music(a, 1);
+    else if (audio_is_match_music_finished(a)) audio_start_match_music(a, a->current_game_track + 2);
+    audio_set_reverb(enabled ? 1.0f : 0.0f);
+}
+
 void audio_play_menu_music(AudioAssets *a) {
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);

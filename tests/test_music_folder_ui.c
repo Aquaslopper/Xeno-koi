@@ -69,9 +69,19 @@ int main(void) {
     options_page = 0;
     assert(screens_handle_options_click(&s, &ba, &a, (Vector2){980, 672}) == ACT_NONE);
     assert(options_page == 1 && s.rounds == 6); /* Next page, not an old control. */
+    assert(screens_audio_test_state() == -1);
+    screens_handle_options_click(&s, &ba, &a, (Vector2){600, 598});
+    assert(screens_audio_test_state() == -1 && audio_test_unavailable); /* No silent fake test. */
+    a.game_track_count = 2;
+    screens_handle_options_click(&s, &ba, &a, (Vector2){600, 598});
+    assert(screens_audio_test_state() == 1 && !audio_test_unavailable);
+    screens_handle_options_click(&s, &ba, &a, (Vector2){600, 598});
+    assert(screens_audio_test_state() == 0); /* Dry A/B stays in the match playlist. */
+    screens_handle_options_click(&s, &ba, &a, (Vector2){600, 598});
+    assert(screens_audio_test_state() == 1);
     down = 1;
     screens_handle_options_click(&s, &ba, &a, (Vector2){872, 330});
-    assert(s.effect_stereo == 1 && effects[0] == 1);
+    assert(s.effect_stereo == 1 && effects[0] == 1 && screens_audio_test_state() == 1);
     screens_handle_options_click(&s, &ba, &a, (Vector2){780, 395});
     assert(fabsf(s.effect_bass - 0.5f) < 1e-6f && fabsf(effects[1] - 0.5f) < 1e-6f);
     screens_handle_options_click(&s, &ba, &a, (Vector2){688, 458});
@@ -87,8 +97,14 @@ int main(void) {
     assert(options_page == 1 && music_folder_open); /* Modal blocks page clicks. */
     screens_handle_options_click(&s, &ba, &a, (Vector2){800, 440});
     assert(!music_folder_open);
+    screens_handle_options_click(&s, &ba, &a, (Vector2){860, 672});
+    assert(options_page == 0 && screens_audio_test_state() == -1);
+    screens_handle_options_click(&s, &ba, &a, (Vector2){980, 672});
+    assert(options_page == 1 && screens_audio_test_state() == -1); /* Never auto-start after return. */
+    screens_handle_options_click(&s, &ba, &a, (Vector2){600, 598});
+    assert(screens_audio_test_state() == 1);
     assert(screens_handle_options_click(&s, &ba, &a, (Vector2){400, 672}) == ACT_GOTO_MENU);
-    assert(options_page == 0 && saved == 3);
+    assert(options_page == 0 && saved == 3 && screens_audio_test_state() == -1);
     assert(s.bgm_volume == 0.42f && s.rounds == 6);
     puts("All music folder / Options pagination / effect slider input checks passed.");
     return 0;

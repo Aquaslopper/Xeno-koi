@@ -184,7 +184,10 @@ static void update_draw_frame(void) {
     audio_set_bgm_volume(&audio, settings.bgm_volume * (1.0f - transition_alpha));
     audio_update(&audio);
     int in_game = (screen == SCREEN_GAME) || (transition_dir != 0 && transition_target_screen == SCREEN_GAME);
-    if (in_game) {
+    int audio_test = screen == SCREEN_OPTIONS ? screens_audio_test_state() : -1;
+    if (audio_test >= 0) {
+        audio_preview_effect(&audio, audio_test);
+    } else if (in_game) {
         if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 10) + 1));
         else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 9)) % 10) + 1);
     } else {

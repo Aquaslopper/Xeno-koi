@@ -49,6 +49,8 @@ static int raylib_stub_attached;
 static int raylib_stub_detached;
 static int raylib_stub_lists_unloaded;
 static float raylib_stub_music_volume;
+static int raylib_stub_music_play_count;
+static bool raylib_stub_music_playing;
 
 static inline bool DirectoryExists(const char *path) { return strcmp(path, "/missing") != 0; }
 static inline FilePathList LoadDirectoryFilesEx(const char *path, const char *filter, bool recurse) {
@@ -71,10 +73,10 @@ static inline Music LoadMusicStream(const char *fileName) {
 }
 static inline bool IsMusicValid(Music music) { return music.frameCount > 0; }
 static inline void UnloadMusicStream(Music music) { (void)music; raylib_stub_music_unloaded++; }
-static inline void PlayMusicStream(Music music) { (void)music; }
-static inline bool IsMusicStreamPlaying(Music music) { (void)music; return false; }
+static inline void PlayMusicStream(Music music) { (void)music; raylib_stub_music_play_count++; raylib_stub_music_playing = true; }
+static inline bool IsMusicStreamPlaying(Music music) { (void)music; return raylib_stub_music_playing; }
 static inline void UpdateMusicStream(Music music) { (void)music; }
-static inline void StopMusicStream(Music music) { (void)music; }
+static inline void StopMusicStream(Music music) { (void)music; raylib_stub_music_playing = false; }
 static inline void SetMusicVolume(Music music, float volume) { (void)music; raylib_stub_music_volume = volume; }
 static inline float GetMusicTimeLength(Music music) { (void)music; return 0.0f; }
 static inline float GetMusicTimePlayed(Music music) { (void)music; return 0.0f; }

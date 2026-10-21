@@ -184,6 +184,39 @@ int main(void) {
     memset(signal, 0, sample_rate*2*sizeof(float));
     music_reverb_processor(signal, sample_rate);
     for (int i = 0; i < sample_rate*2; i++) assert(signal[i] == 0);
+    /* Audition uses real match streams / the same callback, never menu music DSP. */
+    a.game_track_count = 2;
+    a.has_music_game[0] = a.has_music_game[1] = 1;
+    a.current_music = 1;
+    int plays = raylib_stub_music_play_count;
+    audio_preview_effect(&a, 1);
+    assert(a.current_music == 2 && a.current_game_track == 0);
+    assert(raylib_stub_music_play_count == plays + 1);
+    assert(__atomic_load_n(&s_reverb_target, __ATOMIC_RELAXED) == 1000000u);
+    audio_preview_effect(&a, 0);
+    assert(a.current_game_track == 0 && raylib_stub_music_play_count == plays + 1);
+    assert(__atomic_load_n(&s_reverb_target, __ATOMIC_RELAXED) == 0);
+    audio_set_effects(1, 0, 0);
+    audio_preview_effect(&a, 1);
+    memset(signal, 0, sample_rate*2*sizeof(float));
+    music_reverb_processor(signal, sample_rate);
+    noise(sample_rate*2, 0.02f);
+    memcpy(original, signal, sample_rate*4*sizeof(float));
+    music_reverb_processor(signal, sample_rate*2);
+    assert(memcmp(original, signal, sample_rate*4*sizeof(float)) != 0); /* Actual wet samples. */
+    audio_preview_effect(&a, 0);
+    memset(signal, 0, sample_rate*4*sizeof(float));
+    music_reverb_processor(signal, sample_rate*2);
+    noise(sample_rate, 0.02f);
+    memcpy(original, signal, sample_rate*2*sizeof(float));
+    music_reverb_processor(signal, sample_rate);
+    assert(memcmp(original, signal, sample_rate*2*sizeof(float)) == 0); /* Same DSP now dry. */
+    raylib_stub_music_playing = false;
+    audio_preview_effect(&a, 0);
+    assert(a.current_game_track == 1); /* Continue when the test track ends. */
+    a.game_track_count = 0;
+    audio_preview_effect(&a, 1);
+    assert(a.current_music == 1 && __atomic_load_n(&s_reverb_target, __ATOMIC_RELAXED) == 0);
     audio_set_effects(NAN, -1, INFINITY); /* Public setters must reject bad values. */
     assert(__atomic_load_n(&s_effect_settings, __ATOMIC_RELAXED) == (1000u << 20));
     puts("All action-audio numerical checks passed.");
