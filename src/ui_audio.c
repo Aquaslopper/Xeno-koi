@@ -202,11 +202,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
               - Side is stereo; cut lows (<180 Hz) from Side, lift the mids/highs so snares and presence
                 actually register as width, and de-ess only true sibilance (>6 kHz) */
         float mono_mid = 0.5f * (dry_l + dry_r);
-        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.020f; /* ~140 Hz mono bass */
+        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.025f; /* ~140 Hz mono bass */
 
         float wet_mono   = 0.5f * (wet_l + wet_r);
         float wet_stereo = 0.5f * (wet_l - wet_r);
-        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.025f; /* ~180 Hz Side low-cut */
+        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.020f; /* ~180 Hz Side low-cut */
         float side_hi = wet_stereo - s_side_low_lp;
 
         /* De-ess only true sibilance (3 ms attack, 80 ms release). The split used to sit at
@@ -240,7 +240,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             float wet_gain = rev * 0.76f * sc_dim * stereo_comp * impact_boost * (1.0f - 0.10f * tail_releasing);
 
             float dry_gain = 1.0f - rev * 0.12f;
-            float mono_bass_boost = s_mid_bass_lp * (0.10f * rev);
+            float mono_bass_boost = s_mid_bass_lp * (0.1%f * rev);
             float rev_mid = wet_mono * wet_gain + mono_bass_boost;
             float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
 
