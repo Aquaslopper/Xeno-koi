@@ -52,7 +52,7 @@ static float bass_gain(float setting, float level, float hz) {
     music_reverb_processor(signal, sample_rate*2);
     for (int i = sample_rate; i < 2*sample_rate; i++)
         assert(fabsf(signal[2*i] - 2*signal[2*i + 1]) < 1e-5f); /* Linked gain, no image shift. */
-    finite_peak(2*sample_rate, 0.88001f);
+    finite_peak(2*sample_rate, 0.98001f);
     return 10*log10(energy(sample_rate, 2*sample_rate, 0) / (level*level*0.5));
 }
 
@@ -77,6 +77,18 @@ int main(void) {
 
     for (int sr = 0; sr < 3; sr++) {
         sample_rate = sr == 0 ? 44100 : sr == 1 ? 48000 : 96000;
+        /* Width must not borrow echoes from the tank, at any slider position. */
+        for (int step = 1; step <= 4; step++) {
+            prepare(step * 0.25f, 0, 0, 1);
+            memset(signal, 0, sample_rate*2*sizeof(float));
+            signal[0] = signal[1] = 0.1f;
+            music_reverb_processor(signal, sample_rate);
+            float echo = 0;
+            for (int i = sample_rate/200; i < sample_rate; i++)
+                echo = fmaxf(echo, fmaxf(fabsf(signal[2*i]), fabsf(signal[2*i+1])));
+            printf("%d Hz width %.2f: impulse tail after 5ms %.9g\n", sample_rate, step*0.25f, echo);
+            assert(echo < 1e-6f); /* Old width path emitted ~40-120ms slapback/tails. */
+        }
         /* A mono source must widen into BOTH ears, with its mono centre preserved. */
         prepare(1, 0, 0, 1);
         noise(sample_rate*3, 0.02f);
@@ -112,7 +124,24 @@ int main(void) {
         float loud = bass_gain(1, 0.8f, 20), high = bass_gain(1, 0.01f, 8000);
         printf("%d Hz bass: quiet %+.3f dB, half %+.3f dB, loud %+.3f dB, 8kHz %+.3f dB\n", sample_rate, quiet, half, loud, high);
         assert(fabsf(quiet - 10) < 0.15f && fabsf(half - 5) < 0.15f && fabsf(high) < 0.05f);
-        assert(loud < quiet - 8); /* Real heavy gain reduction, not just a louder signal. */
+        assert(loud > 0.5f && loud < quiet - 2); /* Bass is louder, but added bass is controlled. */
+        /* A preceding loud kick must not hold down the rest of the music. */
+        prepare(0, 1, 0, 1);
+        for (int i = 0; i < sample_rate; i++) {
+            float hz = i < sample_rate/2 ? 40 : 8000;
+            float level = i < sample_rate/2 ? 0.6f : 0.05f;
+            signal[2*i] = signal[2*i+1] = level*sinf(6.28318530718f*hz*i/sample_rate);
+        }
+        music_reverb_processor(signal, sample_rate);
+        double real = 0, imag = 0;
+        int begin = sample_rate/2 + sample_rate/200, count = sample_rate/50;
+        for (int i = begin; i < begin+count; i++) {
+            double phase = 6.283185307179586 * 8000 * i / sample_rate;
+            real += signal[2*i]*cos(phase); imag += signal[2*i]*sin(phase);
+        }
+        double vocal_gain = 20*log10(2*sqrt(real*real+imag*imag)/(count*0.05));
+        printf("%d Hz post-kick high-band gain %+.3f dB\n", sample_rate, vocal_gain);
+        assert(vocal_gain > -0.2 && vocal_gain < 0.2);
         double low = bass_tail(0.8f), late = bass_tail(0.9f), full = bass_tail(1);
         printf("%d Hz reverb 40Hz tail: 80%% %.9f, 90%% %.9f, 100%% %.9f (%+.1f dB vs 80%%)\n", sample_rate, low, late, full, 10*log10(full/low));
         assert(late > low*2 && full > late*2 && full > low*30);
@@ -150,12 +179,12 @@ int main(void) {
     for (int i = 0; i < sample_rate*2; i++) signal[i] = 0.05f;
     music_reverb_processor(signal, sample_rate);
     assert(fabsf(signal[0] - 0.05f) < 0.001f && fabsf(signal[1] - 0.05f) < 0.001f);
-    finite_peak(sample_rate, 0.88001f);
+    finite_peak(sample_rate, 0.98001f);
 
     prepare(1, 1, 1, 1);
     noise(sample_rate*2, 1);
     music_reverb_processor(signal, sample_rate*2);
-    finite_peak(sample_rate*2, 0.88001f);
+    finite_peak(sample_rate*2, 0.98001f);
     audio_set_reverb(0);
     memset(signal, 0, sample_rate*4*sizeof(float));
     music_reverb_processor(signal, sample_rate*2);

@@ -7,6 +7,14 @@
 ## Status Summary
 ## Latest completed work
 
+### Width delay / bass loudness correction (22 October 2026)
+
+- Listening feedback exposed two issues the initial tests missed: width borrowed the long reverb/slapback return, and the 8:1 bass compressor ducked the entire track. Width now uses a separate pair of one-sample all-pass phase filters, with no reverb-tank feed. Bass compresses only its added shelf component (up to 4:1), over the unchanged dry music; removed the whole-track bus compressor. Linked peak limiting now starts at 0.88 and caps below 0.98 to leave more boost headroom. Reverb's intentional delay/tail, late bass return and existing mono/Side guards remain.
+- Added regression checks for width impulse tails at all slider positions and 44.1/48/96 kHz, positive gain on loud bass, and no post-kick suppression of the high band. The no-echo check fails against the old implementation (~0.005 delayed output vs <7.2e-8 now after 5 ms). Loud 20 Hz input now gains +2.87…+2.89 dB instead of ~−7 dB; quiet input still reaches +10 dB. Existing presence, mono, channel balance, chunking and safety checks still pass.
+- Re-decoded the shipped game1/game3 first 30 seconds offline: bass-only overall RMS increased +0.058/+5.902 dB over the identical bypass windows; bass-band RMS (four cascaded 140 Hz low-passes) increased +5.422/+6.425 dB. These are sample-domain measurements, not a live listening or LUFS claim.
+- Scope: DSP routing/tuning, focused regression tests, and related docs only. No UI/settings format, gameplay, rules, cards, triggers, assets or dependency changes. Full regression suite, strict C99 syntax, sanitizer tests, generated-table/docs and whitespace checks passed. Remaining: player listening with the Test Effect switch (Reverb=0 isolates width/bass), live device-rate checks and complete platform builds.
+
+
 ### Action-audio audition switch (22 October 2026)
 
 - Added **TEST EFFECT: ON/OFF** on Options page 2. It plays a real loaded match track through the existing callback at full action strength; sliders update live. OFF releases the effect smoothly while retaining the same stream/position for dry A/B comparison. Finished tracks advance; leaving the page or Back restores menu music. Preview state is not saved, BGM mute/volume stays respected, and missing music gets a visible warning. Browser audition uses bundled match tracks.

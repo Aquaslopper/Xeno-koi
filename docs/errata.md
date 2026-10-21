@@ -38,7 +38,11 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 3. **[DEUS SUPREMUS](reference/deus-supremus.md) logic.** The DEUS SUPREMUS difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
 4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes & Settings](reference/modes.md).
 
-5. **Audio DSP regression corrected (22 October 2026).** The former unequal left/right reverb decode failed the presence-band check at −18.7 dB Side/Mid. The page-2 audio controls now use symmetric Mid/Side decoding and linked compression/limiting. The unchanged regression passes at approximately −2.0 dB, with additional mono compatibility, channel-balance, bass endpoint/compression and late-bass reverb tests. [Design, sources and measured checks](reference/audio-dsp.md) distinguish numerical verification from live listening, which remains to verify.
+5. **Audio DSP regression corrected (22 October 2026).** The former unequal left/right reverb decode failed the presence-band check at −18.7 dB Side/Mid. The page-2 audio controls now use symmetric Mid/Side decoding and linked compression/limiting. The unchanged regression passes at approximately −3.3 dB, with additional mono compatibility, channel-balance, bass endpoint/compression and late-bass reverb tests. [Design, sources and measured checks](reference/audio-dsp.md) distinguish numerical verification from live listening, which remains to verify.
+
+## Width delay and bass loudness correction (22 October 2026)
+
+Listening feedback identified two problems not caught by the original stereo-energy tests: the width stage used delayed reverb output, and the bass compressor reduced the entire track. Width now has a separate short all-pass phase path with no reverb/slapback feed. Bass now compresses only the added low-frequency component (up to 4:1), mixed over the original music, with more output headroom. New regressions check width impulses for echoes, positive loud-bass gain, and the level of higher-frequency music immediately after a kick. See [measured verification](reference/audio-dsp.md).
 
 ## Campaign progression correction
 
