@@ -104,9 +104,12 @@ static float soft_knee_limit(float x, float knee, float max_val) {
     return (x < 0.0f) ? -out : out;
 }
 
-static void music_reverb_processor(void *music_buffer, void *sfx_buffer, unsigned int frames) {
-    float *pcm = (float *)music_buffer;
-    float *sfx = (float *)sfx_buffer; // Cast the SFX stream
+/* This function is attached with AttachAudioStreamProcessor, so it must match
+   raylib's AudioCallback: the only frames it is ever given are the ones of the
+   music stream it is attached to. SFX are played through the Sound mixer and
+   their samples do not exist in this buffer, so they cannot be mixed in here. */
+static void music_reverb_processor(void *buffer, unsigned int frames) {
+    float *pcm = (float *)buffer;
     if (!pcm || frames == 0) return;
     float target = clamp_range(s_reverb_target, 0.0f, 1.0f);
 
@@ -129,17 +132,12 @@ static void music_reverb_processor(void *music_buffer, void *sfx_buffer, unsigne
         float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp150(&s_in_hp_l, dry_l));
         float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp150(&s_in_hp_r, dry_r));
 
-        /* --- SFX Injection Phase --- */
-        // Calculate dynamic SFX injection based on your card_sfx_volume logic
-        float sfx_scaling = card_sfx_volume(target) * 0.20f; // Keep it subtle (15% max blend)
-        // If an active SFX stream buffer is passed, feed it directly into the reverb line
-        if (sfx) {
-            float sfx_l = sfx[f * 2 + 0];
-            float sfx_r = sfx[f * 2 + 1];
-            
-            bp_in_l += sfx_l * sfx_scaling;
-            bp_in_r += sfx_r * sfx_scaling;
-        }
+        /* --- Extra reverb send ---
+           Kept as it was before the SFX experiment: a small, dynamically scaled
+           send of the dry music into the reverb input. */
+        float sfx_scaling = card_sfx_volume(target) * 0.15f; // Keep it subtle (15% max blend)
+        bp_in_l += dry_l * sfx_scaling;
+        bp_in_r += dry_r * sfx_scaling;
         
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
