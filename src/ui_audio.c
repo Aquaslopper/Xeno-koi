@@ -73,19 +73,19 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         float env_rate = (dry_abs > s_dry_env) ? 0.015f : 0.0008f;
         s_dry_env += (dry_abs - s_dry_env) * env_rate;
 
-        /* Subtle stereo pre-delay / Haas widener with non-regenerative feedback */
+        /* Stereo pre-delay / Haas widener with non-regenerative feedback */
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
         float in_gain = 0.35f + 0.45f * rev;
-        float slap_fb = 0.14f + 0.08f * rev;
+        float slap_fb = 0.18f + 0.12f * rev;
         s_pre_buf_l[s_pre_idx_l] = clamp_range(dry_l * in_gain + slap_r * slap_fb, -0.85f, 0.85f);
         s_pre_buf_r[s_pre_idx_r] = clamp_range(dry_r * in_gain - slap_l * slap_fb, -0.85f, 0.85f);
         if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
         if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
 
-        /* Controlled stereo feed into the 4-comb tank (moderate feedback prevents build-up/smearing) */
-        float feed_l = (dry_l * 0.88f - dry_r * 0.16f) * in_gain + slap_r * 0.20f;
-        float feed_r = (dry_r * 0.88f - dry_l * 0.16f) * in_gain + slap_l * 0.20f;
+        /* Wider stereo feed into the 4-comb tank (moderate feedback prevents build-up/smearing) */
+        float feed_l = (dry_l * 0.86f - dry_r * 0.24f) * in_gain + slap_r * 0.28f;
+        float feed_r = (dry_r * 0.86f - dry_l * 0.24f) * in_gain + slap_l * 0.28f;
         float feedback = 0.52f + 0.12f * rev;
         const float damp = 0.42f;
         float acc_l = 0.0f, acc_r = 0.0f;
@@ -130,8 +130,8 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         }
 
         /* High-pass filter (~180 Hz) on the wet reverb so bass/kick never muddy or smear */
-        float raw_wet_l = acc_l + slap_l * 0.24f - slap_r * 0.08f;
-        float raw_wet_r = acc_r + slap_r * 0.24f - slap_l * 0.08f;
+        float raw_wet_l = acc_l + slap_l * 0.32f - slap_r * 0.14f;
+        float raw_wet_r = acc_r + slap_r * 0.32f - slap_l * 0.14f;
         s_hp_lp_l += (raw_wet_l - s_hp_lp_l) * 0.024f;
         s_hp_lp_r += (raw_wet_r - s_hp_lp_r) * 0.024f;
         float wet_l = raw_wet_l - s_hp_lp_l;
@@ -320,7 +320,10 @@ void audio_stop_music(AudioAssets *a) {
 
 void audio_play_flip(AudioAssets *a)    { if (a->has_sfx_flip) PlaySound(a->sfx_flip); }
 void audio_play_drop(AudioAssets *a)    { if (a->has_sfx_drop) PlaySound(a->sfx_drop); }
-void audio_play_capture(AudioAssets *a) { if (a->has_sfx_capture) PlaySound(a->sfx_capture); }
+void audio_play_capture(AudioAssets *a) {
+    if (a->has_sfx_capture) PlaySound(a->sfx_capture);
+    else if (a->has_sfx_drop) PlaySound(a->sfx_drop);
+}
 void audio_play_koi(AudioAssets *a)     { if (a->has_sfx_koi) PlaySound(a->sfx_koi); }
 void audio_play_win(AudioAssets *a)     { if (a->has_sfx_win) PlaySound(a->sfx_win); }
 void audio_play_lose(AudioAssets *a)    { if (a->has_sfx_lose) PlaySound(a->sfx_lose); }

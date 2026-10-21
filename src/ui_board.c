@@ -35,6 +35,7 @@ typedef struct {
     Vector2 pos;
     float speed_x, speed_y, sway_speed, sway_amp;
     int size_w, size_h;
+    int shape;
     unsigned char alpha;
     float phase;
 } AshParticle;
@@ -44,6 +45,7 @@ typedef struct {
     Vector2 vel;
     int card_id;
     int size_w, size_h;
+    int shape;
     unsigned char base_alpha;
     float follow;
     float phase;
@@ -69,21 +71,93 @@ static void pick_dark_particle_dims(int roll, int *out_w, int *out_h) {
     *out_h = (base >= 5 && (roll & 1)) ? (base - 1) : base;
 }
 
-static void draw_dark_particle(int x, int y, int w, int h, unsigned char alpha) {
+static void draw_corrupted_shard(int x, int y, int sz, int shape, Color col) {
+    if (sz <= 1) {
+        DrawRectangle(x, y, 1, 1, col);
+        return;
+    }
+    if (sz == 2) {
+        switch (shape & 3) {
+            case 0: DrawRectangle(x, y, 2, 1, col); DrawRectangle(x + 1, y + 1, 1, 1, col); break;
+            case 1: DrawRectangle(x, y, 1, 2, col); DrawRectangle(x + 1, y, 1, 1, col); break;
+            case 2: DrawRectangle(x, y, 1, 1, col); DrawRectangle(x + 1, y + 1, 2, 1, col); break;
+            default: DrawRectangle(x + 1, y, 1, 2, col); DrawRectangle(x, y + 1, 1, 1, col); break;
+        }
+        return;
+    }
+    int t = (sz >= 7) ? 2 : 1;
+    int s1 = (sz * 2 + 1) / 3;
+    int s2 = (sz + 1) / 2;
+    int d = (sz >= 6) ? 2 : 1;
+    switch (shape & 7) {
+        case 0: /* Jagged diagonal slash \ */
+            DrawRectangle(x, y, s1, t, col);
+            DrawRectangle(x + d, y + t, s2 + 1, t + 1, col);
+            DrawRectangle(x + 2 * d, y + 2 * t + 1, s1, t, col);
+            DrawRectangle(x + d - 1, y + 2 * t, t, t + 1, col);
+            break;
+        case 1: /* Corrupted L-claw / hook */
+            DrawRectangle(x, y, t, sz, col);
+            DrawRectangle(x + t, y + 1, s1, t, col);
+            DrawRectangle(x - t, y + sz - t - 1, t + 1, t, col);
+            DrawRectangle(x + s2, y + 2, t, s2, col);
+            break;
+        case 2: /* Fractured glitch cluster with hollow notch */
+            DrawRectangle(x, y, s1 + 1, t, col);
+            DrawRectangle(x + d, y + t + 1, s2, t, col);
+            DrawRectangle(x - 1, y + 2 * t + 1, s1, t, col);
+            DrawRectangle(x + s1, y - 1, t, t + 1, col);
+            break;
+        case 3: /* Biomechanical thorn / skewed cross-rib */
+            DrawRectangle(x + d, y, t, sz + 1, col);
+            DrawRectangle(x, y + d, sz, t, col);
+            DrawRectangle(x + sz - t, y + d + t, t, s2, col);
+            DrawRectangle(x - 1, y + sz - 1, t + 1, t, col);
+            break;
+        case 4: /* Jagged reverse slash / */
+            DrawRectangle(x + 2 * d, y, s1, t, col);
+            DrawRectangle(x + d, y + t, s2 + 1, t + 1, col);
+            DrawRectangle(x, y + 2 * t + 1, s1, t, col);
+            DrawRectangle(x + s1 + d, y + t + 1, t, t + 1, col);
+            break;
+        case 5: /* Torn C-husk shard */
+            DrawRectangle(x + 1, y, s1, t, col);
+            DrawRectangle(x, y + t, t, s1, col);
+            DrawRectangle(x + t, y + t + s1 - 1, s2 + 1, t, col);
+            DrawRectangle(x + s1 + 1, y + 1, t, t + 1, col);
+            break;
+        case 6: /* Stepped Z-splinter */
+            DrawRectangle(x, y, s2 + 1, t, col);
+            DrawRectangle(x + s2, y + t, t, s2 + 1, col);
+            DrawRectangle(x + s2 + t, y + s2 + t, s2 + 1, t, col);
+            DrawRectangle(x + 1, y + t + 1, t, t, col);
+            break;
+        default: /* Shattered triad with orbiting speck */
+            DrawRectangle(x + 1, y + 1, s1, t + 1, col);
+            DrawRectangle(x + d, y + t + 2, t + 1, s2, col);
+            DrawRectangle(x - 1, y - 1, t, t + 1, col);
+            DrawRectangle(x + s1 + 1, y + s2 + 1, t + 1, t, col);
+            break;
+    }
+}
+
+static void draw_dark_particle(int x, int y, int w, int h, int shape, unsigned char alpha) {
     if (alpha == 0) return;
-    if (w >= 5 || h >= 5) {
-        unsigned char halo_a = (unsigned char)((unsigned int)alpha * 110u / 255u);
+    int sz = (w > h) ? w : h;
+    if (sz >= 4) {
+        unsigned char halo_a = (unsigned char)((unsigned int)alpha * 95u / 255u);
         if (halo_a > 0) {
-            DrawRectangle(x - 1, y - 1, w + 2, h + 2, (Color){ 4, 4, 4, halo_a });
+            draw_corrupted_shard(x + 1, y + 1, sz + 1, shape, (Color){ 4, 4, 4, halo_a });
         }
     }
-    DrawRectangle(x, y, w, h, (Color){ 5, 5, 5, alpha });
+    draw_corrupted_shard(x, y, sz, shape, (Color){ 5, 5, 5, alpha });
 }
 
 static void ash_init(void) {
     for (int i = 0; i < ASH_COUNT; i++) {
         int roll = rand() % 100;
         pick_dark_particle_dims(roll, &g_ash[i].size_w, &g_ash[i].size_h);
+        g_ash[i].shape = rand() & 7;
         g_ash[i].pos = (Vector2){ (float)(rand() % 1280), (float)(rand() % 720) };
         g_ash[i].speed_y = 11.0f + (float)(rand() % 28) + (float)g_ash[i].size_w * 1.4f;
         g_ash[i].speed_x = ((float)(rand() % 41) - 20.0f) * 0.65f;
@@ -114,7 +188,7 @@ static void ash_spawn_capture_burst(const GameState *g) {
     for (int k = 0; k < g->last_captured_count; k++) {
         int cid = g->last_captured[k];
         Rectangle r = motion_get_rect(cid);
-        if (r.width <= 0.0f || (k == 0 && (r.y > 500.0f || r.y < 60.0f))) r = table_rect;
+        if (r.width <= 0.0f || k == 0 || r.y > 460.0f || r.y < 60.0f) r = table_rect;
         int rw = (int)fmaxf(1.0f, r.width);
         int rh = (int)fmaxf(1.0f, r.height);
 
@@ -129,6 +203,7 @@ static void ash_spawn_capture_burst(const GameState *g) {
             int roll = rand() % 100;
             pick_dark_particle_dims(roll, &p->size_w, &p->size_h);
             if (roll >= 88) { p->size_w += 1; p->size_h += 1; } /* up to 11px burst fragments */
+            p->shape = rand() & 7;
 
             float ang = (float)(rand() % 628) / 100.0f;
             float spd = 34.0f + (float)(rand() % 108);
@@ -161,7 +236,8 @@ static void ash_draw_and_update(float dt) {
         else if (p->pos.x > 1300.0f) p->pos.x -= 1320.0f;
         if (p->alpha == 0) continue;
         float sway_x = p->pos.x + sinf(p->phase + cur_time * p->sway_speed) * p->sway_amp;
-        draw_dark_particle((int)sway_x, (int)p->pos.y, p->size_w, p->size_h, p->alpha);
+        int rot_shape = (p->shape + (int)(cur_time * 1.8f + p->phase)) & 7;
+        draw_dark_particle((int)sway_x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, p->alpha);
     }
 }
 
@@ -189,7 +265,8 @@ static void ash_burst_draw_and_update(float dt) {
         float frac = p->life / p->max_life;
         float fade = (frac < 0.35f) ? (frac / 0.35f) : 1.0f;
         unsigned char a = (unsigned char)((float)p->base_alpha * fade);
-        draw_dark_particle((int)p->pos.x, (int)p->pos.y, p->size_w, p->size_h, a);
+        int rot_shape = (p->shape + (int)(cur_time * 3.2f + p->phase)) & 7;
+        draw_dark_particle((int)p->pos.x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, a);
     }
 }
 
@@ -409,15 +486,22 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
                       int easy_mode, int replay_mode, const char *status_msg) {
     float cur_time = (float)GetTime();
-    float frame_dt = GetFrameTime();
+    float frame_dt = fminf(0.05f, GetFrameTime());
+    static int prev_round = -1;
     static int prev_captured = -1;
     static int prev_koi = -1;
     static float thunder_flash = 0.0f;
     static float reverb_energy = 0.0f;
     static float reverb_mid = 0.0f;
     static float reverb_curve = 0.0f;
+    int cur_round = g ? g->current_round : -1;
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
+    if (cur_round != prev_round || cur_captured < prev_captured || (g && g->phase == PHASE_DEALER_SELECT)) {
+        prev_round = cur_round;
+        prev_captured = cur_captured;
+        prev_koi = cur_koi;
+    }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
     int koi_edge = (prev_koi >= 0 && cur_koi > prev_koi);
@@ -435,25 +519,25 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    /* Audio reverb follows a tight, smooth, hard-limited S-curve (never a spike):
-       subtle on the first capture, building into a full synergy by the 3rd card/capture
-       in a row, with a faster-ducking tail so it never smears the music. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.18f;
-    if (koi_edge)           reverb_energy += 0.36f;
+    /* Audio reverb follows a tight, smooth, hard-limited curve (never a spike):
+       fires audibly on the first capture, builds into full synergy by the 3rd card/capture
+       in a row, and ducks its tail so it never smears the music. */
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.19f;
+    if (koi_edge)           reverb_energy += 0.38f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
-    float tau_energy = (reverb_energy > reverb_curve) ? 1.85f : 1.15f;
+    float tau_energy = (reverb_energy > reverb_curve) ? 1.80f : 1.15f;
     reverb_energy *= expf(-frame_dt / tau_energy);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.26f));
-    float tau_curve = (reverb_mid >= reverb_curve) ? 0.24f : 0.20f;
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.20f));
+    float tau_curve = (reverb_mid >= reverb_curve) ? 0.18f : 0.18f;
     reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / tau_curve));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
     }
-    float syn_x = reverb_curve / 0.68f;
+    float syn_x = reverb_curve / 0.66f;
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
-    float reverb_synergy = syn_x * syn_x * (3.0f - 2.0f * syn_x);
+    float reverb_synergy = 0.35f * syn_x + 0.65f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
     audio_set_reverb(reverb_synergy);
 
     /* 1. Background with depth fog and a localized normal-map light */

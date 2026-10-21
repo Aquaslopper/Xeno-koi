@@ -518,6 +518,8 @@ static void update_draw_frame(void) {
                                 if (g.hand_count[0] < hand_before) {
                                     if (g.last_captured_count > 0) audio_play_capture(&audio);
                                     else audio_play_drop(&audio);
+                                } else if (g.phase == PHASE_HAND_CHOICE) {
+                                    audio_play_drop(&audio);
                                 }
                             }
                         }
