@@ -69,5 +69,6 @@ nav:
       - Difficulty: reference/difficulty.md
       - DEUS SUPREMUS: reference/deus-supremus.md
       - Modes & Settings: reference/modes.md
+      - Action Audio DSP: reference/audio-dsp.md
   - Errata & Known Issues: errata.md
   - About these docs: about-the-docs.md

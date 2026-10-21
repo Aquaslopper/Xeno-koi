@@ -1,8 +1,10 @@
 #include "ui_audio.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <math.h>
 
-/* Real-time stereo reverb + subtle Haas widener attached to music streams.
+/* Action-triggered stereo width, bass shelf/compression, and reverb on match music.
    Driven by a smooth, hard-limited synergy curve via audio_set_reverb(amount):
    starts subtle on the first capture, blooms on stacked captures, and ducks its
    tail under the dry music so it never smears or spikes. */
@@ -45,26 +47,58 @@ static BiquadState s_in_hp_l, s_in_hp_r;
 static BiquadState s_in_lp_l, s_in_lp_r;
 
 static float s_sc_env = 0.0f;
-static float s_mid_bass_lp = 0.0f;
+static BiquadState s_bass_l, s_bass_r;
+static float s_bass_env;
+static float s_width_mid_power, s_width_side_power, s_width_cross;
+static float s_width_base_power, s_width_extra_power, s_width_base_cross;
+static float s_effect_cur[3] = {0.5f, 0.0f, 0.5f};
 static float s_side_low_lp = 0.0f;
 static float s_side_deess_lp = 0.0f;
 static float s_side_presence_lp = 0.0f;
 static float s_deess_env = 0.0f;
 static float s_comp_env = 0.0f;
 
-static volatile float s_reverb_target = 0.0f;
-static float s_reverb_cur = 0.0f;
+#if __GCC_ATOMIC_INT_LOCK_FREE != 2
+#error Audio controls require lock-free unsigned int atomics
+#endif
 
-void audio_set_reverb(float amount) {
-    if (amount < 0.0f) amount = 0.0f;
-    if (amount > 1.0f) amount = 1.0f;
-    s_reverb_target = amount;
-}
+/* C99 builds: lock-free, one-word snapshots between UI and audio threads.
+   Never allocate, lock, or read GameSettings from the real-time callback. */
+static unsigned int s_reverb_target;
+static unsigned int s_effect_settings = 500u | (500u << 20);
+static unsigned int s_reset_epoch;
+static float s_reverb_cur;
 
 static float clamp_range(float x, float lo, float hi) {
-    if (x < lo) return lo;
-    if (x > hi) return hi;
-    return x;
+    if (!(x >= lo)) return lo; /* Includes NaN. */
+    return x > hi ? hi : x;
+}
+
+void audio_set_reverb(float amount) {
+    __atomic_store_n(&s_reverb_target, (unsigned int)(clamp_range(amount, 0, 1) * 1000000), __ATOMIC_RELAXED);
+}
+
+void audio_set_effects(float stereo, float bass, float reverb) {
+    unsigned int w = (unsigned int)(clamp_range(stereo, 0, 1) * 1000 + 0.5f);
+    unsigned int b = (unsigned int)(clamp_range(bass, 0, 1) * 1000 + 0.5f);
+    unsigned int r = (unsigned int)(clamp_range(reverb, 0, 1) * 1000 + 0.5f);
+    __atomic_store_n(&s_effect_settings, w | (b << 10) | (r << 20), __ATOMIC_RELAXED);
+}
+
+static void reset_music_dsp(void) {
+    memset(s_comb_buf_l, 0, sizeof(s_comb_buf_l)); memset(s_comb_buf_r, 0, sizeof(s_comb_buf_r));
+    memset(s_comb_idx_l, 0, sizeof(s_comb_idx_l)); memset(s_comb_idx_r, 0, sizeof(s_comb_idx_r));
+    memset(s_comb_lp_l, 0, sizeof(s_comb_lp_l)); memset(s_comb_lp_r, 0, sizeof(s_comb_lp_r));
+    memset(s_ap_buf_l, 0, sizeof(s_ap_buf_l)); memset(s_ap_buf_r, 0, sizeof(s_ap_buf_r));
+    memset(s_ap_idx_l, 0, sizeof(s_ap_idx_l)); memset(s_ap_idx_r, 0, sizeof(s_ap_idx_r));
+    memset(s_pre_buf_l, 0, sizeof(s_pre_buf_l)); memset(s_pre_buf_r, 0, sizeof(s_pre_buf_r));
+    s_pre_idx_l = s_pre_idx_r = 0;
+    s_in_hp_l = s_in_hp_r = s_in_lp_l = s_in_lp_r = (BiquadState){0};
+    s_bass_l = s_bass_r = (BiquadState){0};
+    s_sc_env = s_bass_env = s_side_low_lp = s_side_deess_lp = s_side_presence_lp = 0;
+    s_deess_env = s_comp_env = s_reverb_cur = 0;
+    s_width_mid_power = s_width_side_power = s_width_cross = 0;
+    s_width_base_power = s_width_extra_power = s_width_base_cross = 0;
 }
 
 static float card_sfx_volume(float master_volume) {
@@ -94,6 +128,15 @@ static float biquad_lp5000(BiquadState *s, float x) {
     return y;
 }
 
+/* RBJ low shelf: +10 dB, 140 Hz, S=1, nominal 44.1 kHz. See docs/reference/audio-dsp.md.
+   The callback is in DEVICE frames, not the MP3's sample rate (Raylib 5.5). */
+static float bass_shelf10(BiquadState *s, float x) {
+    float y = 1.00826505f*x - 1.97860751f*s->x1 + 0.97104258f*s->x2
+            + 1.97884687f*s->y1 - 0.97906827f*s->y2;
+    s->x2 = s->x1; s->x1 = x; s->y2 = s->y1; s->y1 = y;
+    return y;
+}
+
 /* Soft-knee peak limiter: 1:1 linear below knee, smoothly compressed above knee */
 static float soft_knee_limit(float x, float knee, float max_val) {
     float ax = (x < 0.0f) ? -x : x;
@@ -108,14 +151,36 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
     float *pcm = (float *)music_buffer;
     float *sfx = (float *)sfx_buffer; // Cast the SFX stream
     if (!pcm || frames == 0) return;
-    float target = clamp_range(s_reverb_target, 0.0f, 1.0f);
+    static unsigned int last_epoch;
+    unsigned int epoch = __atomic_load_n(&s_reset_epoch, __ATOMIC_RELAXED);
+    if (epoch != last_epoch) { reset_music_dsp(); last_epoch = epoch; }
+    float target = __atomic_load_n(&s_reverb_target, __ATOMIC_RELAXED) / 1000000.0f;
+    unsigned int settings = __atomic_load_n(&s_effect_settings, __ATOMIC_RELAXED);
+    float controls[3] = { (settings & 1023u) / 1000.0f, ((settings >> 10) & 1023u) / 1000.0f, (settings >> 20) / 1000.0f };
 
     for (unsigned int f = 0; f < frames; f++) {
         float rate = (target > s_reverb_cur) ? 0.0018f : 0.0012f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
+        if (fabsf(target - s_reverb_cur) < 0.0001f) s_reverb_cur = target;
         float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
+        for (int i = 0; i < 3; i++) {
+            s_effect_cur[i] += (controls[i] - s_effect_cur[i]) * 0.001f;
+            if (fabsf(controls[i] - s_effect_cur[i]) < 0.0001f) s_effect_cur[i] = controls[i];
+        }
+        float width = s_effect_cur[0], bass = s_effect_cur[1], room = s_effect_cur[2];
+        float bass_amount = bass * rev;
+        float shelf_mix = (powf(10, 0.5f * bass_amount) - 1) / 2.16227766f;
+        float boosted_l = dry_l + (bass_shelf10(&s_bass_l, dry_l) - dry_l) * shelf_mix;
+        float boosted_r = dry_r + (bass_shelf10(&s_bass_r, dry_r) - dry_r) * shelf_mix;
+        /* Linked 8:1 at maximum, 5 ms attack / 120 ms release (nominal 44.1k).
+           The +10 dB shelf is PRE-compressor; loud bass deliberately receives less gain. */
+        float bass_peak = fmaxf(fabsf(boosted_l), fabsf(boosted_r));
+        s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.00452f : 0.000189f);
+        float bass_gain = s_bass_env > 0.25f ? powf(s_bass_env / 0.25f, (1 / (1 + 7*bass_amount)) - 1) : 1;
+        dry_l = boosted_l * bass_gain;
+        dry_r = boosted_r * bass_gain;
 
         /* 1. Sidechain detector on dry music (3 ms attack = 0.00753, 80 ms release = 0.000283) */
         float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
@@ -124,9 +189,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* 2. Reverb Input Bandpass (300 Hz HP / 5 kHz LP, 12 dB/oct each) */
-        float bp_in_l = biquad_lp5000(&s_in_lp_l, biquad_hp300(&s_in_hp_l, dry_l));
-        float bp_in_r = biquad_lp5000(&s_in_lp_r, biquad_hp300(&s_in_hp_r, dry_r));
+        /* 2. Existing stereo comb/all-pass tank (no allocation in the callback). */
+        /* Full-band tank receives the bass-processed stereo signal. Low frequencies
+           are excluded at the RETURN until the final 20% of the reverb control. */
+        float bp_in_l = dry_l;
+        float bp_in_r = dry_r;
 
         /* --- SFX Injection Phase --- */
         // Calculate dynamic SFX injection based on your card_sfx_volume logic
@@ -196,17 +263,24 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float wet_l = acc_l + slap_l * 0.24f;
         float wet_r = acc_r + slap_r * 0.24f;
 
-        /* 3. Mid (mono center) & Side (stereo) stage:
-              - Mid is mono in the middle; gently boost mono bass (<140 Hz) when the reverb effect takes place
-              - Side is stereo; cut lows (<180 Hz) from Side, lift the mids/highs so snares and presence
-                actually register as width, and de-ess only true sibilance (>6 kHz) */
-        float mono_mid = 0.5f * (dry_l + dry_r);
-        s_mid_bass_lp += (mono_mid - s_mid_bass_lp) * 0.030f; /* ~140 Hz mono bass */
-
-        float wet_mono   = 0.5f * (wet_l + wet_r);
+        /* Independent M/S widening. Equal-and-opposite Side is the correct decode:
+           L=M+S, R=M-S; unlike the old unequal 0.92/0.42 mix it cannot shift the centre.
+           Keeping M (not making the whole signal Side) preserves the mono fold-down. */
+        float wet_mono = 0.5f * (wet_l + wet_r);
         float wet_stereo = 0.5f * (wet_l - wet_r);
-        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.030f; /* ~180 Hz Side low-cut */
-        float side_hi = wet_stereo - s_side_low_lp;
+        float bass_late = clamp_range((room - 0.8f) * 5, 0, 1);
+        bass_late *= bass_late * (3 - 2*bass_late);
+        float room_mid_hp = biquad_hp300(&s_in_hp_l, wet_mono);
+        float room_side_hp = biquad_hp300(&s_in_hp_r, wet_stereo);
+        float room_mid = room_mid_hp + (wet_mono - room_mid_hp) * bass_late;
+        float room_side = room_side_hp + (wet_stereo - room_side_hp) * bass_late;
+        /* Darker at low room settings; full-band at maximum. */
+        float room_mid_lp = biquad_lp5000(&s_in_lp_l, room_mid);
+        float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
+        room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
+        room_side = room_side_lp + (room_side - room_side_lp) * room;
+        s_side_low_lp += (wet_stereo - s_side_low_lp) * 0.030f;
+        float side_hi = wet_stereo - s_side_low_lp * (1 - width);
 
         /* De-ess only true sibilance (3 ms attack, 80 ms release). The split used to sit at
            ~2.8 kHz, inside the snare crack, so every hit got pulled back out of the stereo
@@ -230,21 +304,41 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float out_l = dry_l;
         float out_r = dry_r;
 
-        if (rev > 0.0005f) {
-            /* Phase-safe, subtle stereo widening: keep the side contribution in-phase
-               for both ears, but make the right channel smaller so it doesn't cancel. */
-            float stereo_w = 0.30f + 0.24f * (rev * rev);
-            float stereo_comp = 1.0f / (1.0f + 0.15f * stereo_w);
-            float impact_boost = (target > s_reverb_cur) ? 1.18f : 1.0f;
-            float wet_gain = rev * 0.76f * sc_dim * stereo_comp * impact_boost * (1.0f - 0.10f * tail_releasing);
-
-            float dry_gain = 1.0f - rev * 0.12f;
-            float mono_bass_boost = s_mid_bass_lp * (0.30f * rev);
-            float rev_mid = wet_mono * wet_gain + mono_bass_boost;
-            float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
-
-            out_l = dry_l * dry_gain + rev_mid + rev_side * 0.92f;
-            out_r = dry_r * dry_gain + rev_mid + rev_side * 0.42f;
+        if (rev > 0.00001f && width + bass + room > 0.00001f) {
+            float dry_mid = 0.5f * (dry_l + dry_r);
+            float dry_side = 0.5f * (dry_l - dry_r);
+            float wet_gain = room * rev * 1.10f * sc_dim * (1 - 0.10f * tail_releasing);
+            float dry_gain = 1 - 0.30f * room * rev;
+            float mid = dry_mid * dry_gain + room_mid * wet_gain;
+            float extra = dry_side * width * rev * 0.60f
+                        + clean_wet_stereo * (width * rev * 1.20f) + room_side * wet_gain;
+            /* Remove sustained correlation with Mid from the ADDED Side only.
+               Otherwise a centred tone can lean into one ear. Cap added Side RMS
+               below Mid RMS; never remove/invert the original centre or original pan. */
+            const float meter = 0.00015f; /* ~150 ms; avoids bass-cycle pumping */
+            s_width_mid_power += (mid*mid - s_width_mid_power) * meter;
+            s_width_side_power += (extra*extra - s_width_side_power) * meter;
+            s_width_cross += (mid*extra - s_width_cross) * meter;
+            float projection = s_width_cross / fmaxf(s_width_mid_power, 1e-12f);
+            extra -= mid * projection;
+            float residual = fmaxf(0, s_width_side_power - s_width_cross * projection);
+            if (residual > 0.49f * s_width_mid_power)
+                extra *= sqrtf(0.49f * s_width_mid_power / residual);
+            /* An already-wide/anti-correlated source gets no extra Side-energy
+               budget: do not aggravate phase problems present in a custom MP3. */
+            float base = dry_side * dry_gain;
+            s_width_base_power += (base*base - s_width_base_power) * meter;
+            s_width_extra_power += (extra*extra - s_width_extra_power) * meter;
+            s_width_base_cross += (base*extra - s_width_base_cross) * meter;
+            float budget = fmaxf(s_width_base_power, 0.49f*s_width_mid_power) - s_width_base_power;
+            if (s_width_extra_power > 1e-12f) {
+                float cross = s_width_base_cross;
+                float gain = (sqrtf(cross*cross + s_width_extra_power*budget) - cross) / s_width_extra_power;
+                extra *= clamp_range(gain, 0, 1);
+            }
+            float side = base + extra;
+            out_l = mid + side;
+            out_r = mid - side;
         }
 
         /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
@@ -255,15 +349,23 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float comp_rate = (pk > s_comp_env) ? 0.007530f : 0.000283f;
         s_comp_env += (pk - s_comp_env) * comp_rate;
         const float thresh = 0.70f;
-        if (s_comp_env > thresh) {
+        if (rev > 0.00001f && width + bass + room > 0.00001f && s_comp_env > thresh) {
             float over = s_comp_env - thresh;
             float target_lvl = thresh + over * 0.50f;
             float cg = target_lvl / s_comp_env;
             out_l *= cg;
             out_r *= cg;
         }
-        pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.72f, 0.88f);
-        pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.72f, 0.88f);
+        /* Stereo-linked protection: one gain for both ears, no image shift.
+           True bypass (including hot input) when the action/controls are off. */
+        float peak = fmaxf(fabsf(out_l), fabsf(out_r));
+        if (rev > 0.00001f && width + bass + room > 0.00001f && peak > 0.72f) {
+            float gain = soft_knee_limit(peak, 0.72f, 0.88f) / peak;
+            out_l *= gain; out_r *= gain;
+        }
+        if (rev <= 0.00001f || width + bass + room <= 0.00001f) continue;
+        pcm[f * 2 + 0] = out_l;
+        pcm[f * 2 + 1] = out_r;
     }
 }
 
@@ -282,6 +384,54 @@ static const char* get_path(const char* sub) {
     return path_buf;
 }
 
+static int compare_music_paths(const void *a, const void *b) {
+    return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+int audio_set_music_folder(AudioAssets *a, const char *folder) {
+    Music loaded[10] = {0};
+    int count = 0, custom = folder && folder[0];
+    FilePathList files = {0};
+    if (custom) {
+        if (!DirectoryExists(folder)) return -1;
+        files = LoadDirectoryFilesEx(folder, ".mp3", false);
+        if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_music_paths);
+    }
+    unsigned int limit = custom ? files.count : 10;
+    for (unsigned int i = 0; i < limit && count < 10; i++) {
+        char path[64];
+        snprintf(path, sizeof(path), "assets/music/game%u.mp3", i + 1);
+        const char *name = custom ? files.paths[i] : get_path(path);
+        if (!FileExists(name)) continue;
+        Music m = LoadMusicStream(name);
+        if (!IsMusicValid(m)) continue;
+        m.looping = false;
+        loaded[count++] = m;
+    }
+    if (custom) UnloadDirectoryFiles(files);
+    if (custom && count == 0) return -1;
+
+    /* Stage the replacement first so invalid folders leave playback untouched. */
+    int was_match = a->current_music == 2;
+    if (was_match) audio_stop_music(a);
+    for (int i = 0; i < 10; i++) {
+        if (a->has_music_game[i]) {
+            DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
+            UnloadMusicStream(a->music_game[i]);
+        }
+        a->has_music_game[i] = i < count;
+        a->music_game[i] = loaded[i];
+        if (i < count) {
+            SetMusicVolume(loaded[i], a->bgm_volume);
+            AttachAudioStreamProcessor(loaded[i].stream, music_reverb_processor);
+        }
+    }
+    a->game_track_count = count;
+    a->current_game_track = -1;
+    if (was_match) audio_start_match_music(a, 1);
+    return count;
+}
+
 void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     memset(a, 0, sizeof(*a));
     a->current_game_track = -1;
@@ -297,18 +447,7 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
         SetMusicVolume(a->music_menu, a->bgm_volume);
     }
 
-    for (int i = 0; i < 10; i++) {
-        char track_path[64];
-        snprintf(track_path, sizeof(track_path), "assets/music/game%d.mp3", i + 1);
-        const char *p_game = get_path(track_path);
-        if (FileExists(p_game)) {
-            a->music_game[i] = LoadMusicStream(p_game);
-            a->music_game[i].looping = false;
-            a->has_music_game[i] = 1;
-            SetMusicVolume(a->music_game[i], a->bgm_volume);
-            AttachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
-        }
-    }
+    audio_set_music_folder(a, "");
 
     const char *p_flip = get_path("assets/sfx/card_flip.wav");
     if (FileExists(p_flip)) {
@@ -382,8 +521,8 @@ void audio_update(AudioAssets *a) {
 }
 
 void audio_play_menu_music(AudioAssets *a) {
-    s_reverb_target = 0.0f;
-    s_reverb_cur = 0.0f;
+    audio_set_reverb(0);
+    __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;
     if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -396,8 +535,8 @@ void audio_play_menu_music(AudioAssets *a) {
 }
 
 void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
-    s_reverb_target = 0.0f;
-    s_reverb_cur = 0.0f;
+    audio_set_reverb(0);
+    __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
     if (a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
@@ -405,6 +544,8 @@ void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
     int idx = track_1_to_10 - 1;
     if (idx < 0) idx = 0;
     if (idx > 9) idx = 9;
+    /* Compact playlists also handle a folder with just one usable song. */
+    if (a->game_track_count > 0) idx %= a->game_track_count;
     a->current_game_track = idx;
     a->current_music = 2;
 
@@ -435,8 +576,8 @@ int audio_is_match_music_finished(const AudioAssets *a) {
 }
 
 void audio_stop_music(AudioAssets *a) {
-    s_reverb_target = 0.0f;
-    s_reverb_cur = 0.0f;
+    audio_set_reverb(0);
+    __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
     if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);

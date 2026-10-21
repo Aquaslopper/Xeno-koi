@@ -1,0 +1,47 @@
+# Action audio: design and verification
+
+Player controls are on [Options page 2](modes.md#action-card-audio-effects). This note distinguishes measured DSP behavior from live listening, which still needs a desktop playtest.
+
+## Signal path and safety
+
+The existing capture/Koi-Koi envelope in `src/ui_board.c` still drives the effect. Its strength ramps up, can build across successive actions, and fades. The new sliders set the maximum amounts, not a permanent effect on all music. Menu music has no attached processor. Ordinary card sound files are not replaced or routed into this processor.
+
+The callback in `src/ui_audio.c` uses the existing fixed-size stereo comb/diffusion tank. Added processing is local to that callback:
+
+1. **Bass:** an RBJ low shelf with a +10 dB low-frequency endpoint. A smoothly blended shelf gives the selected low-frequency gain, multiplied by the action envelope. A stereo-linked compressor follows it: maximum ratio **8:1**, threshold **0.25 linear peak**, nominal **5 ms attack / 120 ms release**. Therefore +10 dB is the **pre-compression** gain, not a promise to make already-loud bass 10 dB louder.
+2. **Reverb feed:** both bass-processed channels feed the existing stereo tank. Its output is split into Mid and Side. The reverb return is high-passed until the last **20%** of the reverb control, where a smoothstep opens the bass return; at maximum it includes the full-band return. Increasing the room setting also opens the return's high-frequency bandwidth and increases its wet mix. A dry centre remains present even at maximum.
+3. **Width:** the original Side and the tank's decorrelated Side contribute to the width stage, independently of the reverb mix control. Maximum width opens its low-frequency return too. It is **not pure Side conversion**: `L = M + S`, `R = M - S` retains the centre, so mono fold-down retains Mid. Added Side correlated with Mid is projected out using running power/cross-power estimates, reducing a sustained tone's tendency to lean into one ear. Added Side has an RMS budget; sources already wider than that budget do not get additional Side-energy allowance. This avoids worsening pre-existing anti-correlation, but cannot repair an MP3 whose original stereo mix already cancels in mono.
+4. **Output protection:** compressor and soft-knee peak limiter apply the **same gain to both channels**, preserving their instantaneous ratio. Active output is bounded below 0.88 full scale. With no action, or all controls at zero after their ramps settle, the input is left bit-identical, including hot samples and signed zero.
+
+The UI publishes all three controls as one lock-free atomic integer snapshot (C99 GCC/Clang builtins); the audio thread owns the filters, smoothing, and delay lines. Track-transition resets are requested atomically and performed on the audio thread. There is no allocation, file access, new dependency, or UI-thread filter mutation in the callback. Existing BGM/SFX volume controls and the action trigger logic are unchanged.
+
+### Device-rate limitation, explicitly checked
+
+Raylib 5.5 invokes stream processors **after** conversion to the output device's float-stereo format, before volume/mixing. The MP3's `Music.stream.sampleRate` is therefore **not** the processor's sample rate. Raylib's public API does not expose the device rate. We do not incorrectly substitute the source file rate.
+
+To avoid changing or rebuilding the game's Raylib dependency, this change retains the engine's sample-domain delay lengths and nominal **44.1 kHz** tuning. The bass shelf midpoint is nominally **140 Hz** and return high-pass nominally **300 Hz**; actual cutoffs scale with device rate, and actual delay/attack/release times scale inversely. The tests exercise **44.1, 48, and 96 kHz** device-frame sequences. Their bass endpoint, linked channel gain, numerical safety and mono compatibility pass at all three rates. This is **not** a claim of identical frequency curves or reverb time on every device. Exact rate-invariant timing would require exposing/configuring the Raylib device rate in a separate dependency change.
+
+## Checks run (22 October 2026)
+
+`./tests/test_audio_dsp.sh` runs the previous presence-band/SFX checks **without weakening their thresholds**, followed by `tests/test_action_audio.c`, which processes actual sample arrays through the real callback:
+
+- Exact bypass with hot stereo input, and exact bypass again after the action fades.
+- At maximum width on mono noise: L/R balance within **0.005 dB**, correlation about **+0.345**, and preserved mono centre. Mono 40 Hz, 1 kHz and 8 kHz tones stay within **0.3 dB** of equal L/R RMS at all three tested rates; their mono fold-down error is below **2 × 10⁻⁷**.
+- Quiet 20 Hz bass at maximum: **+9.995 to +10.000 dB**; midpoint setting: approximately **+4.98 to +5.00 dB**. At 8 kHz the bass-only gain is effectively zero. Loud bass receives substantial real gain reduction. Channel-ratio tests verify linked rather than independent-ear compression.
+- A 40 Hz burst's reverb tail at 100% is **33–46 dB** stronger than at 80%, checking that bass is admitted late rather than simply making everything louder.
+- Already-wide synthetic source: correlation **−0.387 → −0.387**, rather than adding further anti-correlated energy.
+- Finite/bounded output under full-scale noise, smoothed slider steps, variable callback chunk sizes, transition resets, and invalid-control handling. AddressSanitizer and UndefinedBehaviorSanitizer also pass.
+- The old presence-band regression now measures approximately **−2.0 dB Side/Mid**, passing its unchanged **−12.5 dB** minimum. Previously it failed at −18.7 dB with the unequal-ear decode.
+
+Additional offline checks decoded the first **30 seconds each** of the shipped `game1.mp3` and `game3.mp3` with Raylib's bundled `dr_mp3`, and ran width-only, bass-only and all-maximum settings through the callback. Both decoded as 44.1 kHz stereo. Output stayed finite and below 0.88 full scale. Low-level width-only mono-null error stayed below **10⁻⁹**. `game1.mp3` already had negative correlation (**−0.218**); width-only kept it at **−0.218**, rather than making it more negative. These are offline numerical measurements, **not a claim of listening on speakers or headphones**.
+
+Pagination, slider bounds, modal click blocking, save/load and bad settings are covered by `./tests/test_music_folder.sh`. Live layout, perceived strength on different music/headphones, and complete Windows/web builds remain to verify.
+
+## Online source material reviewed
+
+- [Raylib 5.5 audio implementation](https://github.com/raysan5/raylib/blob/5.5/src/raudio.c): `ReadAudioBufferFramesInMixingFormat()` and `OnSendAudioDataToDevice()` establish the callback format/rate and its position before mixing.
+- [Robert Bristow-Johnson's Audio EQ Cookbook, maintained by WebAudio](https://github.com/WebAudio/Audio-EQ-Cookbook/blob/main/Audio-EQ-Cookbook.txt): normalized low-shelf biquad equations; the +10 dB shelf uses `S = 1`.
+- [JUCE compressor reference](https://github.com/juce-framework/JUCE/blob/master/modules/juce_dsp/widgets/juce_Compressor.cpp): reference for the conventional envelope/threshold/ratio gain law. This implementation uses a shared stereo peak detector rather than separate channel gains.
+- [JUCE reverb reference](https://github.com/juce-framework/JUCE/blob/master/modules/juce_audio_basics/utilities/juce_Reverb.h): reference for symmetric stereo wet mixing, smoothed parameters, and the distinction between sample-domain delay lengths and sample-rate-scaled delays.
+
+These sources were consulted for behavior/math; no JUCE library or JUCE source was added to the game.

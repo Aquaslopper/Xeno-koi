@@ -9,6 +9,7 @@ typedef struct {
 
     Music music_game[10];
     int has_music_game[10];
+    int game_track_count;   /* 0..10 usable match tracks */
     int current_game_track; /* 0..9, or -1 if none */
 
     Sound sfx_flip;
@@ -33,10 +34,13 @@ typedef struct {
 
 void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol);
 void audio_update(AudioAssets *a);
+/* Empty folder restores defaults. Returns loaded count, or -1 without changing music. */
+int audio_set_music_folder(AudioAssets *a, const char *folder);
 
 void audio_set_bgm_volume(AudioAssets *a, float volume);
 void audio_set_sfx_volume(AudioAssets *a, float volume);
-void audio_set_reverb(float amount);
+void audio_set_reverb(float amount); /* Existing action envelope, not the Options slider. */
+void audio_set_effects(float stereo, float bass, float reverb);
 
 void audio_play_menu_music(AudioAssets *a);
 void audio_start_match_music(AudioAssets *a, int track_1_to_10);

@@ -56,13 +56,39 @@ exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
 | Terminal colour | Green, Amber, Teal, Crimson, Violet. The name list in `src/ui_screens.c:193` has a sixth, DARK, which the selector's `% 5` at `:272` never lands on: it is what playing DEUS sets, and leaving him puts you back on Teal | Teal (2) |
 | Anim Speed | Slow, Normal, Fast | Slow |
 | BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
+| Music Folder (desktop, page 2) | Folder path for up to 10 custom MP3 match tracks; Use Default restores shipped tracks | Built-in music |
+| Action audio (page 2) | Stereo wide, Bass boost, Reverb; controls capture/Koi-Koi-triggered music processing | 50%, +0 dB, 50% |
 | Bloom Effect | Off, Mid, Full | Mid |
 | CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
 | Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.00 |
 | Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) | Windowed |
 
+Use the arrows and **1 / 2**, **2 / 2** page indicator at the bottom right to change Options pages. Page 1 retains the original controls; page 2 contains the music folder and Action audio controls.
+
 Nothing here is per-match: BACK (SAVE) writes `settings.txt` and returns you to the menu
 (`src/ui_screens.c:296`), and the next match starts with what you left there.
+
+### Custom music (desktop)
+
+1. Open **Options**, use the bottom-right arrow to reach **page 2**, and click the music-folder button at the top.
+2. Type a **full folder path**, or press **Ctrl+V** to paste one (pasting replaces the whole field). Paths containing spaces are supported. Quoted paths copied from Windows Explorer work too.
+3. Click **Apply** or press **Enter**. The choice is saved in `settings.txt` as `music_folder=…`, and the next match uses your songs with the existing BGM volume and capture reverb.
+
+The game scans that folder only, **not subfolders**, sorts filenames, and loads the first **10 playable MP3 files** (including uppercase `.MP3` extensions). There is no required naming scheme. Invalid tracks are skipped; an empty, unreadable, or invalid folder shows an error and leaves the current playlist unchanged. A single playable track repeats. Larger playlists use the existing match-music shuffling.
+
+**Use Default** (or applying a blank path) restores the shipped match tracks. **Cancel** leaves your setting unchanged. Menu music and sound effects are not replaced. The original files are never copied, changed, or deleted. Keep your folder available: if it is missing or has no usable MP3s on the next launch, that session falls back to built-in music, retaining the saved path so you can reconnect the folder or change it in Options. Folder contents are rescanned at launch or when you apply the path again, not continuously.
+
+This option is **desktop-only**. Browser builds cannot read a local folder path and continue using bundled music. BGM and SFX volume controls still work there.
+
+### Action card audio effects
+
+On **Options page 2**, beneath **Audio effect options**, the three sliders change the **music effect triggered by taking/capturing cards or calling Koi-Koi**. They do not apply continuously or replace card SFX. The existing action envelope builds and fades; sliders set its maximum strength.
+
+- **Stereo wide:** maximum opens full-band widening, with both ears and the mono centre preserved. It deliberately does **not** turn all music into phase-inverted Side: that would disappear in mono. Width is limited when a source is already very wide/anti-correlated.
+- **Bass boost:** maximum is a **+10 dB low shelf before stereo-linked heavy compression** (up to 8:1). The displayed dB value is the low-frequency pre-compression ceiling at full action strength, not the final loudness of compressed bass.
+- **Reverb:** maximum gives a heavy, wide, full-band return, including bass. Bass joins the reverb return over its **last 20%**; it stays predominantly dry below that, rather than muddying the whole range early. This does not require turning the separate bass-boost control up.
+
+Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls in `settings.txt` (`effect_stereo`, `effect_bass`, `effect_reverb`). Fresh defaults are 50% width, +0 dB bass, 50% reverb. The effect sliders also work in browser builds; the local folder control remains desktop-only. See [DSP design, sources and numerical verification](audio-dsp.md) for mono-safety checks and device-rate limitations.
 
 ### Fullscreen
 

@@ -1,0 +1,191 @@
+/* Exercise the REAL callback: numerical audio tests, not mocked DSP results. */
+#include <assert.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../src/ui_audio.c"
+
+#define MAX_FRAMES (96000 * 6)
+static float signal[MAX_FRAMES * 2], original[MAX_FRAMES * 2];
+static int sample_rate = 44100;
+
+static void prepare(float width, float bass, float room, float action) {
+    reset_music_dsp();
+    audio_set_effects(width, bass, room);
+    audio_set_reverb(action);
+    memset(signal, 0, sample_rate * 2 * sizeof(float));
+    music_reverb_processor(signal, sample_rate); /* Settle parameter smoothing in silence. */
+}
+
+static void tone(int frames, float hz, float level, float right) {
+    for (int i = 0; i < frames; i++) {
+        float v = level * sinf(6.28318530718f * hz * i / sample_rate);
+        signal[2*i] = v; signal[2*i + 1] = v * right;
+    }
+}
+
+static double energy(int start, int end, int channel) {
+    double sum = 0;
+    for (int i = start; i < end; i++) {
+        double x = signal[2*i + channel]; sum += x*x;
+    }
+    return sum / (end - start);
+}
+
+static void finite_peak(int frames, float max) {
+    for (int i = 0; i < frames*2; i++) assert(isfinite(signal[i]) && fabsf(signal[i]) <= max);
+}
+
+static void noise(int frames, float level) {
+    unsigned int rng = 17;
+    for (int i = 0; i < frames; i++) {
+        rng = rng * 1664525u + 1013904223u;
+        float x = level * ((rng >> 8) / 8388608.0f - 1);
+        signal[2*i] = signal[2*i + 1] = x;
+    }
+}
+
+static float bass_gain(float setting, float level, float hz) {
+    prepare(0, setting, 0, 1);
+    tone(sample_rate*2, hz, level, 0.5f);
+    music_reverb_processor(signal, sample_rate*2);
+    for (int i = sample_rate; i < 2*sample_rate; i++)
+        assert(fabsf(signal[2*i] - 2*signal[2*i + 1]) < 1e-5f); /* Linked gain, no image shift. */
+    finite_peak(2*sample_rate, 0.88001f);
+    return 10*log10(energy(sample_rate, 2*sample_rate, 0) / (level*level*0.5));
+}
+
+static double bass_tail(float room) {
+    prepare(0, 0, room, 1);
+    tone(sample_rate, 40, 0.02f, 1);
+    memset(signal + sample_rate*2, 0, sample_rate*4*sizeof(float));
+    music_reverb_processor(signal, sample_rate*3);
+    return energy(sample_rate + sample_rate/10, sample_rate*2, 0) + energy(sample_rate + sample_rate/10, sample_rate*2, 1);
+}
+
+int main(void) {
+    setvbuf(stdout, NULL, _IONBF, 0);
+    /* Hot stereo input must remain bit-identical without an action or with all controls off. */
+    for (int off = 0; off < 2; off++) {
+        prepare(off ? 0 : 1, off ? 0 : 1, off ? 0 : 1, off ? 1 : 0);
+        tone(sample_rate*2, 997, 0.95f, -0.4f);
+        memcpy(original, signal, sample_rate*4*sizeof(float));
+        music_reverb_processor(signal, sample_rate*2);
+        assert(memcmp(original, signal, sample_rate*4*sizeof(float)) == 0);
+    }
+
+    for (int sr = 0; sr < 3; sr++) {
+        sample_rate = sr == 0 ? 44100 : sr == 1 ? 48000 : 96000;
+        /* A mono source must widen into BOTH ears, with its mono centre preserved. */
+        prepare(1, 0, 0, 1);
+        noise(sample_rate*3, 0.02f);
+        memcpy(original, signal, sample_rate*6*sizeof(float));
+        music_reverb_processor(signal, sample_rate*3);
+        double ll = 0, rr = 0, lr = 0, ss = 0;
+        for (int i = sample_rate; i < sample_rate*3; i++) {
+            double l = signal[2*i], r = signal[2*i + 1], side = (l-r)*0.5;
+            assert(fabs((l+r)*0.5 - original[2*i]) < 2e-7);
+            ll += l*l; rr += r*r; lr += l*r; ss += side*side;
+        }
+        double balance = 10*log10(ll/rr), correlation = lr/sqrt(ll*rr);
+        printf("%d Hz width: L/R %+.3f dB, correlation %.3f, Side/Mid %.3f\n", sample_rate, balance, correlation, sqrt(ss/(ll + rr - 2*ss)*2));
+        assert(fabs(balance) < 0.5 && correlation > 0.05 && ss > 0.01*(ll+rr));
+        /* Single-frequency low/mid/high material cannot vanish or lean into one ear. */
+        float freqs[] = {40, 1000, 8000};
+        for (int j = 0; j < 3; j++) {
+            prepare(1, 0, 0, 1);
+            tone(sample_rate*3, freqs[j], 0.01f, 1);
+            memcpy(original, signal, sample_rate*6*sizeof(float));
+            music_reverb_processor(signal, sample_rate*3);
+            double side_energy = 0;
+            for (int i = sample_rate; i < sample_rate*3; i++) {
+                float d = (signal[2*i] - signal[2*i + 1])*0.5f;
+                side_energy += d*d;
+                assert(fabsf((signal[2*i] + signal[2*i + 1])*0.5f - original[2*i]) < 2e-7f);
+            }
+            balance = 10*log10(energy(sample_rate, sample_rate*3, 0)/energy(sample_rate, sample_rate*3, 1));
+            printf("  mono %.0f Hz: balance %+.3f dB, side RMS %.6f\n", freqs[j], balance, sqrt(side_energy/(sample_rate*2)));
+            assert(fabs(balance) < 0.5 && side_energy > 1e-9);
+        }
+        float quiet = bass_gain(1, 0.01f, 20), half = bass_gain(0.5f, 0.01f, 20);
+        float loud = bass_gain(1, 0.8f, 20), high = bass_gain(1, 0.01f, 8000);
+        printf("%d Hz bass: quiet %+.3f dB, half %+.3f dB, loud %+.3f dB, 8kHz %+.3f dB\n", sample_rate, quiet, half, loud, high);
+        assert(fabsf(quiet - 10) < 0.15f && fabsf(half - 5) < 0.15f && fabsf(high) < 0.05f);
+        assert(loud < quiet - 8); /* Real heavy gain reduction, not just a louder signal. */
+        double low = bass_tail(0.8f), late = bass_tail(0.9f), full = bass_tail(1);
+        printf("%d Hz reverb 40Hz tail: 80%% %.9f, 90%% %.9f, 100%% %.9f (%+.1f dB vs 80%%)\n", sample_rate, low, late, full, 10*log10(full/low));
+        assert(late > low*2 && full > late*2 && full > low*30);
+    }
+
+    sample_rate = 44100;
+    /* Do not make a source which is ALREADY anti-correlated even less mono-safe. */
+    prepare(1, 0, 0, 1);
+    noise(sample_rate*3, 0.02f);
+    unsigned int rng = 91;
+    double before_ll = 0, before_rr = 0, before_lr = 0;
+    for (int i = 0; i < sample_rate*3; i++) {
+        rng = rng*1664525u + 1013904223u;
+        float mid = signal[2*i]*0.5f;
+        float side = 0.015f*((rng >> 8)/8388608.0f - 1);
+        signal[2*i] = mid+side; signal[2*i+1] = mid-side;
+        if (i >= sample_rate) {
+            before_ll += signal[2*i]*signal[2*i]; before_rr += signal[2*i+1]*signal[2*i+1];
+            before_lr += signal[2*i]*signal[2*i+1];
+        }
+    }
+    music_reverb_processor(signal, sample_rate*3);
+    double ll = 0, rr = 0, lr = 0;
+    for (int i = sample_rate; i < sample_rate*3; i++) {
+        ll += signal[2*i]*signal[2*i]; rr += signal[2*i+1]*signal[2*i+1]; lr += signal[2*i]*signal[2*i+1];
+    }
+    printf("Already-wide source correlation: %.3f -> %.3f\n", before_lr/sqrt(before_ll*before_rr), lr/sqrt(ll*rr));
+    assert(lr/sqrt(ll*rr) >= before_lr/sqrt(before_ll*before_rr) - 0.02);
+
+    /* Slider steps are ramped, not sudden filter/gain jumps. */
+    prepare(0, 0, 0, 1);
+    for (int i = 0; i < sample_rate*2; i++) signal[i] = 0.05f;
+    music_reverb_processor(signal, sample_rate);
+    audio_set_effects(1, 1, 1);
+    for (int i = 0; i < sample_rate*2; i++) signal[i] = 0.05f;
+    music_reverb_processor(signal, sample_rate);
+    assert(fabsf(signal[0] - 0.05f) < 0.001f && fabsf(signal[1] - 0.05f) < 0.001f);
+    finite_peak(sample_rate, 0.88001f);
+
+    prepare(1, 1, 1, 1);
+    noise(sample_rate*2, 1);
+    music_reverb_processor(signal, sample_rate*2);
+    finite_peak(sample_rate*2, 0.88001f);
+    audio_set_reverb(0);
+    memset(signal, 0, sample_rate*4*sizeof(float));
+    music_reverb_processor(signal, sample_rate*2);
+    tone(sample_rate, 1000, 0.1f, 1);
+    memcpy(original, signal, sample_rate*2*sizeof(float));
+    music_reverb_processor(signal, sample_rate);
+    assert(memcmp(original, signal, sample_rate*2*sizeof(float)) == 0); /* Action fades out. */
+
+    /* The callback must be independent of audio device chunk sizes. */
+    prepare(0.7f, 0.4f, 0.9f, 1);
+    noise(sample_rate, 0.02f);
+    music_reverb_processor(signal, sample_rate);
+    memcpy(original, signal, sample_rate*2*sizeof(float));
+    prepare(0.7f, 0.4f, 0.9f, 1);
+    noise(sample_rate, 0.02f);
+    for (int i = 0; i < sample_rate;) {
+        int count = (i % 503) + 1;
+        if (i + count > sample_rate) count = sample_rate - i;
+        music_reverb_processor(signal + 2*i, count); i += count;
+    }
+    for (int i = 0; i < sample_rate*2; i++) assert(fabsf(signal[i] - original[i]) < 1e-6f);
+    /* Music transitions reset the tank on the audio thread, not from the UI. */
+    AudioAssets a = {0};
+    audio_play_menu_music(&a);
+    audio_start_match_music(&a, 1);
+    memset(signal, 0, sample_rate*2*sizeof(float));
+    music_reverb_processor(signal, sample_rate);
+    for (int i = 0; i < sample_rate*2; i++) assert(signal[i] == 0);
+    audio_set_effects(NAN, -1, INFINITY); /* Public setters must reject bad values. */
+    assert(__atomic_load_n(&s_effect_settings, __ATOMIC_RELAXED) == (1000u << 20));
+    puts("All action-audio numerical checks passed.");
+    return 0;
+}

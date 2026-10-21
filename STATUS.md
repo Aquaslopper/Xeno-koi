@@ -1,11 +1,31 @@
-> **Development handoff (last updated 21 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 22 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 21 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 22 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Options page 2 / Action audio (22 October 2026)
+
+- Added bottom-right arrows and page numbers. Page 1 retains its original settings; page 2 holds the music folder, the requested Audio effect options header/explanation, and saved Stereo wide, Bass boost, Reverb sliders. Browser page 2 exposes effect sliders but explicitly marks local folders desktop-only. Back saves both pages; folder modals block navigation/underlying inputs.
+- Extended the existing action-triggered music callback, retaining capture/Koi-Koi triggers and the fixed delay tank. Added an RBJ +10 dB shelf before stereo-linked compression (up to 8:1), independent width/reverb controls, symmetric M/S decoding with original centre retained, an added-Side power/correlation guard, and full-band reverb whose bass return opens in the final 20%. Shared output gain prevents separate-ear compressor/limiter image shifts. Settings cross to the audio thread via lock-free atomic snapshots; filter resets happen on the audio thread. No dependencies were added.
+- Verification passed: `./build.sh test` (500 simulated matches, playlist/settings/UI tests, existing DSP regression and new real-callback numerical suite), `./tests/test_table_ui.sh`, ASan/UBSan for new DSP/settings/UI tests, and strict C99 syntax checks against Raylib 5.5. Numerical tests cover 44.1/48/96 kHz sequences, exact bypass, L/R balance/mono fold-down, +10 dB bass/compression, late low-bass reverb admission, source anti-correlation, headroom, chunk sizes, smoothing, and transitions. The earlier DSP presence-band failure is now fixed without weakening its threshold (−2.0 dB vs required −12.5 dB).
+- Additionally decoded/processed the first 30 seconds of shipped game1/game3 MP3s offline with Raylib's bundled decoder: no non-finite samples or active peaks above 0.88, low-level width mono-null error below 1e-9, and no worsening of game1's pre-existing −0.218 correlation. This is numerical testing, not a listening playtest. Online Raylib/RBJ/JUCE references, measurements and the explicit device-rate tuning limitation are recorded in `docs/reference/audio-dsp.md`.
+- Touched Options UI, settings/audio/startup, related documentation and regression tests. Deliberately did not change rules, cards, scoring, campaign/Deus decisions, AI, artwork, SFX routing, or action-envelope trigger logic. No shared mode flag was introduced.
+- Remaining: live desktop listening/layout, Windows filesystem/clipboard behavior, complete Windows/web builds and listening on different output-device rates. Raylib 5.5 exposes no public device-rate getter; inherited sample-domain tuning is nominally 44.1 kHz, not a claim of rate-invariant filter cutoffs/delay timing.
+
+
+### Custom music folder (21 October 2026)
+
+- Added desktop **Options → Music Folder** with a typed/pasted path, Apply/Enter, Cancel, and Use Default. Windows Explorer's surrounding path quotes are removed. Modal input blocks other Options controls; the browser retains its original controls and bundled audio.
+- Persisted `music_folder` in `settings.txt`, including spaces and UTF-8 text. Loads up to 10 playable MP3s from the folder (no recursion), sorted by filename before loading; invalid files are skipped. Replacements are staged so rejected folders preserve current music. A missing/unusable saved folder falls back to shipped match tracks at launch without deleting the setting. Menu music, SFX, volume controls, and existing reverb processing remain separate/unchanged.
+- Touched settings persistence, the audio playlist loader, Options UI/startup wiring, README/wiki instructions, and test/CI integration. Deliberately left card data, rules, scoring, campaign unlocks, AI, audio DSP, and artwork unchanged; added no libraries.
+- Passed custom playlist/settings and modal input tests, including AddressSanitizer/UndefinedBehaviorSanitizer; headless table UI suite; strict C99 syntax checking of all game sources against Raylib 5.5; engine suite (500 matches); generated wiki-table check; strict MkDocs build using temporary dependencies; and `git diff --check`.
+- **Full `./build.sh test` still exits 1:** the pre-existing DSP presence-band test reports −18.7 dB against its −12.5 dB threshold. Rebuilt/reran the test from unchanged HEAD source and reproduced the identical failure. This feature does not retune the DSP.
+- Still to verify: live desktop playback/visual layout, Windows clipboard/filesystem behavior, and end-to-end Windows/web builds. Tests use synthetic Raylib file/audio calls; they verify playlist resource management and input/persistence, not MP3 decoding or audible playback.
+
 
 - Refreshed wiki prose for cumulative per-tier campaign coins and the exact M-01–M-12 gates, the actual M-12 condition for DEUS, desktop-only replays, and recent table visual/audio feedback. Corrected the stale “newest opponent” unlock explanation; no game code, scoring, card art, or saved data changed.
 

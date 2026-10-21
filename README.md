@@ -95,7 +95,7 @@ The state shown is the opening of a round, which is the only state where every c
 
 1. Download the latest `.zip` from the **[Releases](https://github.com/Aquaslopper/Xeno-koi/releases/latest)** tab.
 2. Extract the folder to your computer. *(Ensure the `assets/` folder remains in the same directory as the executable).*
-3. **Optional Custom Audio:** Add your own `.mp3` and `.wav` files into the `assets/music/` and `assets/sfx/` folders matching the required filenames.
+3. **Optional Custom Audio:** On desktop, open **Options → page 2 → Music Folder**, paste the full path to a folder of MP3s, and click **Apply**. Up to 10 playable tracks are used without renaming them; **Use Default** restores the built-in match music. Menu music and sound effects stay unchanged. You can still replace audio in `assets/music/` and `assets/sfx/` using the shipped filenames. See [custom music details](docs/reference/modes.md#custom-music-desktop).
 4. Run `KoiKoi.exe`.
 
 ## Documentation

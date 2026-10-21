@@ -38,7 +38,7 @@ Both defaults only apply when `settings.txt` is missing. Once the file is saved,
 3. **[DEUS SUPREMUS](reference/deus-supremus.md) logic.** The DEUS SUPREMUS difficulty uses the Master decision logic with stronger card evaluation and 100% accuracy. It is not a separate AI.
 4. **Fullscreen on the browser build belongs to the page, not the game.** The web shell owns it: the `[ FULLSCREEN ]` button and the in-game Options row both toggle the canvas, and `settings.fullscreen` is ignored and cleared on web. Browsers only grant fullscreen from a user gesture, so the page button always works while Safari may ignore the in-game row. Player-facing detail: [Modes & Settings](reference/modes.md).
 
-5. **Audio DSP verification is currently failing.** On this checkout, `./build.sh test` passes the engine simulations but fails the headless `tests/test_audio_dsp.c` presence-band check: stereo Side is −18.7 dB relative to Mid in the 2–5 kHz band, below the test’s −12.5 dB minimum. The capture-driven processor is present in `src/ui_audio.c`, but its intended width has not passed this regression check; live listening still needs verification.
+5. **Audio DSP regression corrected (22 October 2026).** The former unequal left/right reverb decode failed the presence-band check at −18.7 dB Side/Mid. The page-2 audio controls now use symmetric Mid/Side decoding and linked compression/limiting. The unchanged regression passes at approximately −2.0 dB, with additional mono compatibility, channel-balance, bass endpoint/compression and late-bass reverb tests. [Design, sources and measured checks](reference/audio-dsp.md) distinguish numerical verification from live listening, which remains to verify.
 
 ## Campaign progression correction
 
