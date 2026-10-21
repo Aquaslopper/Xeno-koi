@@ -216,7 +216,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sib_abs = (side_sibilance < 0.0f) ? -side_sibilance : side_sibilance;
         float deess_rate = (sib_abs > s_deess_env) ? 0.007530f : 0.000283f;
         s_deess_env += (sib_abs - s_deess_env) * deess_rate;
-        float deess_gain = 1.0f / (1.0f + 5.0f * s_deess_env);
+        float deess_gain = 1.0f / (1.0f + 3.2f * s_deess_env);
         float clean_wet_stereo = s_side_deess_lp + side_sibilance * deess_gain;
 
         /* Presence lift on the Side only. The reverb bloom is spectrally flat, but music is
@@ -224,28 +224,29 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
            "only the low end got stereo". Lifting everything above ~1.2 kHz puts the snare
            and presence into the width. The Mid path is untouched, so the centre keeps its
            exact level and the mono sum is unchanged. */
-        s_side_presence_lp += (clean_wet_stereo - s_side_presence_lp) * 0.17f; /* ~1.2 kHz split */
-        clean_wet_stereo += (clean_wet_stereo - s_side_presence_lp) * 0.70f;   /* ~+4.6 dB above 1.2 kHz */
+        s_side_presence_lp += (clean_wet_stereo - s_side_presence_lp) * 0.22f; /* ~1.2 kHz split */
+        clean_wet_stereo += (clean_wet_stereo - s_side_presence_lp) * 0.80f;   /* ~+4.6 dB above 1.2 kHz */
 
         float out_l = dry_l;
         float out_r = dry_r;
 
-        if (rev > 0.0005f) {
-            /* Phase-safe, subtle stereo widening: keep the side contribution in-phase
-               for both ears, but make the right channel smaller so it doesn't cancel. */
-            float stereo_w = 0.30f + 0.24f * (rev * rev);
-            float stereo_comp = 1.0f / (1.0f + 0.15f * stereo_w);
-            float impact_boost = (target > s_reverb_cur) ? 1.18f : 1.0f;
-            float wet_gain = rev * 0.76f * sc_dim * stereo_comp * impact_boost * (1.0f - 0.10f * tail_releasing);
-
-            float dry_gain = 1.0f - rev * 0.12f;
-            float mono_bass_boost = s_mid_bass_lp * (0.30f * rev);
-            float rev_mid = wet_mono * wet_gain + mono_bass_boost;
-            float rev_side = clean_wet_stereo * (wet_gain * stereo_w);
-
-            out_l = dry_l * dry_gain + rev_mid + rev_side * 0.92f;
-            out_r = dry_r * dry_gain + rev_mid + rev_side * 0.42f;
-        }
+      if (rev > 0.0005f) {
+          /* More stereo width, without fully collapsing the center */
+          float stereo_w = 0.45f + 0.42f * (rev * rev);
+          float stereo_comp = 1.0f / (1.0f + 0.08f * stereo_w);
+          float impact_boost = (target > s_reverb_cur) ? 1.25f : 1.08f;
+          float wet_gain = rev * 0.90f * sc_dim * stereo_comp * impact_boost * (1.0f - 0.08f * tail_releasing);
+      
+          float dry_gain = 1.0f - rev * 0.10f;
+          float mono_bass_boost = s_mid_bass_lp * (0.22f * rev);
+          float rev_mid = wet_mono * wet_gain + mono_bass_boost;
+      
+          /* Stronger side signal = more stereo */
+          float rev_side = clean_wet_stereo * (wet_gain * stereo_w * 1.35f);
+      
+          out_l = dry_l * dry_gain + rev_mid + rev_side * 1.00f;
+          out_r = dry_r * dry_gain + rev_mid + rev_side * 0.18f;
+      }
 
         /* 4. Gentle Master Bus Compressor over everything (3 ms attack, 80 ms release):
               high threshold (0.60, gentle 2.0:1 ratio) so normal music is untouched and only spikes are caught */
