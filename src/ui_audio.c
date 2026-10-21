@@ -55,46 +55,53 @@ static float clamp_range(float x, float lo, float hi) {
     return x;
 }
 
+static float soft_limit(float x) {
+    if (x > 1.35f) return 0.96f;
+    if (x < -1.35f) return -0.96f;
+    return x - (x * x * x) * 0.19f;
+}
+
 static void music_reverb_processor(void *buffer, unsigned int frames) {
     float *pcm = (float *)buffer;
     if (!pcm || frames == 0) return;
     float target = clamp_range(s_reverb_target, 0.0f, 1.0f);
 
     for (unsigned int f = 0; f < frames; f++) {
-        /* Tighter, smooth audio-rate glide with faster tail ducking on release, strictly hard-limited */
-        float rate = (target > s_reverb_cur) ? 0.00080f : 0.00095f;
+        /* Smooth audio-rate glide, strictly hard-limited to [0, 1] */
+        float rate = (target > s_reverb_cur) ? 0.0020f : 0.0012f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
         float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
 
-        /* Track dry music envelope for sidechain ducking so reverb tail never smears notes */
+        /* Track dry music envelope for gentle sidechain ducking on the release tail */
         float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
-        float env_rate = (dry_abs > s_dry_env) ? 0.015f : 0.0008f;
+        float env_rate = (dry_abs > s_dry_env) ? 0.012f : 0.0008f;
         s_dry_env += (dry_abs - s_dry_env) * env_rate;
 
-        /* Stereo pre-delay / Haas widener with non-regenerative feedback */
+        /* Stereo ping-pong pre-delay / Haas widener */
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        float in_gain = 0.35f + 0.45f * rev;
-        float slap_fb = 0.18f + 0.12f * rev;
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(dry_l * in_gain + slap_r * slap_fb, -0.85f, 0.85f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(dry_r * in_gain - slap_l * slap_fb, -0.85f, 0.85f);
+        float in_gain = 0.45f + 0.48f * rev;
+        float slap_fb = 0.28f + 0.16f * rev;
+        s_pre_buf_l[s_pre_idx_l] = clamp_range(dry_l * in_gain + slap_r * slap_fb, -0.92f, 0.92f);
+        s_pre_buf_r[s_pre_idx_r] = clamp_range(dry_r * in_gain - slap_l * slap_fb, -0.92f, 0.92f);
         if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
         if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
 
-        /* Wider stereo feed into the 4-comb tank (moderate feedback prevents build-up/smearing) */
-        float feed_l = (dry_l * 0.86f - dry_r * 0.24f) * in_gain + slap_r * 0.28f;
-        float feed_r = (dry_r * 0.86f - dry_l * 0.24f) * in_gain + slap_l * 0.28f;
-        float feedback = 0.52f + 0.12f * rev;
-        const float damp = 0.42f;
+        /* Wide decorrelated stereo feed into the 4-comb tank; tighten feedback on release so tail never smears */
+        float feed_l = (dry_l * 0.85f - dry_r * 0.30f) * in_gain + slap_r * 0.40f;
+        float feed_r = (dry_r * 0.85f - dry_l * 0.30f) * in_gain + slap_l * 0.40f;
+        float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
+        float feedback = (0.74f + 0.10f * rev) - 0.12f * tail_releasing;
+        const float damp = 0.30f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
             int il = s_comb_idx_l[c];
             float out_l = s_comb_buf_l[c][il];
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.90f, 0.90f);
+            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.95f, 0.95f);
             if (++il >= k_comb_len_l[c]) il = 0;
             s_comb_idx_l[c] = il;
             acc_l += out_l;
@@ -102,21 +109,21 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             int ir = s_comb_idx_r[c];
             float out_r = s_comb_buf_r[c][ir];
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.90f, 0.90f);
+            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.95f, 0.95f);
             if (++ir >= k_comb_len_r[c]) ir = 0;
             s_comb_idx_r[c] = ir;
             acc_r += out_r;
         }
 
-        acc_l *= 0.34f;
-        acc_r *= 0.34f;
+        acc_l *= 0.40f;
+        acc_r *= 0.40f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
             int il = s_ap_idx_l[a];
             float buf_l = s_ap_buf_l[a][il];
             float in_l = acc_l;
             acc_l = -in_l + buf_l;
-            s_ap_buf_l[a][il] = in_l + buf_l * 0.50f;
+            s_ap_buf_l[a][il] = in_l + buf_l * 0.54f;
             if (++il >= k_ap_len_l[a]) il = 0;
             s_ap_idx_l[a] = il;
 
@@ -124,29 +131,26 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             float buf_r = s_ap_buf_r[a][ir];
             float in_r = acc_r;
             acc_r = -in_r + buf_r;
-            s_ap_buf_r[a][ir] = in_r + buf_r * 0.50f;
+            s_ap_buf_r[a][ir] = in_r + buf_r * 0.54f;
             if (++ir >= k_ap_len_r[a]) ir = 0;
             s_ap_idx_r[a] = ir;
         }
 
-        /* High-pass filter (~180 Hz) on the wet reverb so bass/kick never muddy or smear */
-        float raw_wet_l = acc_l + slap_l * 0.32f - slap_r * 0.14f;
-        float raw_wet_r = acc_r + slap_r * 0.32f - slap_l * 0.14f;
-        s_hp_lp_l += (raw_wet_l - s_hp_lp_l) * 0.024f;
-        s_hp_lp_r += (raw_wet_r - s_hp_lp_r) * 0.024f;
+        /* Gentle sub-bass blocker (~65 Hz) keeps low end clean while preserving full warm body */
+        float raw_wet_l = acc_l + slap_l * 0.50f - slap_r * 0.22f;
+        float raw_wet_r = acc_r + slap_r * 0.50f - slap_l * 0.22f;
+        s_hp_lp_l += (raw_wet_l - s_hp_lp_l) * 0.009f;
+        s_hp_lp_r += (raw_wet_r - s_hp_lp_r) * 0.009f;
         float wet_l = raw_wet_l - s_hp_lp_l;
         float wet_r = raw_wet_r - s_hp_lp_r;
 
         if (rev > 0.0005f) {
-            /* Sidechain + tail ducking keeps the dry music crisp; hard-limited wet ceiling prevents spikes */
-            float tail_phase = (target < s_reverb_cur) ? 0.72f : 1.0f;
-            float sc_duck = tail_phase / (1.0f + s_dry_env * 1.45f);
-            float wet_gain = rev * 0.55f * sc_duck;
-            float dry_gain = 1.0f - rev * 0.16f;
-            float mix_wet_l = clamp_range(wet_l * wet_gain, -0.40f, 0.40f);
-            float mix_wet_r = clamp_range(wet_r * wet_gain, -0.40f, 0.40f);
-            pcm[f * 2 + 0] = clamp_range(dry_l * dry_gain + mix_wet_l, -0.98f, 0.98f);
-            pcm[f * 2 + 1] = clamp_range(dry_r * dry_gain + mix_wet_r, -0.98f, 0.98f);
+            /* Duck dry center signal so stereo reverb blooms clearly; duck release tail so it never smears */
+            float tail_duck = (1.0f - 0.20f * tail_releasing) / (1.0f + s_dry_env * 0.35f * tail_releasing);
+            float wet_gain = rev * 1.18f * tail_duck;
+            float dry_gain = 1.0f - rev * 0.50f;
+            pcm[f * 2 + 0] = soft_limit(dry_l * dry_gain + wet_l * wet_gain);
+            pcm[f * 2 + 1] = soft_limit(dry_r * dry_gain + wet_r * wet_gain);
         }
     }
 }
