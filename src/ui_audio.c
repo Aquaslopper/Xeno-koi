@@ -42,8 +42,6 @@ static float s_in_lp_l = 0.0f;
 static float s_in_lp_r = 0.0f;
 static float s_wet_lp_l = 0.0f;
 static float s_wet_lp_r = 0.0f;
-static float s_dry_env = 0.0f;
-static float s_peak_env = 0.0f;
 
 static volatile float s_reverb_target = 0.0f;
 static float s_reverb_cur = 0.0f;
@@ -78,53 +76,36 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
 
     for (unsigned int f = 0; f < frames; f++) {
         /* Smooth audio-rate glide, strictly hard-limited to [0, 1] */
-        float rate = (target > s_reverb_cur) ? 0.0020f : 0.0012f;
+        float rate = (target > s_reverb_cur) ? 0.0018f : 0.0012f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
         float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
 
-        /* Track dry music envelope for gentle sidechain ducking on the release tail */
-        float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
-        float env_rate = (dry_abs > s_dry_env) ? 0.012f : 0.0008f;
-        s_dry_env += (dry_abs - s_dry_env) * env_rate;
+        /* 1. Fixed, constant-gain tank parameters so the reverb NEVER blows up nonlinearly
+              or gets louder than the dry music at high synergy */
+        s_in_lp_l += (dry_l - s_in_lp_l) * 0.28f;
+        s_in_lp_r += (dry_r - s_in_lp_r) * 0.28f;
 
-        /* Pre-lowpass tank input (~3.2 kHz, alpha=0.36) so 96% of warm music body enters at full
-           gain while piercing hi-hats/sibilance are rolled off before hitting the delay lines */
-        s_in_lp_l += (dry_l - s_in_lp_l) * 0.36f;
-        s_in_lp_r += (dry_r - s_in_lp_r) * 0.36f;
-
-        /* Stereo width ramps as rev^3 (~17% on 1st capture, ~78% on 2nd, 100% on 3rd)
-           while reverb loudness uses rev (~55% on 1st capture) so 1st card is clearly audible
-           without an aggressive stereo jump */
-        float stereo_w = rev * rev * rev;
-        float stereo_blend = 0.32f + 0.68f * stereo_w;
-
-        /* Stereo ping-pong pre-delay / Haas widener */
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        float in_gain = 0.45f + 0.48f * rev;
-        float slap_fb = 0.22f + 0.16f * stereo_w;
-        s_pre_buf_l[s_pre_idx_l] = clamp_range(s_in_lp_l * in_gain + slap_r * slap_fb, -0.85f, 0.85f);
-        s_pre_buf_r[s_pre_idx_r] = clamp_range(s_in_lp_r * in_gain - slap_l * slap_fb, -0.85f, 0.85f);
+        s_pre_buf_l[s_pre_idx_l] = clamp_range(s_in_lp_l * 0.50f + slap_r * 0.20f, -0.70f, 0.70f);
+        s_pre_buf_r[s_pre_idx_r] = clamp_range(s_in_lp_r * 0.50f - slap_l * 0.20f, -0.70f, 0.70f);
         if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
         if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
 
-        /* 4-comb tank: warm HF damping (damp = 0.48) prevents metallic treble buildup;
-           feedback tightens on release so the tail never smears */
-        float cross = 0.26f * stereo_blend;
-        float feed_l = (s_in_lp_l * 0.85f - s_in_lp_r * cross) * in_gain + slap_r * (0.36f * stereo_blend);
-        float feed_r = (s_in_lp_r * 0.85f - s_in_lp_l * cross) * in_gain + slap_l * (0.36f * stereo_blend);
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        float feedback = (0.74f + 0.10f * rev) - 0.12f * tail_releasing;
-        const float damp = 0.48f;
+        float feed_l = s_in_lp_l * 0.48f + slap_r * 0.20f;
+        float feed_r = s_in_lp_r * 0.48f + slap_l * 0.20f;
+        float feedback = 0.68f - 0.10f * tail_releasing;
+        const float damp = 0.52f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
             int il = s_comb_idx_l[c];
             float out_l = s_comb_buf_l[c][il];
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.90f, 0.90f);
+            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.75f, 0.75f);
             if (++il >= k_comb_len_l[c]) il = 0;
             s_comb_idx_l[c] = il;
             acc_l += s_comb_lp_l[c];
@@ -132,21 +113,21 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             int ir = s_comb_idx_r[c];
             float out_r = s_comb_buf_r[c][ir];
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.90f, 0.90f);
+            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.75f, 0.75f);
             if (++ir >= k_comb_len_r[c]) ir = 0;
             s_comb_idx_r[c] = ir;
             acc_r += s_comb_lp_r[c];
         }
 
-        acc_l *= 0.42f;
-        acc_r *= 0.42f;
+        acc_l *= 0.36f;
+        acc_r *= 0.36f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
             int il = s_ap_idx_l[a];
             float buf_l = s_ap_buf_l[a][il];
             float in_l = acc_l;
             acc_l = -in_l + buf_l;
-            s_ap_buf_l[a][il] = in_l + buf_l * 0.50f;
+            s_ap_buf_l[a][il] = in_l + buf_l * 0.48f;
             if (++il >= k_ap_len_l[a]) il = 0;
             s_ap_idx_l[a] = il;
 
@@ -154,54 +135,33 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
             float buf_r = s_ap_buf_r[a][ir];
             float in_r = acc_r;
             acc_r = -in_r + buf_r;
-            s_ap_buf_r[a][ir] = in_r + buf_r * 0.50f;
+            s_ap_buf_r[a][ir] = in_r + buf_r * 0.48f;
             if (++ir >= k_ap_len_r[a]) ir = 0;
             s_ap_idx_r[a] = ir;
         }
 
-        /* Blend tank from mostly centered on 1st card to full stereo on 2nd/3rd card,
-           with 65 Hz sub cut + 2.4 kHz warm low-pass (alpha=0.28) to eliminate harsh HF spikes */
+        /* 2. Stereo width starts gentle on the 1st card and widens on 2nd/3rd card;
+              warm low-pass (~2.2 kHz) prevents high-frequency spikes */
+        float stereo_w = 0.30f + 0.70f * (rev * rev);
         float acc_mid = 0.5f * (acc_l + acc_r);
-        float tank_l = acc_mid * (1.0f - stereo_blend) + acc_l * stereo_blend;
-        float tank_r = acc_mid * (1.0f - stereo_blend) + acc_r * stereo_blend;
-        float raw_wet_l = tank_l + (slap_l * 0.44f - slap_r * 0.18f) * stereo_blend;
-        float raw_wet_r = tank_r + (slap_r * 0.44f - slap_l * 0.18f) * stereo_blend;
-        s_hp_lp_l += (raw_wet_l - s_hp_lp_l) * 0.009f;
-        s_hp_lp_r += (raw_wet_r - s_hp_lp_r) * 0.009f;
+        float raw_wet_l = acc_mid * (1.0f - stereo_w) + (acc_l + slap_l * 0.25f) * stereo_w;
+        float raw_wet_r = acc_mid * (1.0f - stereo_w) + (acc_r + slap_r * 0.25f) * stereo_w;
+        s_hp_lp_l += (raw_wet_l - s_hp_lp_l) * 0.010f;
+        s_hp_lp_r += (raw_wet_r - s_hp_lp_r) * 0.010f;
         float hp_l = raw_wet_l - s_hp_lp_l;
         float hp_r = raw_wet_r - s_hp_lp_r;
-        s_wet_lp_l += (hp_l - s_wet_lp_l) * 0.28f;
-        s_wet_lp_r += (hp_r - s_wet_lp_r) * 0.28f;
-        float wet_l = s_wet_lp_l;
-        float wet_r = s_wet_lp_r;
+        s_wet_lp_l += (hp_l - s_wet_lp_l) * 0.25f;
+        s_wet_lp_r += (hp_r - s_wet_lp_r) * 0.25f;
 
         if (rev > 0.0005f) {
-            /* Duck dry center signal so warm reverb blooms clearly; soft-knee limit peaks above ceiling */
-            float tail_duck = (1.0f - 0.20f * tail_releasing) / (1.0f + s_dry_env * 0.35f * tail_releasing);
-            float wet_gain = rev * 1.20f * tail_duck;
-            float mw_l = soft_knee_limit(wet_l * wet_gain, 0.38f, 0.52f);
-            float mw_r = soft_knee_limit(wet_r * wet_gain, 0.38f, 0.52f);
-
-            /* Gently warm the dry track's harsh highs as it ducks into the reverb */
-            float dry_warm_l = dry_l * (1.0f - 0.22f * rev) + s_in_lp_l * (0.22f * rev);
-            float dry_warm_r = dry_r * (1.0f - 0.22f * rev) + s_in_lp_r * (0.22f * rev);
-            float dry_gain = 1.0f - rev * 0.48f;
-            float out_l = dry_warm_l * dry_gain + mw_l;
-            float out_r = dry_warm_r * dry_gain + mw_r;
-
-            /* Fast-attack envelope peak limiter above 0.58 so harsh sounds never spike */
-            float pk = (out_l < 0.0f ? -out_l : out_l);
-            float pk_r = (out_r < 0.0f ? -out_r : out_r);
-            if (pk_r > pk) pk = pk_r;
-            float pk_rate = (pk > s_peak_env) ? 0.35f : 0.0012f;
-            s_peak_env += (pk - s_peak_env) * pk_rate;
-            if (s_peak_env > 0.58f) {
-                float lim_g = (0.58f + 0.12f * ((s_peak_env - 0.58f) / (0.12f + (s_peak_env - 0.58f)))) / s_peak_env;
-                out_l *= lim_g;
-                out_r *= lim_g;
-            }
-            pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.55f, 0.72f);
-            pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.55f, 0.72f);
+            /* 3. Unity-loudness wet/dry mix: wet_gain scales linearly (rev * 0.58) and dry_gain
+                  dips by at most 14% so total volume stays within +/-0.3 dB of the dry music */
+            float wet_gain = rev * 0.58f * (1.0f - 0.18f * tail_releasing);
+            float dry_gain = 1.0f - rev * 0.14f;
+            float out_l = dry_l * dry_gain + soft_knee_limit(s_wet_lp_l * wet_gain, 0.24f, 0.34f);
+            float out_r = dry_r * dry_gain + soft_knee_limit(s_wet_lp_r * wet_gain, 0.24f, 0.34f);
+            pcm[f * 2 + 0] = soft_knee_limit(out_l, 0.52f, 0.68f);
+            pcm[f * 2 + 1] = soft_knee_limit(out_r, 0.52f, 0.68f);
         }
     }
 }
@@ -249,17 +209,17 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     const char *p_flip = get_path("assets/sfx/card_flip.wav");
     if (FileExists(p_flip)) {
         a->sfx_flip = LoadSound(p_flip); a->has_sfx_flip = 1;
-        SetSoundVolume(a->sfx_flip, a->sfx_volume);
+        SetSoundVolume(a->sfx_flip, clamp_range(a->sfx_volume * 1.90f, 0.0f, 1.0f));
     }
     const char *p_drop = get_path("assets/sfx/card_drop.wav");
     if (FileExists(p_drop)) {
         a->sfx_drop = LoadSound(p_drop); a->has_sfx_drop = 1;
-        SetSoundVolume(a->sfx_drop, a->sfx_volume);
+        SetSoundVolume(a->sfx_drop, clamp_range(a->sfx_volume * 1.90f, 0.0f, 1.0f));
     }
     const char *p_cap = get_path("assets/sfx/capture.wav");
     if (FileExists(p_cap)) {
         a->sfx_capture = LoadSound(p_cap); a->has_sfx_capture = 1;
-        SetSoundVolume(a->sfx_capture, a->sfx_volume);
+        SetSoundVolume(a->sfx_capture, clamp_range(a->sfx_volume * 1.90f, 0.0f, 1.0f));
     }
     const char *p_koi = get_path("assets/sfx/koi_call.wav");
     if (FileExists(p_koi)) {
@@ -297,9 +257,10 @@ void audio_set_sfx_volume(AudioAssets *a, float volume) {
     if (volume < 0.0f) volume = 0.0f;
     if (volume > 1.0f) volume = 1.0f;
     a->sfx_volume = volume;
-    if (a->has_sfx_flip) SetSoundVolume(a->sfx_flip, volume);
-    if (a->has_sfx_drop) SetSoundVolume(a->sfx_drop, volume);
-    if (a->has_sfx_capture) SetSoundVolume(a->sfx_capture, volume);
+    float card_vol = clamp_range(volume * 1.90f, 0.0f, 1.0f);
+    if (a->has_sfx_flip) SetSoundVolume(a->sfx_flip, card_vol);
+    if (a->has_sfx_drop) SetSoundVolume(a->sfx_drop, card_vol);
+    if (a->has_sfx_capture) SetSoundVolume(a->sfx_capture, card_vol);
     if (a->has_sfx_koi) SetSoundVolume(a->sfx_koi, volume);
     if (a->has_sfx_win) SetSoundVolume(a->sfx_win, volume);
     if (a->has_sfx_lose) SetSoundVolume(a->sfx_lose, volume);
