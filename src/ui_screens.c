@@ -20,7 +20,7 @@ static void draw_centered_text(Font font, const char *text, float cx, float y, f
     Vector2 pos = { floorf(cx - ts.x / 2.0f), floorf(y) };
     DrawTextEx(font, text, pos, fsz, sp, col);
     if (font.texture.id == font_title.texture.id && fsz >= 26.0f)
-        ui_theme_draw_text_flares(font, text, pos, fsz, sp);
+        ui_theme_draw_text_flares(font, text, pos, fsz, sp, col);
 }
 
 static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fsz, float sp, Color col) {
@@ -35,7 +35,7 @@ static int draw_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, Color txt
     Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - fsz) * 0.5f) };
     DrawTextEx(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
-    if (hov) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f);
+    if (hov) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
     return hov;
 }
 

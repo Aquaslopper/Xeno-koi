@@ -491,7 +491,7 @@ static Vector2 glyph_loop_sample(const GlyphContourLoop *loop, float u, Vector2 
     return (Vector2){ origin.x + gx * scale, origin.y + gy * scale };
 }
 
-void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing) {
+void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing, Color col) {
     if (!text || !text[0] || font.texture.id == 0 || font.baseSize <= 0 || !font.glyphs || !font.recs) return;
     float scale = font_size / (float)font.baseSize;
     float now = (float)GetTime();
@@ -515,13 +515,11 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                         pos.y + off_y + (float)font.glyphs[idx].offsetY * scale
                     };
                     Rectangle g_rect = {
-                        g_origin.x - 10.0f, g_origin.y - 10.0f,
-                        font.recs[idx].width * scale + 20.0f,
-                        font.recs[idx].height * scale + 20.0f
+                        g_origin.x - 6.0f, g_origin.y - 6.0f,
+                        font.recs[idx].width * scale + 12.0f,
+                        font.recs[idx].height * scale + 12.0f
                     };
-                    float hover_boost = 0.0f;
-                    if (s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, g_rect))
-                        hover_boost = 0.75f;
+                    int hovered = s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, g_rect);
 
                     for (int l = 0; l < entry->loop_count; l++) {
                         const GlyphContourLoop *loop = &entry->loops[l];
@@ -531,14 +529,23 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                         for (int d = 0; d < n_flares; d++) {
                             unsigned int h = (unsigned int)(char_seq * 131 + l * 53 + d * 97 + idx * 17);
                             float dir = ((h & 1u) == 0u) ? 1.0f : -1.0f;
-                            float spd = (15.0f + (float)(h % 19u)) * 0.80f * fmaxf(0.85f, fminf(1.45f, font_size / 84.0f));
+                            float spd = (12.0f + (float)(h % 21u)) * 0.80f;
                             float phase = (float)((h * 37u) % 1000u) * 0.001f;
                             float u_head = phase + dir * (spd * now) / s_perim;
-                            float wave = 0.5f + 0.5f * sinf(now * 2.1f - (float)char_seq * 0.55f + (float)d * 2.0f + (float)l);
-                            float shine = fminf(1.0f, 0.25f + 0.50f * wave + hover_boost);
-                            float flen = fminf(15.0f + 0.09f * font_size, s_perim * 0.20f);
-                            float thick = (1.0f + 1.6f * shine) * fmaxf(0.80f, fminf(1.30f, font_size / 84.0f));
-                            int segs = 5;
+
+                            /* Base state is 1px; ever so often (or on hover) grow by +1px to shine in the font's color. */
+                            float period = 5.5f + (float)(h % 45u) * 0.10f;
+                            float cycle_t = fmodf(now + (float)((h * 73u) % 1000u) * 0.01f, period);
+                            float shine = 0.0f;
+                            if (hovered) {
+                                shine = 1.0f;
+                            } else if (cycle_t < (float)PANEL_SHINE_DURATION) {
+                                shine = sinf((cycle_t / (float)PANEL_SHINE_DURATION) * 3.14159265f);
+                            }
+
+                            float flen = fminf(12.0f + 0.05f * font_size, s_perim * 0.16f);
+                            float thick = 1.0f + 1.0f * shine;
+                            int segs = 4;
                             for (int s = 0; s < segs; s++) {
                                 float t0 = (float)s / (float)segs;
                                 float t1 = (float)(s + 1) / (float)segs;
@@ -546,14 +553,10 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                                 float u1 = u_head - dir * (1.0f - t1) * (flen / s_perim);
                                 Vector2 p0 = glyph_loop_sample(loop, u0, g_origin, scale);
                                 Vector2 p1 = glyph_loop_sample(loop, u1, g_origin, scale);
-                                unsigned char a = (unsigned char)((28.0f + 225.0f * shine) * (0.22f + 0.78f * t1));
-                                DrawLineEx(p0, p1, thick * (0.65f + 0.35f * t1), (Color){ 255, 255, 255, a });
+                                unsigned char a = (unsigned char)((55.0f + 200.0f * shine) * (0.35f + 0.65f * t1));
+                                Color c = { col.r, col.g, col.b, a };
+                                DrawLineEx(p0, p1, thick, c);
                             }
-                            Vector2 head_pt = glyph_loop_sample(loop, u_head, g_origin, scale);
-                            Color halo = g_theme.base;
-                            halo.a = (unsigned char)(45.0f + 85.0f * shine);
-                            DrawCircleV(head_pt, thick * 1.45f, halo);
-                            DrawCircleV(head_pt, thick * 0.70f, (Color){ 255, 255, 255, (unsigned char)(110.0f + 145.0f * shine) });
                         }
                     }
                 }
