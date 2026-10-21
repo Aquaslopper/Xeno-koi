@@ -3,8 +3,9 @@
 #include <string.h>
 
 /* Real-time heavy stereo reverb + Haas ping-pong processor attached to music streams.
-   Driven by thunder_flash via audio_set_reverb(amount): spikes with wide stereo spread
-   on capture/Koi-Koi flash and decays slowly along the extended thunder tail. */
+   Driven by a smooth bi-exponential capture curve via audio_set_reverb(amount) that
+   swells and glides along a rounded curve (rather than spiking) and stacks as more
+   cards are captured. */
 #define REVERB_COMB_COUNT 4
 #define REVERB_COMB_MAX   5504
 #define REVERB_AP_COUNT   2
@@ -40,7 +41,7 @@ static float s_reverb_cur = 0.0f;
 
 void audio_set_reverb(float amount) {
     if (amount < 0.0f) amount = 0.0f;
-    if (amount > 1.0f) amount = 1.0f;
+    if (amount > 1.25f) amount = 1.25f;
     s_reverb_target = amount;
 }
 
@@ -56,26 +57,27 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
     float target = s_reverb_target;
 
     for (unsigned int f = 0; f < frames; f++) {
-        /* Fast attack on spike so thunder transient hits immediately, smooth release */
-        float rate = (target > s_reverb_cur) ? 0.0085f : 0.0012f;
+        /* Smooth audio-rate glide in both directions (no hard transient spike) */
+        float rate = (target > s_reverb_cur) ? 0.00055f : 0.00035f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
         float rev = s_reverb_cur;
+        float norm = (rev > 1.25f) ? 1.0f : (rev * 0.80f);
         float dry_l = pcm[f * 2 + 0];
         float dry_r = pcm[f * 2 + 1];
 
-        /* Stereo ping-pong pre-delay / Haas widener */
+        /* Stereo ping-pong pre-delay / Haas widener (gently pre-warmed so the swell blooms smoothly) */
         float slap_l = s_pre_buf_l[s_pre_idx_l];
         float slap_r = s_pre_buf_r[s_pre_idx_r];
-        float in_gain = 0.30f + 0.70f * rev;
-        s_pre_buf_l[s_pre_idx_l] = dry_l * in_gain + slap_r * (0.38f + 0.22f * rev);
-        s_pre_buf_r[s_pre_idx_r] = dry_r * in_gain - slap_l * (0.38f + 0.22f * rev);
+        float in_gain = 0.45f + 0.55f * norm;
+        s_pre_buf_l[s_pre_idx_l] = dry_l * in_gain + slap_r * (0.34f + 0.24f * norm);
+        s_pre_buf_r[s_pre_idx_r] = dry_r * in_gain - slap_l * (0.34f + 0.24f * norm);
         if (++s_pre_idx_l >= k_pre_len_l) s_pre_idx_l = 0;
         if (++s_pre_idx_r >= k_pre_len_r) s_pre_idx_r = 0;
 
         /* Wide decorrelated stereo feed into the 4-comb tank */
         float feed_l = (dry_l * 0.85f - dry_r * 0.35f) * in_gain + slap_r * 0.45f;
         float feed_r = (dry_r * 0.85f - dry_l * 0.35f) * in_gain + slap_l * 0.45f;
-        float feedback = 0.78f + 0.13f * rev;
+        float feedback = 0.76f + 0.14f * norm;
         const float damp = 0.26f;
         float acc_l = 0.0f, acc_r = 0.0f;
 
@@ -119,11 +121,11 @@ static void music_reverb_processor(void *buffer, unsigned int frames) {
         }
 
         if (rev > 0.0005f) {
-            /* Heavy stereo expansion on spike + strong wet cathedral tail + center ducking */
+            /* Smooth stereo expansion & cathedral wash that swells and stacks along the curve */
             float wet_l = acc_l + slap_l * 0.55f - slap_r * 0.25f;
             float wet_r = acc_r + slap_r * 0.55f - slap_l * 0.25f;
-            float wet_gain = rev * 1.35f;
-            float dry_gain = 1.0f - rev * 0.55f;
+            float wet_gain = rev * 1.25f;
+            float dry_gain = 1.0f - norm * 0.58f;
             pcm[f * 2 + 0] = soft_clip(dry_l * dry_gain + wet_l * wet_gain);
             pcm[f * 2 + 1] = soft_clip(dry_r * dry_gain + wet_r * wet_gain);
         }

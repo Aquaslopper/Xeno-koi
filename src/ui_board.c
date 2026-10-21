@@ -375,9 +375,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     static int prev_captured = -1;
     static int prev_koi = -1;
     static float thunder_flash = 0.0f;
+    static float reverb_energy = 0.0f;
+    static float reverb_mid = 0.0f;
+    static float reverb_curve = 0.0f;
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
-    int capture_edge = (prev_captured >= 0 && cur_captured > prev_captured);
+    int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
+    int capture_edge = (delta_captured > 0);
     int koi_edge = (prev_koi >= 0 && cur_koi > prev_koi);
     prev_captured = cur_captured;
     prev_koi = cur_koi;
@@ -393,7 +397,18 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (thunder_flash < 0.002f) thunder_flash = 0.0f;
         }
     }
-    audio_set_reverb(thunder_flash);
+    /* Audio reverb follows a smooth, rounded bi-exponential curve (not a spike)
+       and stacks proportionally with the number of cards captured. */
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.30f;
+    if (koi_edge)           reverb_energy += 0.60f;
+    if (reverb_energy > 3.0f) reverb_energy = 3.0f;
+    reverb_energy *= expf(-frame_dt / 3.40f);
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.48f));
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.42f));
+    if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
+        reverb_energy = reverb_mid = reverb_curve = 0.0f;
+    }
+    audio_set_reverb(1.25f * (1.0f - expf(-reverb_curve * 1.35f)));
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
