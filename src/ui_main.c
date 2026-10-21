@@ -748,10 +748,10 @@ int main(int argc, char **argv) {
     board_load_assets(&assets); assets.current_bg = settings.background;
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
 
-    font_title = LoadFontEx("assets/audiowide.ttf", 48, NULL, 0);
-    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 48, NULL, 0);
+    font_title = LoadFontEx("assets/audiowide.ttf", 96, NULL, 0);
+    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 96, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
-    else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_BILINEAR); }
+    else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
 
     font_body = LoadFontEx("assets/play.ttf", 36, NULL, 0);
     if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);

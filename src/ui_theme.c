@@ -1,5 +1,6 @@
 #include "ui_theme.h"
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 TerminalTheme g_theme = {
@@ -360,6 +361,211 @@ void ui_theme_draw_panel_flares(Rectangle r) {
 
 void ui_theme_draw_panel_flares_keyed(Rectangle r, int key) {
     if (key > 0) panel_flares_draw(r, key);
+}
+
+#define GLYPH_LOOP_PTS   64
+#define MAX_GLYPH_LOOPS  3
+#define MAX_TRACE_DIM    128
+
+typedef struct {
+    Vector2 pts[GLYPH_LOOP_PTS];
+    float perim;
+} GlyphContourLoop;
+
+typedef struct {
+    int built;
+    int loop_count;
+    GlyphContourLoop loops[MAX_GLYPH_LOOPS];
+} GlyphContourEntry;
+
+static GlyphContourEntry s_glyph_contours[96];
+static unsigned int s_glyph_font_tex_id = 0;
+static int s_glyph_font_base_size = 0;
+
+static int glyph_pixel_inside(const Image *img, int x, int y) {
+    if (!img || !img->data || x < 0 || y < 0 || x >= img->width || y >= img->height) return 0;
+    const unsigned char *data = (const unsigned char *)img->data;
+    if (img->format == PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA)
+        return data[(y * img->width + x) * 2 + 1] >= 110;
+    if (img->format == PIXELFORMAT_UNCOMPRESSED_GRAYSCALE)
+        return data[y * img->width + x] >= 110;
+    if (img->format == PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)
+        return data[(y * img->width + x) * 4 + 3] >= 110;
+    return 0;
+}
+
+static const GlyphContourEntry *glyph_contours_get(const Font *font, int idx) {
+    if (!font || !font->glyphs || idx < 0 || idx >= 96 || idx >= font->glyphCount) return NULL;
+    if (font->texture.id != s_glyph_font_tex_id || font->baseSize != s_glyph_font_base_size) {
+        memset(s_glyph_contours, 0, sizeof(s_glyph_contours));
+        s_glyph_font_tex_id = font->texture.id;
+        s_glyph_font_base_size = font->baseSize;
+    }
+    GlyphContourEntry *entry = &s_glyph_contours[idx];
+    if (entry->built) return entry;
+    entry->built = 1;
+    entry->loop_count = 0;
+
+    const Image *img = &font->glyphs[idx].image;
+    int gw = img->width, gh = img->height;
+    if (!img->data || gw <= 1 || gh <= 1 || gw > MAX_TRACE_DIM || gh > MAX_TRACE_DIM) return entry;
+
+    int vw = gw + 1, vh = gh + 1;
+    static unsigned char out_mask[(MAX_TRACE_DIM + 1) * (MAX_TRACE_DIM + 1)];
+    memset(out_mask, 0, (size_t)(vw * vh));
+
+    for (int y = 0; y < gh; y++) {
+        for (int x = 0; x < gw; x++) {
+            if (!glyph_pixel_inside(img, x, y)) continue;
+            if (!glyph_pixel_inside(img, x, y - 1)) out_mask[y * vw + x] |= (1u << 0);
+            if (!glyph_pixel_inside(img, x + 1, y)) out_mask[y * vw + (x + 1)] |= (1u << 1);
+            if (!glyph_pixel_inside(img, x, y + 1)) out_mask[(y + 1) * vw + (x + 1)] |= (1u << 2);
+            if (!glyph_pixel_inside(img, x - 1, y)) out_mask[(y + 1) * vw + x] |= (1u << 3);
+        }
+    }
+
+    static const int dx[4] = { 1, 0, -1, 0 };
+    static const int dy[4] = { 0, 1, 0, -1 };
+    static Vector2 raw[1024];
+    static Vector2 tmp[1024];
+    static float cum[1025];
+
+    for (int sy = 0; sy < vh && entry->loop_count < MAX_GLYPH_LOOPS; sy++) {
+        for (int sx = 0; sx < vw && entry->loop_count < MAX_GLYPH_LOOPS; sx++) {
+            if (!out_mask[sy * vw + sx]) continue;
+            int cx = sx, cy = sy, n = 0;
+            while (n < 1024) {
+                unsigned char m = out_mask[cy * vw + cx];
+                if (!m) break;
+                int dir = (m & 1u) ? 0 : (m & 2u) ? 1 : (m & 4u) ? 2 : 3;
+                out_mask[cy * vw + cx] &= (unsigned char)~(1u << dir);
+                raw[n++] = (Vector2){ (float)cx, (float)cy };
+                cx += dx[dir];
+                cy += dy[dir];
+                if (cx == sx && cy == sy) break;
+            }
+            if (n < 14) continue;
+            for (int pass = 0; pass < 2; pass++) {
+                for (int i = 0; i < n; i++) {
+                    Vector2 p_prev = raw[(i + n - 1) % n];
+                    Vector2 p_curr = raw[i];
+                    Vector2 p_next = raw[(i + 1) % n];
+                    tmp[i].x = 0.25f * p_prev.x + 0.50f * p_curr.x + 0.25f * p_next.x;
+                    tmp[i].y = 0.25f * p_prev.y + 0.50f * p_curr.y + 0.25f * p_next.y;
+                }
+                memcpy(raw, tmp, (size_t)n * sizeof(Vector2));
+            }
+            cum[0] = 0.0f;
+            for (int i = 0; i < n; i++) {
+                Vector2 a = raw[i], b = raw[(i + 1) % n];
+                cum[i + 1] = cum[i] + hypotf(b.x - a.x, b.y - a.y);
+            }
+            float total_len = cum[n];
+            if (total_len < 10.0f) continue;
+
+            GlyphContourLoop *loop = &entry->loops[entry->loop_count++];
+            loop->perim = total_len;
+            int seg = 0;
+            for (int k = 0; k < GLYPH_LOOP_PTS; k++) {
+                float target = (total_len * (float)k) / (float)GLYPH_LOOP_PTS;
+                while (seg + 1 < n && cum[seg + 1] < target) seg++;
+                float seg_len = cum[seg + 1] - cum[seg];
+                float t = (seg_len > 0.0001f) ? ((target - cum[seg]) / seg_len) : 0.0f;
+                Vector2 a = raw[seg], b = raw[(seg + 1) % n];
+                loop->pts[k].x = a.x + (b.x - a.x) * t;
+                loop->pts[k].y = a.y + (b.y - a.y) * t;
+            }
+        }
+    }
+    return entry;
+}
+
+static Vector2 glyph_loop_sample(const GlyphContourLoop *loop, float u, Vector2 origin, float scale) {
+    u = u - floorf(u);
+    float f = u * (float)GLYPH_LOOP_PTS;
+    int i0 = ((int)f) & (GLYPH_LOOP_PTS - 1);
+    int i1 = (i0 + 1) & (GLYPH_LOOP_PTS - 1);
+    float frac = f - floorf(f);
+    float gx = loop->pts[i0].x + (loop->pts[i1].x - loop->pts[i0].x) * frac;
+    float gy = loop->pts[i0].y + (loop->pts[i1].y - loop->pts[i0].y) * frac;
+    return (Vector2){ origin.x + gx * scale, origin.y + gy * scale };
+}
+
+void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing) {
+    if (!text || !text[0] || font.texture.id == 0 || font.baseSize <= 0 || !font.glyphs || !font.recs) return;
+    float scale = font_size / (float)font.baseSize;
+    float now = (float)GetTime();
+    int len = TextLength(text);
+    float off_x = 0.0f, off_y = 0.0f;
+    int char_seq = 0;
+
+    for (int i = 0; i < len;) {
+        int cp_bytes = 0;
+        int cp = GetCodepointNext(&text[i], &cp_bytes);
+        int idx = GetGlyphIndex(font, cp);
+        if (cp == '\n') {
+            off_y += font_size;
+            off_x = 0.0f;
+        } else {
+            if (cp != ' ' && cp != '\t') {
+                const GlyphContourEntry *entry = glyph_contours_get(&font, idx);
+                if (entry && entry->loop_count > 0) {
+                    Vector2 g_origin = {
+                        pos.x + off_x + (float)font.glyphs[idx].offsetX * scale,
+                        pos.y + off_y + (float)font.glyphs[idx].offsetY * scale
+                    };
+                    Rectangle g_rect = {
+                        g_origin.x - 10.0f, g_origin.y - 10.0f,
+                        font.recs[idx].width * scale + 20.0f,
+                        font.recs[idx].height * scale + 20.0f
+                    };
+                    float hover_boost = 0.0f;
+                    if (s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, g_rect))
+                        hover_boost = 0.75f;
+
+                    for (int l = 0; l < entry->loop_count; l++) {
+                        const GlyphContourLoop *loop = &entry->loops[l];
+                        float s_perim = loop->perim * scale;
+                        if (s_perim < 16.0f) continue;
+                        int n_flares = (s_perim >= 230.0f) ? 3 : ((s_perim >= 95.0f) ? 2 : 1);
+                        for (int d = 0; d < n_flares; d++) {
+                            unsigned int h = (unsigned int)(char_seq * 131 + l * 53 + d * 97 + idx * 17);
+                            float dir = ((h & 1u) == 0u) ? 1.0f : -1.0f;
+                            float spd = (15.0f + (float)(h % 19u)) * 0.80f * fmaxf(0.85f, fminf(1.45f, font_size / 84.0f));
+                            float phase = (float)((h * 37u) % 1000u) * 0.001f;
+                            float u_head = phase + dir * (spd * now) / s_perim;
+                            float wave = 0.5f + 0.5f * sinf(now * 2.1f - (float)char_seq * 0.55f + (float)d * 2.0f + (float)l);
+                            float shine = fminf(1.0f, 0.25f + 0.50f * wave + hover_boost);
+                            float flen = fminf(15.0f + 0.09f * font_size, s_perim * 0.20f);
+                            float thick = (1.0f + 1.6f * shine) * fmaxf(0.80f, fminf(1.30f, font_size / 84.0f));
+                            int segs = 5;
+                            for (int s = 0; s < segs; s++) {
+                                float t0 = (float)s / (float)segs;
+                                float t1 = (float)(s + 1) / (float)segs;
+                                float u0 = u_head - dir * (1.0f - t0) * (flen / s_perim);
+                                float u1 = u_head - dir * (1.0f - t1) * (flen / s_perim);
+                                Vector2 p0 = glyph_loop_sample(loop, u0, g_origin, scale);
+                                Vector2 p1 = glyph_loop_sample(loop, u1, g_origin, scale);
+                                unsigned char a = (unsigned char)((28.0f + 225.0f * shine) * (0.22f + 0.78f * t1));
+                                DrawLineEx(p0, p1, thick * (0.65f + 0.35f * t1), (Color){ 255, 255, 255, a });
+                            }
+                            Vector2 head_pt = glyph_loop_sample(loop, u_head, g_origin, scale);
+                            Color halo = g_theme.base;
+                            halo.a = (unsigned char)(45.0f + 85.0f * shine);
+                            DrawCircleV(head_pt, thick * 1.45f, halo);
+                            DrawCircleV(head_pt, thick * 0.70f, (Color){ 255, 255, 255, (unsigned char)(110.0f + 145.0f * shine) });
+                        }
+                    }
+                }
+                char_seq++;
+            }
+            if (font.glyphs[idx].advanceX == 0)
+                off_x += ((float)font.recs[idx].width * scale + spacing);
+            else
+                off_x += ((float)font.glyphs[idx].advanceX * scale + spacing);
+        }
+        i += cp_bytes;
+    }
 }
 
 void ui_draw_panel_border(Rectangle r, Color border_color) {
