@@ -41,11 +41,11 @@ Run the generator whenever you change scoring, cards, or opponents. CI runs `--c
 The card pictures come from the game's own art (`assets/atlas.png`). They are cut into one small file per card by:
 
 ```bash
-python3 tools/make_card_images.py          # needs Pillow
-python3 tools/make_card_images.py --check  # exit 1 if an image is missing
+python3 tools/make_card_images.py          # needs Pillow; writes images + source manifest
+python3 tools/make_card_images.py --check  # exit 1 if an image is missing or stale
 ```
 
-The images live in `docs/assets/cards/` and are named by card ID (`card-00.webp` to `card-47.webp`, plus `back.webp`). Generated tables link them automatically; hand-written pages link them with the `card-thumb`, `card-mini`, or `card-tiny` styles from `docs/stylesheets/cards.css`. Never edit the thumbnails by hand — rerun the script.
+The images live in `docs/assets/cards/` and are named by card ID (`card-00.webp` to `card-47.webp`, plus `back.webp`). Generated tables link them automatically; hand-written pages link them with the `card-thumb`, `card-mini`, or `card-tiny` styles from `docs/stylesheets/cards.css`. Never edit the thumbnails by hand — rerun the script. The generated `tools/card_images.sha256` manifest lets `--check` reject missing files, edited outputs, and art that was not regenerated after its source or the generator changed; docs CI runs that check. Afterwards rerun `python3 tools/gen_wiki_tables.py`, because the difficulty chart embeds card thumbnails.
 
 ## README art
 

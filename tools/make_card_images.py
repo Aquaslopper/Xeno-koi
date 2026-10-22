@@ -15,15 +15,17 @@ Output: docs/assets/cards/card-00.webp ... card-47.webp, the same 48 under
 docs/assets/cards/deus/, the whole mono sheet as
 docs/assets/deus-atlas.webp, plus back.webp (from assets/back.png) and
 docs/assets/deus-bg.webp (from assets/deus.png, the DEUS SUPREMUS background
-used at the top of the wiki). The owner's art is only cropped, resized and
-compressed, never recoloured or redrawn.
+used at the top of the wiki). tools/card_images.sha256 records the source and
+output fingerprints. The owner's art is only cropped, resized and compressed,
+never recoloured or redrawn.
 
 Usage:
-  python3 tools/make_card_images.py           # write images
-  python3 tools/make_card_images.py --check   # exit 1 if any image is missing
+  python3 tools/make_card_images.py           # write images + manifest
+  python3 tools/make_card_images.py --check   # exit 1 if an image is missing or stale
 
 Requires Pillow:  pip install --break-system-packages pillow
 """
+import hashlib
 import pathlib
 import sys
 
@@ -40,6 +42,8 @@ DEUS_OUT = ROOT / "docs" / "assets" / "deus-bg.webp"
 # The whole mono sheet, for the study page: one file, so the player can zoom into the
 # map itself instead of clicking through 48 thumbs.
 DEUS_ATLAS_OUT = ROOT / "docs" / "assets" / "deus-atlas.webp"
+MANIFEST = ROOT / "tools" / "card_images.sha256"
+SOURCE_PATHS = (ATLAS, ATLAS_DEUS, BACK, DEUS, pathlib.Path(__file__).resolve())
 
 COLS, ROWS = 12, 4
 CELL_W, CELL_H = 176, 286
@@ -53,6 +57,27 @@ def card_box(card_id: int):
     return (col * CELL_W, row * CELL_H, (col + 1) * CELL_W, (row + 1) * CELL_H)
 
 
+def file_sha256(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_sha256() -> str:
+    """Fingerprint the art and the crop/compression recipe, not the generated files."""
+    digest = hashlib.sha256()
+    for path in SOURCE_PATHS:
+        digest.update(path.relative_to(ROOT).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def manifest_text(images) -> str:
+    lines = [f"source {source_sha256()}"]
+    lines.extend(f"{file_sha256(path)}  {path.relative_to(ROOT).as_posix()}" for path in images)
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     check_only = "--check" in sys.argv[1:]
     cards = [OUT / f"card-{i:02d}.webp" for i in range(48)]
@@ -60,12 +85,33 @@ def main() -> int:
     expected += [OUT / "back.webp", DEUS_OUT, DEUS_ATLAS_OUT]
 
     if check_only:
-        missing = [p.name for p in expected if not p.exists()]
+        missing = [str(p.relative_to(ROOT)) for p in expected + [MANIFEST] if not p.exists()]
         if missing:
-            print(f"missing card images: {', '.join(missing)}")
+            print(f"missing card images or manifest: {', '.join(missing)}")
             print("Run: python3 tools/make_card_images.py")
             return 1
-        print(f"card images present ({len(expected)} files, both atlases + back + hero).")
+        lines = MANIFEST.read_text(encoding="utf-8").splitlines()
+        stale = []
+        if not lines or lines[0] != f"source {source_sha256()}":
+            stale.append("source art or generator changed")
+        recorded = {}
+        for line in lines[1:]:
+            try:
+                checksum, name = line.split("  ", 1)
+                recorded[name] = checksum
+            except ValueError:
+                stale.append("invalid manifest entry")
+        for path in expected:
+            name = path.relative_to(ROOT).as_posix()
+            if recorded.get(name) != file_sha256(path):
+                stale.append(name)
+        if stale:
+            print(f"stale card images: {', '.join(stale[:12])}")
+            if len(stale) > 12:
+                print(f"… and {len(stale) - 12} more")
+            print("Run: python3 tools/make_card_images.py")
+            return 1
+        print(f"card images match source art and generator ({len(expected)} files).")
         return 0
 
     for atlas_path, out_dir in ((ATLAS, OUT), (ATLAS_DEUS, OUT_DEUS)):
@@ -96,8 +142,9 @@ def main() -> int:
     # if the atlas had alpha. The file is a build product: delete it and re-run this tool.
     Image.open(ATLAS_DEUS).convert("RGB").save(DEUS_ATLAS_OUT, "WEBP", lossless=True, method=6)
 
+    MANIFEST.write_text(manifest_text(expected), encoding="utf-8")
     total = sum(p.stat().st_size for p in expected)
-    print(f"wrote {len(expected)} images ({total / 1024:.0f} KiB total)")
+    print(f"wrote {len(expected)} images ({total / 1024:.0f} KiB total) and {MANIFEST.relative_to(ROOT)}")
     return 0
 
 

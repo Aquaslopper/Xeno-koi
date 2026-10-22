@@ -24,6 +24,7 @@ The Options screen changes the ruleset for future matches. [DEUS SUPREMUS](../re
 | Ino-shika-cho stacks with Tane | No | No | **Yes** | No | No |
 | Tanzaku / Tane counts | Replaced by sets | Replaced by sets | **Stack** | Replaced by sets | Replaced by sets |
 | Koi-Koi calls per player per round | 1 (then forced Shobu) | Unlimited | Unlimited | 1 (then forced Shobu) | 1 (then forced Shobu) |
+| Speed minigame and match-end minipoints | No | No | **Yes** | No | No |
 | Dealer's Privilege (draw pays dealer 6) | No | No | No | No | **Yes** |
 
 The five Brights that the Goko / Sanko rows above are about:

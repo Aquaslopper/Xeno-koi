@@ -15,6 +15,8 @@ The five **Brights** — the most valuable cards in the deck:
 - **Choosing a rule set?** See [Rulesets](rulesets/index.md). The Options menu lets you pick one of five.
 - **Want the exact scoring?** See [Yaku & Scoring](scoring/yaku.md) and [Multipliers](scoring/multipliers.md).
 - **Working through the campaign?** See [Modes & Settings](reference/modes.md#campaign-and-unlocks) for clearance coins and sector requirements.
+- **Custom music or action-audio effects?** See [custom music](reference/modes.md#custom-music-desktop) and [Options page 2 action audio](reference/modes.md#action-card-audio-effects), including the live ON/OFF audition.
+- **Playing KK-ADD-10?** Its [speed minigame](rulesets/kk-add-10.md#speed-minigame-the-timer-bar-and-minipoints) explains the 1000 ms bar, serie bonus, and match-end minipoint conversion.
 - **Looking up a card or opponent?** See [Cards](reference/cards.md) and [Opponents](reference/opponents.md).
 
 ## Rule sets at a glance
@@ -23,7 +25,7 @@ The five **Brights** — the most valuable cards in the deck:
 |---|---|
 | [Nintendo](rulesets/nintendo.md) | The classic balanced baseline. One Koi-Koi call per player per round. |
 | [FudaWiki](rulesets/fudawiki.md) | Nintendo with bigger Goko and Sanko, and unlimited Koi-Koi calls. |
-| [KK-ADD-10](rulesets/kk-add-10.md) | **The maintainer's house rule, and a good place for beginners to start.** Fixed sets stack with counted cards, and the Sake Cup counts as a plain. |
+| [KK-ADD-10](rulesets/kk-add-10.md) | **The maintainer's house rule, and a good place for beginners to start.** Fixed sets stack with counted cards, the Sake Cup counts as a plain, and the speed minigame converts minipoints at match end. |
 | [Tournament](rulesets/tournament.md) | Nintendo scoring with both Viewings removed. The Sake Cup is only an animal. |
 | [Yakuza](rulesets/yakuza.md) | Tournament scoring plus Dealer's Privilege: a draw pays the dealer 6 points. |
 

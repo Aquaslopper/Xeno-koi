@@ -48,8 +48,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install MkDocs Material
-        run: pip install "mkdocs-material>=9,<10"
+      - name: Install MkDocs Material and image-check dependency
+        run: pip install "mkdocs-material>=9,<10" "Pillow>=10,<13"
+
+      - name: Check wiki card art matches the shipped source images
+        run: python3 tools/make_card_images.py --check
 
       - name: Check generated tables match the engine source
         run: python3 tools/gen_wiki_tables.py --check
