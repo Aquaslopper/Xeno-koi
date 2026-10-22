@@ -212,8 +212,11 @@ fragment shader: error: 0:189: patch : syntax error
 ```
 
 It is now `fogPatch`. `tools/check_shader.py` flags that class of mistake (reserved words, and
-the built-ins ES 3.00 removed: `texture2D`, `gl_FragColor`, `varying`, `attribute`) before the
-browser does. It is a keyword lint, not a compiler:
+the built-ins ES 3.00 removed: `texture2D`, `gl_FragColor`, `varying`, `attribute`), plus width
+mismatches in declarations — `vec3 lightUV = beamLightUV();` where the function returns a `vec2`
+is the second one that got through, because a keyword scan cannot see types. It is a lint, not a
+compiler: it does not track swizzles, arithmetic or call arguments, so it can miss things the
+driver will not.
 
 ```bash
 python3 prototype/pom/tools/check_shader.py

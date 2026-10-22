@@ -24,6 +24,11 @@
 - New `prototype/pom/tools/bake_ao.py`: three-radius cavity AO (2/6/16 px, gains 0.55/0.30/0.15) multiplied toward a warm shadow, then +4% contrast. On Castle at strength 0.55: mean luma 0.0982 -> 0.0873, p10 0.0122 -> 0.0062, p95 0.4236 -> 0.4200, 13.7% of frame occluded -- i.e. shadows deepen, highlight cap untouched.
 - The page and the offline tools now share one formula each (fog weight, and the bake), so still numbers and shader behaviour agree; `render_stills.py`'s `height_fog` was changed to the same expression as `heightFogWeight()` and the stills regenerated (Castle mean 0.1639 -> 0.1634).
 
+#### Second live run: one real type error, and the lint now catches it
+- Page failed with `0:191: '=' : dimension mismatch` / `0:192: 'bgMovingLights' : no matching overloaded function`. Cause: `vec3 lightUV = beamLightUV();` — the helper returns a `vec2`, so the local was too wide and the following call had no matching overload. Fixed to `vec2`.
+- `tools/check_shader.py` grew a narrow type check (declarations and plain assignments only, from a small return-type table) so this class cannot pass again; verified it reports `ambient.frag:191: 'lightUV' is vec3 but the right side is vec2` on the pre-fix file. Still not a compiler: no swizzles, arithmetic or call-argument checking.
+- Mode B was dimming the base art along with the beam (`mix(base, blended, beamGain)`); now `base + (blended - base) * beamGain`, so only the light contribution is occluded and the painting stays untouched, which is the page's whole claim.
+
 #### Checked
 - First live run in the browser failed to compile: `0:189: patch : illegal use of reserved word`. Cause: `depth_fog.fs` uses `float patch` in the fog block, which is legal in `#version 100` and `#version 330` but **reserved in `#version 300 es`**. Renamed to `fogPatch`; noted in the prototype README because the same line will bite any port that copies the fog block into an ES 3.0 shader.
 - New `prototype/pom/tools/check_shader.py`: keyword lint for the ES 3.00 reserved list plus the built-ins ES 3.00 removed (`texture2D`, `gl_FragColor`, `varying`, `attribute`). Passes on `pom.frag`; verified it fails on the pre-fix line. It is a lint, not a compiler -- the shader has still not been compiled on a GPU from here.

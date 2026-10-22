@@ -188,11 +188,12 @@ vec3 shippedAt(vec2 uv, float beamGain, float useBake)
     }
     vec3 blended = base;
     if (uLight > 0.5) {
-        vec3 lightUV = beamLightUV();
+        vec2 lightUV = beamLightUV();
         blended = bgMovingLights(base, normalAt(uv), uv, lightUV, 0.0);
         if (uMode == 1 && beamGain < 0.999) {
-            // Re-apply the beam's contribution with the occlusion knocked out of it.
-            blended = mix(base, blended, beamGain);
+            // Knock the occlusion out of the beam's *addition* only. The art itself is
+            // untouched, which is the rule this whole page is meant to demonstrate.
+            blended = base + (blended - base) * beamGain;
         }
     }
 
