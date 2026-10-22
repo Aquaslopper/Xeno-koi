@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Serve the POM preview.
 
-The prototype reads the game's real art (`assets/*.jpg`, `assets/*_normal.png`,
-`assets/height/*_height.png`), so the document root has to be the repository root;
+The prototype reads the game's real art (`assets/*.jpg`, `assets/*_normal.png`) and its
+own generated height maps (`prototype/pom/height/*.png`), so the document root has to be the
+repository root;
 this puts a redirect on `/` so the preview opens on the page itself.
 
     python3 prototype/pom/serve.py            # http://localhost:8000/prototype/pom/
