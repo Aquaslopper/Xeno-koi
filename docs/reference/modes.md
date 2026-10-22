@@ -30,43 +30,43 @@ For example, four bronze coins alone will **not** open M-05: you also need a sil
 
 ## Rounds
 
-Choose 1 to 12 rounds on the Options screen; the `+` and `-` buttons stop at both ends
-(`src/ui_screens.c:257-258`). With no `settings.txt` the game starts at **2** rounds
-(`src/storage.c:32`), and the value is saved with your other settings when you press
-BACK (SAVE). See [Errata & Known Issues](../errata.md) for why that is 2 and not 6.
+Choose 1 to 12 rounds on the Options screen; the `+` and `-` buttons in
+`screens_handle_options_click()` stop at both ends. With no saved settings the game starts at
+**2** rounds (`storage_load_settings()` in `src/storage.c`), and the value is saved with your other
+settings when you press BACK (SAVE). See [Errata & Known Issues](../errata.md) for why that is 2 and not 6.
 
 ## Options
 
-These settings are saved in `settings.txt` next to the game:
+**Page 1** contains the match, difficulty, visual, and volume controls. **Page 2** adds custom music and the Action audio controls. Use the bottom-right arrows beside the **1 / 2** or **2 / 2** indicator to change pages.
 
-<div class="figure-zoom" id="options-live"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/options.webp" width="1920" height="1080" loading="lazy" alt="The System Configuration screen: Match Length at 9 Rounds, Ruleset YAKUZA on a red band, Difficulty EASY, Master Timer marked MASTER ONLY, then Terminal Color TEAL, Background 3: Castle with a small preview, Anim Speed at NORMAL, two volume sliders at 70% and 30%, Fullscreen BORDERLESS, Bloom MID, CRT Filter 2: MID, Display Gamma 1.40, and BACK (SAVE) at the bottom."></div><a class="figure-zoom-btn" href="#options-live">zoom the frame</a><a class="figure-zoom-btn" href="#">close</a></div>
+On desktop, these settings are saved in `settings.txt` next to the game. The browser build stores the same settings in browser local storage as `xenokoi_settings.txt`; they stay in that browser profile, not in an account or cloud save.
 
-*Every row the game has. The bands on the Ruleset row are its own colour code: green for Nintendo and KK-ADD-10, amber for FudaWiki, red for Tournament and Yakuza (`src/ui_screens.c:167-170`). This player's file differs from a fresh install on most rows - 9 rounds instead of 2, Yakuza instead of KK-ADD-10, Castle instead of Harvest, BGM at 70% instead of 100%, SFX at 30% instead of 50%, Normal animation instead of Slow, Borderless, and Gamma 1.40 instead of 1.00. The capture itself predates these defaults.*
+<div class="figure-zoom" id="options-page-1"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/options.webp" width="1920" height="1080" loading="lazy" alt="Current Options page 1: 12 Rounds, KK-ADD-10, MASTER with 15 SEC selected, TEAL, 3: Castle, SLOW animation, BGM 100%, SFX 50%, BORDERLESS, Bloom MID, CRT 2: MID, Display Gamma 1.00, and page 1 / 2."></div><a class="figure-zoom-btn" href="#options-page-1">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
 
-The left column is the label the screen shows. The right column is what you get before `settings.txt`
-exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
+*Options page 1 in the current UI. The 12-round Master match is this player's saved example, not the fresh-install configuration; **Display Gamma reads 1.00**. The table below separates these captured choices from the defaults.*
 
-| Setting | Options | On a fresh install |
+The left column is the label the screen shows. The right column is what `storage_load_settings()` in `src/storage.c` returns when no saved settings exist:
+
+| Setting | Options | Fresh install / browser profile |
 |---|---|---|
 | Match Length | 1 to 12 rounds | 2 |
 | [Difficulty](difficulty.md) | Easy, Hard, Master, [DEUS SUPREMUS](deus-supremus.md) | Easy |
-| Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza. The row is painted green for Nintendo and KK-ADD-10, amber for FudaWiki, red for the other two (`src/ui_screens.c:167-170`); locked to Yakuza on [DEUS SUPREMUS](deus-supremus.md) | KK-ADD-10 |
+| Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza. `screens_draw_options()` paints the row green for Nintendo and KK-ADD-10, amber for FudaWiki, and red for Tournament and Yakuza; it is locked to Yakuza on [DEUS SUPREMUS](deus-supremus.md) | KK-ADD-10 |
 | Master Timer | 15 sec or 30 sec, and the row only answers to clicks at Master. Against DEUS it reads **Deus Timer: 15 SEC (LOCKED)** | 15 |
-| Background | Harvest, Hole, Arctic, Castle, City, Face, Realm — seven, because index 5 is his and both arrows step over it (`src/ui_screens.c:273-274`). The row shows a live 46 x 26 preview of the frame you are on | Harvest (0) |
-| Terminal colour | Green, Amber, Teal, Crimson, Violet. The name list in `src/ui_screens.c:193` has a sixth, DARK, which the selector's `% 5` at `:272` never lands on: it is what playing DEUS sets, and leaving him puts you back on Teal | Teal (2) |
+| Background | Harvest, Hole, Arctic, Castle, City, Face, Realm — seven, because index 5 is his and both arrows step over it. The row shows a live 46 x 26 preview of the frame you are on | Harvest (0) |
+| Terminal colour | Green, Amber, Teal, Crimson, Violet. A sixth name, DARK, is what playing DEUS sets; leaving him puts you back on Teal | Teal (2) |
 | Anim Speed | Slow, Normal, Fast | Slow |
 | BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
 | Music Folder (desktop, page 2) | Folder path for up to 10 custom MP3 match tracks; Use Default restores shipped tracks | Built-in music |
 | Action audio (page 2) | Chorus, Bass boost, Space reverb; controls capture/Koi-Koi-triggered music processing | Off, +0 dB, 50% |
 | Bloom Effect | Off, Mid, Full | Mid |
 | CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
-| Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.00 |
+| Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | **1.00** |
 | Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) | Windowed |
 
-Use the arrows and **1 / 2**, **2 / 2** page indicator at the bottom right to change Options pages. Page 1 retains the original controls; page 2 contains the music folder and Action audio controls.
+**Gamma 1.00 is the neutral default on desktop and in the WASM/browser build.** It applies when there is no saved settings file. An existing browser profile keeps its saved gamma instead of being reset by an update; use the Display Gamma slider and **BACK (SAVE)** if you want to change that saved choice.
 
-Nothing here is per-match: BACK (SAVE) writes `settings.txt` and returns you to the menu
-(`src/ui_screens.c:296`), and the next match starts with what you left there.
+BACK (SAVE) writes the settings and returns you to the menu (`screens_handle_options_click()` in `src/ui_screens.c`), and the next match starts with what you left there.
 
 ### Custom music (desktop)
 
@@ -84,8 +84,12 @@ This option is **desktop-only**. Browser builds cannot read a local folder path 
 
 On **Options page 2**, beneath **Audio effect options**, the three sliders change the **music effect triggered by taking/capturing cards or calling Koi-Koi**. They do not apply continuously or replace card SFX. The existing action envelope builds and fades; sliders set its maximum strength.
 
+<div class="figure-zoom" id="options-page-2"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/options-audio.webp" width="1920" height="1080" loading="lazy" alt="Current Options page 2: CUSTOM FOLDER for music, Chorus 60%, Bass boost +20.0 dB, Space reverb 70%, TEST EFFECT: OFF, and page 2 / 2."></div><a class="figure-zoom-btn" href="#options-page-2">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*Options page 2 in the current UI. Chorus 60%, Bass +20 dB, and Space reverb 70% are this player's example settings, not the fresh defaults of Off, +0 dB, and 50%.*
+
 - **Chorus:** replaces the discontinued stereo widener. Adds two pitch-modulated short-delay voices over the direct music. Raising the control increases their level and modulation depth. The two channels use identical modulation and fixed gains: this is a layered chorus, **not an auto-panner**. Chorus deliberately modulates pitch/phase; set Chorus to zero if you do not want that movement.
-- **Bass boost:** maximum is a **+10 dB low shelf with stereo-linked compression of only the added bass** (up to 4:1). The original music is not ducked by the bass compressor. The displayed dB value is the low-frequency pre-compression ceiling at full action strength; loud material receives less additional gain to prevent clipping.
+- **Bass boost:** maximum is a **+20 dB low shelf with stereo-linked compression of only the added bass** (up to 4:1); the midpoint requests +10 dB. The original music is not ducked by the bass compressor. The displayed dB value is the low-frequency pre-compression ceiling at full action strength; loud material receives less additional gain to prevent clipping. See the [current 96 kHz regression note](audio-dsp.md#checks-run-22-october-2026) before treating that endpoint as verified on every output device.
 - **Space reverb:** increasing the slider expands reflection spacing and diffusion, and lengthens the decay from a small room toward a large hall—not just a louder copy of the same room. At nominal 44.1 kHz, measured impulse-decay estimates are about 0.6 s at 25%, 1.1 s at 50%, and 6 s at maximum. The largest setting includes low-frequency ambience in the centre of the return; bass opens over the final 20%, while the stereo diffuse field stays focused on mids/highs. Dry music remains present. This is algorithmic room/hall reverb, not a recorded impulse response or a shimmer/pitch-shifting reverb.
 
 Use **TEST EFFECT: ON/OFF** below the sliders to audition your settings. **ON** plays match music from your selected folder (or the built-in playlist) through the real effect at full action strength, with slider changes applied live. **OFF** keeps that same track playing dry for comparison, with a short smooth release rather than an abrupt cut. Finished tracks advance through the loaded playlist. BGM volume/mute is respected. Leaving page 2 or using **BACK (SAVE)** stops the audition and restores menu music. Test state is temporary, never saved; with no playable tracks the page displays a warning instead of starting a silent test. This control works in the browser too, using bundled music.
@@ -101,9 +105,9 @@ Zero disables each corresponding contribution. **BACK (SAVE)** saves the three c
 
 ## Visual and audio feedback
 
-The menu and table backgrounds use depth fog and normal-map lighting when their textures and shader are available. On the table, capturing cards or calling Koi-Koi triggers a fading flash in the moving background light; a capture also throws a burst of dark shards, with consecutive captures increasing the burst. The active player's score and capture lanes light up when the turn changes; interactive boxes and highlighted cards carry moving perimeter dots, and the combo panels' dots brighten as combinations accumulate. These are visual cues, **not extra points or a change to matching** (`src/ui_board.c`, `src/ui_theme.c`).
+The menu and table backgrounds use depth fog and normal-map lighting when their textures and shader are available. On the table, capturing cards or calling Koi-Koi triggers a flash in the moving background light: it stays at full strength for **500 ms**, then rolls off gently for roughly **2 seconds**; a new capture or call restarts the hold. A capture also throws a burst of dark shards, with consecutive captures increasing the burst. Ambient ash rises on a slow, gusting sideways wind rather than a straight vertical path. The active player's score and capture lanes light up when the turn changes; interactive boxes and highlighted cards carry moving perimeter dots, and the combo panels' dots brighten as combinations accumulate. These are visual cues, **not extra points or a change to matching** (`src/ui_board.c`, `src/ui_theme.c`).
 
-Match music has a capture/Koi-Koi-driven stereo reverb effect that builds with successive captures and then fades; the menu music is separate. Card drops and captures have sound effects. If `assets/sfx/capture.wav` is absent, captures use `card_drop.wav` instead. The BGM and SFX sliders are separate; SFX at zero is mute, while enabled card sounds have a minimum playback level (`src/ui_audio.c`).
+Match music has capture/Koi-Koi-driven chorus, bass, and space-reverb processing that builds with successive captures and then fades; the page-2 sliders set the strength of those contributions. Menu music is separate and does not use the action processor. Card drops and captures have sound effects. If `assets/sfx/capture.wav` is absent, captures use `card_drop.wav` instead. The BGM and SFX sliders are separate; SFX at zero is mute, while enabled card sounds have a minimum playback level (`src/ui_audio.c`).
 
 ## Stats and history
 

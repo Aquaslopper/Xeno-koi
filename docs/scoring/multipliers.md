@@ -103,6 +103,10 @@ Some awards are fixed and skip the formula:
 - **Yakuza Dealer's Privilege:** 6 points, no multipliers. See [Yakuza](../rulesets/yakuza.md).
 - **Round with a base of 0:** no award. A round can only end as a Shobu after the base has gone up, so a Shobu always has a base of at least 1.
 
+## KK-ADD-10 match-end minipoints
+
+The [KK-ADD-10 speed minigame](../rulesets/kk-add-10.md#speed-minigame-the-timer-bar-and-minipoints) is separate from this round-award formula. Its minipoints do not multiply a yaku award and are not added after each round. Once the final round is over, every full 10 minipoints adds 1 point to your match total before the winner and result screen are decided; any remainder is discarded.
+
 ## Koi-Koi decisions
 
 The game only offers Koi-Koi or Shobu when your score has gone up since your last call this round. The question is always "stop and bank this, or risk it for more?" The award line on the decision screen shows the exact multiplied value you would get if you stopped now.

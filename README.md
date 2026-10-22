@@ -19,9 +19,9 @@ Everything above is explained with real card pictures in the rulebook: **[How to
 
 ## Screenshots
 
-<img width="1920" height="1080" src="https://github.com/user-attachments/assets/c48a1bdd-9f0c-4530-ba30-5332710876fd" alt="A match in progress: the player's hand along the bottom, the field in the middle, the stock to the left, and both capture lanes down the left edge, all inside a teal CRT frame." width="1920" />
+<img width="1920" height="1080" src="docs/assets/screenshots/ingame.webp" alt="The opening of a KK-ADD-10 round: eight cards in each hand, eight on the field, 24 in the stock, and one player card raised for selection inside the teal CRT interface." />
 
-<img width="1920" height="1080" src="https://github.com/user-attachments/assets/bb6ee598-940e-46f9-ab39-6cf9941d9260" alt="The same table with a card mid-drag, its matching month glowing on the field." width="1920" />
+<img width="1920" height="1080" src="docs/assets/screenshots/ingame2.webp" alt="A KK-ADD-10 round in progress: both players have cards in their capture lanes, the player's remaining hand sits along the bottom, and capture particles drift above the field." />
 
 ## Where to read what
 
@@ -58,7 +58,7 @@ The game supports 5 distinct rule variations, selectable in the Options menu to 
 |---|---|
 | **[Nintendo](https://aquaslopper.github.io/Xeno-koi/rulesets/nintendo/)** | The classic, balanced Koi-Koi rule set. One Koi-Koi call per player per round. |
 | **[FudaWiki](https://aquaslopper.github.io/Xeno-koi/rulesets/fudawiki/)** | Modern standard rules with slightly adjusted combo values: bigger Goko and Sanko, unlimited Koi-Koi calls. |
-| **[KK-ADD-10](https://aquaslopper.github.io/Xeno-koi/rulesets/kk-add-10/)** | A high-scoring variant where fixed sets and counted cards stack additively, and the Sake Cup counts as a plain. The house rule, and a good place for beginners to start. |
+| **[KK-ADD-10](https://aquaslopper.github.io/Xeno-koi/rulesets/kk-add-10/)** | A high-scoring variant where fixed sets and counted cards stack additively, and the Sake Cup counts as a plain. Includes the 1000 ms speed minigame and match-end minipoint conversion. The house rule, and a good place for beginners to start. |
 | **[Tournament](https://aquaslopper.github.io/Xeno-koi/rulesets/tournament/)** | Disables "Hanami-zake" (Curtain + Cup) and "Tsukimi-zake" (Moon + Cup) Viewings. The Sake Cup is treated strictly as an animal card, eliminating cheap luck-based wins and forcing strategic combo building. |
 | **[Yakuza](https://aquaslopper.github.io/Xeno-koi/rulesets/yakuza/)** | Tournament scoring plus "Dealer's Privilege" (Oya-ken). If a round ends in exhaustion with a 0-0 draw, the current Dealer automatically wins the round and is awarded 6 points. |
 

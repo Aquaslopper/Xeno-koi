@@ -62,14 +62,19 @@ int main(void) {
     storage_load_settings(&s);
     assert(!s.music_folder[0]);
     assert(s.effect_chorus == 0 && s.effect_bass == 0 && s.effect_reverb == 0.5f);
+    /* Desktop and WASM share this loader: a missing settings file starts at neutral gamma. */
+    assert(fabsf(s.gamma - 1.00f) < 0.001f);
     const char *folder = "C:\\My Music\\日本語 = mix";
     strcpy(s.music_folder, folder);
     s.bgm_volume = 0.63f;
+    s.gamma = 1.35f;
     s.effect_chorus = 0.81f; s.effect_bass = 0.67f; s.effect_reverb = 0.93f;
     storage_save_settings(&s);
     storage_load_settings(&restored);
     assert(strcmp(restored.music_folder, folder) == 0);
     assert(fabsf(restored.bgm_volume - 0.63f) < 0.001f);
+    /* A fresh-install default must not overwrite a player's saved browser/desktop choice. */
+    assert(fabsf(restored.gamma - 1.35f) < 0.001f);
     assert(fabsf(restored.effect_chorus - 0.81f) < 0.001f);
     assert(fabsf(restored.effect_bass - 0.67f) < 0.001f);
     assert(fabsf(restored.effect_reverb - 0.93f) < 0.001f);

@@ -29,7 +29,7 @@ Drop the hand card **onto a matching card while the bar still runs** and you sco
 
 The catch scores `10 × speed × accuracy`, rounded, capped at **10 minipoints** — so a perfect catch is both quick and dead-on. A plain drop scores nothing.
 
-**Serie bonus.** A perfect catch (10 minipoints) starts or continues a *serie*. Every perfect catch in a serie of two or more carries a **+10 minipoint bonus**, granted retroactively to the serie's first catch as well. Any other hand card you play — a plain drop, a slower or sloppy catch, a timeout — breaks the serie. Eight perfect catches in a row therefore score 80 + 80 = **160 minipoints**.
+**Serie bonus.** A perfect catch (10 minipoints) starts or continues a *serie*. Every perfect catch in a serie of two or more carries a **+10 minipoint bonus**, granted retroactively to the serie's first catch as well. Any other hand card you play — a plain drop, a slower or sloppy catch, a timeout — breaks the serie; starting a new round breaks it too. Eight perfect catches in a row within one round therefore score 80 + 80 = **160 minipoints**.
 
 The minipoints show **in gold over the bar** (the bar stays behind the numbers), always the same spot and size, and remain on screen after the bar is gone. New minipoints flash the bar and pulse the number. At the **match result**, a gold box below the board shows the conversion outright — `SPEED MINIPOINTS: 260 = +26 PTS` — so the bonus is never silent.
 
