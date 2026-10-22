@@ -16,15 +16,15 @@
 - **Sake Cup counts as a Plain** for Kasu. It also still counts as an animal and for both Viewings.
 - **Viewings are on.**
 - **Unlimited Koi-Koi calls** per player per round, like FudaWiki.
-- **Speed minigame on (minipoints).** A 300 ms timer bar grades every hand-card drop; minipoints become extra score points at the end of the match.
+- **Speed minigame on (minipoints).** A 1000 ms timer bar grades every hand-card drop; minipoints become extra score points at the end of the match.
 
 ## Speed minigame: the timer bar and minipoints
 
-**Only in KK-ADD-10.** In the bottom-right corner of the table, below RESTART, a short **timer bar** arms at the start of every one of your hand turns — the moment you can actually play a card. It runs for **300 ms**, empties from left to right, and is gone until your next turn once it runs out or you drop the hand card. The stock flip afterwards never counts, replays never score, and the CPU is never graded (it would always land perfect).
+**Only in KK-ADD-10.** In the bottom-right corner of the table, below RESTART, a short **timer bar** arms at the start of every one of your hand turns — the moment you can actually play a card. It runs for **1000 ms**, empties from left to right, and is gone until your next turn once it runs out or you drop the hand card. The stock flip afterwards never counts, replays never score, and the CPU is never graded (it would always land perfect).
 
 Drop the hand card **onto a matching card while the bar still runs** and you score **minipoints** from two halves multiplied together:
 
-- **Speed** — how much of the bar is left. A drop within the first ~150 ms (half the bar) gets the full speed half.
+- **Speed** — how much of the bar is left. A drop within the first ~500 ms (half the bar) gets the full speed half.
 - **Accuracy** — how much of the target card your drop covers. 80% overlap or better gets the full accuracy half.
 
 The catch scores `10 × speed × accuracy`, rounded, capped at **10 minipoints** — so a perfect catch is both quick and dead-on. A plain drop scores nothing.

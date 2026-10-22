@@ -4,7 +4,7 @@
 
 extern Font font_body;
 
-#define SPEED_BAR_SECONDS 0.30f
+#define SPEED_BAR_SECONDS 1.0f
 #define SPEED_BAR_RECT    (Rectangle){ 1160.0f, 662.0f, 112.0f, 40.0f }
 #define SPEED_FLASH_TIME  0.30f
 #define SPEED_PULSE_TIME  0.60f
