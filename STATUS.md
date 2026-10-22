@@ -15,6 +15,8 @@
 - Finding to settle before any port: the shipped `*_normal.png` **alpha** correlates 0.83-0.89 with luminance and reads as a cavity/height channel, so much of the height field may already exist. Finding to design around: POM stretches skyline silhouettes (see `stills/castle-wipe.jpg`), so it needs a per-background far-field mask; recommendation is OFF by default with a LOW/HIGH options row, 14-18 px depth.
 
 #### Checked
+- First live run in the browser failed to compile: `0:189: patch : illegal use of reserved word`. Cause: `depth_fog.fs` uses `float patch` in the fog block, which is legal in `#version 100` and `#version 330` but **reserved in `#version 300 es`**. Renamed to `fogPatch`; noted in the prototype README because the same line will bite any port that copies the fog block into an ES 3.0 shader.
+- New `prototype/pom/tools/check_shader.py`: keyword lint for the ES 3.00 reserved list plus the built-ins ES 3.00 removed (`texture2D`, `gl_FragColor`, `varying`, `attribute`). Passes on `pom.frag`; verified it fails on the pre-fix line. It is a lint, not a compiler -- the shader has still not been compiled on a GPU from here.
 - `python3 prototype/pom/tools/make_height_maps.py --check` passes; the preview serves the game's real art and normal maps (HTTP 200 on all three texture paths) through `prototype/pom/serve.py`.
 - `shaders/pom.frag` and `js/app.js` compile/lint check clean (brace balance, no unused uniforms, `node --check`); **not** yet run on a real GPU here — no WebGL in this sandbox, so live shader compilation and framerate are unverified.
 - `./build.sh` and `tests/` untouched and not run: no C file changed.

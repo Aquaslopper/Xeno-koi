@@ -186,9 +186,9 @@ void main()
         float w2 = sin(uv.x * 14.137 + uv.y * 3.1415 - uTime * 0.22) * 0.5 + 0.5;
         float w3 = sin(uv.x * 4.712 + uv.y * 7.854 + uTime * 0.15) * 0.5 + 0.5;
         float drift = w1 * 0.50 + w2 * 0.30 + w3 * 0.20;
-        float patch = smoothstep(0.15, 0.75, drift);
+        float fogPatch = smoothstep(0.15, 0.75, drift);   // 'patch' is reserved in GLSL ES 3.00
         const vec3 fogColor = vec3(0.0196, 0.0196, 0.0196);
-        float fogAlpha = clamp(depthMask * yMask * patch * 0.80, 0.0, 0.55);
+        float fogAlpha = clamp(depthMask * yMask * fogPatch * 0.80, 0.0, 0.55);
         blended = mix(blended, fogColor, fogAlpha);
     }
 

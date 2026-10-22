@@ -15,8 +15,9 @@ prototype/pom/
 ├── js/app.js             viewer: pointer-driven eye, sliders, A/B wipe
 ├── shaders/pom.frag      the game's background shader + the ray march, in GLSL ES 3.0
 ├── serve.py              static server (document root = repository root)
-├── tools/make_height_maps.py    builds assets/height/*.png out of the shipped art
+├── tools/make_height_maps.py    builds height/*.png out of the shipped art
 ├── tools/render_stills.py       offline stills, numpy port of depth_fog.fs
+├── tools/check_shader.py        GLSL ES 3.00 keyword lint (no GPU needed)
 └── stills/               rendered A/B frames (harvest, castle, face)
 ```
 
@@ -149,7 +150,25 @@ already uses:
    be the default on first run so nobody's framerate dies on a weak laptop before they see the
    menu.
 
-Two web-specific constraints the desktop build does not have:
+**A portability trap worth knowing before the port.** `depth_fog.fs` uses `patch` as a local
+variable in the fog block (`float patch = smoothstep(...)`). That is legal in `#version 100`
+and `#version 330` and **reserved in `#version 300 es`**, so the block cannot be copied verbatim
+into an ES 3.0 shader — the prototype hit this on the first run:
+
+```
+fragment shader: error: 0:189: patch : illegal use of reserved word
+fragment shader: error: 0:189: patch : syntax error
+```
+
+It is now `fogPatch`. `tools/check_shader.py` flags that class of mistake (reserved words, and
+the built-ins ES 3.00 removed: `texture2D`, `gl_FragColor`, `varying`, `attribute`) before the
+browser does. It is a keyword lint, not a compiler:
+
+```bash
+python3 prototype/pom/tools/check_shader.py
+```
+
+Two other web-specific constraints the desktop build does not have:
 
 * The `#version 100` path is GLES2. No dynamic loop bounds, so the step count has to be a
   compile-time constant (a `#define` per quality level, or three shader variants). The
