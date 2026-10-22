@@ -7,6 +7,32 @@
 ## Status Summary
 ## Latest completed work
 
+### Routing-only chorus Side encode (22 October 2026)
+
+- Supersedes the earlier chorus routing/strength claims below. A `74612cf` is tests only (70 changed lines); B `002a632` is the routing fix only (23). C is this documentation report (60 changed lines; its SHA will be linked in PR #79). No history rewrite.
+
+#### Checked numerically
+
+- Fixture: seed-17 uniform ±0.05 noise, 3 s, last 2 s measured after 1 s silent warmup; bass/room zero, action one. Stereo R is a 1 s cyclic shift of L. Measurements were reproduced on base and scratch fix before A, then byte-identical scratch/repository probe logs after B. Supplied seed-unspecified measurements were not substituted for observations.
+- Literal base output: `44100 Hz mono 1.00: mono error 0.049168447, Side/input 0.000000, correlation 1.000000, L/R +0.000000 dB`. Base mono gain was +1.282836 dB. A: DSP, full suite and sanitized runs exit 134; `chorus_keeps_mono_sum: FAIL (8 failures)`, `chorus_creates_side: FAIL (4 failures)`, `chorus_decorrelates: FAIL (1 failures)`. Balance and OFF already pass on base; five failures cannot honestly be claimed.
+- After B at 44.1 kHz, amounts 0/.25/.5/.75/1: Side/input RMS 0/0.143194/0.285808/0.428514/0.571781; mono max error 0/9.31322575e-10/1.86264515e-09/1.86264515e-09/1.86264515e-09; peaks 0.050000/0.062245/0.073414/0.084606/0.097416; mono level change rounds to 0.000000 dB throughout. Full table is in the DSP reference and B's commit message.
+- At maximum, mono correlation is 0.507235; L/R balance −0.012432 dB. Stereo Side changes +0.347460/+1.264682 dB at .5/1; stereo mono error ≤3.7252903e-09. Across 44.1/48/96 kHz, all five named properties report `PASS (0 failures)`; worst mono-noise balance magnitude is 0.040105 dB. The strength criterion is normalized Side/input RMS, not an absolute signal level.
+- `chorus_wet_level_regression_snapshot` now prints its measured value and unchanged normalized bounds 0.50..0.75. Maximum at 44.1 kHz is 0.571781 (previous routing approximately 0.580); normalized values across all tested rates/amounts span 0.570587–0.573206. This detects change, not correctness; no bounds were re-fitted. Removed the four mono-identical/fixed-pan checks explicitly; replaced exact-zero impulse output tail with zero delay-history feedback because the added HP has IIR decay.
+- B check outputs: DSP and ASan/UBSan end `All action-audio numerical checks passed.`; full suite ends the same. All exit 0. Wiki tables, whitespace and strict C99 with real Raylib headers exit 0 (no output). The mandated stub-only all-source C99 command exits 1 on unchanged graphics declarations: `src/ui_theme.h:9:5: error: unknown type name 'Color'`; it is not a passing check. Final C checks: `./build.sh test`: `All engine & ruleset tests passed (500 full matches verified).`; DSP/ASan/UBSan: `All action-audio numerical checks passed.`; table UI: `All table input, campaign unlock, and combo panel tests passed.`; wiki, real-header C99 and whitespace exit 0; strict MkDocs: `INFO    -  Documentation built in 0.64 seconds`; stub-only C99 exit 1 with the same error.
+
+#### Matches the cited source
+
+- Opened the actual PDFs: Dattorro (1997), §1.3.7, “we use a quadrature oscillator to decrease the correlation”; Das (DAFx24), §1, “low frequencies are spread less than mid and high frequencies to maintain a strong phantom centre”; Kermit-Canfield/Abel (DAFx16), §2/§4.4, distinguish delay/comb coloration from their allpass cascade. These support the routing rationale, not the unchanged depth/rate/cutoff values or a quality verdict. Full links and attribution limits are in the DSP reference.
+- Algebra: channel means form va/vb; generated S = amount × HP((va−vb)/2); outputs L+S, R−S preserve the pre-limiter Mid. Each 0.5 is a mean/half-difference, not a calibration. No normalization was added. The existing limiter can still change Mid when engaged; the quiet fixtures remain below its threshold. Noise balance is not a guarantee for every signal.
+
+#### Needs maintainer listening
+
+- Asked in PR #79: retain 264-sample depth/nominal 0.60 Hz? Accept measured maximum peak growth 0.050000→0.097416 without pre-scaling? Retain nominal 300 Hz HP or later request 150–200 Hz? No tuning while unanswered. Device-rate invariance and product character remain unconfirmed. `modes.md`/`errata.md` still describe the preceding routing; their correction needs authorization beyond C's specified two files. No review request.
+
+**Touched:** chorus return plus one local HP state/reset; focused tests; this report and `docs/reference/audio-dsp.md`. No new shared function parameter or mode flag.
+
+**Deliberately did not touch:** every existing DSP constant, LFO/depth/rate/taps, room, bass, limiter, UI/settings/routing outside the chorus return, existing NULL-only SFX parameter, dependencies, cards/rules/scoring/campaign/assets/PDF, or prior commits. Earlier limiter/reverb-rate/SFX packages remain out of scope. Outside the HP state/reset, chorus comment and return block, production source compares byte-identical to `39876c3`; every other production file is unchanged.
+
 ### Stronger, verified chorus range (22 October 2026)
 
 - Maintainer reports no audible chorus, with or without other effects; clarified that Space reverb is audible with Test Effect ON. Inspected UI/startup binding, atomic controls and preview routing. The initial chorus had a quiet averaged return and slow/shallow modulation, and existing checks accepted a merely nonzero effect rather than a useful signal level.
