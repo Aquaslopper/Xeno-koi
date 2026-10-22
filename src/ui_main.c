@@ -22,6 +22,7 @@
 #include "ui_combos.h"
 #include "campaign.h"
 #include "ui_taunt.h"
+#include "ui_speed.h"
 #include "replay.h"
 #include "ui_replay.h"
 
@@ -405,6 +406,9 @@ static void update_draw_frame(void) {
 
                     int input_unlocked = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
 
+                    /* KK-ADD-10 speed minigame: the bottom-right timer bar */
+                    speed_bar_update(&g, dt, input_unlocked);
+
                     if (g.phase == PHASE_DEALER_SELECT) {
                         if (g.oya_player_choice < 0) {
                             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -529,7 +533,7 @@ static void update_draw_frame(void) {
                         else if (g.phase == PHASE_HAND_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
                             if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
-                            else if (res == 2) { audio_play_click(&audio); engine_cancel_hand_choice(&g); replay_rec_cancel(0); }
+                            else if (res == 2) { audio_play_click(&audio); speed_bar_consume(); engine_cancel_hand_choice(&g); replay_rec_cancel(0); }
                         } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
                                 audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
@@ -547,7 +551,9 @@ static void update_draw_frame(void) {
                         if (screens_check_round_result_click(vm)) {
                             audio_play_click(&audio);
                             if (g.current_round >= g.total_rounds) {
-                                anim_init(&anim); engine_next_round(&g);
+                                anim_init(&anim);
+                                speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
+                                engine_next_round(&g);
                                 storage_record_match(&g, &settings, &stats, &history);
 #ifndef __EMSCRIPTEN__
                                 ui_replay_commit_auto(&history);

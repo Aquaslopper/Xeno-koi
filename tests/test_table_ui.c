@@ -7,6 +7,7 @@
 #include "ui_input.h"
 #include "ui_combos.h"
 #include "ui_motion.h"
+#include "ui_speed.h"
 #include "campaign.h"
 
 Font font_body;
@@ -187,8 +188,55 @@ static void test_campaign_unlocks(void) {
     settings.cleared_mask = medal_mask(7, 6, 1);
     assert(campaign_update_unlocks(&settings) && settings.unlocked_opponents == 8);
 }
+/* KK-ADD-10 speed minigame: the minipoint math and the match-end conversion.
+   A bonus-flipped win must reach total_score before any winner is decided. */
+static void test_speed_minigame(void) {
+    GameState t;
+    memset(&t, 0, sizeof(t));
+    t.ruleset = RULESET_KK_ADD_10;
+    t.phase = PHASE_TURN_HAND;
+    t.current_player = 0;
+    t.current_round = 1;
+    speed_bar_reset();
+
+    /* An instant, dead-on catch is a perfect 10. */
+    speed_bar_update(&t, 0.0f, 1);
+    speed_bar_grade(1.0f);
+    assert(speed_bar_total() == 10);
+
+    /* A second perfect catch opens the serie: +10 base, +10 serie, +10 retro. */
+    speed_bar_update(&t, 0.0f, 1);
+    speed_bar_grade(1.0f);
+    assert(speed_bar_total() == 40);
+
+    /* A sloppy catch scores its share and breaks the serie. */
+    speed_bar_update(&t, 0.0f, 1);
+    speed_bar_grade(0.4f);
+    assert(speed_bar_total() == 45);
+
+    /* The next perfect only starts a new serie: +10. */
+    speed_bar_update(&t, 0.0f, 1);
+    speed_bar_grade(1.0f);
+    assert(speed_bar_total() == 55);
+
+    /* Match end: every full 10 minipoints becomes 1 human score point. */
+    assert(speed_bar_apply_match_bonus(&t) == 5);
+    assert(t.total_score[0] == 5);
+    assert(speed_bar_apply_match_bonus(&t) == 0); /* applied only once */
+
+    /* Other rulesets never receive the bonus. */
+    GameState t2;
+    memset(&t2, 0, sizeof(t2));
+    t2.ruleset = RULESET_NINTENDO;
+    speed_bar_reset();
+    speed_bar_update(&t2, 0.0f, 1);
+    speed_bar_grade(1.0f);
+    assert(speed_bar_apply_match_bonus(&t2) == 0);
+    assert(t2.total_score[0] == 0);
+}
+
 int main(void) {
-    test_clicks_and_drag(); test_combos(); test_campaign_unlocks();
-    puts("All table input, campaign unlock, and combo panel tests passed.");
+    test_clicks_and_drag(); test_combos(); test_campaign_unlocks(); test_speed_minigame();
+    puts("All table input, campaign unlock, combo panel, and speed minigame tests passed.");
     return 0;
 }

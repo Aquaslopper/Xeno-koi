@@ -1,6 +1,7 @@
 #include "ui_input.h"
 #include "ui_motion.h"
 #include "ui_theme.h"
+#include "ui_speed.h"
 #include "replay.h"
 #include <stdio.h>
 #include <math.h>
@@ -17,9 +18,25 @@ Vector2 input_vmouse(Letterbox l) {
     return (Vector2){ (m.x - l.ox) / l.scale, (m.y - l.oy) / l.scale };
 }
 
+/* KK-ADD-10 speed minigame: how much of the target card the dropped card
+   covers, 0..1. The drop rect is the hand card centred on the drop point. */
+static float drop_cover(const GameState *g, Vector2 c, int target) {
+    Rectangle tr = board_get_field_card_rect_of(g, target);
+    if (tr.width <= 0.0f) return 0.0f;
+    Rectangle dr = { c.x - HAND_CARD_W * 0.5f, c.y - HAND_CARD_H * 0.5f,
+                     (float)HAND_CARD_W, (float)HAND_CARD_H };
+    float x0 = fmaxf(dr.x, tr.x), y0 = fmaxf(dr.y, tr.y);
+    float x1 = fminf(dr.x + dr.width, tr.x + tr.width);
+    float y1 = fminf(dr.y + dr.height, tr.y + tr.height);
+    float inter = (x1 > x0 && y1 > y0) ? (x1 - x0) * (y1 - y0) : 0.0f;
+    float min_area = fminf((float)(HAND_CARD_W * HAND_CARD_H), tr.width * tr.height);
+    return (min_area > 0.0f) ? inter / min_area : 0.0f;
+}
+
 static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2 c) {
     int hand_idx = drag->idx;
     int card_id = g->hand[0][hand_idx];
+    float grade_cover = -1.0f;
 
     Rectangle f = board_get_field_rect();
     Rectangle f_grown = { f.x - 24.0f, f.y - 24.0f, f.width + 48.0f, f.height + 48.0f };
@@ -59,6 +76,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
         fflush(stdout);
         cap_starts[1] = board_get_card_field_pos(g, matches[0]);
+        grade_cover = drop_cover(g, c, matches[0]);
         engine_play_hand(g, card_id, -1);
         replay_rec_play(0, card_id, -1);
         if (g->last_captured_count > 0) {
@@ -72,6 +90,8 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
         for (int k = 0; k < 3; k++) {
             cap_starts[k + 1] = board_get_card_field_pos(g, matches[k]);
         }
+        grade_cover = fmaxf(fmaxf(drop_cover(g, c, matches[0]), drop_cover(g, c, matches[1])),
+                            drop_cover(g, c, matches[2]));
         engine_play_hand(g, card_id, -1);
         replay_rec_play(0, card_id, -1);
         if (g->last_captured_count > 0) {
@@ -98,6 +118,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                    (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[0]);
+            grade_cover = drop_cover(g, c, matches[0]);
             engine_play_hand(g, card_id, matches[0]);
             replay_rec_play(0, card_id, matches[0]);
             if (g->last_captured_count > 0) {
@@ -109,6 +130,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                    (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[1]].name);
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[1]);
+            grade_cover = drop_cover(g, c, matches[1]);
             engine_play_hand(g, card_id, matches[1]);
             replay_rec_play(0, card_id, matches[1]);
             if (g->last_captured_count > 0) {
@@ -119,9 +141,14 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
             printf("DROP centre=(%d,%d) -> 2-MATCH CHOICE for %s\n",
                    (int)c.x, (int)c.y, CARDS[card_id].name);
             fflush(stdout);
+            grade_cover = fmaxf(drop_cover(g, c, matches[0]), drop_cover(g, c, matches[1]));
             engine_play_hand(g, card_id, -1);
             replay_rec_play(0, card_id, -1);
         }
+    }
+    if (g->ruleset == RULESET_KK_ADD_10) {
+        if (grade_cover >= 0.0f) speed_bar_grade(grade_cover);
+        else speed_bar_consume();
     }
 }
 

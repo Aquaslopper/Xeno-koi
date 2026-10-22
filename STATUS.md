@@ -7,6 +7,49 @@
 ## Status Summary
 ## Latest completed work
 
+### KK-ADD-10 speed minigame: 1000 ms timer bar and minipoints (22 October 2026)
+
+- New module `src/ui_speed.c`/`ui_speed.h` (+~150 lines) adds the maintainer's minigame, **KK-ADD-10 only**. A theme-filled timer bar sits bottom-right below RESTART (`{1160, 662, 112, 40}`), arms at the start of each human hand turn when input unlocks, drains over **1000 ms** from left to right, and is gone the moment the hand card is dropped (stock flip never counts; the CPU is never graded; replays neither draw nor score it). Graded captures score `round(10 × s × a)`: `s = clamp(remaining / 500 ms, 0, 1)` (full speed half with half the bar left) and `a = clamp(drop_cover / 0.80, 0, 1)` where `drop_cover` is the dropped hand card's overlap with the target's painted slot (best match counts for all-four grabs and 2-match choices). A perfect catch (10) starts/continues a **serie**: every perfect catch in a serie of ≥2 gets +10, granted retroactively to the serie's first catch too (perfect 8-deal = 80 + 80 = 160); any other resolved hand play (plain drop, imperfect catch, timeout autoplay, cancelled 2-match choice) breaks it. Gold minipoints (`COLOR_AMBER`, fixed 22 px) draw over the bar and persist after it vanishes; new awards flash the bar (0.30 s) and pulse the number (0.60 s). At match end `speed_bar_apply_match_bonus()` adds `total / 10` to `total_score[0]` before `storage_record_match` and the win comparison, once per match. Far drops (card returns to hand) do not consume the bar. Serie resets at each new round; everything resets at dealer select. **Tuned live by the maintainer:** the bar lifetime went 300 ms → **1000 ms** ("triple it and round up") — the speed half simply re-references to 500 ms; no other constant moved.
+- Hooks: `resolve_drop()` grades/consumes (`src/ui_input.c`, cover helper computes the intersection without new raylib deps), `src/ui_main.c` calls `speed_bar_update` after `input_unlocked`, applies the match bonus, and consumes on hand-choice cancel; `board_draw_table` draws the widget for `!replay_mode && ruleset == KK-ADD-10` only.
+- The match result now shows the conversion in its own gold box below the board panel (`{400, 604, 480, 48}` in `screens_draw_match_result`, `src/ui_screens.c`): `SPEED MINIPOINTS: 260 = +26 PTS`, gently glinting, drawn only for KK-ADD-10 with `speed_bar_total() > 0` (a new accessor in `src/ui_speed.c`). The box is separate from the panel because the 12-round two-column ledger fills that window. The drop grading in `resolve_drop()` is now gated on `RULESET_KK_ADD_10` so other rulesets never accumulate invisible minipoints.
+
+#### Checked
+- `./tests/test_table_ui.sh` passes (headless table input/combo suite; now links `src/ui_speed.c`).
+- Engine suite alone: `All engine & ruleset tests passed (500 full matches verified).` — `src/rules.c`, `src/engine.c`, and scoring untouched.
+- All 22 `src/*.c` compile with `-Wall -Wextra` against real Raylib headers; no new warnings (only the pre-existing `snprintf` truncation warnings in `src/ui_replay.c`).
+- `./build.sh test`'s action-audio step **fails at 96 kHz** (`test_action_audio.c:235` loud-bass assert). Verified identical on a clean `HEAD` worktree (`a9ebb9d`) — pre-existing, outside this change's scope; no audio file touched here.
+- Full `./build.sh linux` link not runnable in this sandbox (no `libraylib_linux.a` / `libGL`); compile-only pass stands in.
+
+#### Needs maintainer listening
+- Play the minigame live: bar placement under RESTART, left-to-right drain direction, the tuned 1000 ms feel, gold number look/pulse, the match-board reveal box, and whether a great drop's worth (up to 10 minipoints → 1 point per 10) feels right over a match. Formula constants are isolated at the top of `src/ui_speed.c`.
+
+**Touched:** `src/ui_speed.c`, `src/ui_speed.h` (new), `src/ui_input.c`, `src/ui_main.c`, `src/ui_board.c`, `tests/test_table_ui.sh`, `docs/rulesets/kk-add-10.md`, `docs/errata.md`, STATUS. **Deliberately did not touch:** `src/rules.c` / `src/engine.c` / `src/cards.c` / scoring logic, CPU AI, replay recording format, the thunder flash and ash wind, shaders, `storage.c` stats schema, generated wiki tables (no engine-derived values changed), the handoff PDF.
+
+### Ambient ash rides a gusting wind (22 October 2026)
+
+- The background ash (`g_ash`, `ash_draw_and_update` in `src/ui_board.c`) no longer flies a straight bottom-to-top line. A global wind now pushes it sideways: three incommensurate sine waves (`0.110 / 0.043 / 0.270 rad/s`, amplitudes `12 / 16 / 4` px/s) giving `wind_x` in `[-32, +32]` px/s that holds one direction for roughly 25-80 s before swinging the other way, plus a weak vertical gust (`+/-3.5 px/s`) that only breathes the rise rate. Each flake rides the wind differently via `wind_catch = 0.55 + 0.45 * sin(phase)` (`0.10..1.00`), so the field flows instead of translating as a sheet. Per-particle drift, flutter sway, wrapping, and respawn are unchanged.
+
+#### Checked
+- `./tests/test_table_ui.sh` passes (compiles `src/ui_board.c` against real Raylib headers, headless).
+- Wind envelope sampled numerically over 1 h at 60 Hz: range `-31.7..+31.9` px/s (mean `-0.10`), 34 sustained right-blasts and 34 left (avg ~45 s each, max ~78 s); `wind_y` stays within `+/-3.5` px/s so the rise never reverses.
+
+#### Needs maintainer listening
+- Visually confirm on a live GPU (desktop and web) that the drift reads as wind: diagonal gusts, occasional sideways holds, no straight-up fall line, and no visible wrap seams at the screen edges.
+
+**Touched:** `src/ui_board.c` (`ash_draw_and_update` only), STATUS. **Deliberately did not touch:** capture-burst ash (`ash_burst_draw_and_update`), taunt ash (`src/ui_taunt.c`), particle shapes/sizes/spawn rates, the thunder flash, shader files, rules/scoring, generated docs or images.
+
+### Thunder-flash envelope: 500 ms sustain then slow roll-off (22 October 2026)
+
+- The capture/Koi-Koi thunder flash no longer spikes and flashes off. `board_draw_table` (`src/ui_board.c`) now holds `flashAmount` at `1.0` for `0.50 s` after the trigger edge (`thunder_hold`), then rolls off exponentially from full (`tau = 0.50 s`, effectively invisible about 2 s into the fade). This replaces the old fast `3.2/s` drop to `0.40` plus `tau = 3.40 s` afterglow. A new capture or Koi-Koi call during the hold or fade snaps back to `1.0` and restarts the 500 ms sustain.
+
+#### Checked
+- `./tests/test_table_ui.sh` passes (compiles `src/ui_board.c` against real Raylib headers, headless).
+
+#### Needs maintainer listening
+- Visually confirm the new envelope on a live GPU (desktop and web): 500 ms full plateau, then a gentle ~2 s fade; retriggers sustain through capture streaks.
+
+**Touched:** `src/ui_board.c` (one new static + the thunder decay block), STATUS. **Deliberately did not touch:** `assets/depth_fog.fs` / `assets/depth_fog_web.fs`, flash triggers, shader uniforms, `turn_flash_alpha`, the audio reverb curve, rules/scoring, generated docs or images. No shared mode flag.
+
 ### Double chorus return only (22 October 2026)
 
 #### Checked numerically
@@ -131,7 +174,7 @@
 - Refreshed wiki prose for cumulative per-tier campaign coins and the exact M-01–M-12 gates, the actual M-12 condition for DEUS, desktop-only replays, and recent table visual/audio feedback. Corrected the stale “newest opponent” unlock explanation; no game code, scoring, card art, or saved data changed.
 
 - Added per-background normal-map lighting for the seven non-Deus table backgrounds (`src/ui_board.c`, `src/ui_board.h`, `assets/*_normal.png`, `assets/depth_fog.fs`, `assets/depth_fog_web.fs`; Deus remains unchanged):
-  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a toned-down thunder-flash spike (`1.0 + 0.95 * flashAmount` plus `0.065` wide glow) triggered on every card capture (`captured_count` rising edge) and Koi-Koi call (`koi_called` rising edge) that peaks smoothly, drops to 40%, and decays slowly (`tau = 3.40 s`).
+  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a toned-down thunder-flash spike (`1.0 + 0.95 * flashAmount` plus `0.065` wide glow) triggered on every card capture (`captured_count` rising edge) and Koi-Koi call (`koi_called` rising edge) that sustains full for 500 ms and then rolls off exponentially from full (`tau = 0.50 s`, per the 22 October 2026 envelope change above; a new edge snaps back to full and restarts the sustain).
   - Smooth 3D relief with wrapped directional bias (`smoothstep(0.015, 0.30, length(n.xy)) * (0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(n.xy, lightDir.xy)))`) so flat pixels return `0.0` without creating a center cutout at `lightUV` or hard shadow cutoffs on ridges.
   - Multi-tap two-ring light-only bloom kernel (`sampleRidgeEmit` at 7 px and 13 px) plus soft-knee highlight rolloff (`base + (1.0 - base) * (1.0 - exp(-lightAdd))`) so the moving background light glows smoothly around 3D ridges without washing black shadows into grey fog or affecting UI/cards, and softened lower-board depth fog (`0.80` gain, `0.55` cap, plus lighter lower gradient) so the lit artwork reads clearly at default gamma `1.00`.
 - Attached a real-time stereo reverb + Haas widener (`AttachAudioStreamProcessor` in `src/ui_audio.c`) to the music streams, driven by a tight, hard-limited curve (`reverb_energy -> reverb_mid -> reverb_curve` in `src/ui_board.c`, `tau_mid = 0.20 s`, `tau_curve = 0.18 s`, `wet_gain = rev * 0.55f * sc_duck`) that fires audibly on the first capture (`~0.38`), builds into full synergy by the third stacked capture in a row (`1.00`), and ducks its high-passed tail under the dry music so it never smears or spikes.

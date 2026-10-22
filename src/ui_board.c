@@ -5,6 +5,7 @@
 #include "ui_board_status.h"
 #include "ui_combos.h"
 #include "ui_audio.h"
+#include "ui_speed.h"
 #include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -231,10 +232,18 @@ static void ash_spawn_capture_burst(const GameState *g, int streak) {
 static void ash_draw_and_update(float dt) {
     if (!g_ash_initialized) ash_init();
     float cur_time = (float)GetTime();
+    /* Slow gusting wind: three incommensurate waves so the ash field slides
+       right for a while, then left, then crosses quicker - wind, not a
+       straight-up fall line. Vertical gusts only breathe the rise rate. */
+    float wind_x = sinf(cur_time * 0.110f) * 12.0f
+                 + sinf(cur_time * 0.043f + 1.7f) * 16.0f
+                 + sinf(cur_time * 0.270f + 4.1f) * 4.0f;
+    float wind_y = sinf(cur_time * 0.090f + 2.2f) * 3.5f;
     for (int i = 0; i < ASH_COUNT; i++) {
         AshParticle *p = &g_ash[i];
-        p->pos.y -= p->speed_y * dt;
-        p->pos.x += p->speed_x * dt;
+        float wind_catch = 0.55f + 0.45f * sinf(p->phase);
+        p->pos.y -= (p->speed_y + wind_y * wind_catch) * dt;
+        p->pos.x += (p->speed_x + wind_x * wind_catch) * dt;
         if (p->pos.y < -14.0f) {
             p->pos.y = 730.0f + (float)(rand() % 30);
             p->pos.x = (float)(rand() % 1280);
@@ -501,6 +510,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     static int prev_koi = -1;
     static int capture_streak = 0;
     static float thunder_flash = 0.0f;
+    static float thunder_hold = 0.0f;
     static float reverb_energy = 0.0f;
     static float reverb_mid = 0.0f;
     static float reverb_curve = 0.0f;
@@ -531,14 +541,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     prev_koi = cur_koi;
     if (capture_edge || koi_edge) {
         thunder_flash = 1.0f;
+        thunder_hold = 0.50f;
+    } else if (thunder_hold > 0.0f) {
+        thunder_hold -= frame_dt;
+        if (thunder_hold < 0.0f) thunder_hold = 0.0f;
     } else if (thunder_flash > 0.0f) {
-        if (thunder_flash > 0.40f) {
-            thunder_flash -= frame_dt * 3.2f;
-            if (thunder_flash < 0.40f) thunder_flash = 0.40f;
-        } else {
-            thunder_flash *= expf(-frame_dt / 3.40f);
-            if (thunder_flash < 0.002f) thunder_flash = 0.0f;
-        }
+        thunder_flash *= expf(-frame_dt / 0.50f);
+        if (thunder_flash < 0.002f) thunder_flash = 0.0f;
     }
     /* Audio reverb follows a smooth S-curve (never a spike):
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
@@ -768,6 +777,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
     /* A replay cannot be restarted: the second button ends it instead. */
     draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+
+    /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
+    if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

@@ -1,2 +1,4 @@
 # Player replay records are created next to the desktop executable.
 replays/
+# MkDocs build output (AGENTS.md: never commit it).
+site/
