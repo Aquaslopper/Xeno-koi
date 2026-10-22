@@ -299,7 +299,7 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
         draw_section_header("Audio effect options", 230);
         draw_centered_text(font_body, "These settings change the Action card audio effect.", 640, 268, 17, 1, COLOR_TEXT_INFO);
         draw_slider(320, s->effect_chorus, "Chorus:", TextFormat("%d%%", (int)(100 * s->effect_chorus + 0.5f)), vm);
-        draw_slider(384, s->effect_bass, "Bass boost:", TextFormat("+%.1f dB", 10 * s->effect_bass), vm);
+        draw_slider(384, s->effect_bass, "Bass boost:", TextFormat("+%.1f dB", 20 * s->effect_bass), vm);
         draw_slider(448, s->effect_reverb, "Space reverb:", TextFormat("%d%%", (int)(100 * s->effect_reverb + 0.5f)), vm);
         draw_centered_text(font_body, "Triggered by captures and Koi-Koi calls; fades afterwards.", 640, 510, 17, 1, COLOR_TEXT_INFO);
         draw_centered_text(font_body, "More reverb means a larger space. Bass enters near maximum.", 640, 542, 16, 1, COLOR_TEXT_INFO);
