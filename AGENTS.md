@@ -1,3 +1,5 @@
+**Learn the code before you code — what you have not read and verified is only an assumption, and a change built on an assumption risks breaking code it never understood: read the source first, verify how it actually behaves, and only then write the smallest change those verified facts justify.**
+
 # Agent & contributor notes for Xeno Koi
 
 Read this before changing rules, scoring, cards, opponents, or the docs.
