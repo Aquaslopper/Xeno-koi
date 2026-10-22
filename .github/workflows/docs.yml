@@ -33,8 +33,9 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Keep verification failures visible in the test job without blocking site publication.
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -42,6 +43,24 @@ jobs:
 
       - name: Run engine integrity tests
         run: ./build.sh test
+
+      - name: Check out Raylib 5.5 headers for headless tests
+        run: git clone --depth 1 --branch 5.5 https://github.com/raysan5/raylib.git /tmp/raylib
+
+      - name: Run table UI regression tests (headless)
+        run: ./tests/test_table_ui.sh
+
+      - name: Run custom music folder regression tests (headless)
+        run: ./tests/test_music_folder.sh
+
+      - name: Run audio DSP regression tests (headless)
+        run: ./tests/test_audio_dsp.sh
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -84,15 +103,6 @@ jobs:
           mkdir -p /tmp/raylib/src
           cp -r /tmp/raylib_web_cache/src/* /tmp/raylib/src/
           cp /tmp/raylib_web_cache/libraylib.a /tmp/libraylib_web.a
-
-      - name: Run table UI regression tests (headless)
-        run: ./tests/test_table_ui.sh
-
-      - name: Run custom music folder regression tests (headless)
-        run: ./tests/test_music_folder.sh
-
-      - name: Run audio DSP regression tests (headless)
-        run: ./tests/test_audio_dsp.sh
 
       - name: Build WebAssembly bundle into /play/
         run: |
