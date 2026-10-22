@@ -7,6 +7,24 @@
 ## Status Summary
 ## Latest completed work
 
+### Glowing card-back loading transition and 2 s winner banner (22 October 2026)
+
+- Reworked `start_transition` in `src/ui_main.c` into a smooth three-stage transition while keeping Main Menu subscreen buttons (`OPTION`, `STATS`, `CREDITS`, `SAVE`, `QUIT`, and opening/closing Opponent Select) snappy and unchanged:
+  1. **Smooth dim to full dark (`0.85 s` smoothstep):** keeps the outgoing screen intact (including the Campaign opponent overlay on match start, the final Round Result combo screen on `MATCH RESULTS`, and the Pause overlay on restart/abandon — fixing the 1-frame overlay vanish) while smoothly fading outgoing BGM down to silence.
+  2. **2.00 s glowing card-back screen (`TRANS_HOLD_DUR = 2.00f`):** on full black, centers a small borderless `assets/back.png` (`64 x 104`) with soft dark-vignetted edges melting into the void, then surges a smooth multi-step radial backlight halo (`DrawCircleGradient`), inner haze, and focused `XENO/KOI` emblem bloom before subsiding back into pitch black and switching screens/music cleanly.
+  3. **Smooth reveal (`0.85 s` smoothstep):** lifts from black into `SCREEN_GAME`, `SCREEN_MATCH_RESULT`, `SCREEN_START`, or `SCREEN_STATS` as incoming BGM swells up (and fires the deferred win/lose SFX as `SCREEN_MATCH_RESULT` reveals).
+- Added a **2.00 s end-of-round / end-of-match winner banner** (`ROUND_BANNER_DUR = 2.00f`, `draw_round_end_banner` in `src/ui_main.c`) over the live table when `PHASE_ROUND_END` begins: shows the round or final match winner, running/final score, and for `KK-ADD-10` the gold minipoints line (`GOLD MINIPOINTS: <mp> = +<pts> PTS` on match end, or running gold minipoints mid-match). `speed_bar_apply_match_bonus()` folds in once on the final round's rising edge so the match winner and score are exact; after 2 seconds, the full combo/breakdown overlay (`screens_draw_round_result`) eases in over `0.75 s` (`smooth01(overlay_alpha)`).
+
+#### Checked
+- All 22 `src/*.c` compile cleanly under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_main.c` and all non-replay modules) against Raylib 5.5 headers.
+- Engine suite (`500` full simulated matches), `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- Headless 60 Hz frame-stepping harness (`ASan + UBSan`) against `src/ui_main.c` verified instant Options round-trip, zero 1-frame pop on opponent choice and `MATCH RESULTS`, 2.00 s glowing card-back peak, 2.00 s KK-ADD-10 winner + gold-points banner before the `0.75 s` combo-screen fade-in, deferred win SFX, and smooth return to Main Menu.
+
+#### Needs maintainer verification
+- Visually confirm on a live GPU (desktop and web) the 0.85 s dim -> 2.00 s glowing card back -> 0.85 s reveal feel, peak glow intensity across terminal themes and bloom modes, and the 2.00 s winner + KK-ADD-10 gold banner before the combo breakdown fades in.
+
+**Touched:** `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_speed.c`, `src/ui_screens.c`, `src/ui_audio.c`, `src/campaign.c`, `src/storage.c`, `src/ai.c`, card/shader/audio assets, `docs/`, or the handoff PDF.
+
 ### Current Options and README gameplay captures — completed locally 22 Oct 2026
 
 - Imported the four supplied 1920 x 1080 captures through `tools/make_screenshots.py --from`: `menu1.png` replaces the old Options frame, `menu2.png` adds the current page 2, and `ingame.png` / `ingame2.png` add the two README gameplay views. The importer only flattened/encoded them to q95 WebP; no capture was cropped, repainted, or recoloured.
