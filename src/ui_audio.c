@@ -417,16 +417,19 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     if (FileExists(p_flip)) {
         a->sfx_flip = LoadSound(p_flip); a->has_sfx_flip = 1;
         SetSoundVolume(a->sfx_flip, card_sfx_volume(a->sfx_volume));
+        AttachAudioStreamProcessor(a->sfx_flip.stream, music_reverb_processor);
     }
     const char *p_drop = get_path("assets/sfx/card_drop.wav");
     if (FileExists(p_drop)) {
         a->sfx_drop = LoadSound(p_drop); a->has_sfx_drop = 1;
         SetSoundVolume(a->sfx_drop, card_sfx_volume(a->sfx_volume));
+        AttachAudioStreamProcessor(a->sfx_drop.stream, music_reverb_processor);
     }
     const char *p_cap = get_path("assets/sfx/capture.wav");
     if (FileExists(p_cap)) {
         a->sfx_capture = LoadSound(p_cap); a->has_sfx_capture = 1;
         SetSoundVolume(a->sfx_capture, card_sfx_volume(a->sfx_volume));
+        AttachAudioStreamProcessor(a->sfx_capture.stream, music_reverb_processor);
     }
     const char *p_koi = get_path("assets/sfx/koi_call.wav");
     if (FileExists(p_koi)) {
