@@ -64,30 +64,42 @@ static double bass_tail(float room) {
     return energy(sample_rate + sample_rate/10, sample_rate*2, 0) + energy(sample_rate + sample_rate/10, sample_rate*2, 1);
 }
 
-/* A separate chorus must process both channels identically, not auto-pan. */
-static void chorus_channel_swap(void) {
-    for (int step = 1; step <= 3; step++) for (int bass = 0; bass <= 1; bass++) {
-        float setting = step == 3 ? 1 : step*0.25f;
-        for (int swap = 0; swap < 2; swap++) {
-            prepare(setting, bass, 0, 1);
-            for (int i = 0; i < sample_rate; i++) {
-                double t = 6.283185307179586*i/sample_rate;
-                float mid = 0.6f*sin(100*t) + 0.12f*sin(3000*t);
-                float side = 0.05f*sin(300*t) + 0.02f*sin(8000*t);
-                signal[2*i+swap] = mid+side;
-                signal[2*i+1-swap] = mid-side;
+/* Maintainer chose generated Side, not channel-swap commutation or fixed pan. */
+static void chorus_routing(void) {
+    int failures[5] = {0};
+    const char *names[5] = {"chorus_keeps_mono_sum", "chorus_creates_side", "chorus_no_ear_bias",
+                           "chorus_off_is_bit_identical", "chorus_decorrelates"};
+    for (int stereo = 0; stereo < 2; stereo++) {
+        double previous = 0;
+        for (int step = 0; step <= 4; step++) {
+            float amount = step*0.25f;
+            prepare(amount, 0, 0, 1); noise(sample_rate*3, 0.05f);
+            /* Stereo fixture: one-second cyclic shift, outside the chorus taps. */
+            if (stereo) for (int i = 0; i < sample_rate*3; i++)
+                signal[2*i+1] = signal[2*((i+sample_rate)%(sample_rate*3))];
+            memcpy(original, signal, sample_rate*6*sizeof(float));
+            music_reverb_processor(signal, sample_rate*3);
+            double input = 0, side = 0, left = 0, right = 0, cross = 0, sl = 0, sr = 0, error = 0;
+            for (int i = sample_rate; i < sample_rate*3; i++) {
+                double l = signal[2*i], r = signal[2*i+1], m = (original[2*i]+(double)original[2*i+1])/2;
+                input += m*m; side += (l-r)*(l-r)/4;
+                left += l*l; right += r*r; cross += l*r; sl += l; sr += r;
+                error = fmax(error, fabs((l+r)/2-m));
             }
-            music_reverb_processor(signal, sample_rate);
-            if (!swap) memcpy(original, signal, sample_rate*2*sizeof(float));
-            else {
-                float error = 0;
-                for (int i = 0; i < sample_rate; i++) for (int c = 0; c < 2; c++)
-                    error = fmaxf(error, fabsf(signal[2*i+c] - original[2*i+1-c]));
-                printf("%d Hz chorus %.2f, bass %d: channel-swap error %.9g\n", sample_rate, setting, bass, error);
-                assert(error < 2e-7f);
-            }
+            double ratio = sqrt(side/input), balance = 10*log10(left/right), n = sample_rate*2;
+            double correlation = (cross-sl*sr/n)/sqrt((left-sl*sl/n)*(right-sr*sr/n));
+            printf("%d Hz %s %.2f: mono error %.9g, Side/input %.6f, correlation %.6f, L/R %+.6f dB\n",
+                   sample_rate, stereo ? "stereo" : "mono", amount, error, ratio, correlation, balance);
+            failures[0] += !(error < 1e-6);
+            failures[1] += !stereo && step && !(ratio > 0.1*amount && ratio > previous);
+            failures[2] += !stereo && !(fabs(balance) < 0.1);
+            failures[3] += !step && memcmp(original, signal, sample_rate*6*sizeof(float)) != 0;
+            failures[4] += !stereo && step == 4 && !(correlation < 0.9);
+            previous = ratio;
         }
     }
+    for (int i = 0; i < 5; i++) printf("%s: %s (%d failures)\n", names[i], failures[i] ? "FAIL" : "PASS", failures[i]);
+    assert(failures[0]+failures[1]+failures[2]+failures[3]+failures[4] == 0);
 }
 
 static void chorus_behaviour(void) {
@@ -102,24 +114,22 @@ static void chorus_behaviour(void) {
             float x = fabsf(signal[2*i]);
             voices = fmaxf(voices, x);
             if (i > sample_rate/25) tail = fmaxf(tail, x);
-            assert(signal[2*i] == signal[2*i+1]);
         }
         printf("%d Hz chorus %.2f: delayed voices %.6f, tail after 40ms %.9g\n", sample_rate, amount, voices, tail);
-        assert(voices > 1e-5 && tail == 0); /* No feedback/slapback tail. */
+        assert(voices > 1e-5); /* HP has IIR decay; history must have no delay feedback. */
+        for (int c = 0; c < 2; c++) for (int i = 0; i < CHORUS_HISTORY; i++) assert(s_chorus_history[c][i] == 0);
         prepare(amount, 0, 0, 1);
         tone(sample_rate*4, 1000, 0.04f, 0.25f);
         music_reverb_processor(signal, sample_rate*4);
         double motion = 0;
         for (int i = sample_rate; i < sample_rate*2; i++) {
-            assert(fabsf(signal[2*i] - 4*signal[2*i+1]) < 2e-7f);
             double d = signal[2*i] - signal[2*(i+2*sample_rate)];
             motion += d*d;
         }
-        printf("%d Hz chorus %.2f: modulation RMS %.6f, fixed pan preserved\n", sample_rate, amount, sqrt(motion/sample_rate));
+        printf("%d Hz chorus %.2f: modulation RMS %.6f\n", sample_rate, amount, sqrt(motion/sample_rate));
         assert(motion/sample_rate > 1e-8); /* Actually modulated, not just a static echo. */
         finite_peak(sample_rate*4, 0.98001f);
-        /* Nonzero output is not enough: the wet layer must have a useful level.
-           Quiet noise avoids peak limiting; subtract the exact same dry frames. */
+        /* Regression snapshot only, not correctness: same quiet dry frames, no limiting. */
         prepare(amount, 0, 0, 1);
         noise(sample_rate*3, 0.02f);
         memcpy(original, signal, sample_rate*6*sizeof(float));
@@ -128,10 +138,10 @@ static void chorus_behaviour(void) {
         for (int i = sample_rate; i < sample_rate*3; i++) {
             double dry = original[2*i], wet = signal[2*i] - dry;
             dry_power += dry*dry; wet_power += wet*wet;
-            assert(signal[2*i] == signal[2*i+1]);
         }
         double ratio = sqrt(wet_power/dry_power);
-        printf("%d Hz chorus %.2f: wet/dry RMS %.3f\n", sample_rate, amount, ratio);
+        printf("chorus_wet_level_regression_snapshot %d Hz %.2f: wet/dry %.6f, normalized %.6f (bounds 0.50..0.75)\n",
+               sample_rate, amount, ratio, ratio/amount);
         assert(ratio > 0.50*amount && ratio < 0.75*amount);
     }
 }
@@ -201,7 +211,7 @@ int main(void) {
 
     for (int sr = 0; sr < 3; sr++) {
         sample_rate = sr == 0 ? 44100 : sr == 1 ? 48000 : 96000;
-        chorus_channel_swap();
+        chorus_routing();
         chorus_behaviour();
         space_dimensions();
         float quiet = bass_gain(1, 0.01f, 20), half = bass_gain(0.5f, 0.01f, 20);
