@@ -64,6 +64,18 @@ static double bass_tail(float room) {
     return energy(sample_rate + sample_rate/10, sample_rate*2, 0) + energy(sample_rate + sample_rate/10, sample_rate*2, 1);
 }
 
+/* +100% means exactly twice the existing return, not different modulation. */
+static void chorus_return_is_doubled(void) {
+    prepare(1, 0, 0, 1);
+    s_chorus_phase = 0; s_chorus_index = 0;
+    s_chorus_history[0][CHORUS_HISTORY-662] = s_chorus_history[1][CHORUS_HISTORY-662] = 0.04f;
+    BiquadState reference_hp = {0};
+    float expected = 2.0f*biquad_hp300(&reference_hp, 0.5f*0.04f);
+    music_reverb_processor(signal, 1);
+    printf("chorus_return_is_doubled: expected %.9g, actual %.9g\n", expected, signal[0]);
+    assert(signal[0] == expected && signal[1] == -expected);
+}
+
 /* Maintainer chose generated Side, not channel-swap commutation or fixed pan. */
 static void chorus_routing(void) {
     int failures[5] = {0};
@@ -140,9 +152,9 @@ static void chorus_behaviour(void) {
             dry_power += dry*dry; wet_power += wet*wet;
         }
         double ratio = sqrt(wet_power/dry_power);
-        printf("chorus_wet_level_regression_snapshot %d Hz %.2f: wet/dry %.6f, normalized %.6f (bounds 0.50..0.75)\n",
+        printf("chorus_wet_level_regression_snapshot %d Hz %.2f: wet/dry %.6f, normalized %.6f (bounds 1.00..1.50)\n",
                sample_rate, amount, ratio, ratio/amount);
-        assert(ratio > 0.50*amount && ratio < 0.75*amount);
+        assert(ratio > 1.00*amount && ratio < 1.50*amount); /* Prior snapshot bounds x2, not re-fitted. */
     }
 }
 
@@ -211,6 +223,7 @@ int main(void) {
 
     for (int sr = 0; sr < 3; sr++) {
         sample_rate = sr == 0 ? 44100 : sr == 1 ? 48000 : 96000;
+        chorus_return_is_doubled();
         chorus_routing();
         chorus_behaviour();
         space_dimensions();
