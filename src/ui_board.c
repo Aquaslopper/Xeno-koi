@@ -555,10 +555,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.25f;
     if (koi_edge)           reverb_energy += 0.45f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
-    float tau_energy = (reverb_energy > reverb_curve) ? 3.60f : 1.80f;
+    float tau_energy = (reverb_energy > reverb_curve) ? 4.20f : 2.20f;
     reverb_energy *= expf(-frame_dt / tau_energy);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.08f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.08f));
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.06f));
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.06f));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
