@@ -501,6 +501,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     static int prev_koi = -1;
     static int capture_streak = 0;
     static float thunder_flash = 0.0f;
+    static float thunder_hold = 0.0f;
     static float reverb_energy = 0.0f;
     static float reverb_mid = 0.0f;
     static float reverb_curve = 0.0f;
@@ -531,14 +532,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     prev_koi = cur_koi;
     if (capture_edge || koi_edge) {
         thunder_flash = 1.0f;
+        thunder_hold = 0.50f;
+    } else if (thunder_hold > 0.0f) {
+        thunder_hold -= frame_dt;
+        if (thunder_hold < 0.0f) thunder_hold = 0.0f;
     } else if (thunder_flash > 0.0f) {
-        if (thunder_flash > 0.40f) {
-            thunder_flash -= frame_dt * 3.2f;
-            if (thunder_flash < 0.40f) thunder_flash = 0.40f;
-        } else {
-            thunder_flash *= expf(-frame_dt / 3.40f);
-            if (thunder_flash < 0.002f) thunder_flash = 0.0f;
-        }
+        thunder_flash *= expf(-frame_dt / 0.50f);
+        if (thunder_flash < 0.002f) thunder_flash = 0.0f;
     }
     /* Audio reverb follows a smooth S-curve (never a spike):
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),

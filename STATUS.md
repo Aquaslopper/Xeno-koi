@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Thunder-flash envelope: 500 ms sustain then slow roll-off (22 October 2026)
+
+- The capture/Koi-Koi thunder flash no longer spikes and flashes off. `board_draw_table` (`src/ui_board.c`) now holds `flashAmount` at `1.0` for `0.50 s` after the trigger edge (`thunder_hold`), then rolls off exponentially from full (`tau = 0.50 s`, effectively invisible about 2 s into the fade). This replaces the old fast `3.2/s` drop to `0.40` plus `tau = 3.40 s` afterglow. A new capture or Koi-Koi call during the hold or fade snaps back to `1.0` and restarts the 500 ms sustain.
+
+#### Checked
+- `./tests/test_table_ui.sh` passes (compiles `src/ui_board.c` against real Raylib headers, headless).
+
+#### Needs maintainer listening
+- Visually confirm the new envelope on a live GPU (desktop and web): 500 ms full plateau, then a gentle ~2 s fade; retriggers sustain through capture streaks.
+
+**Touched:** `src/ui_board.c` (one new static + the thunder decay block), STATUS. **Deliberately did not touch:** `assets/depth_fog.fs` / `assets/depth_fog_web.fs`, flash triggers, shader uniforms, `turn_flash_alpha`, the audio reverb curve, rules/scoring, generated docs or images. No shared mode flag.
+
 ### Double chorus return only (22 October 2026)
 
 #### Checked numerically
@@ -131,7 +143,7 @@
 - Refreshed wiki prose for cumulative per-tier campaign coins and the exact M-01–M-12 gates, the actual M-12 condition for DEUS, desktop-only replays, and recent table visual/audio feedback. Corrected the stale “newest opponent” unlock explanation; no game code, scoring, card art, or saved data changed.
 
 - Added per-background normal-map lighting for the seven non-Deus table backgrounds (`src/ui_board.c`, `src/ui_board.h`, `assets/*_normal.png`, `assets/depth_fog.fs`, `assets/depth_fog_web.fs`; Deus remains unchanged):
-  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a toned-down thunder-flash spike (`1.0 + 0.95 * flashAmount` plus `0.065` wide glow) triggered on every card capture (`captured_count` rising edge) and Koi-Koi call (`koi_called` rising edge) that peaks smoothly, drops to 40%, and decays slowly (`tau = 3.40 s`).
+  - One drifting, spinning 4-band light beam (32.1 s round-trip drift, spin 10% faster, nested bands `1.568 / 1.176 / 0.784 / 0.392` at `10%–20%` combined via `max()`) with a toned-down thunder-flash spike (`1.0 + 0.95 * flashAmount` plus `0.065` wide glow) triggered on every card capture (`captured_count` rising edge) and Koi-Koi call (`koi_called` rising edge) that sustains full for 500 ms and then rolls off exponentially from full (`tau = 0.50 s`, per the 22 October 2026 envelope change above; a new edge snaps back to full and restarts the sustain).
   - Smooth 3D relief with wrapped directional bias (`smoothstep(0.015, 0.30, length(n.xy)) * (0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(n.xy, lightDir.xy)))`) so flat pixels return `0.0` without creating a center cutout at `lightUV` or hard shadow cutoffs on ridges.
   - Multi-tap two-ring light-only bloom kernel (`sampleRidgeEmit` at 7 px and 13 px) plus soft-knee highlight rolloff (`base + (1.0 - base) * (1.0 - exp(-lightAdd))`) so the moving background light glows smoothly around 3D ridges without washing black shadows into grey fog or affecting UI/cards, and softened lower-board depth fog (`0.80` gain, `0.55` cap, plus lighter lower gradient) so the lit artwork reads clearly at default gamma `1.00`.
 - Attached a real-time stereo reverb + Haas widener (`AttachAudioStreamProcessor` in `src/ui_audio.c`) to the music streams, driven by a tight, hard-limited curve (`reverb_energy -> reverb_mid -> reverb_curve` in `src/ui_board.c`, `tau_mid = 0.20 s`, `tau_curve = 0.18 s`, `wet_gain = rev * 0.55f * sc_duck`) that fires audibly on the first capture (`~0.38`), builds into full synergy by the third stacked capture in a row (`1.00`), and ducks its high-passed tail under the dry music so it never smears or spikes.
