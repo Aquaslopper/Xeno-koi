@@ -35,7 +35,11 @@ void storage_load_settings(GameSettings *s) {
     s->master_timer = 15;
     s->ruleset = RULESET_KK_ADD_10;
     s->background = 0;
+#ifdef __EMSCRIPTEN__
+    s->bgm_volume = 0.50f; /* Quieter fresh browser profile; saved settings below still win. */
+#else
     s->bgm_volume = 1.00f;
+#endif
     s->sfx_volume = 0.50f;
     s->effect_chorus = 0.0f;
     s->effect_bass = 0.0f;
@@ -148,43 +152,43 @@ void storage_load_settings(GameSettings *s) {
 void storage_save_settings(const GameSettings *s) {
     char buf[MUSIC_FOLDER_CAP + 1024];
     const char *diff_str = (s->difficulty == DIFFICULTY_DEUS) ? "deus" :
-                           (s->difficulty == DIFFICULTY_MASTER) ? "master" :
-                           (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
+                            (s->difficulty == DIFFICULTY_MASTER) ? "master" :
+                            (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
     const char *rule_str = (s->ruleset == RULESET_FUDAWIKI) ? "fudawiki" :
-                           (s->ruleset == RULESET_KK_ADD_10) ? "kk_add_10" :
-                           (s->ruleset == RULESET_TOURNAMENT) ? "tournament" :
-                           (s->ruleset == RULESET_YAKUZA) ? "yakuza" : "nintendo";
+                            (s->ruleset == RULESET_KK_ADD_10) ? "kk_add_10" :
+                            (s->ruleset == RULESET_TOURNAMENT) ? "tournament" :
+                            (s->ruleset == RULESET_YAKUZA) ? "yakuza" : "nintendo";
     const char *col_str = (s->terminal_color == 1) ? "amber" :
-                          (s->terminal_color == 2) ? "teal" :
-                          (s->terminal_color == 3) ? "crimson" :
-                          (s->terminal_color == 4) ? "violet" :
-                          (s->terminal_color == 5) ? "dark" : "green";
+                           (s->terminal_color == 2) ? "teal" :
+                           (s->terminal_color == 3) ? "crimson" :
+                           (s->terminal_color == 4) ? "violet" :
+                           (s->terminal_color == 5) ? "dark" : "green";
 
     snprintf(buf, sizeof(buf),
-             "music_folder=%s\n"
-             "rounds=%d\n"
-             "difficulty=%s\n"
-             "master_timer=%d\n"
-             "ruleset=%s\n"
-             "background=%d\n"
-             "bgm_volume=%.2f\n"
-             "sfx_volume=%.2f\n"
-             "effect_chorus=%.2f\n"
-             "effect_bass=%.2f\n"
-             "effect_reverb=%.2f\n"
-             "anim_speed=%d\n"
-             "terminal_color=%s\n"
-             "fullscreen=%d\n"
-             "bloom=%d\n"
-             "crt_filter=%d\n"
-             "gamma=%.2f\n"
-             "unlocked_opponents=%d\n"
-             "current_opponent=%d\n"
-             "cleared_mask=%llu\n",
-             s->music_folder, s->rounds, diff_str, s->master_timer, rule_str, s->background,
-             s->bgm_volume, s->sfx_volume, s->effect_chorus, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
-             s->fullscreen, s->bloom, s->crt_filter, s->gamma,
-             s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask);
+              "music_folder=%s\n"
+              "rounds=%d\n"
+              "difficulty=%s\n"
+              "master_timer=%d\n"
+              "ruleset=%s\n"
+              "background=%d\n"
+              "bgm_volume=%.2f\n"
+              "sfx_volume=%.2f\n"
+              "effect_chorus=%.2f\n"
+              "effect_bass=%.2f\n"
+              "effect_reverb=%.2f\n"
+              "anim_speed=%d\n"
+              "terminal_color=%s\n"
+              "fullscreen=%d\n"
+              "bloom=%d\n"
+              "crt_filter=%d\n"
+              "gamma=%.2f\n"
+              "unlocked_opponents=%d\n"
+              "current_opponent=%d\n"
+              "cleared_mask=%llu\n",
+              s->music_folder, s->rounds, diff_str, s->master_timer, rule_str, s->background,
+              s->bgm_volume, s->sfx_volume, s->effect_chorus, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
+              s->fullscreen, s->bloom, s->crt_filter, s->gamma,
+              s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask);
     safe_write_text("settings.txt", buf);
 }
 
@@ -247,31 +251,31 @@ const char *storage_get_favorite_combo(const GameStats *st) {
 void storage_save_stats(const GameStats *st) {
     char buf[2048];
     int n = snprintf(buf, sizeof(buf),
-             "matches_played=%d\n"
-             "matches_won=%d\n"
-             "matches_lost=%d\n"
-             "matches_drawn=%d\n"
-             "rounds_won_you=%d\n"
-             "rounds_won_cpu=%d\n"
-             "points_for=%d\n"
-             "points_against=%d\n"
-             "highest_round_score=%d\n"
-             "best_award=%d\n"
-             "koi_calls_you=%d\n"
-             "koi_calls_cpu=%d\n"
-             "easy_matches=%d\n"
-             "hard_matches=%d\n"
-             "current_streak=%d\n"
-             "max_win_streak=%d\n"
-             "best_streak=%d\n"
-             "favorite_combo=%s\n",
-             st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
-             st->rounds_won_you, st->rounds_won_cpu, st->points_for, st->points_against,
-             st->highest_round_score, st->best_award,
-             st->koi_calls_you, st->koi_calls_cpu,
-             st->easy_matches, st->hard_matches,
-             st->current_streak, st->best_streak, st->best_streak,
-             storage_get_favorite_combo(st));
+              "matches_played=%d\n"
+              "matches_won=%d\n"
+              "matches_lost=%d\n"
+              "matches_drawn=%d\n"
+              "rounds_won_you=%d\n"
+              "rounds_won_cpu=%d\n"
+              "points_for=%d\n"
+              "points_against=%d\n"
+              "highest_round_score=%d\n"
+              "best_award=%d\n"
+              "koi_calls_you=%d\n"
+              "koi_calls_cpu=%d\n"
+              "easy_matches=%d\n"
+              "hard_matches=%d\n"
+              "current_streak=%d\n"
+              "max_win_streak=%d\n"
+              "best_streak=%d\n"
+              "favorite_combo=%s\n",
+              st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
+              st->rounds_won_you, st->rounds_won_cpu, st->points_for, st->points_against,
+              st->highest_round_score, st->best_award,
+              st->koi_calls_you, st->koi_calls_cpu,
+              st->easy_matches, st->hard_matches,
+              st->current_streak, st->best_streak, st->best_streak,
+              storage_get_favorite_combo(st));
     size_t pos = (n > 0 && (size_t)n < sizeof(buf)) ? (size_t)n : 0;
 
     if (st->master_matches > 0 && pos < sizeof(buf)) {
@@ -337,32 +341,32 @@ void storage_write_report(const GameStats *st, const MatchHistory *h) {
     float win_rate = (st->matches_played > 0) ? ((float)st->matches_won / st->matches_played * 100.0f) : 0.0f;
 
     int n = snprintf(buf, sizeof(buf),
-             "====================================================\n"
-             "        HANAFUDA // KOI-KOI - STATS REPORT          \n"
-             "====================================================\n\n"
-             "MATCHES\n"
-             "  Played:              %d\n"
-             "  Won / Lost:          %d / %d (Drawn: %d)\n"
-             "  Win Rate:            %.1f%%\n\n"
-             "ROUNDS & SCORING\n"
-             "  Rounds Won:          YOU %d | CPU %d\n"
-             "  Total Points:        FOR %d | AGAINST %d\n"
-             "  Highest Round Score: %d pts\n"
-             "  Best Award (Best Win): %d pts\n"
-             "  Koi-Koi Calls:       YOU %d | CPU %d\n\n"
-             "DIFFICULTY & STREAKS\n"
-             "  Easy / Hard:         %d / %d\n"
-             "  Current Streak:      %d\n"
-             "  Max Win Streak:      %d\n"
-             "  Favorite Combo:      %s\n\n"
-             "LAST 10 MATCHES\n",
-             st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
-             win_rate, st->rounds_won_you, st->rounds_won_cpu,
-             st->points_for, st->points_against, st->highest_round_score, st->best_award,
-             st->koi_calls_you, st->koi_calls_cpu,
-             st->easy_matches, st->hard_matches,
-             st->current_streak, st->best_streak,
-             storage_get_favorite_combo(st));
+              "====================================================\n"
+              "        HANAFUDA // KOI-KOI - STATS REPORT          \n"
+              "====================================================\n\n"
+              "MATCHES\n"
+              "  Played:              %d\n"
+              "  Won / Lost:          %d / %d (Drawn: %d)\n"
+              "  Win Rate:            %.1f%%\n\n"
+              "ROUNDS & SCORING\n"
+              "  Rounds Won:          YOU %d | CPU %d\n"
+              "  Total Points:        FOR %d | AGAINST %d\n"
+              "  Highest Round Score: %d pts\n"
+              "  Best Award (Best Win): %d pts\n"
+              "  Koi-Koi Calls:       YOU %d | CPU %d\n\n"
+              "DIFFICULTY & STREAKS\n"
+              "  Easy / Hard:         %d / %d\n"
+              "  Current Streak:      %d\n"
+              "  Max Win Streak:      %d\n"
+              "  Favorite Combo:      %s\n\n"
+              "LAST 10 MATCHES\n",
+              st->matches_played, st->matches_won, st->matches_lost, st->matches_drawn,
+              win_rate, st->rounds_won_you, st->rounds_won_cpu,
+              st->points_for, st->points_against, st->highest_round_score, st->best_award,
+              st->koi_calls_you, st->koi_calls_cpu,
+              st->easy_matches, st->hard_matches,
+              st->current_streak, st->best_streak,
+              storage_get_favorite_combo(st));
     size_t pos = (n > 0 && (size_t)n < sizeof(buf)) ? (size_t)n : 0;
 
     for (int i = 0; i < h->count && pos < sizeof(buf); i++) {
