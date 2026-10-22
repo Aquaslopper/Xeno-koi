@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Double chorus return only (22 October 2026)
+
+#### Checked numerically
+- Test A `1db8e7b` (17 changed lines), fix B `3f65b8d` (2 changed lines: one production line). Literal before: `chorus_return_is_doubled: expected 0.0388091356, actual 0.0194045678` (DSP/full suite/ASan/UBSan exit 134). After: `chorus_return_is_doubled: expected 0.0388091356, actual 0.0388091356` at 44.1/48/96 kHz. All five routing properties still pass.
+- Same quiet-noise fixture at 44.1 kHz maximum: Side/input RMS 0.571781→1.143562; peak 0.097416→0.146488; mono error 1.86264515e-09→3.7252903e-09. OFF stays byte-identical. Snapshot band explicitly scales by the requested factor two, 0.50–0.75→1.00–1.50; no fitting. Limiter remains unchanged and is inactive in this quiet fixture.
+- B: DSP/full suite and ASan/UBSan end `All action-audio numerical checks passed.` (exit 0); wiki prints `docs are up to date with the engine source.` (exit 0); real-header strict C99 and whitespace exit 0. Final documentation checks: DSP/full suite/ASan/UBSan, wiki, real-header strict C99 and whitespace exit 0; strict MkDocs prints `INFO    -  Documentation built in 0.65 seconds`; stub-only C99 again exits 1 with `src/ui_theme.h:9:5: error: unknown type name 'Color'`. Previously disclosed stub-only graphics-header mismatch remains outside scope; no claim that command passed.
+#### Matches the cited source
+- Authority is the maintainer's +100% request: 1+100/100=2 linear return amplitude (+6.0206 dB), not twice acoustic power or apparent loudness. No external tuning claim. Source comparison confirms exactly one changed production line: multiply the existing filtered Side by 2; antisymmetric additions remain unchanged. Reconsider only on further maintainer instruction.
+#### Needs maintainer listening
+- Maintainer confirms the preceding routing works. This follow-up changes its strength only; no new listening outcome is claimed. Active linked limiting can still affect Mid on hot inputs.
+**Touched:** one chorus-return multiplier, exact-gain test, explicitly scaled regression snapshot, STATUS/DSP reference. **Deliberately did not touch:** LFO/depth/rate/taps, filter coefficients, room, bass, limiter, other routing, UI/settings, SFX parameter, dependencies, gameplay/assets or existing history. No new shared mode flag.
+
 ### Routing-only chorus Side encode (22 October 2026)
 
 - Supersedes the earlier chorus routing/strength claims below. A `74612cf` is tests only (70 changed lines); B `002a632` is the routing fix only (23). C is this documentation report (60 changed lines; its SHA will be linked in PR #79). No history rewrite.
