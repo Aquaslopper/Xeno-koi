@@ -29,6 +29,11 @@
 - `tools/check_shader.py` grew a narrow type check (declarations and plain assignments only, from a small return-type table) so this class cannot pass again; verified it reports `ambient.frag:191: 'lightUV' is vec3 but the right side is vec2` on the pre-fix file. Still not a compiler: no swizzles, arithmetic or call-argument checking.
 - Mode B was dimming the base art along with the beam (`mix(base, blended, beamGain)`); now `base + (blended - base) * beamGain`, so only the light contribution is occluded and the painting stays untouched, which is the page's whole claim.
 
+#### Why the preview looked like "a few black spots" (same day)
+- Measured honestly instead of by mean luminance, which hid it. Fraction of pixels moving >2% / >5% luminance vs the shipped pipeline: **A height fog 1.2% / 0.1%** (effectively invisible), **C baked AO 35% / 6%**, **D additive relief 47% / 23%**.
+- Cause: the paintings average 0.10-0.16 luma with a median of 0.04, so they are ~90% black. A, B and C all *subtract* light, and subtracting from black is invisible. The design was wrong, not the tuning.
+- Added **D · additive relief** (`heightNormal()` + light added to the art) to `ambient.frag`/`ambient.js`, selectable as the fourth mode: Castle 0.164 -> 0.198, Harvest 0.100 -> 0.134. Open question for the maintainer: it brightens and hazes the art, which is a mood change, so it stays a preview until that taste call is made.
+
 #### Checked
 - First live run in the browser failed to compile: `0:189: patch : illegal use of reserved word`. Cause: `depth_fog.fs` uses `float patch` in the fog block, which is legal in `#version 100` and `#version 330` but **reserved in `#version 300 es`**. Renamed to `fogPatch`; noted in the prototype README because the same line will bite any port that copies the fog block into an ES 3.0 shader.
 - New `prototype/pom/tools/check_shader.py`: keyword lint for the ES 3.00 reserved list plus the built-ins ES 3.00 removed (`texture2D`, `gl_FragColor`, `varying`, `attribute`). Passes on `pom.frag`; verified it fails on the pre-fix line. It is a lint, not a compiler -- the shader has still not been compiled on a GPU from here.

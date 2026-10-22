@@ -104,7 +104,7 @@ async function init() {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
 
   for (const n of ["uColor", "uNormal", "uHeight", "uRes", "uTime", "uLight", "uFog",
-                   "uVantage", "uMode", "uStrength", "uMix", "uPhase", "uClamp"]) {
+                   "uVantage", "uMode", "uStrength", "uMix", "uPhase", "uClamp", "uRelief"]) {
     uni[n] = gl.getUniformLocation(prog, n);
   }
   gl.useProgram(prog);
@@ -146,14 +146,15 @@ function buildChips() {
   });
 }
 
-const MODE_NAMES = ["A · FOG SETTLES LOW", "B · BEAM OCCLUSION", "C · BAKED AO"];
+const MODE_NAMES = ["A · FOG SETTLES LOW", "B · BEAM OCCLUSION", "C · BAKED AO", "D · ADDITIVE RELIEF"];
 
 function setMode(m) {
   state.mode = m;
+  const index = { fog: 0, beam: 1, bake: 2, relief: 3 };
   document.querySelectorAll("[data-mode]").forEach((b) =>
-    b.classList.toggle("on", Number(b.dataset.mode === "fog" ? 0 : b.dataset.mode === "beam" ? 1 : 2) === m));
+    b.classList.toggle("on", index[b.dataset.mode] === m));
   document.getElementById("modeName").textContent = MODE_NAMES[m];
-  document.getElementById("note").textContent = NOTES[["fog", "beam", "bake"][m]];
+  document.getElementById("note").textContent = NOTES[["fog", "beam", "bake", "relief"][m]];
 
   const beamRow = document.getElementById("rowPhase");
   const beamSlider = document.getElementById("phase");
@@ -162,8 +163,9 @@ function setMode(m) {
   beamSlider.style.display = showBeam ? "block" : "none";
 }
 
+const MODE_INDEX = { fog: 0, beam: 1, bake: 2, relief: 3 };
 document.querySelectorAll("[data-mode]").forEach((b) => {
-  b.onclick = () => setMode(b.dataset.mode === "fog" ? 0 : b.dataset.mode === "beam" ? 1 : 2);
+  b.onclick = () => setMode(MODE_INDEX[b.dataset.mode]);
 });
 
 function slider(id, key, out, fmt) {
@@ -215,6 +217,7 @@ addEventListener("keydown", (ev) => {
   if (ev.key === "q" || ev.key === "Q") setMode(0);
   if (ev.key === "w" || ev.key === "W") setMode(1);
   if (ev.key === "e" || ev.key === "E") setMode(2);
+  if (ev.key === "r" || ev.key === "R") setMode(3);
   const n = parseInt(ev.key, 10);
   if (n >= 1 && n <= 8) loadBackground(n - 1);
 });
@@ -264,6 +267,7 @@ function frame(now) {
   gl.uniform1f(uni.uMix, state.mix);
   gl.uniform1f(uni.uPhase, state.phase);
   gl.uniform1f(uni.uClamp, state.clamp ? 1 : 0);
+  gl.uniform1f(uni.uRelief, 6.0 * state.strength);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.enableVertexAttribArray(0);
@@ -272,7 +276,8 @@ function frame(now) {
 
   readout.textContent = state.mode === 0 ? "runtime cost: +1 fetch/px"
     : state.mode === 1 ? "runtime cost: ≈ 12 fetch/px"
-    : "runtime cost: 0 — this is what the export would look like";
+    : state.mode === 2 ? "runtime cost: 0 — this is what the export would look like"
+    : "runtime cost: ≈ 5 fetch/px, adds light";
 
   requestAnimationFrame(frame);
 }

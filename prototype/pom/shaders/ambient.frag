@@ -29,6 +29,7 @@ uniform float uStrength;     // 0..2, the single knob the maintainer turns
 uniform float uMix;          // 0 = as shipped, 1 = full effect (A/B wipe)
 uniform float uPhase;        // 0..1 manual beam angle (mode B), -1 = follow the clock
 uniform float uClamp;        // 1 = clamp height sampling at the frame edge
+uniform float uRelief;       // gradient gain for mode D
 
 #define TAPS 12
 #define AO_TAPS 8
@@ -76,6 +77,37 @@ float beamReach(vec2 uv)
         occ = max(occ, clamp((stand - ray) * 5.0, 0.0, 1.0) * (1.0 - 0.75 * f));
     }
     return 1.0 - 0.55 * occ * uStrength;
+}
+
+// ------------------------------------------------------- D: additive relief
+vec3 heightNormal(vec2 uv)
+{
+    // Gradient of the height field at painting scale -> a surface normal. Stronger than a
+    // true height gradient on purpose: the painted forms are soft, the relief is not.
+    vec2 e = vec2(2.0) / uRes;
+    float hL = heightAt(uv - vec2(e.x, 0.0));
+    float hR = heightAt(uv + vec2(e.x, 0.0));
+    float hD = heightAt(uv - vec2(0.0, e.y));
+    float hU = heightAt(uv + vec2(0.0, e.y));
+    return normalize(vec3(-(hR - hL) * uRelief, -(hU - hD) * uRelief, 1.0));
+}
+
+vec3 addRelief(vec3 rgb, vec2 uv)
+{
+    // Everything else on this page subtracts light. This one adds it, because the art is
+    // already ~90% black and there is nothing left to take away.
+    vec2 lightUV = beamLightUV();
+    vec3 toLight = normalize(vec3((lightUV - uv) * vec2(1.7777778, 1.0), 0.42));
+    vec3 halfVec = normalize(toLight + vec3(0.0, 0.0, 1.0));
+    vec3 n = heightNormal(uv);
+
+    float lam = clamp(dot(n, toLight), 0.0, 1.0);
+    float spec = pow(clamp(dot(n, halfVec), 0.0, 1.0), 24.0);
+    float detail = pow(clamp(heightAt(uv), 0.0, 1.0), 0.7);
+
+    vec3 warm = vec3(1.0, 0.90, 0.74);
+    float graze = clamp(lam * 0.65 + spec * 0.9, 0.0, 1.6) * detail * uStrength;
+    return clamp(rgb + warm * (graze * 0.22) * pow(1.0 - rgb, vec3(0.6)), 0.0, 1.0);
 }
 
 // ------------------------------------------------------- C: the offline AO term
@@ -175,9 +207,10 @@ vec3 bgMovingLights(vec3 base, vec3 mapRGB, vec2 uv, vec2 lightUV, float flash)
 }
 
 // ------------------------------------------------------- shipped pipeline
-vec3 shippedAt(vec2 uv, float beamGain, float useBake)
+vec3 shippedAt(vec2 uv, float beamGain, float useBake, float useRelief)
 {
     vec3 base = colorAt(uv);
+    if (useRelief > 0.5) base = addRelief(base, uv);
     if (useBake > 0.5) {
         float occlusion;
         bakedAO(uv, occlusion);
@@ -228,8 +261,8 @@ void main()
     if (uMode == 1) beamGain = beamReach(uv);
 
     // Only the term the mode is about differs between the two sides of the wipe.
-    vec3 before = shippedAt(uv, 1.0, 0.0);
-    vec3 after  = shippedAt(uv, beamGain, uMode == 2 ? 1.0 : 0.0);
+    vec3 before = shippedAt(uv, 1.0, 0.0, 0.0);
+    vec3 after  = shippedAt(uv, beamGain, uMode == 2 ? 1.0 : 0.0, uMode == 3 ? 1.0 : 0.0);
 
     outColor = vec4(mix(before, after, uMix), 1.0);
 }

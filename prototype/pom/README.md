@@ -164,6 +164,7 @@ painting — the sampling point never leaves `uv` — which is the whole differe
 | `Q` | **A · fog settles low** | the existing fog is weighted by height: ridges lose it, valleys gain up to 1.9× | +1 texture fetch per pixel |
 | `W` | **B · beam occlusion** | the drifting light is blocked by whatever stands in front of it; move the pointer to aim it, or drag BEAM ANGLE to sweep it by hand | ≈12 fetches per pixel |
 | `E` | **C · baked AO** | the occlusion `tools/bake_ao.py` would write into the JPEG, computed live so the strength can be chosen before anything is exported | **0** — it is a new JPEG |
+| `R` | **D · additive relief** | the height gradient becomes a surface normal and the light is added to the art | ≈5 fetches/px |
 
 Controls: `A/B` slider wipes between as-shipped and the effect (**space** holds it at before),
 `STRENGTH` is the same knob for all three modes, `CLAMP` edges the height sampling off at the
@@ -175,6 +176,33 @@ numbers on the page: `heightFogWeight()` in `shaders/ambient.frag` is the same e
 `height_fog` in `tools/render_stills.py`, and mode C reproduces `tools/bake_ao.py` tap for tap
 (same three radii, same gains, same warm tint, applied to the art *before* light and fog, which
 is where a baked JPEG would sit).
+
+## 4d. Why A looked like nothing, and what to do instead
+
+Measured on Castle and Harvest, against the shipped pipeline, as the fraction of pixels whose
+luminance moves by more than 2% / 5%:
+
+| mode | >2% | >5% | reads as |
+|---|---:|---:|---|
+| A · fog settles low | 1.2% | 0.1% | nothing. invisible |
+| C · baked AO | 35% | 6% | a few black spots |
+| D · additive relief | 47% | 23% | light catching the ridges |
+
+The reason is arithmetic. These paintings average **0.10-0.16 luminance with a median of 0.04** —
+they are roughly 90% black before anything is drawn on them. Every mode I built first
+(fog pooling, AO, beam occlusion) *subtracts* light. Subtracting from black gives black: a valley
+goes from 0.02 to 0.01 and the eye cannot see it. That is why the page looked like a few black
+spots — it was behaving exactly as built, and the design was wrong, not the tuning.
+
+Adding light is the only direction with headroom. Mode D turns the height gradient into a normal
+(`heightNormal()`, 4 taps), shades it with the same drifting light the beam already uses, and adds
+the result: mean luminance Castle 0.164 -> 0.198, Harvest 0.100 -> 0.134, 23% of the frame moving
+more than 5%.
+
+**The caveat that decides whether D is worth keeping:** it makes the picture *brighter and
+hazier*, which is a mood change, not just a detail change. Xeno Koi's look is near-black. Whether
+that is acceptable is a taste call only the maintainer can make — which is exactly why it is on
+the page with an A/B slider rather than in `src/`.
 
 ## 5. How it would land in the C game
 

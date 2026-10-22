@@ -26,7 +26,7 @@
            background:rgba(4,10,13,.85); border:1px solid var(--line); border-radius:3px;
            backdrop-filter:blur(9px); z-index:5; }
   #panel.hidden { display:none; }
-  .modes { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin:0 0 12px; }
+  .modes { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin:0 0 12px; }
   .chip { font:inherit; font-size:9px; letter-spacing:.08em; padding:5px 4px; cursor:pointer; text-align:center;
           color:var(--dim); background:transparent; border:1px solid var(--line); border-radius:2px; }
   .chip:hover { color:var(--phos); border-color:rgba(100,240,255,.5); }
@@ -62,9 +62,10 @@
 
 <div id="panel">
   <div class="modes">
-    <button class="chip on" data-mode="fog">A · FOG</button>
+    <button class="chip" data-mode="fog">A · FOG</button>
     <button class="chip" data-mode="beam">B · BEAM</button>
-    <button class="chip" data-mode="bake">C · BAKED AO</button>
+    <button class="chip" data-mode="bake">C · AO</button>
+    <button class="chip" data-mode="relief">D · RELIEF</button>
   </div>
   <p id="note">The same fog, weighted by height so it pools in the low ground.</p>
 
@@ -87,7 +88,7 @@
     <button class="chip" id="tFreeze">FREEZE</button>
   </div>
   <p class="hint">Move the pointer to swing the light (<kbd>B</kbd> mode). <kbd>Space</kbd> hold = before ·
-     <kbd>1</kbd>–<kbd>8</kbd> background · <kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> mode · <kbd>H</kbd> hide panel.</p>
+     <kbd>1</kbd>–<kbd>8</kbd> background · <kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd> mode · <kbd>H</kbd> hide panel.</p>
 </div>
 
 <script type="module" src="js/ambient.js"></script>
