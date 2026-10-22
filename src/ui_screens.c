@@ -166,6 +166,119 @@ static void draw_slider(int y, float val, const char *lbl, const char *val_txt, 
     draw_text_ex_snapped(font_body, val_txt, (Vector2){ 920.0f, (float)y + 4.0f }, 17.0f, 1.2f, COLOR_TEXT_INFO);
 }
 
+static int options_page; /* 0: original settings, 1: audio */
+static int audio_test_state = -1; /* -1: idle, 0: same track dry, 1: effect on */
+static int audio_test_unavailable;
+
+int screens_audio_test_state(void) {
+    return options_page == 1 ? audio_test_state : -1;
+}
+
+#ifndef __EMSCRIPTEN__
+static int music_folder_open;
+static char music_folder_edit[MUSIC_FOLDER_CAP];
+static const char *music_folder_message;
+
+static void draw_music_folder_dialog(Vector2 vm) {
+    DrawRectangle(0, 0, 1280, 720, (Color){0, 0, 0, 220});
+    Rectangle panel = { 280, 230, 720, 250 };
+    DrawRectangleRec(panel, COLOR_PANEL_BG);
+    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
+    draw_centered_text(font_title, "CUSTOM MATCH MUSIC", 640, 250, 26, 1.2f, COLOR_PHOSPHOR);
+    draw_centered_text(font_body, "Type a folder path or Ctrl+V to paste (replaces the field).", 640, 292, 17, 1, COLOR_TEXT_INFO);
+    Rectangle field = { 300, 325, 680, 36 };
+    DrawRectangleLinesEx(field, 1, COLOR_PHOSPHOR);
+    float width = MeasureTextEx(font_body, music_folder_edit, 18, 1).x;
+    BeginScissorMode(305, 330, 670, 26);
+    draw_text_ex_snapped(font_body, music_folder_edit, (Vector2){305 - fmaxf(0, width - 665), 333}, 18, 1, COLOR_TEXT_INFO);
+    EndScissorMode();
+    draw_centered_text(font_body, music_folder_message, 640, 378, 16, 1, COLOR_TEXT_INFO);
+    draw_btn((Rectangle){ 310, 424, 200, 34 }, "APPLY / ENTER", 17, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 540, 424, 200, 34 }, "USE DEFAULT", 17, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 770, 424, 200, 34 }, "CANCEL", 17, vm, COLOR_PHOSPHOR);
+}
+
+static void handle_music_folder_input(GameSettings *s, AudioAssets *audio, Vector2 vm) {
+    int codepoint;
+    while ((codepoint = GetCharPressed()) > 0) {
+        int bytes;
+        const char *utf8 = CodepointToUTF8(codepoint, &bytes);
+        size_t len = strlen(music_folder_edit);
+        if (codepoint >= 32 && len + bytes < sizeof(music_folder_edit)) {
+            memcpy(music_folder_edit + len, utf8, bytes);
+            music_folder_edit[len + bytes] = '\0';
+        }
+    }
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+        size_t len = strlen(music_folder_edit);
+        if (len) {
+            do { len--; } while (len && (music_folder_edit[len] & 0xc0) == 0x80);
+            music_folder_edit[len] = '\0';
+        }
+    }
+    if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyPressed(KEY_V)) {
+        const char *text = GetClipboardText();
+        if (text && strlen(text) < sizeof(music_folder_edit) && !strpbrk(text, "\r\n"))
+            strcpy(music_folder_edit, text);
+        else music_folder_message = "Cannot paste: path too long or contains line breaks.";
+    }
+    int clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (clicked && CheckCollisionPointRec(vm, (Rectangle){ 770, 424, 200, 34 })) {
+        music_folder_open = 0;
+        return;
+    }
+    int defaults = clicked && CheckCollisionPointRec(vm, (Rectangle){ 540, 424, 200, 34 });
+    if (defaults || IsKeyPressed(KEY_ENTER) ||
+        (clicked && CheckCollisionPointRec(vm, (Rectangle){ 310, 424, 200, 34 }))) {
+        if (defaults) music_folder_edit[0] = '\0';
+        size_t len = strlen(music_folder_edit);
+        /* Windows Explorer's Copy as path adds surrounding quotes. */
+        if (len >= 2 && music_folder_edit[0] == '"' && music_folder_edit[len - 1] == '"') {
+            memmove(music_folder_edit, music_folder_edit + 1, len - 2);
+            music_folder_edit[len - 2] = '\0';
+        }
+        if (!audio || audio_set_music_folder(audio, music_folder_edit) < 0) {
+            music_folder_message = "Folder unavailable or no playable MP3 files. Music unchanged.";
+            return;
+        }
+        strcpy(s->music_folder, music_folder_edit);
+        storage_save_settings(s);
+        music_folder_open = 0;
+    }
+}
+#endif
+
+static void draw_options_footer(Vector2 vm) {
+    draw_btn((Rectangle){ 300, 656, 260, 38 }, "BACK (SAVE)", 20, vm, COLOR_PHOSPHOR);
+    draw_btn((Rectangle){ 842, 656, 38, 38 }, "<", 20, vm, COLOR_PHOSPHOR);
+    draw_centered_text(font_body, TextFormat("%d / 2", options_page + 1), 920, 665, 18, 1, COLOR_TEXT_INFO);
+    draw_btn((Rectangle){ 960, 656, 38, 38 }, ">", 20, vm, COLOR_PHOSPHOR);
+}
+
+static void handle_audio_options(GameSettings *s, AudioAssets *audio, Vector2 vm) {
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(vm, (Rectangle){490, 580, 300, 36})) {
+        audio_test_unavailable = !audio || audio->game_track_count == 0;
+        if (!audio_test_unavailable) audio_test_state = audio_test_state == 1 ? 0 : 1;
+    }
+    if (audio_test_state >= 0 && (!audio || audio->game_track_count == 0)) {
+        audio_test_state = -1;
+        audio_test_unavailable = 1;
+    }
+    float *values[] = { &s->effect_chorus, &s->effect_bass, &s->effect_reverb };
+    for (int i = 0; i < 3; i++) {
+        float y = 320.0f + i * 64.0f;
+        float value = *values[i];
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(vm, (Rectangle){688, y, 184, 26}))
+            value = (vm.x - 688.0f) / 184.0f;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (CheckCollisionPointRec(vm, (Rectangle){650, y, 34, 26})) value -= 0.05f;
+            if (CheckCollisionPointRec(vm, (Rectangle){876, y, 34, 26})) value += 0.05f;
+        }
+        *values[i] = fmaxf(0, fminf(1, value));
+    }
+    if (audio) audio_set_effects(s->effect_chorus, s->effect_bass, s->effect_reverb);
+}
+
 void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     int is_deus = (s->difficulty == DIFFICULTY_DEUS);
     draw_bg_if_loaded(ba, 180);
@@ -174,6 +287,31 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     ui_draw_panel_border(panel, COLOR_PHOSPHOR_DIM);
 
     draw_centered_text(font_title, "SYSTEM CONFIGURATION", 640.0f, 24.0f, 28.0f, 1.6f, COLOR_PHOSPHOR);
+
+    if (options_page == 1) {
+        draw_section_header("GAME MUSIC", 80);
+#ifndef __EMSCRIPTEN__
+        draw_text_ex_snapped(font_body, "Folder for music:", (Vector2){300, 135}, 18, 1.2f, COLOR_PHOSPHOR);
+        draw_btn((Rectangle){650, 128, 300, 38}, s->music_folder[0] ? "CUSTOM FOLDER" : "BUILT-IN MUSIC", 18, vm, COLOR_PHOSPHOR);
+#else
+        draw_centered_text(font_body, "Music folder: desktop only (browser uses bundled music).", 640, 135, 17, 1, COLOR_TEXT_INFO);
+#endif
+        draw_section_header("Audio effect options", 230);
+        draw_centered_text(font_body, "These settings change the Action card audio effect.", 640, 268, 17, 1, COLOR_TEXT_INFO);
+        draw_slider(320, s->effect_chorus, "Chorus:", TextFormat("%d%%", (int)(100 * s->effect_chorus + 0.5f)), vm);
+        draw_slider(384, s->effect_bass, "Bass boost:", TextFormat("+%.1f dB", 20 * s->effect_bass), vm);
+        draw_slider(448, s->effect_reverb, "Space reverb:", TextFormat("%d%%", (int)(100 * s->effect_reverb + 0.5f)), vm);
+        draw_centered_text(font_body, "Triggered by captures and Koi-Koi calls; fades afterwards.", 640, 510, 17, 1, COLOR_TEXT_INFO);
+        draw_centered_text(font_body, "More reverb means a larger space. Bass enters near maximum.", 640, 542, 16, 1, COLOR_TEXT_INFO);
+        draw_btn((Rectangle){490, 580, 300, 36}, audio_test_state == 1 ? "TEST EFFECT: ON" : "TEST EFFECT: OFF", 18, vm, COLOR_PHOSPHOR);
+        draw_centered_text(font_body, audio_test_unavailable ? "No playable match music. Choose a folder or restore music assets."
+                           : "ON tests full strength; OFF compares the same track dry.", 640, 626, 15, 1, COLOR_TEXT_INFO);
+        draw_options_footer(vm);
+#ifndef __EMSCRIPTEN__
+        if (music_folder_open) draw_music_folder_dialog(vm);
+#endif
+        return;
+    }
 
     draw_section_header("MATCH RULES", 56.0f);
     draw_text_ex_snapped(font_body, "Match Length:", (Vector2){ 300.0f, 96.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
@@ -259,11 +397,40 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
 
     float g_frac = fmaxf(0.0f, fminf(1.0f, (s->gamma - 0.5f) / 1.5f));
     draw_slider(608, g_frac, "Display Gamma:", TextFormat("%.2f", s->gamma), vm);
-    draw_btn((Rectangle){ 510, 656, 260, 38 }, "BACK (SAVE)", 20, vm, COLOR_PHOSPHOR);
+    draw_options_footer(vm);
 }
 
 ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, AudioAssets *audio, Vector2 vm) {
+#ifndef __EMSCRIPTEN__
+    if (music_folder_open) {
+        handle_music_folder_input(s, audio, vm);
+        return ACT_NONE;
+    }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && options_page == 1 && CheckCollisionPointRec(vm, (Rectangle){ 650, 128, 300, 38 })) {
+        strcpy(music_folder_edit, s->music_folder);
+        music_folder_message = "Up to 10 MP3s, no subfolders. Blank path restores built-in music.";
+        music_folder_open = 1;
+        return ACT_NONE;
+    }
+#endif
     int pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT), down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    if (pressed && (CheckCollisionPointRec(vm, (Rectangle){842, 656, 38, 38}) ||
+                    CheckCollisionPointRec(vm, (Rectangle){960, 656, 38, 38}))) {
+        audio_test_state = -1; audio_test_unavailable = 0;
+        options_page = 1 - options_page;
+        return ACT_NONE;
+    }
+    if (pressed && CheckCollisionPointRec(vm, (Rectangle){300, 656, 260, 38})) {
+        storage_save_settings(s);
+        if (audio) audio_play_click(audio);
+        audio_test_state = -1; audio_test_unavailable = 0;
+        options_page = 0;
+        return ACT_GOTO_MENU;
+    }
+    if (options_page == 1) {
+        handle_audio_options(s, audio, vm);
+        return ACT_NONE;
+    }
     if (down) {
         if (CheckCollisionPointRec(vm, (Rectangle){ 688, 428, 184, 26 })) {
             s->bgm_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f));
@@ -318,7 +485,7 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     else if ((dir = check_selector_click(vm, 572.0f)) != 0) { s->crt_filter = (s->crt_filter + 4 + dir) % 4; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 608, 34, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 608, 34, 26 })) { s->gamma = fminf(2.0f, s->gamma + 0.05f); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 510, 656, 260, 38 })) { storage_save_settings(s); if (audio) audio_play_click(audio); return ACT_GOTO_MENU; }
+
     return ACT_NONE;
 }
 

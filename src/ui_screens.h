@@ -39,6 +39,8 @@ void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, 
 ScreenAction screens_handle_start_click(Vector2 vm);
 
 /* Options Screen */
+/* Transient audition: -1 idle, 0 dry comparison, 1 full-strength effect. */
+int screens_audio_test_state(void);
 void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm);
 ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, AudioAssets *audio, Vector2 vm);
 

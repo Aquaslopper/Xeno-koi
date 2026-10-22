@@ -184,7 +184,10 @@ static void update_draw_frame(void) {
     audio_set_bgm_volume(&audio, settings.bgm_volume * (1.0f - transition_alpha));
     audio_update(&audio);
     int in_game = (screen == SCREEN_GAME) || (transition_dir != 0 && transition_target_screen == SCREEN_GAME);
-    if (in_game) {
+    int audio_test = screen == SCREEN_OPTIONS ? screens_audio_test_state() : -1;
+    if (audio_test >= 0) {
+        audio_preview_effect(&audio, audio_test);
+    } else if (in_game) {
         if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : ((rand() % 10) + 1));
         else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, ((audio.current_game_track + 1 + (rand() % 9)) % 10) + 1);
     } else {
@@ -230,7 +233,7 @@ static void update_draw_frame(void) {
             }
         } else if (screen == SCREEN_CREDITS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) { audio_play_click(&audio); screen = SCREEN_START; }
-        } else if (screen == SCREEN_OPTIONS && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
+        } else if (screen == SCREEN_OPTIONS) {
             if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) screen = SCREEN_START;
         } else if (screen == SCREEN_STATS) {
 #ifndef __EMSCRIPTEN__
@@ -729,6 +732,10 @@ int main(int argc, char **argv) {
 #endif
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
+    audio_set_effects(settings.effect_chorus, settings.effect_bass, settings.effect_reverb);
+#ifndef __EMSCRIPTEN__
+    if (settings.music_folder[0]) audio_set_music_folder(&audio, settings.music_folder);
+#endif
     canvas = LoadRenderTexture(CANVAS_W, CANVAS_H); SetTextureFilter(canvas.texture, TEXTURE_FILTER_BILINEAR);
     overlay_canvas = LoadRenderTexture(CANVAS_W, CANVAS_H); SetTextureFilter(overlay_canvas.texture, TEXTURE_FILTER_BILINEAR);
 

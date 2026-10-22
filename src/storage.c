@@ -29,6 +29,7 @@ static void safe_write_text(const char *filename, const char *content) {
 }
 
 void storage_load_settings(GameSettings *s) {
+    s->music_folder[0] = '\0';
     s->rounds = 2;
     s->difficulty = DIFFICULTY_EASY;
     s->master_timer = 15;
@@ -36,6 +37,9 @@ void storage_load_settings(GameSettings *s) {
     s->background = 0;
     s->bgm_volume = 1.00f;
     s->sfx_volume = 0.50f;
+    s->effect_chorus = 0.0f;
+    s->effect_bass = 0.0f;
+    s->effect_reverb = 0.50f;
     s->anim_speed = 0;
     s->terminal_color = 2;
     s->fullscreen = 0;
@@ -51,8 +55,19 @@ void storage_load_settings(GameSettings *s) {
     FILE *f = fopen(path, "r");
     if (!f) return;
 
-    char line[128];
+    char line[MUSIC_FOLDER_CAP + 64];
     while (fgets(line, sizeof(line), f)) {
+        if (!strchr(line, '\n') && !feof(f)) {
+            int ch;
+            while ((ch = fgetc(f)) != '\n' && ch != EOF) {}
+            continue; /* Ignore overlong settings rather than truncating a path. */
+        }
+        if (strncmp(line, "music_folder=", 13) == 0) {
+            line[strcspn(line, "\r\n")] = '\0';
+            if (strlen(line + 13) < sizeof(s->music_folder))
+                strcpy(s->music_folder, line + 13);
+            continue;
+        }
         char k[64], v[64];
         if (sscanf(line, "%63[^=]=%63s", k, v) == 2) {
             if (strcmp(k, "rounds") == 0) {
@@ -78,6 +93,13 @@ void storage_load_settings(GameSettings *s) {
             } else if (strcmp(k, "bgm_volume") == 0) {
                 float vol = (float)atof(v);
                 s->bgm_volume = (vol < 0.0f) ? 0.0f : (vol > 1.0f) ? 1.0f : vol;
+            } else if (strcmp(k, "effect_chorus") == 0 || strcmp(k, "effect_bass") == 0 || strcmp(k, "effect_reverb") == 0) {
+                float value = strtof(v, NULL);
+                if (!(value >= 0.0f)) value = 0.0f; /* Includes NaN. */
+                if (value > 1.0f) value = 1.0f;
+                if (strcmp(k, "effect_chorus") == 0) s->effect_chorus = value;
+                else if (strcmp(k, "effect_bass") == 0) s->effect_bass = value;
+                else s->effect_reverb = value;
             } else if (strcmp(k, "sfx_volume") == 0) {
                 float vol = (float)atof(v);
                 s->sfx_volume = (vol < 0.0f) ? 0.0f : (vol > 1.0f) ? 1.0f : vol;
@@ -124,7 +146,7 @@ void storage_load_settings(GameSettings *s) {
 }
 
 void storage_save_settings(const GameSettings *s) {
-    char buf[1024];
+    char buf[MUSIC_FOLDER_CAP + 1024];
     const char *diff_str = (s->difficulty == DIFFICULTY_DEUS) ? "deus" :
                            (s->difficulty == DIFFICULTY_MASTER) ? "master" :
                            (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";
@@ -139,6 +161,7 @@ void storage_save_settings(const GameSettings *s) {
                           (s->terminal_color == 5) ? "dark" : "green";
 
     snprintf(buf, sizeof(buf),
+             "music_folder=%s\n"
              "rounds=%d\n"
              "difficulty=%s\n"
              "master_timer=%d\n"
@@ -146,6 +169,9 @@ void storage_save_settings(const GameSettings *s) {
              "background=%d\n"
              "bgm_volume=%.2f\n"
              "sfx_volume=%.2f\n"
+             "effect_chorus=%.2f\n"
+             "effect_bass=%.2f\n"
+             "effect_reverb=%.2f\n"
              "anim_speed=%d\n"
              "terminal_color=%s\n"
              "fullscreen=%d\n"
@@ -155,8 +181,8 @@ void storage_save_settings(const GameSettings *s) {
              "unlocked_opponents=%d\n"
              "current_opponent=%d\n"
              "cleared_mask=%llu\n",
-             s->rounds, diff_str, s->master_timer, rule_str, s->background,
-             s->bgm_volume, s->sfx_volume, s->anim_speed, col_str,
+             s->music_folder, s->rounds, diff_str, s->master_timer, rule_str, s->background,
+             s->bgm_volume, s->sfx_volume, s->effect_chorus, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
              s->fullscreen, s->bloom, s->crt_filter, s->gamma,
              s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask);
     safe_write_text("settings.txt", buf);

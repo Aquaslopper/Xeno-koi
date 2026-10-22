@@ -56,13 +56,41 @@ exists, read out of `storage_load_settings()` in `src/storage.c:32-46`:
 | Terminal colour | Green, Amber, Teal, Crimson, Violet. The name list in `src/ui_screens.c:193` has a sixth, DARK, which the selector's `% 5` at `:272` never lands on: it is what playing DEUS sets, and leaving him puts you back on Teal | Teal (2) |
 | Anim Speed | Slow, Normal, Fast | Slow |
 | BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
+| Music Folder (desktop, page 2) | Folder path for up to 10 custom MP3 match tracks; Use Default restores shipped tracks | Built-in music |
+| Action audio (page 2) | Chorus, Bass boost, Space reverb; controls capture/Koi-Koi-triggered music processing | Off, +0 dB, 50% |
 | Bloom Effect | Off, Mid, Full | Mid |
 | CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
 | Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | 1.00 |
 | Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) | Windowed |
 
+Use the arrows and **1 / 2**, **2 / 2** page indicator at the bottom right to change Options pages. Page 1 retains the original controls; page 2 contains the music folder and Action audio controls.
+
 Nothing here is per-match: BACK (SAVE) writes `settings.txt` and returns you to the menu
 (`src/ui_screens.c:296`), and the next match starts with what you left there.
+
+### Custom music (desktop)
+
+1. Open **Options**, use the bottom-right arrow to reach **page 2**, and click the music-folder button at the top.
+2. Type a **full folder path**, or press **Ctrl+V** to paste one (pasting replaces the whole field). Paths containing spaces are supported. Quoted paths copied from Windows Explorer work too.
+3. Click **Apply** or press **Enter**. The choice is saved in `settings.txt` as `music_folder=…`, and the next match uses your songs with the existing BGM volume and capture reverb.
+
+The game scans that folder only, **not subfolders**, sorts filenames, and loads the first **10 playable MP3 files** (including uppercase `.MP3` extensions). There is no required naming scheme. Invalid tracks are skipped; an empty, unreadable, or invalid folder shows an error and leaves the current playlist unchanged. A single playable track repeats. Larger playlists use the existing match-music shuffling.
+
+**Use Default** (or applying a blank path) restores the shipped match tracks. **Cancel** leaves your setting unchanged. Menu music and sound effects are not replaced. The original files are never copied, changed, or deleted. Keep your folder available: if it is missing or has no usable MP3s on the next launch, that session falls back to built-in music, retaining the saved path so you can reconnect the folder or change it in Options. Folder contents are rescanned at launch or when you apply the path again, not continuously.
+
+This option is **desktop-only**. Browser builds cannot read a local folder path and continue using bundled music. BGM and SFX volume controls still work there.
+
+### Action card audio effects
+
+On **Options page 2**, beneath **Audio effect options**, the three sliders change the **music effect triggered by taking/capturing cards or calling Koi-Koi**. They do not apply continuously or replace card SFX. The existing action envelope builds and fades; sliders set its maximum strength.
+
+- **Chorus:** replaces the discontinued stereo widener. Adds two pitch-modulated short-delay voices over the direct music. Raising the control increases their level and modulation depth. The two channels use identical modulation and fixed gains: this is a layered chorus, **not an auto-panner**. Chorus deliberately modulates pitch/phase; set Chorus to zero if you do not want that movement.
+- **Bass boost:** maximum is a **+10 dB low shelf with stereo-linked compression of only the added bass** (up to 4:1). The original music is not ducked by the bass compressor. The displayed dB value is the low-frequency pre-compression ceiling at full action strength; loud material receives less additional gain to prevent clipping.
+- **Space reverb:** increasing the slider expands reflection spacing and diffusion, and lengthens the decay from a small room toward a large hall—not just a louder copy of the same room. At nominal 44.1 kHz, measured impulse-decay estimates are about 0.6 s at 25%, 1.1 s at 50%, and 6 s at maximum. The largest setting includes low-frequency ambience in the centre of the return; bass opens over the final 20%, while the stereo diffuse field stays focused on mids/highs. Dry music remains present. This is algorithmic room/hall reverb, not a recorded impulse response or a shimmer/pitch-shifting reverb.
+
+Use **TEST EFFECT: ON/OFF** below the sliders to audition your settings. **ON** plays match music from your selected folder (or the built-in playlist) through the real effect at full action strength, with slider changes applied live. **OFF** keeps that same track playing dry for comparison, with a short smooth release rather than an abrupt cut. Finished tracks advance through the loaded playlist. BGM volume/mute is respected. Leaving page 2 or using **BACK (SAVE)** stops the audition and restores menu music. Test state is temporary, never saved; with no playable tracks the page displays a warning instead of starting a silent test. This control works in the browser too, using bundled music.
+
+Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls in `settings.txt` (`effect_chorus`, `effect_bass`, `effect_reverb`). Fresh defaults are Chorus off, +0 dB bass, 50% space reverb. Old `effect_stereo` values are ignored rather than turning a different effect on automatically. With all effects off, music is unchanged with no added latency. The effect sliders also work in browser builds; the local folder control remains desktop-only. See [DSP design, sources and numerical verification](audio-dsp.md) for mono-safety checks and device-rate limitations.
 
 ### Fullscreen
 

@@ -85,6 +85,9 @@ jobs:
       - name: Run table UI regression tests (headless)
         run: ./tests/test_table_ui.sh
 
+      - name: Run custom music folder regression tests (headless)
+        run: ./tests/test_music_folder.sh
+
       - name: Run audio DSP regression tests (headless)
         run: ./tests/test_audio_dsp.sh
 
