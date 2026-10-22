@@ -91,6 +91,10 @@ void speed_bar_grade(float cover) {
     award(mp);
 }
 
+int speed_bar_total(void) {
+    return s_total;
+}
+
 int speed_bar_apply_match_bonus(GameState *g) {
     if (!g || g->ruleset != RULESET_KK_ADD_10 || s_bonus_applied) return 0;
     s_bonus_applied = 1;

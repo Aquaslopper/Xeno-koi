@@ -1,5 +1,6 @@
 #include "ui_screens.h"
 #include "ui_replay.h"
+#include "ui_speed.h"
 #include "storage.h"
 #include <stdio.h>
 #include <string.h>
@@ -666,6 +667,20 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const 
     }
     draw_btn((Rectangle){ 490, 470, 300, 46 }, "PLAY AGAIN", 20, vm, COLOR_PHOSPHOR);
     draw_btn((Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20, vm, COLOR_PHOSPHOR);
+
+    /* KK-ADD-10 speed minigame: the conversion, in gold, in its own box below the
+       board panel - the ledger window itself is full on a 12-round match. */
+    if (g->ruleset == RULESET_KK_ADD_10 && speed_bar_total() > 0) {
+        int mp = speed_bar_total(), bonus = mp / 10;
+        Rectangle mp_box = { 400.0f, 604.0f, 480.0f, 48.0f };
+        DrawRectangleRec(mp_box, COLOR_PANEL_BG);
+        ui_draw_panel_border(mp_box, COLOR_AMBER);
+        float glint = 0.82f + 0.18f * sinf((float)GetTime() * 2.2f);
+        Color gold = COLOR_AMBER;
+        gold.a = (unsigned char)(255.0f * glint);
+        draw_centered_text(font_body, TextFormat("SPEED MINIPOINTS:  %d  =  +%d PTS", mp, bonus),
+                           640.0f, mp_box.y + (mp_box.height - 20.0f) / 2.0f, 20.0f, 1.2f, gold);
+    }
 }
 
 ScreenAction screens_handle_match_result_click(Vector2 vm) {

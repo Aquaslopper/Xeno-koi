@@ -17,6 +17,7 @@ void speed_bar_update(const GameState *g, float dt, int input_unlocked);
 void speed_bar_consume(void);                     /* hand play resolved with no grade */
 void speed_bar_grade(float cover);                /* capture graded: cover is 0..1 */
 int  speed_bar_apply_match_bonus(GameState *g);   /* +total/10 to the human; returns the bonus */
+int  speed_bar_total(void);                       /* minipoints earned this match */
 void speed_bar_draw(void);                        /* bar behind, gold numbers over it */
 
 #endif /* UI_SPEED_H */

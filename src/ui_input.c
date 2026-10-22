@@ -146,8 +146,10 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
             replay_rec_play(0, card_id, -1);
         }
     }
-    if (grade_cover >= 0.0f) speed_bar_grade(grade_cover);
-    else speed_bar_consume();
+    if (g->ruleset == RULESET_KK_ADD_10) {
+        if (grade_cover >= 0.0f) speed_bar_grade(grade_cover);
+        else speed_bar_consume();
+    }
 }
 
 void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
