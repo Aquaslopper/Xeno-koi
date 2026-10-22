@@ -7,6 +7,26 @@
 ## Status Summary
 ## Latest completed work
 
+### Glowing card-back loading transition and 4 s winner banner (22 October 2026)
+
+- Reworked `start_transition` in `src/ui_main.c` into a smooth three-stage transition while keeping Main Menu subscreen buttons (`OPTION`, `STATS`, `CREDITS`, `SAVE`, `QUIT`, and opening/closing Opponent Select) snappy and unchanged:
+  1. **Slow smooth dim to full dark (`TRANS_OUT_DUR = 1.80f` smoothstep):** keeps the outgoing screen intact (including the Campaign opponent overlay on match start, the final Round Result combo screen on `MATCH RESULTS`, and the Pause overlay on abandon — fixing the 1-frame overlay vanish) while slowly fading outgoing BGM down to silence.
+  2. **2.20 s mysterious card-back screen (`TRANS_HOLD_DUR = 2.20f`):** on full black, centers a small borderless `assets/back.png` (`64 x 104`) with soft dark-vignetted edges melting into the void, a very faint ambient phosphor whisper behind the card, subtle inner mist, and a focused glow on the `XENO/KOI` emblem at the lower-right corner before subsiding back into pitch black and switching screens/music cleanly.
+  3. **Smooth reveal (`TRANS_IN_DUR = 1.20f` smoothstep):** lifts from black into `SCREEN_GAME`, `SCREEN_MATCH_RESULT`, `SCREEN_START`, or `SCREEN_STATS` as incoming BGM swells up (and fires the deferred win/lose SFX as `SCREEN_MATCH_RESULT` reveals).
+- **Instant in-game match restart (`begin_new_match`):** clicking the board's `RESTART` button (`1160, 610`), pressing `R`, or confirming `RESTART MATCH` inside Pause now restarts the match immediately on `SCREEN_GAME` without popping up the `GAME PAUSED` overlay and without running the loading-card transition.
+- Added a **4.00 s end-of-round / end-of-match winner banner** (`ROUND_BANNER_DUR = 4.00f`, `draw_round_end_banner` in `src/ui_main.c`) accompanied by a **subtle `0.26 s` low-tone sci-fi notification sound** (`init_banner_sfx` / `play_banner_sfx`, `110 Hz -> 147 Hz` stereo telemetry pulse scaled by `audio.sfx_volume`) when `PHASE_ROUND_END` begins: shows the round or final match winner, running/final score, and for `KK-ADD-10` the gold minipoints line (`GOLD MINIPOINTS: <mp> = +<pts> PTS` on match end, or running gold minipoints mid-match). `speed_bar_apply_match_bonus()` folds in once on the final round's rising edge so the match winner and score are exact; after 4 seconds, the full combo/breakdown overlay (`screens_draw_round_result`) eases in over `0.85 s` (`smooth01(overlay_alpha)`).
+- Updated `.github/workflows/build.yml` to fetch MinGW packages from `mirrors.edge.kernel.org` (Fastly HTTPS CDN) instead of `azure.archive.ubuntu.com` and added concurrency cancellation for superseded branch runs.
+
+#### Checked
+- All 22 `src/*.c` compile cleanly under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_main.c` and all non-replay modules) against Raylib 5.5 headers.
+- Engine suite (`500` full simulated matches), `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, `./tests/test_audio_dsp.sh`, `./tools/audio_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- Headless 60 Hz frame-stepping harness (`ASan + UBSan`) against `src/ui_main.c` verified instant Options round-trip, instant board `RESTART` with zero pause popup and zero loading transition, zero 1-frame pop on opponent choice and `MATCH RESULTS`, `1.80 s` slow dim -> `2.20 s` subtle card-back loading hold -> `1.20 s` reveal, `4.00 s` KK-ADD-10 winner + gold-points banner + banner notification SFX trigger before the `0.85 s` combo-screen fade-in, deferred win SFX, and smooth return to Main Menu.
+
+#### Needs maintainer verification
+- Visually and audibly confirm on live desktop/web hardware: the `1.80 s` slow dim -> `2.20 s` subtle card-back/logo glow -> `1.20 s` reveal feel, instant `RESTART` behavior, and the `4.00 s` winner + KK-ADD-10 gold banner with its subtle low sci-fi notification tone.
+
+**Touched:** `src/ui_main.c`, `.github/workflows/build.yml`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_speed.c`, `src/ui_screens.c`, `src/ui_audio.c`, `src/campaign.c`, `src/storage.c`, `src/ai.c`, card/shader/audio assets, `docs/`, or the handoff PDF.
+
 ### Current Options and README gameplay captures — completed locally 22 Oct 2026
 
 - Imported the four supplied 1920 x 1080 captures through `tools/make_screenshots.py --from`: `menu1.png` replaces the old Options frame, `menu2.png` adds the current page 2, and `ingame.png` / `ingame2.png` add the two README gameplay views. The importer only flattened/encoded them to q95 WebP; no capture was cropped, repainted, or recoloured.
