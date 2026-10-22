@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Xeno Koi — height maps, three safe uses</title>
+<style>
+  :root { --phos:#64f0ff; --dim:rgba(100,240,255,.55); --faint:rgba(100,240,255,.32); --line:rgba(100,240,255,.22); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:#000; color:var(--phos); overflow:hidden;
+               font:12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing:.05em; }
+  #stage { position:fixed; inset:0; display:grid; place-items:center; }
+  #wrap { position:relative; width:min(100vw, calc(100vh * 16/9)); height:min(100vh, calc(100vw * 9/16));
+          box-shadow:0 0 0 1px rgba(100,240,255,.12), 0 0 100px rgba(100,240,255,.05); }
+  canvas { display:block; width:100%; height:100%; }
+
+  #hud { position:fixed; top:0; left:0; right:0; padding:14px 18px; display:flex; justify-content:space-between;
+         align-items:flex-start; pointer-events:none; z-index:4; }
+  #hud h1 { margin:0; font-size:11px; font-weight:600; letter-spacing:.32em; }
+  #hud h1 small { display:block; margin-top:4px; font-size:9.5px; letter-spacing:.1em;
+                  color:var(--dim); font-weight:400; text-transform:none; }
+  #mode { text-align:right; font-size:10px; color:var(--dim); }
+  #mode b { color:var(--phos); font-weight:500; }
+
+  #panel { position:fixed; right:16px; bottom:16px; width:296px; padding:13px 15px 11px;
+           background:rgba(4,10,13,.85); border:1px solid var(--line); border-radius:3px;
+           backdrop-filter:blur(9px); z-index:5; }
+  #panel.hidden { display:none; }
+  .modes { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin:0 0 12px; }
+  .chip { font:inherit; font-size:9px; letter-spacing:.08em; padding:5px 4px; cursor:pointer; text-align:center;
+          color:var(--dim); background:transparent; border:1px solid var(--line); border-radius:2px; }
+  .chip:hover { color:var(--phos); border-color:rgba(100,240,255,.5); }
+  .chip.on { color:#041014; background:var(--phos); border-color:var(--phos); font-weight:600; }
+  .row { display:flex; justify-content:space-between; align-items:baseline; margin:0 0 2px; }
+  .row label { font-size:9.5px; letter-spacing:.13em; color:var(--dim); }
+  .row output { font-size:10px; color:var(--phos); }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:16px; background:transparent;
+                      margin:0 0 9px; cursor:ew-resize; }
+  input[type=range]::-webkit-slider-runnable-track { height:2px; background:rgba(100,240,255,.2); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:9px; height:13px; margin-top:-6px;
+    background:var(--phos); border-radius:1px; box-shadow:0 0 10px rgba(100,240,255,.7); }
+  input[type=range]::-moz-range-track { height:2px; background:rgba(100,240,255,.2); }
+  input[type=range]::-moz-range-thumb { width:9px; height:13px; border:0; background:var(--phos); border-radius:1px; }
+  input[type=range]:disabled { opacity:.28; }
+  .bgs { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin:0 0 12px; }
+  .sect { font-size:9px; letter-spacing:.2em; color:var(--faint); margin:10px 0 7px;
+          border-top:1px solid rgba(100,240,255,.1); padding-top:8px; }
+  .hint { margin:9px 0 0; font-size:8.5px; line-height:1.55; color:rgba(100,240,255,.36); }
+  .hint kbd { border:1px solid var(--line); border-radius:2px; padding:0 3px; color:var(--dim); }
+  #note { margin:0 0 10px; font-size:8.5px; line-height:1.5; color:rgba(100,240,255,.42); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap"><canvas id="gl" width="1280" height="720"></canvas></div>
+</div>
+
+<div id="hud">
+  <h1>XENO / KOI — HEIGHT MAPS<small>three uses that never move the painting</small></h1>
+  <div id="mode">MODE <b id="modeName">A · FOG SETTLES LOW</b><br /><span id="readout">–</span></div>
+</div>
+
+<div id="panel">
+  <div class="modes">
+    <button class="chip on" data-mode="fog">A · FOG</button>
+    <button class="chip" data-mode="beam">B · BEAM</button>
+    <button class="chip" data-mode="bake">C · BAKED AO</button>
+  </div>
+  <p id="note">The same fog, weighted by height so it pools in the low ground.</p>
+
+  <div class="row"><label>BACKGROUND</label><output id="bgName">CASTLE</output></div>
+  <div class="bgs" id="bgChips"></div>
+
+  <div class="row"><label>A / B — BEFORE ⇄ AFTER</label><output id="vMix">100%</output></div>
+  <input type="range" id="mix" min="0" max="1" step="0.01" value="1" />
+
+  <div class="row"><label>STRENGTH</label><output id="vStrength">1.00</output></div>
+  <input type="range" id="strength" min="0" max="2" step="0.02" value="1" />
+
+  <div class="row" id="rowPhase" style="display:none"><label>BEAM ANGLE</label><output id="vPhase">–</output></div>
+  <input type="range" id="phase" min="0" max="1" step="0.005" value="0.25" style="display:none" />
+
+  <div class="sect">VIEW</div>
+  <div class="modes" style="grid-template-columns:1fr 1fr 1fr">
+    <button class="chip" id="tTable">TABLE</button>
+    <button class="chip on" id="tClamp">CLAMP</button>
+    <button class="chip" id="tFreeze">FREEZE</button>
+  </div>
+  <p class="hint">Move the pointer to swing the light (<kbd>B</kbd> mode). <kbd>Space</kbd> hold = before ·
+     <kbd>1</kbd>–<kbd>8</kbd> background · <kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> mode · <kbd>H</kbd> hide panel.</p>
+</div>
+
+<script type="module" src="js/ambient.js"></script>
+</body>
+</html>

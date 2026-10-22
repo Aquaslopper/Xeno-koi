@@ -11,7 +11,8 @@ that the game loads was changed.
 
 ```
 prototype/pom/
-├── index.html            live preview (WebGL2), the thing to look at first
+├── ambient.html          live preview (WebGL2) of the three safe uses — start here
+├── index.html            live preview of the rejected POM experiment
 ├── js/app.js             viewer: pointer-driven eye, sliders, A/B wipe
 ├── shaders/pom.frag      the game's background shader + the ray march, in GLSL ES 3.0
 ├── serve.py              static server (document root = repository root)
@@ -24,7 +25,8 @@ prototype/pom/
 Run it:
 
 ```bash
-python3 prototype/pom/serve.py            # http://localhost:8000/prototype/pom/
+python3 prototype/pom/serve.py                        # opens ambient.html
+python3 prototype/pom/serve.py --page index.html      # the POM experiment instead
 ```
 
 The height maps it needs are already generated, inside this folder at `height/<name>_height.png`
@@ -140,8 +142,8 @@ how well they fit this game:
 | ~~Parallax occlusion mapping~~ | geometric parallax | 40-48 taps | rejected: smears skylines, section 3 |
 
 Two of these are rendered in `stills/*-height-uses.jpg` — the shipped look, the height-weighted
-fog, and the beam shade side by side — and `stills/castle-height-fog-2x.jpg` is the fog change at
-2x. Measured on Castle at the same mean luminance (0.164 both, so this is redistribution, not
+fog, and the beam shade side by side — and `stills/castle-height-fog-2x.jpg` is the fog and beam
+at 2x. The live page (section 4c) is the better way to judge them. Measured on Castle at the same mean luminance (0.164 both, so this is redistribution, not
 darkening): the low ground goes darker and the ridges keep their light, standard deviation
 0.2129 -> 0.2135. Harvest behaves the same way (0.1001 -> 0.1005).
 
@@ -151,6 +153,28 @@ python3 prototype/pom/tools/height_uses.py --all
 
 Nothing in that script is a proposal for `src/`; it is the same numpy port used for the stills, so
 the numbers above are what the shader would produce if the two lines were moved over.
+
+## 4c. The live preview (`ambient.html`)
+
+Three modes, one full-screen quad, one slider. Nothing in any mode moves a texel of the
+painting — the sampling point never leaves `uv` — which is the whole difference from section 3.
+
+| key | mode | what changes | cost in the game |
+|---|---|---|---|
+| `Q` | **A · fog settles low** | the existing fog is weighted by height: ridges lose it, valleys gain up to 1.9× | +1 texture fetch per pixel |
+| `W` | **B · beam occlusion** | the drifting light is blocked by whatever stands in front of it; move the pointer to aim it, or drag BEAM ANGLE to sweep it by hand | ≈12 fetches per pixel |
+| `E` | **C · baked AO** | the occlusion `tools/bake_ao.py` would write into the JPEG, computed live so the strength can be chosen before anything is exported | **0** — it is a new JPEG |
+
+Controls: `A/B` slider wipes between as-shipped and the effect (**space** holds it at before),
+`STRENGTH` is the same knob for all three modes, `CLAMP` edges the height sampling off at the
+frame border (turn it off to see why it is on), `TABLE` lays the real board geometry over the
+frame, `FREEZE` stops the fog and the beam so two strengths can be compared on one frame.
+
+The three modes share one formula with the offline tools, so the numbers in the stills are the
+numbers on the page: `heightFogWeight()` in `shaders/ambient.frag` is the same expression as
+`height_fog` in `tools/render_stills.py`, and mode C reproduces `tools/bake_ao.py` tap for tap
+(same three radii, same gains, same warm tint, applied to the art *before* light and fog, which
+is where a baked JPEG would sit).
 
 ## 5. How it would land in the C game
 

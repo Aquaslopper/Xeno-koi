@@ -65,12 +65,12 @@ def render_variants(name, t=6.0):
     # fog that settles low: the same density, redistributed by height
     fogged = R.fog_and_vignette(
         R.bg_moving_lights(base, norm, uv, uv, t), uv, t,
-        height=hgt, height_fog=1.15)
+        height=hgt, height_fog=1.0)
 
     shade = beam_occlusion(uv, hgt, t)
     lit = R.fog_and_vignette(
         R.bg_moving_lights(base, norm, uv, uv, t, beam_shade=shade), uv, t,
-        height=hgt, height_fog=1.15)
+        height=hgt, height_fog=1.0)
 
     return shipped, fogged, lit, shade
 

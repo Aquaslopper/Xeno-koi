@@ -6,7 +6,8 @@ own generated height maps (`prototype/pom/height/*.png`), so the document root h
 repository root;
 this puts a redirect on `/` so the preview opens on the page itself.
 
-    python3 prototype/pom/serve.py            # http://localhost:8000/prototype/pom/
+    python3 prototype/pom/serve.py                      # ambient.html (height maps)
+    python3 prototype/pom/serve.py --page index.html    # the rejected POM experiment
     python3 prototype/pom/serve.py --port 9000
 """
 import argparse
@@ -18,7 +19,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-URL = "/" + os.path.relpath(HERE, REPO).replace(os.sep, "/") + "/"
+BASE = "/" + os.path.relpath(HERE, REPO).replace(os.sep, "/") + "/"
+URL = BASE + "ambient.html"          # the height-map preview; --page overrides
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -44,7 +46,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--bind", default="0.0.0.0")
+    ap.add_argument("--page", default="ambient.html")
     args = ap.parse_args()
+    global URL
+    URL = BASE + args.page
     handler = functools.partial(Handler, directory=REPO)
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.ThreadingTCPServer((args.bind, args.port), handler) as httpd:
