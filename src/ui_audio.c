@@ -50,6 +50,7 @@ static float s_sc_env = 0.0f;
 static BiquadState s_bass_l, s_bass_r;
 static float s_bass_env;
 static float s_effect_cur[3] = {0.0f, 0.0f, 0.5f};
+static BiquadState s_chorus_hp;
 static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase;
 static int s_chorus_index;
 
@@ -90,6 +91,7 @@ static void reset_music_dsp(void) {
     s_pre_idx_l = s_pre_idx_r = 0;
     s_in_hp_l = s_in_hp_r = s_in_lp_l = s_in_lp_r = (BiquadState){0};
     s_bass_l = s_bass_r = (BiquadState){0};
+    s_chorus_hp = (BiquadState){0};
     s_sc_env = s_bass_env = s_reverb_cur = 0;
     memset(s_chorus_history, 0, sizeof(s_chorus_history));
     s_chorus_index = 0;
@@ -296,9 +298,9 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             out_r = dry_r*dry_gain + (room_mid - room_side)*wet_gain;
         }
 
-        /* Separate, feed-forward two-voice chorus AFTER the room. Identical tap
-           modulation in both channels preserves pan; gains never follow the LFO.
-           Parallel return retains the direct signal instead of ducking it. */
+        /* Separate, feed-forward two-voice chorus AFTER the room. Return only
+           generated Side from the existing quadrature taps; retain the input Mid.
+           The linked output limiter below may still change that Mid. */
         s_chorus_history[0][s_chorus_index] = out_l;
         s_chorus_history[1][s_chorus_index] = out_r;
         float amount = chorus*rev;
@@ -306,13 +308,14 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             float depth = 264*chorus; /* up to 6 ms at nominal 44.1 kHz */
             float d1 = 662 + depth*sinf(s_chorus_phase);
             float d2 = 1014 + depth*cosf(s_chorus_phase);
-            float mix = amount; /* At maximum, the averaged voices have unity return gain. */
-            float voice_l = 0.5f*(delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d1)
-                                + delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d2));
-            float voice_r = 0.5f*(delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d1)
-                                + delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d2));
-            out_l += mix*voice_l;
-            out_r += mix*voice_r;
+            /* Antisymmetric return: (L+R)/2 is unchanged before peak limiting. */
+            float va = 0.5f*(delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d1)
+                           + delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d1));
+            float vb = 0.5f*(delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d2)
+                           + delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d2));
+            float voice_side = biquad_hp300(&s_chorus_hp, 0.5f*(va - vb));
+            out_l += amount*voice_side;
+            out_r -= amount*voice_side;
         }
         if (++s_chorus_index == CHORUS_HISTORY) s_chorus_index = 0;
         s_chorus_phase += 6.28318530718f*0.60f/44100;
