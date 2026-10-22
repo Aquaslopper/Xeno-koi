@@ -227,10 +227,12 @@ int main(void) {
         chorus_routing();
         chorus_behaviour();
         space_dimensions();
+        float off = bass_gain(0, 0.01f, 20);
         float quiet = bass_gain(1, 0.01f, 20), half = bass_gain(0.5f, 0.01f, 20);
         float loud = bass_gain(1, 0.8f, 20), high = bass_gain(1, 0.01f, 8000);
         printf("%d Hz bass: quiet %+.3f dB, half %+.3f dB, loud %+.3f dB, 8kHz %+.3f dB\n", sample_rate, quiet, half, loud, high);
-        assert(fabsf(quiet - 10) < 0.15f && fabsf(half - 5) < 0.15f && fabsf(high) < 0.05f);
+        assert(fabsf(off) < 1e-5f);
+        assert(fabsf(quiet - 20) < 0.15f && fabsf(half - 10) < 0.15f && fabsf(high) < 0.05f);
         assert(loud > 0.5f && loud < quiet - 2); /* Bass is louder, but added bass is controlled. */
         /* A preceding loud kick must not hold down the rest of the music. */
         prepare(0, 1, 0, 1);
