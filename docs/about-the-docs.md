@@ -97,10 +97,10 @@ to the column and blows it up on click.
 
 ## Screenshots
 
-Eight pictures of the running game sit in `docs/assets/screenshots/`: the board in play, a
-tooltip, the Koi-Koi screen, a transmission from DEUS, the match result, the options screen, the
-campaign grid and the stats screen. They and the one reference scan beside them are the **only
-images on this site that no tool can produce** - this repository has no GPU and no headless browser,
+Eleven pictures of the running game sit in `docs/assets/screenshots/`: the two README gameplay
+views, the older board in play, a tooltip, the Koi-Koi screen, a transmission from DEUS, the match
+result, both Options pages, the campaign grid and the stats screen. They and the one reference scan
+beside them are the **only images on this site that no tool can produce** - this repository has no GPU and no headless browser,
 so nothing here can render the game. A frame is captured by hand and imported once:
 
 ```bash

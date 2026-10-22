@@ -5,7 +5,7 @@ cropped out of them.
 
 Everything else under docs/assets/ is drawn from source. These are not: a picture of the shipped
 board is the one thing no tool here can produce, because this repo has no GPU and no headless
-browser. So the six frames are captured by hand and committed as they came in, and this tool does
+browser. So the frames are captured by hand and committed as they came in, and this tool does
 the two parts that can be generated:
 
   1. import  --from <dir> re-encodes a capture to WebP at its captured size. Run once per frame.
@@ -28,7 +28,7 @@ The captured frames are already dimmed and scanlined by assets/postprocess.fs, s
 lossier encode lands on top of noise the game put there on purpose.
 
 Usage:
-  python3 tools/make_screenshots.py --from ~/shots   # import the six captures
+  python3 tools/make_screenshots.py --from ~/shots   # import the captures it finds
   python3 tools/make_screenshots.py                  # re-crop from what is committed
   python3 tools/make_screenshots.py --check          # exit 1 if any image is missing
 
@@ -59,6 +59,10 @@ PAD = 4
 FRAMES = [
     ("board-mid-round", "board mid round.png",
      "four turns into a round: half the field gone, both capture columns filling"),
+    ("ingame", "ingame.png",
+     "the opening of a KK-ADD-10 round, with one player card raised for selection"),
+    ("ingame2", "ingame2.png",
+     "a KK-ADD-10 round in progress, with populated capture lanes and particles"),
     ("card-tooltip", "card tool tip.png",
      "a field card held under the cursor, with its tooltip beside it"),
     ("koi-prompt", "koi koi prompt.png",
@@ -66,7 +70,10 @@ FRAMES = [
     ("deus-taunt", "deus taunt.png",
      "the mono deck, the round-start banner and DEUS's transmission panel"),
     ("match-result", "match result.png", "the match-over screen with its round ledger"),
-    ("options", "option.png", "the whole options screen, every setting at its default"),
+    ("options", "menu1.png",
+     "Options page 1: match, difficulty, visual and volume controls, with gamma at 1.00"),
+    ("options-audio", "menu2.png",
+     "Options page 2: custom music, Action audio sliders and the TEST EFFECT control"),
     ("campaign", "camp.png", "the sector grid with one opponent's dossier open"),
     ("stats", "stats.png", "the stats screen, the last ten matches and the replay controls"),
 ]

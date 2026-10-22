@@ -19,9 +19,9 @@ Everything above is explained with real card pictures in the rulebook: **[How to
 
 ## Screenshots
 
-<img width="1920" height="1080" src="https://github.com/user-attachments/assets/c48a1bdd-9f0c-4530-ba30-5332710876fd" alt="A match in progress: the player's hand along the bottom, the field in the middle, the stock to the left, and both capture lanes down the left edge, all inside a teal CRT frame." width="1920" />
+<img width="1920" height="1080" src="docs/assets/screenshots/ingame.webp" alt="The opening of a KK-ADD-10 round: eight cards in each hand, eight on the field, 24 in the stock, and one player card raised for selection inside the teal CRT interface." />
 
-<img width="1920" height="1080" src="https://github.com/user-attachments/assets/bb6ee598-940e-46f9-ab39-6cf9941d9260" alt="The same table with a card mid-drag, its matching month glowing on the field." width="1920" />
+<img width="1920" height="1080" src="docs/assets/screenshots/ingame2.webp" alt="A KK-ADD-10 round in progress: both players have cards in their capture lanes, the player's remaining hand sits along the bottom, and capture particles drift above the field." />
 
 ## Where to read what
 

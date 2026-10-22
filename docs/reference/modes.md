@@ -41,6 +41,10 @@ settings when you press BACK (SAVE). See [Errata & Known Issues](../errata.md) f
 
 On desktop, these settings are saved in `settings.txt` next to the game. The browser build stores the same settings in browser local storage as `xenokoi_settings.txt`; they stay in that browser profile, not in an account or cloud save.
 
+<div class="figure-zoom" id="options-page-1"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/options.webp" width="1920" height="1080" loading="lazy" alt="Current Options page 1: 12 Rounds, KK-ADD-10, MASTER with 15 SEC selected, TEAL, 3: Castle, SLOW animation, BGM 100%, SFX 50%, BORDERLESS, Bloom MID, CRT 2: MID, Display Gamma 1.00, and page 1 / 2."></div><a class="figure-zoom-btn" href="#options-page-1">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*Options page 1 in the current UI. The 12-round Master match is this player's saved example, not the fresh-install configuration; **Display Gamma reads 1.00**. The table below separates these captured choices from the defaults.*
+
 The left column is the label the screen shows. The right column is what `storage_load_settings()` in `src/storage.c` returns when no saved settings exist:
 
 | Setting | Options | Fresh install / browser profile |
@@ -79,6 +83,10 @@ This option is **desktop-only**. Browser builds cannot read a local folder path 
 ### Action card audio effects
 
 On **Options page 2**, beneath **Audio effect options**, the three sliders change the **music effect triggered by taking/capturing cards or calling Koi-Koi**. They do not apply continuously or replace card SFX. The existing action envelope builds and fades; sliders set its maximum strength.
+
+<div class="figure-zoom" id="options-page-2"><div class="figure-zoom-scroll"><img src="../../assets/screenshots/options-audio.webp" width="1920" height="1080" loading="lazy" alt="Current Options page 2: CUSTOM FOLDER for music, Chorus 60%, Bass boost +20.0 dB, Space reverb 70%, TEST EFFECT: OFF, and page 2 / 2."></div><a class="figure-zoom-btn" href="#options-page-2">zoom the screen</a><a class="figure-zoom-btn" href="#">close</a></div>
+
+*Options page 2 in the current UI. Chorus 60%, Bass +20 dB, and Space reverb 70% are this player's example settings, not the fresh defaults of Off, +0 dB, and 50%.*
 
 - **Chorus:** replaces the discontinued stereo widener. Adds two pitch-modulated short-delay voices over the direct music. Raising the control increases their level and modulation depth. The two channels use identical modulation and fixed gains: this is a layered chorus, **not an auto-panner**. Chorus deliberately modulates pitch/phase; set Chorus to zero if you do not want that movement.
 - **Bass boost:** maximum is a **+20 dB low shelf with stereo-linked compression of only the added bass** (up to 4:1); the midpoint requests +10 dB. The original music is not ducked by the bass compressor. The displayed dB value is the low-frequency pre-compression ceiling at full action strength; loud material receives less additional gain to prevent clipping. See the [current 96 kHz regression note](audio-dsp.md#checks-run-22-october-2026) before treating that endpoint as verified on every output device.
