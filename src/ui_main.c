@@ -52,6 +52,8 @@ static int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0, human_tur
 static ScreenState transition_target_screen = SCREEN_START, screen = SCREEN_START;
 static GamePhase last_overlay_phase = PHASE_NONE, prev_round_phase = PHASE_NONE;
 static AudioAssets audio;
+static Sound sfx_banner;
+static int has_sfx_banner = 0;
 static RenderTexture2D canvas, overlay_canvas;
 static Shader post_shader;
 static BoardAssets assets;
@@ -70,6 +72,64 @@ static float smooth01(float x) {
 static void start_transition(ScreenState target, int action, int track) {
     transition_dir = 1; transition_timer = 0.0f;
     transition_target_screen = target; transition_action = action; transition_track = track;
+}
+
+static void init_banner_sfx(void) {
+    if (!IsAudioDeviceReady()) return;
+    enum { SR = 44100, FRAMES = 11466 }; /* 0.26 s subtle low sci-fi notification tone */
+    static float pcm[FRAMES * 2];
+    for (int i = 0; i < FRAMES; i++) {
+        float t = (float)i / (float)SR, sl = 0.0f, sr_v = 0.0f;
+        if (t < 0.120f) {
+            float att = 0.5f * (1.0f - cosf(3.14159265f * fminf(1.0f, t / 0.007f)));
+            float rel = (t > 0.085f) ? cosf(1.5707963f * (t - 0.085f) / 0.035f) : 1.0f;
+            float env = att * rel * expf(-t * 14.0f);
+            float f1 = 110.0f + 12.0f * expf(-t * 55.0f), fm = 0.32f * expf(-t * 32.0f);
+            float pl = 6.2831853f * (f1 - 0.35f) * t, pr = 6.2831853f * (f1 + 0.35f) * t + 0.22f;
+            sl   += env * (0.78f * sinf(pl + fm * sinf(2.0f * pl)) + 0.22f * sinf(0.5f * pl));
+            sr_v += env * (0.78f * sinf(pr + fm * sinf(2.0f * pr)) + 0.22f * sinf(0.5f * pr));
+        }
+        if (t >= 0.072f) {
+            float u = t - 0.072f;
+            float att = 0.5f * (1.0f - cosf(3.14159265f * fminf(1.0f, u / 0.008f)));
+            float tail = (t > 0.200f) ? 0.5f * (1.0f + cosf(3.14159265f * (t - 0.200f) / 0.060f)) : 1.0f;
+            float env = 1.08f * att * tail * expf(-u * 11.5f), fm = 0.28f * expf(-u * 28.0f);
+            float pl = 6.2831853f * 146.43f * u, pr = 6.2831853f * 147.23f * u + 0.30f;
+            sl   += env * (0.80f * sinf(pl + fm * sinf(2.0f * pl)) + 0.20f * sinf(0.5f * pl));
+            sr_v += env * (0.80f * sinf(pr + fm * sinf(2.0f * pr)) + 0.20f * sinf(0.5f * pr));
+        }
+        pcm[i * 2 + 0] = sl * 0.27f;
+        pcm[i * 2 + 1] = sr_v * 0.27f;
+    }
+    Wave w = { .frameCount = FRAMES, .sampleRate = SR, .sampleSize = 32, .channels = 2, .data = pcm };
+    sfx_banner = LoadSoundFromWave(w);
+    has_sfx_banner = (sfx_banner.stream.buffer != NULL);
+}
+
+static void play_banner_sfx(void) {
+    if (!has_sfx_banner || audio.sfx_volume <= 0.0f) return;
+    SetSoundVolume(sfx_banner, audio.sfx_volume);
+    PlaySound(sfx_banner);
+}
+
+static void begin_new_match(int trk) {
+    if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
+    replay_rec_abort();
+    anim_init(&anim); motion_init(); speed_bar_reset(); memset(&drag, 0, sizeof(drag));
+    hovered_idx = -1; is_paused = 0; confirm_restart = 0; combo_player = -1; combo_page = 0;
+    human_turn_started = 0; deus_banner_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
+    overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
+    uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
+    engine_init(&g, settings.ruleset, settings.rounds, match_seed);
+#ifndef __EMSCRIPTEN__
+    /* From here to the match end every decision of both players is written down,
+       so the finished match can be replayed (see docs/reference/modes.md). */
+    replay_rec_begin(match_seed, ai_rng, settings.ruleset, settings.rounds, settings.difficulty,
+                     settings.master_timer, settings.current_opponent);
+#endif
+    ai_set_opponent(settings.current_opponent); taunt_init();
+    taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
+    audio_start_match_music(&audio, trk);
 }
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
@@ -252,19 +312,7 @@ static void update_draw_frame(void) {
             campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
             round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
             if (transition_action == 1) {
-                if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
-                anim_init(&anim); speed_bar_reset(); memset(&drag, 0, sizeof(drag)); hovered_idx = -1; is_paused = 0; confirm_restart = 0; human_turn_started = 0; deus_banner_timer = 0.0f;
-                uint32_t match_seed = (uint32_t)time(NULL);
-                engine_init(&g, settings.ruleset, settings.rounds, match_seed);
-#ifndef __EMSCRIPTEN__
-                /* From here to the match end every decision of both players is written down,
-                   so the finished match can be replayed (see docs/reference/modes.md). */
-                replay_rec_begin(match_seed, ai_rng, settings.ruleset, settings.rounds, settings.difficulty,
-                                 settings.master_timer, settings.current_opponent);
-#endif
-                ai_set_opponent(settings.current_opponent); taunt_init();
-                taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
-                audio_start_match_music(&audio, transition_track);
+                begin_new_match(transition_track);
             } else if (transition_action == 2 || transition_action == 3) {
                 is_paused = 0; confirm_restart = 0;
                 audio_play_menu_music(&audio);
@@ -482,12 +530,12 @@ static void update_draw_frame(void) {
                 }
             }
         } else if (screen == SCREEN_GAME) {
-            int pause_toggled = 0;
+            int pause_toggled = 0, restarted_now = 0;
             if (((IsKeyPressed(KEY_ESCAPE) && (!drag.selected || is_paused)) || IsKeyPressed(KEY_P)) && !drag.on) { is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
-            else if (IsKeyPressed(KEY_R) && !drag.on) { is_paused = 1; confirm_restart = 1; pause_toggled = 1; }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.on) {
-                if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) { audio_play_click(&audio); is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
-                else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); is_paused = 1; confirm_restart = 1; pause_toggled = 1; }
+            else if (!is_paused && IsKeyPressed(KEY_R) && !drag.on) { audio_play_click(&audio); begin_new_match((rand() % 10) + 1); restarted_now = 1; }
+            else if (!is_paused && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.on) {
+                if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) { audio_play_click(&audio); is_paused = 1; confirm_restart = 0; pause_toggled = 1; }
+                else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); begin_new_match((rand() % 10) + 1); restarted_now = 1; }
             }
 
             if (is_paused && !pause_toggled) {
@@ -495,14 +543,11 @@ static void update_draw_frame(void) {
                     ScreenAction act = screens_handle_pause_click(vm, &confirm_restart, 0);
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_RESUME) { is_paused = 0; confirm_restart = 0; }
-                    else if (act == ACT_RESTART_MATCH) {
-                        int trk = (rand() % 10) + 1;
-                        confirm_restart = 0; start_transition(SCREEN_GAME, 1, trk);
-                    }
+                    else if (act == ACT_RESTART_MATCH) begin_new_match((rand() % 10) + 1);
                     else if (act == ACT_ABANDON_MATCH) { replay_rec_abort(); confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
-            } else if (!is_paused && !pause_toggled) {
+            } else if (!is_paused && !pause_toggled && !restarted_now) {
                 if (round_banner_timer > 0.0f) {
                     round_banner_timer -= dt;
                     if (round_banner_timer < 0.0f) round_banner_timer = 0.0f;
@@ -661,6 +706,7 @@ static void update_draw_frame(void) {
                     if (g.phase == PHASE_ROUND_END && prev_round_phase != PHASE_ROUND_END && !cinematic_is_active()) {
                         prev_round_phase = PHASE_ROUND_END;
                         round_banner_timer = ROUND_BANNER_DUR;
+                        play_banner_sfx();
                         if (anim.active && anim.type == ANIM_BANNER) anim.active = 0;
                         if (g.current_round >= g.total_rounds) speed_bar_apply_match_bonus(&g);
                     } else if (g.phase != PHASE_ROUND_END) {
@@ -865,6 +911,7 @@ int main(int argc, char **argv) {
 #endif
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
+    init_banner_sfx();
     audio_set_effects(settings.effect_chorus, settings.effect_bass, settings.effect_reverb);
 #ifndef __EMSCRIPTEN__
     if (settings.music_folder[0]) audio_set_music_folder(&audio, settings.music_folder);
@@ -915,6 +962,7 @@ int main(int argc, char **argv) {
     while (!WindowShouldClose() && !quit_requested) update_draw_frame();
 #endif
 
+    if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
