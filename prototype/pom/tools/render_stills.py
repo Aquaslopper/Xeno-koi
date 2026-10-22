@@ -152,7 +152,7 @@ def light_layer(d, width):
     return 1.0 - smoothstep(half - feather, half + 0.08, d)
 
 
-def bg_moving_lights(base, normal, uv_screen, uv_sample, t, flash=0.0):
+def bg_moving_lights(base, normal, uv_screen, uv_sample, t, flash=0.0, beam_shade=None):
     """assets/depth_fog.fs bgMovingLights(). Light geometry in screen space,
     texture fetches at uv_sample."""
     n = normal * 2.0 - 1.0
@@ -197,6 +197,8 @@ def bg_moving_lights(base, normal, uv_screen, uv_sample, t, flash=0.0):
     bloom *= 0.125
 
     beam = layers * reach * (1.0 + 0.95 * flash) + flash * 0.065 * (0.35 + 0.65 * reach)
+    if beam_shade is not None:          # 1 = unobstructed, 0 = behind a ridge
+        beam = beam * beam_shade
     warm = np.array([1.0, 0.93, 0.80], np.float32)
     diff = beam * (slope * 11.0 + bloom * 6.5)
     lblr = beam * (surf * slope * (0.32 + 1.05 * spec) * 0.95 + bloom * 1.15)
@@ -204,7 +206,7 @@ def bg_moving_lights(base, normal, uv_screen, uv_sample, t, flash=0.0):
     return np.clip(base + (1.0 - base) * (1.0 - np.exp(-add)), 0.0, 1.0)
 
 
-def fog_and_vignette(img, uv, t):
+def fog_and_vignette(img, uv, t, height=None, height_fog=0.0):
     y = uv[..., 1]
     y_mask = smoothstep(0.38, 0.88, y)
     lum = img @ LUMA
@@ -214,6 +216,10 @@ def fog_and_vignette(img, uv, t):
     w3 = np.sin(uv[..., 0] * 4.712 + uv[..., 1] * 7.854 + t * 0.15) * 0.5 + 0.5
     patch = smoothstep(0.15, 0.75, w1 * 0.50 + w2 * 0.30 + w3 * 0.20)
     a = np.clip(depth_mask * y_mask * patch * 0.80, 0.0, 0.55)
+    if height is not None and height_fog > 0.0:
+        # same amount of fog, but it pools in the low ground and leaves ridges clear
+        low = 1.0 - np.clip(bilinear(height, uv), 0.0, 1.0)
+        a = a * (1.0 - height_fog + height_fog * low) * 1.25
     a = np.where(y > 0.38, a, 0.0)[..., None]
     out = img * (1 - a) + np.array([0.0196, 0.0196, 0.0196], np.float32) * a
     vig = 1.0 - smoothstep(0.25, 0.75, np.linalg.norm(uv - 0.5, axis=-1))

@@ -125,6 +125,33 @@ float h = heightAt(uv) * (1.0 - clamp(far, 0.0, 1.0));
 Painted masks would be better; eight of them is maybe an hour of work in an image editor, and
 they are tiny files.
 
+## 4b. What the height maps are good for *without* POM
+
+The eight files in `height/` are the reusable part. They say, per pixel, "how far out of the
+painting is this" in 0..1. POM is only the most expensive thing you can do with that. Ranked by
+how well they fit this game:
+
+| use | what it changes | runtime cost | verdict |
+|---|---|---|---|
+| **Fog that settles low** | the existing fog is weighted by height, so it pools in the valleys and leaves ridges clear | none (reuses the same pass) | best fit, cheapest, visible |
+| **Beam occlusion** | the drifting light is blocked by whatever stands between it and the pixel | ~12 taps | real but modest; the beam is already soft |
+| **Baked AO into the art** | darken crevices offline, export new `assets/*.jpg` | **zero at runtime** | safest of all, no shader touched |
+| **Guide for layered parallax** | threshold the height to cut near/mid/far layers automatically | none (offline) | turns the masking work from painting into tuning |
+| ~~Parallax occlusion mapping~~ | geometric parallax | 40-48 taps | rejected: smears skylines, section 3 |
+
+Two of these are rendered in `stills/*-height-uses.jpg` — the shipped look, the height-weighted
+fog, and the beam shade side by side — and `stills/castle-height-fog-2x.jpg` is the fog change at
+2x. Measured on Castle at the same mean luminance (0.164 both, so this is redistribution, not
+darkening): the low ground goes darker and the ridges keep their light, standard deviation
+0.2129 -> 0.2135. Harvest behaves the same way (0.1001 -> 0.1005).
+
+```bash
+python3 prototype/pom/tools/height_uses.py --all
+```
+
+Nothing in that script is a proposal for `src/`; it is the same numpy port used for the stills, so
+the numbers above are what the shader would produce if the two lines were moved over.
+
 ## 5. How it would land in the C game
 
 There is no new dependency and no change to game logic. The pattern is the one the shader

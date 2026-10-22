@@ -14,6 +14,11 @@
 - Measured at 18 px edge depth: mean eye-to-surface shift 2.2 / 3.0 / 3.2 px (harvest / castle / face), max ~36 px; mean luminance drops 0.100->0.095, 0.164->0.150, 0.093->0.083 (occlusion only). Stills in `prototype/pom/stills/`.
 - Finding to settle before any port: the shipped `*_normal.png` **alpha** correlates 0.83-0.89 with luminance and reads as a cavity/height channel, so much of the height field may already exist. Finding to design around: POM stretches skyline silhouettes (see `stills/castle-wipe.jpg`), so it needs a per-background far-field mask; recommendation is OFF by default with a LOW/HIGH options row, 14-18 px depth.
 
+#### Height maps without POM (same day)
+- `prototype/pom/tools/height_uses.py` renders the shipped look against two cheaper uses of the same height field. **Height-weighted fog** (fog pools in low ground, ridges stay clear) and **beam occlusion** (the drifting light is blocked by near ridges). Neither moves a pixel of the painting, so neither can smear a skyline.
+- Castle at matched mean luminance, 0.1639 -> 0.1637 (redistribution, not darkening): low ground darker, ridge light kept, std 0.2129 -> 0.2135. Beam shade drops mean luminance to 0.1502 with 61% of the frame partially blocked. Stills: `stills/*-height-uses.jpg`, `stills/castle-height-fog-2x.jpg`.
+- Maintainer's verdict on the POM demo itself: **looks horrible**. Agreed and recorded: the technique is for flat manufactured surfaces, and a painted vista gives it nothing to reveal but smeared skyline. The height maps and the tooling stay useful; the parallax march does not.
+
 #### Checked
 - First live run in the browser failed to compile: `0:189: patch : illegal use of reserved word`. Cause: `depth_fog.fs` uses `float patch` in the fog block, which is legal in `#version 100` and `#version 330` but **reserved in `#version 300 es`**. Renamed to `fogPatch`; noted in the prototype README because the same line will bite any port that copies the fog block into an ES 3.0 shader.
 - New `prototype/pom/tools/check_shader.py`: keyword lint for the ES 3.00 reserved list plus the built-ins ES 3.00 removed (`texture2D`, `gl_FragColor`, `varying`, `attribute`). Passes on `pom.frag`; verified it fails on the pre-fix line. It is a lint, not a compiler -- the shader has still not been compiled on a GPU from here.
