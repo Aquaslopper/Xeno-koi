@@ -7,6 +7,23 @@
 ## Status Summary
 ## Latest completed work
 
+### Background POM prototype: parallax occlusion mapping on the painted backgrounds (22 October 2026)
+
+- **Prototype only, no game code changed.** New `prototype/pom/` holds a live WebGL2 preview (`index.html`, `js/app.js`, `shaders/pom.frag`, `serve.py`) and an offline still renderer (`tools/render_stills.py`, a numpy port of `assets/depth_fog.fs`), plus `tools/make_height_maps.py`, which derives a height field for each of the eight backgrounds from art already in the repo: `|luma - blur3(luma)|` blurred by 10 px (0.75) + blurred luminance (0.25) - normal-map alpha (0.10), at 640x360. Output lives in `prototype/pom/height/` (488 KiB, 8 files); `--check` verifies them against the art.
+- `shaders/pom.frag` reproduces the shipped light/fog/vignette blocks unchanged and moves only the colour and normal sampling point to the ray hit, so the A/B wipe isolates the POM itself. Adds contact AO from ray travel and an 8-tap march toward the drifting light for crevice shadow.
+- Measured at 18 px edge depth: mean eye-to-surface shift 2.2 / 3.0 / 3.2 px (harvest / castle / face), max ~36 px; mean luminance drops 0.100->0.095, 0.164->0.150, 0.093->0.083 (occlusion only). Stills in `prototype/pom/stills/`.
+- Finding to settle before any port: the shipped `*_normal.png` **alpha** correlates 0.83-0.89 with luminance and reads as a cavity/height channel, so much of the height field may already exist. Finding to design around: POM stretches skyline silhouettes (see `stills/castle-wipe.jpg`), so it needs a per-background far-field mask; recommendation is OFF by default with a LOW/HIGH options row, 14-18 px depth.
+
+#### Checked
+- `python3 prototype/pom/tools/make_height_maps.py --check` passes; the preview serves the game's real art and normal maps (HTTP 200 on all three texture paths) through `prototype/pom/serve.py`.
+- `shaders/pom.frag` and `js/app.js` compile/lint check clean (brace balance, no unused uniforms, `node --check`); **not** yet run on a real GPU here — no WebGL in this sandbox, so live shader compilation and framerate are unverified.
+- `./build.sh` and `tests/` untouched and not run: no C file changed.
+
+#### Needs maintainer eyes
+- Open `python3 prototype/pom/serve.py` -> `http://localhost:8000/prototype/pom/`, drag **PARALLAX DEPTH** between 0 and 40 on Harvest and Castle, and the A/B wipe to see flat vs POM in one frame. Decide whether the foreground win is worth the far-field mask work.
+
+**Touched:** `prototype/pom/` (new), STATUS. **Deliberately did not touch:** everything in `src/`, `assets/` (no shader, art, or normal map edited; height maps live under the prototype), rules/scoring/AI, `build.sh`, generated wiki tables, docs, the handoff PDF.
+
 ### KK-ADD-10 speed minigame: 1000 ms timer bar and minipoints (22 October 2026)
 
 - New module `src/ui_speed.c`/`ui_speed.h` (+~150 lines) adds the maintainer's minigame, **KK-ADD-10 only**. A theme-filled timer bar sits bottom-right below RESTART (`{1160, 662, 112, 40}`), arms at the start of each human hand turn when input unlocks, drains over **1000 ms** from left to right, and is gone the moment the hand card is dropped (stock flip never counts; the CPU is never graded; replays neither draw nor score it). Graded captures score `round(10 × s × a)`: `s = clamp(remaining / 500 ms, 0, 1)` (full speed half with half the bar left) and `a = clamp(drop_cover / 0.80, 0, 1)` where `drop_cover` is the dropped hand card's overlap with the target's painted slot (best match counts for all-four grabs and 2-match choices). A perfect catch (10) starts/continues a **serie**: every perfect catch in a serie of ≥2 gets +10, granted retroactively to the serie's first catch too (perfect 8-deal = 80 + 80 = 160); any other resolved hand play (plain drop, imperfect catch, timeout autoplay, cancelled 2-match choice) breaks it. Gold minipoints (`COLOR_AMBER`, fixed 22 px) draw over the bar and persist after it vanishes; new awards flash the bar (0.30 s) and pulse the number (0.60 s). At match end `speed_bar_apply_match_bonus()` adds `total / 10` to `total_score[0]` before `storage_record_match` and the win comparison, once per match. Far drops (card returns to hand) do not consume the bar. Serie resets at each new round; everything resets at dealer select. **Tuned live by the maintainer:** the bar lifetime went 300 ms → **1000 ms** ("triple it and round up") — the speed half simply re-references to 500 ms; no other constant moved.
