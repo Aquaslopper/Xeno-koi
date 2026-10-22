@@ -541,24 +541,24 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     prev_koi = cur_koi;
     if (capture_edge || koi_edge) {
         thunder_flash = 1.0f;
-        thunder_hold = 0.50f;
+        thunder_hold = 1.50f;
     } else if (thunder_hold > 0.0f) {
         thunder_hold -= frame_dt;
         if (thunder_hold < 0.0f) thunder_hold = 0.0f;
     } else if (thunder_flash > 0.0f) {
-        thunder_flash *= expf(-frame_dt / 0.50f);
+        thunder_flash *= expf(-frame_dt / 0.80f);
         if (thunder_flash < 0.002f) thunder_flash = 0.0f;
     }
     /* Audio reverb follows a smooth S-curve (never a spike):
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.21f;
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.25f;
     if (koi_edge)           reverb_energy += 0.45f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
-    float tau_energy = (reverb_energy > reverb_curve) ? 2.70f : 1.40f;
+    float tau_energy = (reverb_energy > reverb_curve) ? 3.40f : 1.80f;
     reverb_energy *= expf(-frame_dt / tau_energy);
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.16f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.16f));
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.12f));
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.12f));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
@@ -566,7 +566,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     float syn_x = reverb_curve / 0.62f;
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
-    float reverb_synergy = 0.35f * syn_x + 0.65f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
+    float reverb_synergy = 0.25f * syn_x + 0.75f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
     audio_set_reverb(reverb_synergy);
 
     /* 1. Background with depth fog and a localized normal-map light */
