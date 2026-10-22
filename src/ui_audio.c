@@ -313,7 +313,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
                            + delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d1));
             float vb = 0.5f*(delay_tap(s_chorus_history[0], CHORUS_HISTORY, s_chorus_index, d2)
                            + delay_tap(s_chorus_history[1], CHORUS_HISTORY, s_chorus_index, d2));
-            float voice_side = biquad_hp300(&s_chorus_hp, 0.5f*(va - vb));
+            float voice_side = 2.0f*biquad_hp300(&s_chorus_hp, 0.5f*(va - vb)); /* Maintainer: +100% return. */
             out_l += amount*voice_side;
             out_r -= amount*voice_side;
         }
