@@ -35,10 +35,10 @@ Font font_body;   // Play for data, options, HUD, and supporting text
 Font small_font;  // Legacy alias for modules that still use the old name
 GameSettings settings;
 
-#define TRANS_OUT_DUR  0.85f
-#define TRANS_HOLD_DUR 2.00f
-#define TRANS_IN_DUR   0.85f
-#define ROUND_BANNER_DUR 2.00f
+#define TRANS_OUT_DUR    1.80f
+#define TRANS_HOLD_DUR   2.20f
+#define TRANS_IN_DUR     1.20f
+#define ROUND_BANNER_DUR 4.00f
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
@@ -139,50 +139,51 @@ static void draw_hover_action_label(const char *label, Rectangle bounds) {
 }
 
 static void draw_loading_card(const BoardAssets *ba, float u) {
-    float vis = smooth01(u / 0.18f) * smooth01((1.0f - u) / 0.18f);
+    float vis = smooth01(u / 0.20f) * smooth01((1.0f - u) / 0.20f);
     if (vis <= 0.005f) return;
     float wv = sinf(fminf(1.0f, fmaxf(0.0f, u)) * 3.14159265f);
-    float glow = fminf(1.0f, powf(wv, 1.6f) * 1.25f) * vis;
+    float glow = fminf(1.0f, powf(wv, 1.8f) * 1.15f) * vis;
     Rectangle cr = { 608.0f, 308.0f, 64.0f, 104.0f };
     Rectangle src = { 0, 0, (float)ba->card_back.width, (float)ba->card_back.height };
     Color p = COLOR_PHOSPHOR, zero = { p.r, p.g, p.b, 0 };
     if (glow > 0.005f) {
-        static const float radii[6]  = { 190.0f, 148.0f, 114.0f, 86.0f, 64.0f, 46.0f };
-        static const float alphas[6] = {  20.0f,  28.0f,  38.0f, 52.0f, 70.0f, 90.0f };
+        static const float radii[4]  = { 128.0f, 92.0f, 66.0f, 46.0f };
+        static const float alphas[4] = {   4.0f,  6.0f,  8.0f, 10.0f };
         BeginBlendMode(BLEND_ADDITIVE);
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 4; i++)
             DrawCircleGradient(640, 360, radii[i], (Color){ p.r, p.g, p.b, (unsigned char)(alphas[i] * glow) }, zero);
-        DrawCircleGradient(640, 360, 52.0f, (Color){ 255, 255, 255, (unsigned char)(120.0f * glow * glow) }, zero);
         EndBlendMode();
     }
     if (ba->card_back.id > 0)
-        DrawTexturePro(ba->card_back, src, cr, (Vector2){ 0, 0 }, 0.0f, (Color){ 255, 255, 255, (unsigned char)(255.0f * vis) });
+        DrawTexturePro(ba->card_back, src, cr, (Vector2){ 0, 0 }, 0.0f, (Color){ 255, 255, 255, (unsigned char)((200.0f + 55.0f * glow) * vis) });
     else DrawRectangleRec(cr, (Color){ 10, 14, 18, (unsigned char)(255.0f * vis) });
-    Color vc = { 0, 0, 0, (unsigned char)(255.0f * vis * (1.0f - 0.80f * glow)) }, vz = { 0, 0, 0, 0 };
-    DrawRectangleGradientV((int)cr.x, (int)cr.y, (int)cr.width, 14, vc, vz);
-    DrawRectangleGradientV((int)cr.x, (int)(cr.y + cr.height - 14), (int)cr.width, 14, vz, vc);
-    DrawRectangleGradientH((int)cr.x, (int)cr.y, 12, (int)cr.height, vc, vz);
+    Color vc = { 0, 0, 0, (unsigned char)(255.0f * vis * (0.94f - 0.16f * glow)) }, vz = { 0, 0, 0, 0 };
+    DrawRectangleGradientV((int)cr.x, (int)cr.y, (int)cr.width, 15, vc, vz);
+    DrawRectangleGradientV((int)cr.x, (int)(cr.y + cr.height - 15), (int)cr.width, 15, vz, vc);
+    DrawRectangleGradientH((int)cr.x, (int)cr.y, 13, (int)cr.height, vc, vz);
     DrawRectangleGradientH((int)(cr.x + cr.width - 6), (int)cr.y, 6, (int)cr.height, vz, vc);
     BeginBlendMode(BLEND_ADDITIVE);
-    DrawCircleGradient(646, 362, 34.0f, (Color){ p.r, p.g, p.b, (unsigned char)((16.0f + 50.0f * glow) * vis) }, zero);
+    DrawCircleGradient(644, 362, 32.0f, (Color){ p.r, p.g, p.b, (unsigned char)((8.0f + 16.0f * glow) * vis) }, zero);
     if (ba->card_back.id > 0 && glow > 0.005f) {
-        Color boost = { p.r, p.g, p.b, (unsigned char)(230.0f * glow) };
-        Color hot   = { 255, 255, 255, (unsigned char)(190.0f * glow * glow) };
-        Color bleed = { p.r, p.g, p.b, (unsigned char)(115.0f * glow * glow) };
-        DrawTexturePro(ba->card_back, src, cr, (Vector2){ 0, 0 }, 0.0f, boost);
-        DrawTexturePro(ba->card_back, src, cr, (Vector2){ 0, 0 }, 0.0f, hot);
-        DrawTexturePro(ba->card_back, src, (Rectangle){ cr.x - 1.5f, cr.y, cr.width, cr.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
-        DrawTexturePro(ba->card_back, src, (Rectangle){ cr.x + 1.5f, cr.y, cr.width, cr.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
-        DrawTexturePro(ba->card_back, src, (Rectangle){ cr.x, cr.y - 1.5f, cr.width, cr.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
-        DrawTexturePro(ba->card_back, src, (Rectangle){ cr.x, cr.y + 1.5f, cr.width, cr.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
-        DrawCircleGradient(661, 386, 28.0f, (Color){ p.r, p.g, p.b, (unsigned char)(105.0f * glow * glow) }, zero);
-        DrawCircleGradient(661, 386, 15.0f, (Color){ 255, 255, 255, (unsigned char)(90.0f * glow * glow) }, zero);
+        Rectangle lsrc = { src.width * 0.82f, src.height * 0.59f, src.width * 0.09f, src.height * 0.36f };
+        Rectangle ldst = { cr.x + cr.width * 0.82f, cr.y + cr.height * 0.59f, cr.width * 0.09f, cr.height * 0.36f };
+        Color boost = { p.r, p.g, p.b, (unsigned char)(200.0f * glow) };
+        Color hot   = { 255, 255, 255, (unsigned char)(115.0f * glow * glow) };
+        Color bleed = { p.r, p.g, p.b, (unsigned char)(55.0f * glow * glow) };
+        DrawCircleGradient(663, 388, 24.0f, (Color){ p.r, p.g, p.b, (unsigned char)(34.0f * glow) }, zero);
+        DrawCircleGradient(663, 388, 12.0f, (Color){ p.r, p.g, p.b, (unsigned char)(30.0f * glow * glow) }, zero);
+        DrawTexturePro(ba->card_back, lsrc, ldst, (Vector2){ 0, 0 }, 0.0f, boost);
+        DrawTexturePro(ba->card_back, lsrc, ldst, (Vector2){ 0, 0 }, 0.0f, hot);
+        DrawTexturePro(ba->card_back, lsrc, (Rectangle){ ldst.x - 0.8f, ldst.y, ldst.width, ldst.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
+        DrawTexturePro(ba->card_back, lsrc, (Rectangle){ ldst.x + 0.8f, ldst.y, ldst.width, ldst.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
+        DrawTexturePro(ba->card_back, lsrc, (Rectangle){ ldst.x, ldst.y - 0.8f, ldst.width, ldst.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
+        DrawTexturePro(ba->card_back, lsrc, (Rectangle){ ldst.x, ldst.y + 0.8f, ldst.width, ldst.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
     }
     EndBlendMode();
 }
 
 static void draw_round_end_banner(const GameState *gs, float timer) {
-    float alpha = smooth01((ROUND_BANNER_DUR - timer) / 0.25f) * smooth01(timer / 0.32f);
+    float alpha = smooth01((ROUND_BANNER_DUR - timer) / 0.35f) * smooth01(timer / 0.45f);
     if (alpha <= 0.005f) return;
     int match_over = (gs->current_round >= gs->total_rounds), p0 = gs->total_score[0], p1 = gs->total_score[1];
     int w = match_over ? ((p0 > p1) ? 0 : (p0 < p1) ? 1 : -1) : gs->current_round_record.winner;
@@ -226,7 +227,7 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
     if (gs->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(ba, gs, vm);
     else if (gs->phase == PHASE_HAND_CHOICE || gs->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(ba, gs, vm, gs->phase == PHASE_HAND_CHOICE);
     else if (gs->phase == PHASE_DECIDE && gs->current_player == 0) screens_draw_decide_overlay(ba, gs, vm);
-    else if (gs->phase == PHASE_ROUND_END || gs->phase == PHASE_MATCH_END) screens_draw_round_result(ba, gs, vm);
+    else if ((gs->phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || gs->phase == PHASE_MATCH_END) screens_draw_round_result(ba, gs, vm);
     if (paused) {
         card_tooltip_clear();
         screens_draw_pause(vm, c_restart, replay);
@@ -722,7 +723,7 @@ static void update_draw_frame(void) {
                              (g.phase == PHASE_MATCH_END && last_overlay_phase == PHASE_ROUND_END)) ? 1.0f : 0.0f;
             last_overlay_phase = g.phase; last_overlay_paused = is_paused;
         }
-        overlay_alpha = fminf(1.0f, overlay_alpha + dt / 0.75f);
+        overlay_alpha = fminf(1.0f, overlay_alpha + dt / 0.85f);
     } else {
         overlay_alpha = 0.0f; last_overlay_phase = g.phase; last_overlay_paused = is_paused;
     }
@@ -806,7 +807,7 @@ static void update_draw_frame(void) {
        hits the match field and rides the fade back to the start screen */
     if (deus_banner_timer > 0.0f) {
         BeginTextureMode(canvas);
-        float t = fminf(1.0f, deus_banner_timer / 0.30f);             /* fade-out tail */
+        float t = fminf(1.0f, deus_banner_timer / 0.50f);             /* fade-out tail */
         unsigned char a = (unsigned char)(t * 200.0f);                /* ~78% - transparent */
         const char *msg = "/// TIME EXPIRED ///";
         Vector2 ts = MeasureTextEx(font_title, msg, 56.0f, 1.6f);
