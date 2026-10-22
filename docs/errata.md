@@ -14,6 +14,7 @@
 | KK-ADD-10 Tanzaku | Counts from 5 ribbons, as n − 4. Test case: all six ribbons = 12. | Counts from the 4th ribbon, as n − 3. All six ribbons now score **13** (10 for the combined set + 3). | `score_captures()` in `src/rules.c` (commented "was >= 5, n-4") |
 | Viewings | Always on. | Disabled in Tournament and Yakuza. | `score_captures()` in `src/rules.c` |
 | Yakuza ruleset | Not in the handoff. | Added: Tournament scoring plus Dealer's Privilege. | `apply_dealer_privilege()` in `src/engine.c` |
+| Speed minigame (minipoints) | Not in the handoff. | Added for KK-ADD-10: a 300 ms timer bar grades every human hand-card drop (speed × accuracy, max 10 minipoints, +10 serie bonus for consecutive perfect catches); every 10 minipoints becomes 1 extra score point at match end. | `src/ui_speed.c`, graded in `resolve_drop()` in `src/ui_input.c` |
 | First-dealer tie | §7a: "same month: redraw." The appendix uses rank 20/10/5/1 "for the first-dealer tie-break." | Same month: the higher card type deals. Only an identical month and type forces a redraw. | `engine_determine_first_dealer()` in `src/engine.c` |
 
 ## Defaults that differ from the handoff

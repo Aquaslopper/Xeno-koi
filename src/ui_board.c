@@ -5,6 +5,7 @@
 #include "ui_board_status.h"
 #include "ui_combos.h"
 #include "ui_audio.h"
+#include "ui_speed.h"
 #include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -776,6 +777,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
     /* A replay cannot be restarted: the second button ends it instead. */
     draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+
+    /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
+    if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

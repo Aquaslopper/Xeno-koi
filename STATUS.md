@@ -7,6 +7,23 @@
 ## Status Summary
 ## Latest completed work
 
+### KK-ADD-10 speed minigame: 300 ms timer bar and minipoints (22 October 2026)
+
+- New module `src/ui_speed.c`/`ui_speed.h` (+~150 lines) adds the maintainer's minigame, **KK-ADD-10 only**. A theme-filled timer bar sits bottom-right below RESTART (`{1160, 662, 112, 40}`), arms at the start of each human hand turn when input unlocks, drains over **300 ms** from left to right, and is gone the moment the hand card is dropped (stock flip never counts; the CPU is never graded; replays neither draw nor score it). Graded captures score `round(10 × s × a)`: `s = clamp(remaining / 150 ms, 0, 1)` (full speed half with half the bar left) and `a = clamp(drop_cover / 0.80, 0, 1)` where `drop_cover` is the dropped hand card's overlap with the target's painted slot (best match counts for all-four grabs and 2-match choices). A perfect catch (10) starts/continues a **serie**: every perfect catch in a serie of ≥2 gets +10, granted retroactively to the serie's first catch too (perfect 8-deal = 80 + 80 = 160); any other resolved hand play (plain drop, imperfect catch, timeout autoplay, cancelled 2-match choice) breaks it. Gold minipoints (`COLOR_AMBER`, fixed 22 px) draw over the bar and persist after it vanishes; new awards flash the bar (0.30 s) and pulse the number (0.60 s). At match end `speed_bar_apply_match_bonus()` adds `total / 10` to `total_score[0]` before `storage_record_match` and the win comparison, once per match. Far drops (card returns to hand) do not consume the bar. Serie resets at each new round; everything resets at dealer select.
+- Hooks: `resolve_drop()` grades/consumes (`src/ui_input.c`, cover helper computes the intersection without new raylib deps), `src/ui_main.c` calls `speed_bar_update` after `input_unlocked`, applies the match bonus, and consumes on hand-choice cancel; `board_draw_table` draws the widget for `!replay_mode && ruleset == KK-ADD-10` only.
+
+#### Checked
+- `./tests/test_table_ui.sh` passes (headless table input/combo suite; now links `src/ui_speed.c`).
+- Engine suite alone: `All engine & ruleset tests passed (500 full matches verified).` — `src/rules.c`, `src/engine.c`, and scoring untouched.
+- All 22 `src/*.c` compile with `-Wall -Wextra` against real Raylib headers; no new warnings (only the pre-existing `snprintf` truncation warnings in `src/ui_replay.c`).
+- `./build.sh test`'s action-audio step **fails at 96 kHz** (`test_action_audio.c:235` loud-bass assert). Verified identical on a clean `HEAD` worktree (`a9ebb9d`) — pre-existing, outside this change's scope; no audio file touched here.
+- Full `./build.sh linux` link not runnable in this sandbox (no `libraylib_linux.a` / `libGL`); compile-only pass stands in.
+
+#### Needs maintainer listening
+- Play the minigame live: bar placement under RESTART, left-to-right drain direction, 300 ms feel, gold number look/pulse, and whether a great drop's worth (up to 10 minipoints → 1 point per 10) feels right over a match. Formula constants are isolated at the top of `src/ui_speed.c`.
+
+**Touched:** `src/ui_speed.c`, `src/ui_speed.h` (new), `src/ui_input.c`, `src/ui_main.c`, `src/ui_board.c`, `tests/test_table_ui.sh`, `docs/rulesets/kk-add-10.md`, `docs/errata.md`, STATUS. **Deliberately did not touch:** `src/rules.c` / `src/engine.c` / `src/cards.c` / scoring logic, CPU AI, replay recording format, the thunder flash and ash wind, shaders, `storage.c` stats schema, generated wiki tables (no engine-derived values changed), the handoff PDF.
+
 ### Ambient ash rides a gusting wind (22 October 2026)
 
 - The background ash (`g_ash`, `ash_draw_and_update` in `src/ui_board.c`) no longer flies a straight bottom-to-top line. A global wind now pushes it sideways: three incommensurate sine waves (`0.110 / 0.043 / 0.270 rad/s`, amplitudes `12 / 16 / 4` px/s) giving `wind_x` in `[-32, +32]` px/s that holds one direction for roughly 25-80 s before swinging the other way, plus a weak vertical gust (`+/-3.5 px/s`) that only breathes the rise rate. Each flake rides the wind differently via `wind_catch = 0.55 + 0.45 * sin(phase)` (`0.10..1.00`), so the field flows instead of translating as a sheet. Per-particle drift, flutter sway, wrapping, and respawn are unchanged.
