@@ -7,6 +7,19 @@
 ## Status Summary
 ## Latest completed work
 
+### Ambient ash rides a gusting wind (22 October 2026)
+
+- The background ash (`g_ash`, `ash_draw_and_update` in `src/ui_board.c`) no longer flies a straight bottom-to-top line. A global wind now pushes it sideways: three incommensurate sine waves (`0.110 / 0.043 / 0.270 rad/s`, amplitudes `12 / 16 / 4` px/s) giving `wind_x` in `[-32, +32]` px/s that holds one direction for roughly 25-80 s before swinging the other way, plus a weak vertical gust (`+/-3.5 px/s`) that only breathes the rise rate. Each flake rides the wind differently via `wind_catch = 0.55 + 0.45 * sin(phase)` (`0.10..1.00`), so the field flows instead of translating as a sheet. Per-particle drift, flutter sway, wrapping, and respawn are unchanged.
+
+#### Checked
+- `./tests/test_table_ui.sh` passes (compiles `src/ui_board.c` against real Raylib headers, headless).
+- Wind envelope sampled numerically over 1 h at 60 Hz: range `-31.7..+31.9` px/s (mean `-0.10`), 34 sustained right-blasts and 34 left (avg ~45 s each, max ~78 s); `wind_y` stays within `+/-3.5` px/s so the rise never reverses.
+
+#### Needs maintainer listening
+- Visually confirm on a live GPU (desktop and web) that the drift reads as wind: diagonal gusts, occasional sideways holds, no straight-up fall line, and no visible wrap seams at the screen edges.
+
+**Touched:** `src/ui_board.c` (`ash_draw_and_update` only), STATUS. **Deliberately did not touch:** capture-burst ash (`ash_burst_draw_and_update`), taunt ash (`src/ui_taunt.c`), particle shapes/sizes/spawn rates, the thunder flash, shader files, rules/scoring, generated docs or images.
+
 ### Thunder-flash envelope: 500 ms sustain then slow roll-off (22 October 2026)
 
 - The capture/Koi-Koi thunder flash no longer spikes and flashes off. `board_draw_table` (`src/ui_board.c`) now holds `flashAmount` at `1.0` for `0.50 s` after the trigger edge (`thunder_hold`), then rolls off exponentially from full (`tau = 0.50 s`, effectively invisible about 2 s into the fade). This replaces the old fast `3.2/s` drop to `0.40` plus `tau = 3.40 s` afterglow. A new capture or Koi-Koi call during the hold or fade snaps back to `1.0` and restarts the 500 ms sustain.
