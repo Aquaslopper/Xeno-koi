@@ -187,8 +187,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.00151f : 0.000567f);
         float bass_gain = s_bass_env > 0.80f ? powf(s_bass_env / 0.80f, (1 / (1 + 3*bass_amount)) - 1) : 1;
         if (bass_amount > 0.00001f) {
-            dry_l += added_l * bass_gain; * boost_factor;
-            dry_r += added_r * bass_gain; * boost_factor;
+            dry_l += added_l * bass_gain;
+            dry_r += added_r * bass_gain;
         }
 
         /* 1. Sidechain detector on dry music (3 ms attack = 0.00753, 80 ms release = 0.000283) */
