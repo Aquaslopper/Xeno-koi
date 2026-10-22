@@ -62,6 +62,11 @@ int main(void) {
     storage_load_settings(&s);
     assert(!s.music_folder[0]);
     assert(s.effect_chorus == 0 && s.effect_bass == 0 && s.effect_reverb == 0.5f);
+#ifdef __EMSCRIPTEN__
+    assert(fabsf(s.bgm_volume - 0.50f) < 0.001f);
+#else
+    assert(fabsf(s.bgm_volume - 1.00f) < 0.001f);
+#endif
     /* Desktop and WASM share this loader: a missing settings file starts at neutral gamma. */
     assert(fabsf(s.gamma - 1.00f) < 0.001f);
     const char *folder = "C:\\My Music\\日本語 = mix";

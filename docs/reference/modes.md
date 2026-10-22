@@ -56,13 +56,16 @@ The left column is the label the screen shows. The right column is what `storage
 | Background | Harvest, Hole, Arctic, Castle, City, Face, Realm — seven, because index 5 is his and both arrows step over it. The row shows a live 46 x 26 preview of the frame you are on | Harvest (0) |
 | Terminal colour | Green, Amber, Teal, Crimson, Violet. A sixth name, DARK, is what playing DEUS sets; leaving him puts you back on Teal | Teal (2) |
 | Anim Speed | Slow, Normal, Fast | Slow |
-| BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
+| BGM Volume | Slider, shown as a percentage | Desktop 100%; browser 50% |
+| SFX Volume | Slider, shown as a percentage | 50% |
 | Music Folder (desktop, page 2) | Folder path for up to 10 custom MP3 match tracks; Use Default restores shipped tracks | Built-in music |
 | Action audio (page 2) | Chorus, Bass boost, Space reverb; controls capture/Koi-Koi-triggered music processing | Off, +0 dB, 50% |
 | Bloom Effect | Off, Mid, Full | Mid |
 | CRT Filter | 0: Off, 1: Low, 2: Mid, 3: High | 2: Mid |
 | Display Gamma | 0.5 to 2.0, in 0.05 steps, or straight to any point on the slider | **1.00** |
 | Fullscreen | Desktop: Windowed, Borderless. Browser: Windowed, Fullscreen (see below) | Windowed |
+
+The browser's lower **50% BGM** default applies only to a fresh browser profile; an existing profile's saved volume is not changed.
 
 **Gamma 1.00 is the neutral default on desktop and in the WASM/browser build.** It applies when there is no saved settings file. An existing browser profile keeps its saved gamma instead of being reset by an update; use the Display Gamma slider and **BACK (SAVE)** if you want to change that saved choice.
 

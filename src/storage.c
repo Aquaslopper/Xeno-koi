@@ -35,7 +35,11 @@ void storage_load_settings(GameSettings *s) {
     s->master_timer = 15;
     s->ruleset = RULESET_KK_ADD_10;
     s->background = 0;
+#ifdef __EMSCRIPTEN__
+    s->bgm_volume = 0.50f; /* Quieter fresh browser profile; saved settings below still win. */
+#else
     s->bgm_volume = 1.00f;
+#endif
     s->sfx_volume = 0.50f;
     s->effect_chorus = 0.0f;
     s->effect_bass = 0.0f;

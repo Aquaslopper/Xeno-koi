@@ -7,6 +7,12 @@
 ## Status Summary
 ## Latest completed work
 
+### Browser BGM default and wiki publishing — 22 October 2026
+
+- Fresh browser profiles now start with **BGM 50%** instead of 100%. Desktop remains 100%; a saved browser/desktop `bgm_volume` still overrides the fresh default, so existing players are not reset. SFX remains 50%.
+- The docs workflow keeps the existing verification commands in an independent `test` job; their expectations are unchanged. The site build packages the wiki and `/play/` as before.
+- `tests/test_music_folder.sh` now runs the settings/persistence test as both desktop and `__EMSCRIPTEN__` variants. Both pass, including the 50%/100% fresh-default assertions and a saved 63% volume round-trip. Strict MkDocs and `git diff --check` pass. The optional Raylib UI dialog test was skipped locally because its headers were unavailable; no local WASM build or full audio suite was run.
+
 ### Current Options and README gameplay captures — completed locally 22 Oct 2026
 
 - Imported the four supplied 1920 x 1080 captures through `tools/make_screenshots.py --from`: `menu1.png` replaces the old Options frame, `menu2.png` adds the current page 2, and `ingame.png` / `ingame2.png` add the two README gameplay views. The importer only flattened/encoded them to q95 WebP; no capture was cropped, repainted, or recoloured.

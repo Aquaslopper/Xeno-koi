@@ -13,7 +13,7 @@ typedef struct {
     int master_timer;      /* 15 or 30 (seconds), default 15 */
     Ruleset ruleset;       /* NINTENDO, FUDAWIKI, KK_ADD_10 */
     int background;        /* 0..4 or 6..7; 5 is reserved for Deus */
-    float bgm_volume;      /* 0.0 .. 1.0, default 1.0f */
+    float bgm_volume;      /* 0.0 .. 1.0, default 1.0f desktop / 0.5f browser */
     float effect_chorus;   /* 0..1 capture/Koi-Koi effect controls */
     float effect_bass;
     float effect_reverb;
