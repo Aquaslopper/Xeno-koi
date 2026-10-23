@@ -1,11 +1,22 @@
-> **Development handoff (last updated 22 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 23 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 22 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 23 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### KK-ADD-10 gold minipoint counter: glyph glow, serie growth, and ghost-burst flash (23 October 2026)
+
+- Upgraded `speed_bar_draw` and visual chain state in `src/ui_speed.c` (`RULESET_KK_ADD_10` only; scoring rules and `s_total` conversion untouched):
+  - **Glyph-shaped golden glow (no circular halo):** additive `DrawTextEx` passes follow the exact digit strokes of the counter, scaling up in intensity and subtle shimmer as an unbroken gold-earning chain (`s_chain` / smoothed `s_chain_vis`, `0..5`) builds across consecutive turns.
+  - **Slight serie growth & smooth reset:** font size eases up slightly across an unbroken chain (`22.0 px` base up to `27.5 px` at max chain, plus a `+2.2 px` flash pop) and smoothly shrinks back to `22.0 px` whenever the chain breaks (`speed_bar_consume()`, zero-point late drop, round transition, or match reset).
+  - **Golden flash + larger transparent ghost burst behind the number:** every increase in `s_total` triggers a `0.55 s` bright golden flash on the digits plus a `0.42 s` expanding (`1.48x -> 2.10x`), optically centered transparent golden echo of the number directly behind it (with dark glyph contrast cushioning while the speed bar is visible behind the counter).
+
+#### Checked
+- `src/ui_speed.c` compiles cleanly under `-std=c99 -O2 -Wall -Wextra -Werror`; `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, ASan/UBSan headless draw/chain harness, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- **Touched:** `src/ui_speed.c`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_board.c`, `src/ui_screens.c`, `docs/`, or assets.
 
 ### Glowing card-back loading transition and 4 s winner banner (22 October 2026)
 
