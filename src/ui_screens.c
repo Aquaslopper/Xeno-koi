@@ -125,14 +125,14 @@ void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, 
     (void)st; draw_bg_if_loaded(ba, 95);
     draw_centered_text(font_title, "[XENO / KOI]", 640.0f, 52.0f, 136.0f, 3.0f, COLOR_PHOSPHOR);
     draw_centered_text(font_body, "BIOMECHANICAL EDITION", 640.0f, 220.0f, 26.0f, 3.0f, COLOR_PHOSPHOR_DIM);
-    const char *lbls[6] = { "START MATCH", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
-    for (int i = 0; i < 6; i++) draw_btn((Rectangle){ 490, 320 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
-    if (saved_timer > 0.0f) draw_centered_text(font_body, "ALL FILES SAVED", 640.0f, 630.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
+    const char *lbls[7] = { "START MATCH", "ATRIUM PLEX", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
+    for (int i = 0; i < 7; i++) draw_btn((Rectangle){ 490, 320 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
+    if (saved_timer > 0.0f) draw_centered_text(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
 }
 
 ScreenAction screens_handle_start_click(Vector2 vm) {
-    ScreenAction acts[6] = { ACT_START_GAME, ACT_GOTO_OPTIONS, ACT_GOTO_STATS, ACT_SAVE, ACT_GOTO_CREDITS, ACT_QUIT };
-    for (int i = 0; i < 6; i++) if (CheckCollisionPointRec(vm, (Rectangle){ 490, 320 + i * 50, 300, 40 })) return acts[i];
+    ScreenAction acts[7] = { ACT_START_GAME, ACT_GOTO_ATRIUM, ACT_GOTO_OPTIONS, ACT_GOTO_STATS, ACT_SAVE, ACT_GOTO_CREDITS, ACT_QUIT };
+    for (int i = 0; i < 7; i++) if (CheckCollisionPointRec(vm, (Rectangle){ 490, 320 + i * 50, 300, 40 })) return acts[i];
     return ACT_NONE;
 }
 

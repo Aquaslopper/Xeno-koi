@@ -22,6 +22,13 @@ static int   s_streak;      /* consecutive perfect catches */
 static int   s_last_round;
 static int   s_bonus_applied;
 
+/* Session telemetry for Atrium Plex Logfile stats */
+static int   s_stat_drops;
+static float s_stat_time_sum;
+static float s_stat_cover_sum;
+static int   s_stat_best_streak;
+static int   s_stat_lifetime_mp;
+
 void speed_bar_reset(void) {
     s_remaining = 0.0f; s_frac = 0.0f;
     s_armed = 0; s_started = 0;
@@ -47,6 +54,8 @@ static void award(int mp) {
         s_total += mp;
     }
     if (s_total > before) {
+        s_stat_lifetime_mp += (s_total - before);
+        if (s_streak > s_stat_best_streak) s_stat_best_streak = s_streak;
         s_flash = SPEED_FLASH_TIME; s_pulse = SPEED_PULSE_TIME; s_ghost = SPEED_GHOST_TIME;
         s_chain = (s_chain < 1.0f) ? 1.0f : fminf(5.0f, s_chain + ((mp >= 10) ? 1.0f : 0.75f));
     } else s_chain = 0.0f;
@@ -89,6 +98,13 @@ void speed_bar_consume(void) {
 }
 
 void speed_bar_grade(float cover) {
+    float elapsed = SPEED_BAR_SECONDS - s_remaining;
+    if (elapsed < 0.0f) elapsed = 0.0f;
+    if (elapsed > SPEED_BAR_SECONDS) elapsed = SPEED_BAR_SECONDS;
+    float clamped_cover = cover < 0.0f ? 0.0f : (cover > 1.0f ? 1.0f : cover);
+    s_stat_drops++;
+    s_stat_time_sum += elapsed;
+    s_stat_cover_sum += clamped_cover;
     float half = SPEED_BAR_SECONDS * 0.5f;
     float s = (s_remaining >= half) ? 1.0f : s_remaining / half;
     float a = (cover >= 0.80f) ? 1.0f : cover / 0.80f;
@@ -100,6 +116,12 @@ void speed_bar_grade(float cover) {
     s_armed = 0; s_started = 0;
     award(mp);
 }
+
+int speed_bar_graded_drops(void) { return s_stat_drops; }
+float speed_bar_avg_drop_seconds(void) { return (s_stat_drops > 0) ? (s_stat_time_sum / (float)s_stat_drops) : 0.0f; }
+float speed_bar_avg_cover_pct(void) { return (s_stat_drops > 0) ? ((s_stat_cover_sum / (float)s_stat_drops) * 100.0f) : 0.0f; }
+int speed_bar_best_streak(void) { return s_stat_best_streak; }
+int speed_bar_lifetime_minipoints(void) { return s_stat_lifetime_mp > s_total ? s_stat_lifetime_mp : s_total; }
 
 int speed_bar_total(void) {
     return s_total;

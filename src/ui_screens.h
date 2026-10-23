@@ -9,6 +9,7 @@
 
 typedef enum {
     SCREEN_START = 0,
+    SCREEN_ATRIUM,
     SCREEN_OPTIONS,
     SCREEN_STATS,
     SCREEN_CREDITS,
@@ -19,6 +20,7 @@ typedef enum {
 typedef enum {
     ACT_NONE = 0,
     ACT_START_GAME,
+    ACT_GOTO_ATRIUM,
     ACT_GOTO_OPTIONS,
     ACT_GOTO_STATS,
     ACT_GOTO_CREDITS,
