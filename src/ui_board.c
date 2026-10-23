@@ -561,12 +561,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (koi_edge)           reverb_energy += 0.45f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
     if (capture_edge || koi_edge) {
-        reverb_hold = 1.00f;
+        reverb_hold = 0.60f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= frame_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.25f * frame_dt;
+        reverb_energy -= 0.15f * frame_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.10f));
@@ -575,10 +575,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
     }
-    float syn_x = reverb_curve / 0.62f;
+    float syn_x = reverb_curve / 0.68f;
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
-    float reverb_synergy = 0.25f * syn_x + 0.75f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
+    float reverb_synergy = 0.30f * syn_x + 0.70f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
     audio_set_reverb(reverb_synergy);
 
     /* 1. Background with depth fog and a localized normal-map light */
