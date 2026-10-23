@@ -7,6 +7,7 @@
 #include "ui_input.h"
 #include "ui_combos.h"
 #include "ui_screens.h"
+#include "ui_capture_info.h"
 #include "ui_motion.h"
 #include "ui_speed.h"
 #include "campaign.h"
@@ -14,7 +15,8 @@
 Font font_title, font_body;
 TerminalTheme g_theme;
 static int pressed, released, key, right_click, records, last_target, glows;
-static int sidebar, decide_overlay, drawn_cards, saw_cup, saw_full_name;
+static int sidebar, decide_overlay, capture_info_mode, capture_info_lines, drawn_cards, saw_cup, saw_full_name;
+static Rectangle last_panel_rect;
 static char decide_log[4096];
 static size_t decide_len;
 static GameState g;
@@ -62,9 +64,16 @@ void DrawTextEx(Font f, const char *text, Vector2 pos, float size, float spacing
         int wrote = snprintf(decide_log + decide_len, sizeof(decide_log) - decide_len, "%s\n", text);
         if (wrote > 0 && decide_len + (size_t)wrote < sizeof(decide_log)) decide_len += (size_t)wrote;
     }
+    if (capture_info_mode) {
+        assert(pos.x >= 138.0f && pos.x + bounds.x <= 260.0f);
+        assert(pos.y >= 318.0f && pos.y + size <= 490.0f);
+        for (const unsigned char *p = (const unsigned char *)text; *p; p++)
+            assert(*p >= 32 && *p <= 126);
+        capture_info_lines++;
+    }
     if (strstr(text, "Ino-shika-cho (Boar-Deer-Butterfly)")) saw_full_name = 1;
 }
-void DrawRectangleRec(Rectangle r, Color c) { (void)r; (void)c; }
+void DrawRectangleRec(Rectangle r, Color c) { (void)c; last_panel_rect = r; }
 void DrawRectangle(int x, int y, int w, int h, Color c) { (void)x; (void)y; (void)w; (void)h; (void)c; }
 void DrawLine(int x1, int y1, int x2, int y2, Color c) { (void)x1; (void)y1; (void)x2; (void)y2; (void)c; }
 void ui_theme_draw_panel_flares(Rectangle r) { (void)r; }
@@ -79,6 +88,8 @@ void __wrap_board_draw_card(const BoardAssets *a, int id, Rectangle r) {
     if (decide_overlay) {
         /* Koi-Koi overlay mini cards sit in column 690..950 and strictly above divider y=430. */
         assert(r.x >= 690 && r.x + r.width <= 951 && r.y >= 122 && r.y + r.height <= 430.5f);
+    } else if (capture_info_mode) {
+        assert(r.x == 22.0f && r.y == 318.0f && r.width == 106.0f && r.height == 172.0f);
     } else {
         assert(r.x >= 340 && r.x + r.width <= 1100 && r.y >= 220 && r.y + r.height < 610);
     }
@@ -360,12 +371,61 @@ static void test_speed_minigame(void) {
     assert(t2.total_score[0] == 0);
 }
 
+static void test_capture_info(void) {
+    BoardAssets ba;
+    memset(&ba, 0, sizeof(ba));
+    Rectangle expected_panel = capture_info_panel_rect();
+    assert(expected_panel.x == 12.0f && expected_panel.y == 304.0f &&
+           expected_panel.width == CAPTURE_PANEL_W && expected_panel.height == 200.0f);
+
+    capture_info_mode = 1;
+    /* All 48 cards for both YOU (0) and CPU (1) render in the exact fixed panel regardless of mouse XY. */
+    for (int player = 0; player < 2; player++) {
+        float lane_y = player ? 50.0f : 512.0f;
+        for (int id = 0; id < 48; id++) {
+            Rectangle mini = { 54.0f + (id % 8) * 18.0f, lane_y, 17.3f, 30.6f };
+            Vector2 hover = { mini.x + 4.0f, mini.y + 8.0f };
+            capture_info_begin(1, hover);
+            capture_info_record(id, player, (id % 8) + 1, 8, mini);
+            assert(capture_info_hovered_card() == id);
+            drawn_cards = 0;
+            capture_info_lines = 0;
+            last_panel_rect = (Rectangle){ 0, 0, 0, 0 };
+            capture_info_draw(&ba);
+            assert(drawn_cards == 1);
+            assert(capture_info_lines == 5);
+            assert(last_panel_rect.x == 12.0f && last_panel_rect.y == 304.0f &&
+                   last_panel_rect.width == CAPTURE_PANEL_W && last_panel_rect.height == 200.0f);
+        }
+    }
+
+    /* Overlapping mini-cards in a crowded lane: frontmost (last drawn) card wins. */
+    capture_info_begin(1, (Vector2){ 66.0f, 600.0f });
+    capture_info_record(1, 0, 1, 3, (Rectangle){ 54.0f, 596.0f, 17.3f, 30.6f });
+    capture_info_record(5, 0, 2, 3, (Rectangle){ 64.0f, 596.0f, 17.3f, 30.6f });
+    assert(capture_info_hovered_card() == 5);
+
+    /* Leaving captured cards or disabling immediately hides the panel without delay. */
+    capture_info_begin(1, (Vector2){ 500.0f, 350.0f });
+    capture_info_record(5, 0, 2, 3, (Rectangle){ 64.0f, 596.0f, 17.3f, 30.6f });
+    assert(capture_info_hovered_card() == -1);
+    drawn_cards = 0; capture_info_lines = 0;
+    capture_info_draw(&ba);
+    assert(drawn_cards == 0 && capture_info_lines == 0);
+
+    capture_info_begin(0, (Vector2){ 66.0f, 600.0f });
+    capture_info_record(5, 0, 2, 3, (Rectangle){ 64.0f, 596.0f, 17.3f, 30.6f });
+    assert(capture_info_hovered_card() == -1);
+    capture_info_mode = 0;
+}
+
 int main(void) {
     test_clicks_and_drag();
     test_combos();
     test_decide_overlay();
     test_campaign_unlocks();
     test_speed_minigame();
-    puts("All table input, campaign unlock, combo panel, Koi-Koi overlay, and speed minigame tests passed.");
+    test_capture_info();
+    puts("All table input, campaign unlock, combo panel, Koi-Koi overlay, capture info, and speed minigame tests passed.");
     return 0;
 }
