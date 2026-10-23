@@ -11,6 +11,11 @@
 
 extern Font font_title;
 extern Font font_body;
+extern Font font_slogan;  /* DejaVu Sans: carries the Greek and tensor glyphs */
+
+/* Playtest slogan (23 Oct 2026). DejaVu Sans covers every codepoint here,
+   including U+03A8 GREEK CAPITAL PSI, U+03A6 PHI and U+2297 CIRCLED TIMES. */
+const char *const credits_slogan = "[to_be Ψ(n)] ⊗ [not_to_be Φ(n)]";
 
 static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
     DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
@@ -147,6 +152,8 @@ void screens_draw_credits(const BoardAssets *ba, Vector2 vm) {
     draw_centered_text(font_body, "Music: [Graf Punk]", 640.0f, 330.0f, 22.0f, 1.5f, COLOR_PHOSPHOR);
     draw_centered_text(font_body, "Development Platform: Arena.ai - Agent mode.", 640.0f, 385.0f, 20.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_body, "[]", 640.0f, 445.0f, 24.0f, 1.5f, COLOR_PHOSPHOR_DIM);
+    /* Slogan in white between the "[]" mark and the BACK button. */
+    draw_centered_text(font_slogan, credits_slogan, 640.0f, 490.0f, 22.0f, 1.2f, WHITE);
     draw_btn((Rectangle){ 520, 530, 240, 46 }, "BACK", 22, vm, COLOR_PHOSPHOR);
 }
 

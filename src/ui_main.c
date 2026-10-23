@@ -32,6 +32,7 @@
 
 Font font_title;  // Audiowide for titles, headers, and button labels
 Font font_body;   // Play for data, options, HUD, and supporting text
+Font font_slogan; // DejaVu Sans for the credits slogan (Greek + U+2297 glyphs)
 Font small_font;  // Legacy alias for modules that still use the old name
 GameSettings settings;
 
@@ -950,6 +951,19 @@ int main(int argc, char **argv) {
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
 
+    /* Credits slogan only: the bundled faces lack U+03A6/U+03A8/U+2297, so use
+       DejaVu Sans (assets/dejavusans.ttf). Raylib's loader bakes ASCII by
+       default; LoadCodepoints derives the exact glyph set from the slogan. */
+    {
+        int cp_count = 0;
+        int *cp = LoadCodepoints(credits_slogan, &cp_count);
+        font_slogan = LoadFontEx("assets/dejavusans.ttf", 22, cp, cp_count);
+        if (!IsFontReady(font_slogan)) font_slogan = LoadFontEx(TextFormat("%s/assets/dejavusans.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 22, cp, cp_count);
+        if (!IsFontReady(font_slogan)) font_slogan = GetFontDefault();
+        else { GenTextureMipmaps(&font_slogan.texture); SetTextureFilter(font_slogan.texture, TEXTURE_FILTER_BILINEAR); }
+        UnloadCodepoints(cp);
+    }
+
     storage_load_stats(&stats); storage_load_history(&history);
     screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
     engine_init(&g, settings.ruleset, settings.rounds, seed);
@@ -973,6 +987,7 @@ int main(int argc, char **argv) {
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
+    if (font_slogan.texture.id != GetFontDefault().texture.id) UnloadFont(font_slogan);
     board_unload_assets(&assets);
     if (post_shader.id > 0) UnloadShader(post_shader);
     UnloadRenderTexture(overlay_canvas); UnloadRenderTexture(canvas);

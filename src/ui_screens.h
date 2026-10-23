@@ -50,6 +50,9 @@ ScreenAction screens_handle_stats_click(Vector2 vm, int *confirm_reset);
 
 /* Credits Screen */
 void screens_draw_credits(const BoardAssets *ba, Vector2 vm);
+
+/* Credits slogan line; its codepoints bake the credits slogan font atlas. */
+extern const char *const credits_slogan;
 ScreenAction screens_handle_credits_click(Vector2 vm);
 
 /* Pause Screen */
