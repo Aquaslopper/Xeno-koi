@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Giant modulated Space Reverb retune (23 October 2026)
+
+- Retuned the reverb tank in `src/ui_audio.c` from a short static hall/room character (`1123..1657`-sample static combs, `5..13 ms` diffusers, `1.12 s` T60 at 50%) into a **giant, long Valhalla-style Space Reverb** while keeping the existing sidechain ducking (`sc_dim`), parallel +20 dB bass shelf/compressor, centered sub-bass (`hp300` on Side + `bass_late` Mid warmth above 80%), Mid/Side chorus, soft-knee peak limiter, and bit-exact zero-latency bypass untouched:
+  - Expanded delay rings (`REVERB_COMB_MAX = 16384`, `REVERB_AP_MAX = 8192`, `REVERB_PREDELAY_MAX = 8192`), widened the 8 prime macro comb taps (`2111..4649` samples, `~48..105 ms` base scaling up to `~280 ms` via `size = 0.80 + 1.85 * room`), extended pre-delay (`~8..80 ms`), and lengthened the 4-stage prime all-pass cascade (`397..1663` samples, `diffusion = 0.62..0.74`).
+  - Added a slow `0.23 Hz` 8-phase LFO (`s_space_phase`, reset cleanly in `reset_music_dsp()`) modulating all 8 macro combs (`±4..18` samples) plus gentle quadrature modulation on the outer two diffusers (`±2..6` samples) and an energy-preserving `±18°` orthogonal stereo feedback rotation across L/R comb pairs so transients melt into a wide, shimmering 3D stereo cloud with zero metallic ringing or ear bias.
+  - Raised cosmic decay feedback (`0.78..0.945`, giving `~4.5 s` T60 at `25%`, `~7.9 s` at default `50%`, and `~22 s` floating space tail at `100%` at `44.1 kHz`) with `sqrt(1 - fb^2)` tank-buildup normalization on `wet_gain` so max-space washes stay lush without surging loudness into the master limiter; re-recorded `tools/audio_guard.sha256`.
+
+#### Checked
+- `./tests/test_audio_dsp.sh` (`tests/test_audio_dsp.c` + `tests/test_action_audio.c` across `44.1 / 48 / 96 kHz`), `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, all 22 `src/*.c` under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_audio.c`), offline 30 s renders on shipped `assets/music/game1.mp3` & `game3.mp3`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- **Touched:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_screens.c`, `src/ui_speed.c`, `src/ui_board.c`, `docs/`, or assets.
+
 ### KK-ADD-10 gold minipoint counter & 100-track custom music support (23 October 2026)
 
 - Upgraded `speed_bar_draw` and visual chain state in `src/ui_speed.c` (`RULESET_KK_ADD_10` only; scoring rules and `s_total` conversion untouched):

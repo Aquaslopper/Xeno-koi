@@ -10,16 +10,17 @@
    tail under the dry music so it never smears or spikes. */
 #define CHORUS_HISTORY 2048
 #define REVERB_COMB_COUNT 8
-#define REVERB_COMB_MAX   4096
+#define REVERB_COMB_MAX   16384
 #define REVERB_AP_COUNT   4
-#define REVERB_AP_MAX     1536
-#define REVERB_PREDELAY_MAX 4096
+#define REVERB_AP_MAX     8192
+#define REVERB_PREDELAY_MAX 8192
 
-/* Independently chosen tunings for the classic parallel-comb/serial-diffuser topology. */
-static const int k_comb_len_l[REVERB_COMB_COUNT] = {1123, 1201, 1289, 1367, 1433, 1499, 1571, 1627};
-static const int k_comb_len_r[REVERB_COMB_COUNT] = {1147, 1229, 1307, 1399, 1459, 1523, 1597, 1657};
-static const int k_ap_len_l[REVERB_AP_COUNT] = {557, 443, 337, 227};
-static const int k_ap_len_r[REVERB_AP_COUNT] = {577, 461, 359, 251};
+/* Giant modulated cosmic-space tunings: wide prime macro delays (~48..105 ms base,
+   scaling up to ~280 ms) + long prime all-pass cascade (~9..38 ms base). */
+static const int k_comb_len_l[REVERB_COMB_COUNT] = {2111, 2447, 2819, 3203, 3583, 3947, 4283, 4591};
+static const int k_comb_len_r[REVERB_COMB_COUNT] = {2153, 2503, 2879, 3259, 3637, 4003, 4339, 4649};
+static const int k_ap_len_l[REVERB_AP_COUNT] = {1619, 1153, 739, 397};
+static const int k_ap_len_r[REVERB_AP_COUNT] = {1663, 1193, 773, 421};
 
 static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
 static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
@@ -51,7 +52,7 @@ static BiquadState s_bass_l, s_bass_r;
 static float s_bass_env;
 static float s_effect_cur[3] = {0.0f, 0.0f, 0.5f};
 static BiquadState s_chorus_hp;
-static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase;
+static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase, s_space_phase;
 static int s_chorus_index;
 
 #if __GCC_ATOMIC_INT_LOCK_FREE != 2
@@ -95,7 +96,7 @@ static void reset_music_dsp(void) {
     s_sc_env = s_bass_env = s_reverb_cur = 0;
     memset(s_chorus_history, 0, sizeof(s_chorus_history));
     s_chorus_index = 0;
-    s_chorus_phase = 0;
+    s_chorus_phase = s_space_phase = 0;
 }
 
 static float card_sfx_volume(float master_volume) {
@@ -198,10 +199,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* Room dimensions depend on the saved slider, not the action pulse:
-           size 0.65..2.2, feedback 0.55..0.93, increasingly diffuse late field. */
-        float size = 0.65f + 1.55f*room;
-        float diffusion = 0.50f + 0.15f*room;
+        /* Giant modulated space dimensions depend on the saved slider:
+           size 0.80..2.65 (~50..280 ms macro taps), feedback 0.78..0.945,
+           high all-pass diffusion 0.62..0.74, and slow multi-phase LFO drift. */
+        float size = 0.80f + 1.85f*room;
+        float diffusion = 0.62f + 0.12f*room;
         float bp_in_l = dry_l;
         float bp_in_r = dry_r;
 
@@ -217,7 +219,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             bp_in_r += sfx_r * sfx_scaling;
         }
         
-        float pre_delay = 220 + 1980*room; /* ~5..50 ms at nominal 44.1 kHz. */
+        float pre_delay = 360 + 3150*room; /* ~8..80 ms at nominal 44.1 kHz. */
         float early_l = delay_tap(s_pre_buf_l, REVERB_PREDELAY_MAX, s_pre_idx_l, pre_delay);
         float early_r = delay_tap(s_pre_buf_r, REVERB_PREDELAY_MAX, s_pre_idx_r, pre_delay);
         s_pre_buf_l[s_pre_idx_l] = bp_in_l;
@@ -225,38 +227,46 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         if (++s_pre_idx_l == REVERB_PREDELAY_MAX) s_pre_idx_l = 0;
         if (++s_pre_idx_r == REVERB_PREDELAY_MAX) s_pre_idx_r = 0;
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        /* Low fixed input gain reserves feedback headroom, not an auto-gain. */
-        float feed_l = early_l*0.020f + early_r*0.005f;
-        float feed_r = early_r*0.020f + early_l*0.005f;
-        float feedback = (0.55f + 0.38f*room) - 0.08f*tail_releasing;
-        float damp = 0.40f - 0.20f*room;
+        /* Low fixed input gain reserves headroom for long space decay (up to ~22 s). */
+        float feed_l = early_l*0.0105f + early_r*0.0025f;
+        float feed_r = early_r*0.0105f + early_l*0.0025f;
+        float fb_base = 0.78f + 0.165f*powf(room, 0.65f);
+        float feedback = fb_base - 0.07f*tail_releasing;
+        float damp = 0.25f - 0.15f*room;
+        float mod_depth = 4.0f + 14.0f*room;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
-            int il = s_comb_idx_l[c];
-            float out_l = delay_tap(s_comb_buf_l[c], REVERB_COMB_MAX, il, k_comb_len_l[c]*size);
+            float phi = s_space_phase + c * 0.7853982f;
+            int il = s_comb_idx_l[c], ir = s_comb_idx_r[c];
+            float out_l = delay_tap(s_comb_buf_l[c], REVERB_COMB_MAX, il, k_comb_len_l[c]*size + mod_depth*sinf(phi));
+            float out_r = delay_tap(s_comb_buf_r[c], REVERB_COMB_MAX, ir, k_comb_len_r[c]*size + mod_depth*cosf(phi));
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
-            if (++il == REVERB_COMB_MAX) il = 0;
-            s_comb_idx_l[c] = il;
-            acc_l += s_comb_lp_l[c];
-
-            int ir = s_comb_idx_r[c];
-            float out_r = delay_tap(s_comb_buf_r[c], REVERB_COMB_MAX, ir, k_comb_len_r[c]*size);
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.80f, 0.80f);
+            /* Energy-preserving +/-18 deg stereo rotation swirls L/R across the tail with zero ear bias. */
+            float sgn = (c & 1) ? -0.3090170f : 0.3090170f;
+            float rot_l = 0.9510565f * s_comb_lp_l[c] - sgn * s_comb_lp_r[c];
+            float rot_r = sgn * s_comb_lp_l[c] + 0.9510565f * s_comb_lp_r[c];
+            s_comb_buf_l[c][il] = clamp_range(feed_l + rot_l * feedback, -0.80f, 0.80f);
+            s_comb_buf_r[c][ir] = clamp_range(feed_r + rot_r * feedback, -0.80f, 0.80f);
+            if (++il == REVERB_COMB_MAX) il = 0;
             if (++ir == REVERB_COMB_MAX) ir = 0;
+            s_comb_idx_l[c] = il;
             s_comb_idx_r[c] = ir;
+            acc_l += s_comb_lp_l[c];
             acc_r += s_comb_lp_r[c];
         }
+        s_space_phase += 6.28318530718f * 0.23f / 44100.0f;
+        if (s_space_phase >= 6.28318530718f) s_space_phase -= 6.28318530718f;
 
-        /* Restore the 20x input staging, then normalize eight returns (~1/sqrt(8)). */
-        acc_l *= 7.0f;
-        acc_r *= 7.0f;
+        /* Restore low input staging and normalize the 8 modulated space returns. */
+        acc_l *= 11.5f;
+        acc_r *= 11.5f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
+            float ap_mod = (a < 2) ? (2.0f + 4.0f*room) * ((a == 0) ? cosf(s_space_phase) : sinf(s_space_phase)) : 0.0f;
             int il = s_ap_idx_l[a];
-            float buf_l = delay_tap(s_ap_buf_l[a], REVERB_AP_MAX, il, k_ap_len_l[a]*size);
+            float buf_l = delay_tap(s_ap_buf_l[a], REVERB_AP_MAX, il, k_ap_len_l[a]*size + ap_mod);
             float in_l = acc_l;
             acc_l = buf_l - diffusion*in_l;
             s_ap_buf_l[a][il] = in_l + diffusion*acc_l;
@@ -264,7 +274,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             s_ap_idx_l[a] = il;
 
             int ir = s_ap_idx_r[a];
-            float buf_r = delay_tap(s_ap_buf_r[a], REVERB_AP_MAX, ir, k_ap_len_r[a]*size);
+            float buf_r = delay_tap(s_ap_buf_r[a], REVERB_AP_MAX, ir, k_ap_len_r[a]*size - ap_mod);
             float in_r = acc_r;
             acc_r = buf_r - diffusion*in_r;
             s_ap_buf_r[a][ir] = in_r + diffusion*acc_r;
@@ -272,8 +282,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             s_ap_idx_r[a] = ir;
         }
 
-        float wet_l = acc_l + early_l * 0.12f;
-        float wet_r = acc_r + early_r * 0.12f;
+        float wet_l = acc_l + early_l * 0.05f;
+        float wet_r = acc_r + early_r * 0.05f;
 
         /* Stereo room return, with no width/covariance automation. */
         float wet_mono = 0.5f * (wet_l + wet_r);
@@ -290,7 +300,9 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
-        float wet_gain = room * rev * 2.20f * sc_dim * (1 - 0.10f * tail_releasing);
+        float room_mix = sqrtf(room) * (0.65f + 0.35f * room);
+        float tank_norm = sqrtf(1.0f - fb_base * fb_base) * 2.15f;
+        float wet_gain = room_mix * tank_norm * rev * 2.30f * sc_dim * (1 - 0.10f * tail_releasing);
         float dry_gain = 1 - 0.30f * room * rev;
         float out_l = dry_l, out_r = dry_r;
         if (room * rev > 0.00001f) {
