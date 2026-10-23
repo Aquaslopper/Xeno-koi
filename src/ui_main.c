@@ -32,6 +32,7 @@
 
 Font font_title;  // Audiowide for titles, headers, and button labels
 Font font_body;   // Play for data, options, HUD, and supporting text
+Font font_slogan; // Play atlas for the credits slogan line (its glyph set only; tensor mark drawn as vector)
 Font small_font;  // Legacy alias for modules that still use the old name
 GameSettings settings;
 
@@ -948,6 +949,16 @@ int main(int argc, char **argv) {
     if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
     if (!IsFontReady(font_body)) font_body = GetFontDefault();
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
+
+    /* Credits slogan line only: default charset is ASCII 32..126, so bake the
+       line's actual glyph set (incl. U+03A6 PHI / U+03A8 PSI) into a small atlas. */
+    {
+        static int slogan_cp[13] = { 32, '[', '(', ')', ']', 't', 'o', 'b', 'e', '_', 'n', 0x3A6, 0x3A8 };
+        font_slogan = LoadFontEx("assets/play.ttf", 22, slogan_cp, 13);
+        if (!IsFontReady(font_slogan)) font_slogan = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 22, slogan_cp, 13);
+        if (!IsFontReady(font_slogan)) font_slogan = GetFontDefault();
+        else SetTextureFilter(font_slogan.texture, TEXTURE_FILTER_BILINEAR);
+    }
     small_font = font_body;
 
     storage_load_stats(&stats); storage_load_history(&history);
@@ -973,6 +984,7 @@ int main(int argc, char **argv) {
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
+    if (font_slogan.texture.id != GetFontDefault().texture.id) UnloadFont(font_slogan);
     board_unload_assets(&assets);
     if (post_shader.id > 0) UnloadShader(post_shader);
     UnloadRenderTexture(overlay_canvas); UnloadRenderTexture(canvas);

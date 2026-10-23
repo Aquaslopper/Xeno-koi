@@ -11,6 +11,7 @@
 
 extern Font font_title;
 extern Font font_body;
+extern Font font_slogan;
 
 static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
     DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
@@ -148,6 +149,30 @@ void screens_draw_credits(const BoardAssets *ba, Vector2 vm) {
     draw_centered_text(font_body, "Development Platform: Arena.ai - Agent mode.", 640.0f, 385.0f, 20.0f, 1.4f, COLOR_PHOSPHOR);
     draw_centered_text(font_body, "[]", 640.0f, 445.0f, 24.0f, 1.5f, COLOR_PHOSPHOR_DIM);
     draw_btn((Rectangle){ 520, 530, 240, 46 }, "BACK", 22, vm, COLOR_PHOSPHOR);
+
+    /* Slogan between the second "[]" mark and the BACK button, per the
+       maintainer's playtest call: above BACK, under the "[]" thing. Play has no
+       U+2297 glyph, so the tensor mark is drawn as a vector ring + X in the
+       same white; the text halves use the slogan's small Play atlas (carries
+       U+03A8 / U+03A6). UTF-8: \xCE\xA8 = PSI, \xCE\xA6 = PHI. */
+    {
+        const float fsz = 22.0f, sp = 1.5f, y = 490.0f;
+        const char *left = "[to_be \xCE\xA8(n)]";
+        const char *right = "[not_to_be \xCE\xA6(n)]";
+        Color white = (Color){ 255, 255, 255, 255 };
+        Vector2 tl = MeasureTextEx(font_slogan, left, fsz, sp);
+        Vector2 tr = MeasureTextEx(font_slogan, right, fsz, sp);
+        float space = MeasureTextEx(font_slogan, " ", fsz, sp).x;
+        float r = fsz * 0.30f, d = r * 0.85f;
+        float x = 640.0f - (tl.x + tr.x + 2.0f * space + 2.0f * r) * 0.5f;
+        float cx = x + tl.x + space + r;
+        float cy = y + fsz * 0.42f;
+        draw_text_ex_snapped(font_slogan, left, (Vector2){ x, y }, fsz, sp, white);
+        draw_text_ex_snapped(font_slogan, right, (Vector2){ cx + r + space, y }, fsz, sp, white);
+        DrawRing((Vector2){ cx, cy }, r - 1.0f, r + 1.0f, 0.0f, 360.0f, 48, white);
+        DrawLineEx((Vector2){ cx - d, cy - d }, (Vector2){ cx + d, cy + d }, 2.0f, white);
+        DrawLineEx((Vector2){ cx - d, cy + d }, (Vector2){ cx + d, cy - d }, 2.0f, white);
+    }
 }
 
 ScreenAction screens_handle_credits_click(Vector2 vm) {
