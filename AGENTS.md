@@ -13,6 +13,7 @@ STRICT CONSTRAINTS:
 2. DO NOT modify any card databases, matching rules, or existing scoring logic.
 3. DO NOT introduce new libraries or overhaul the state architecture.
 4. Keep all changes minimal, surgical.
+5. DO NOT touch the audio DSP in `src/ui_audio.c` — effects (chorus, space reverb), compression (bass-shelf compressor, soft-knee limiter), and their constants, buffers, signal path, and processing order. Maintainer-tuned by ear; see Owner decisions below.
 
 OUTPUT REQUIREMENT:
 WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
@@ -28,6 +29,7 @@ If a handoff rule and the wiki disagree, follow the wiki and the code, and say s
 
 ## Owner decisions (do not reverse without asking the maintainer)
 
+- **The audio DSP in `src/ui_audio.c` is forbidden — maintainer-tuned by ear.** The effect processing there (chorus, bass shelf + linked compressor, Schroeder reverb tank, soft-knee peak limiter, and every DSP constant, buffer, signal path, and processing-order detail in between) was fine-tuned through the maintainer. Do not modify, "clean up", simplify, or "improve" any of it, and do not retune DSP constants to fix perceived audio issues. Any change to `src/ui_audio.c` is valid only on the maintainer's explicit, specific instruction; afterwards `tools/audio_guard.sh --record` must re-baseline the file, or the CI hash check fails. Design and verification notes: [`docs/reference/audio-dsp.md`](docs/reference/audio-dsp.md).
 - **Deus Supremus is open to everyone on purpose.** `DEUS_UNLOCKED_FOR_TESTING` in `src/campaign.c` is `1` while the maintainer tests the mode. Leave it alone.
 - **KK-ADD-10 is the maintainer's own house rule**, taken from an earlier game. It is the recommended first rule set for beginners. It is expected to change, so keep `docs/rulesets/kk-add-10.md` and the generated tables in step with `src/rules.c`.
 - **The handoff stays in the repo unchanged** for history. Do not edit or delete the PDF.
