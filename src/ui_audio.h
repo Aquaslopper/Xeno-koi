@@ -3,14 +3,16 @@
 
 #include "raylib.h"
 
+#define AUDIO_MAX_TRACKS 100
+
 typedef struct {
     Music music_menu;
     int has_music_menu;
 
-    Music music_game[10];
-    int has_music_game[10];
-    int game_track_count;   /* 0..10 usable match tracks */
-    int current_game_track; /* 0..9, or -1 if none */
+    Music music_game[AUDIO_MAX_TRACKS];
+    int has_music_game[AUDIO_MAX_TRACKS];
+    int game_track_count;   /* 0..AUDIO_MAX_TRACKS usable match tracks */
+    int current_game_track; /* 0..AUDIO_MAX_TRACKS-1, or -1 if none */
 
     Sound sfx_flip;
     Sound sfx_drop;
@@ -44,7 +46,7 @@ void audio_set_effects(float chorus, float bass, float reverb);
 
 void audio_play_menu_music(AudioAssets *a);
 void audio_preview_effect(AudioAssets *a, int enabled); /* Same match stream, wet/dry A/B. */
-void audio_start_match_music(AudioAssets *a, int track_1_to_10);
+void audio_start_match_music(AudioAssets *a, int track_1_based);
 void audio_resume_match_music(AudioAssets *a);
 int  audio_is_match_music_finished(const AudioAssets *a);
 void audio_stop_music(AudioAssets *a);

@@ -7,16 +7,19 @@
 ## Status Summary
 ## Latest completed work
 
-### KK-ADD-10 gold minipoint counter: glyph glow, serie growth, and ghost-burst flash (23 October 2026)
+### KK-ADD-10 gold minipoint counter & 100-track custom music support (23 October 2026)
 
 - Upgraded `speed_bar_draw` and visual chain state in `src/ui_speed.c` (`RULESET_KK_ADD_10` only; scoring rules and `s_total` conversion untouched):
   - **Glyph-shaped golden glow (no circular halo):** additive `DrawTextEx` passes follow the exact digit strokes of the counter, scaling up in intensity and subtle shimmer as an unbroken gold-earning chain (`s_chain` / smoothed `s_chain_vis`, `0..5`) builds across consecutive turns.
   - **Slight serie growth & smooth reset:** font size eases up slightly across an unbroken chain (`22.0 px` base up to `27.5 px` at max chain, plus a `+2.2 px` flash pop) and smoothly shrinks back to `22.0 px` whenever the chain breaks (`speed_bar_consume()`, zero-point late drop, round transition, or match reset).
   - **Golden flash + larger transparent ghost burst behind the number:** every increase in `s_total` triggers a `0.55 s` bright golden flash on the digits plus a `0.42 s` expanding (`1.48x -> 2.10x`), optically centered transparent golden echo of the number directly behind it (with dark glyph contrast cushioning while the speed bar is visible behind the counter).
+- Expanded custom match music capacity from `10` to `100` tracks (`AUDIO_MAX_TRACKS = 100` in `src/ui_audio.h` / `src/ui_audio.c`) and added `.ogg` and `.wav` support alongside `.mp3` (`".mp3;.ogg;.wav"`):
+  - Playlists remain densely packed into `0..game_track_count - 1` with **zero empty slots** — when custom music is off, `game_track_count` reflects only the actual shipped tracks on disk (`game1.mp3`, `game3.mp3`), and `pick_match_track` in `src/ui_main.c` selects strictly within `1..game_track_count` (never landing on empty slots and reaching all `1..100` custom tracks when loaded).
+  - Updated the custom-folder modal hint in `src/ui_screens.c`, expanded `tests/test_music_folder.c` to verify `.mp3`/`.ogg`/`.wav` sorting, 100-track capping, and compact default restoration, and re-recorded `tools/audio_guard.sha256` (`./tools/audio_guard.sh --record`).
 
 #### Checked
-- `src/ui_speed.c` compiles cleanly under `-std=c99 -O2 -Wall -Wextra -Werror`; `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, ASan/UBSan headless draw/chain harness, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
-- **Touched:** `src/ui_speed.c`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_board.c`, `src/ui_screens.c`, `docs/`, or assets.
+- All 22 `src/*.c` compile cleanly under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_speed.c`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_screens.c`); `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, `./tools/audio_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- **Touched:** `src/ui_speed.c`, `src/ui_audio.h`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_screens.c`, `tests/test_music_folder.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_board.c`, `docs/`, or assets.
 
 ### Glowing card-back loading transition and 4 s winner banner (22 October 2026)
 

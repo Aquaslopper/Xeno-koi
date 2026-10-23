@@ -353,16 +353,16 @@ static int compare_music_paths(const void *a, const void *b) {
 }
 
 int audio_set_music_folder(AudioAssets *a, const char *folder) {
-    Music loaded[10] = {0};
+    Music loaded[AUDIO_MAX_TRACKS] = {0};
     int count = 0, custom = folder && folder[0];
     FilePathList files = {0};
     if (custom) {
         if (!DirectoryExists(folder)) return -1;
-        files = LoadDirectoryFilesEx(folder, ".mp3", false);
+        files = LoadDirectoryFilesEx(folder, ".mp3;.ogg;.wav", false);
         if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_music_paths);
     }
     unsigned int limit = custom ? files.count : 10;
-    for (unsigned int i = 0; i < limit && count < 10; i++) {
+    for (unsigned int i = 0; i < limit && count < AUDIO_MAX_TRACKS; i++) {
         char path[64];
         snprintf(path, sizeof(path), "assets/music/game%u.mp3", i + 1);
         const char *name = custom ? files.paths[i] : get_path(path);
@@ -378,7 +378,7 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
     /* Stage the replacement first so invalid folders leave playback untouched. */
     int was_match = a->current_music == 2;
     if (was_match) audio_stop_music(a);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
             DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
             UnloadMusicStream(a->music_game[i]);
@@ -455,7 +455,7 @@ void audio_set_bgm_volume(AudioAssets *a, float volume) {
     if (volume > 1.0f) volume = 1.0f;
     a->bgm_volume = volume;
     if (a->has_music_menu) SetMusicVolume(a->music_menu, volume);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) SetMusicVolume(a->music_game[i], volume);
     }
 }
@@ -477,7 +477,7 @@ void audio_set_sfx_volume(AudioAssets *a, float volume) {
 void audio_update(AudioAssets *a) {
     if (a->current_music == 1 && a->has_music_menu) {
         UpdateMusicStream(a->music_menu);
-    } else if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    } else if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) {
             UpdateMusicStream(a->music_game[a->current_game_track]);
         }
@@ -495,7 +495,7 @@ void audio_play_menu_music(AudioAssets *a) {
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
     a->current_music = 1;
@@ -505,18 +505,18 @@ void audio_play_menu_music(AudioAssets *a) {
     }
 }
 
-void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
+void audio_start_match_music(AudioAssets *a, int track_1_based) {
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
-    if (a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
-    int idx = track_1_to_10 - 1;
+    int idx = track_1_based - 1;
     if (idx < 0) idx = 0;
-    if (idx > 9) idx = 9;
-    /* Compact playlists also handle a folder with just one usable song. */
+    /* Compact playlists have zero empty slots (e.g. 2 built-in or N<=100 custom). */
     if (a->game_track_count > 0) idx %= a->game_track_count;
+    else if (idx >= AUDIO_MAX_TRACKS) idx = AUDIO_MAX_TRACKS - 1;
     a->current_game_track = idx;
     a->current_music = 2;
 
@@ -528,7 +528,7 @@ void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
 }
 
 void audio_resume_match_music(AudioAssets *a) {
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track] && !IsMusicStreamPlaying(a->music_game[a->current_game_track])) {
             SetMusicVolume(a->music_game[a->current_game_track], a->bgm_volume);
             PlayMusicStream(a->music_game[a->current_game_track]);
@@ -537,7 +537,7 @@ void audio_resume_match_music(AudioAssets *a) {
 }
 
 int audio_is_match_music_finished(const AudioAssets *a) {
-    if (a->current_music != 2 || a->current_game_track < 0 || a->current_game_track >= 10) return 0;
+    if (a->current_music != 2 || a->current_game_track < 0 || a->current_game_track >= AUDIO_MAX_TRACKS) return 0;
     if (!a->has_music_game[a->current_game_track]) return 0;
     Music m = a->music_game[a->current_game_track];
     if (!IsMusicStreamPlaying(m)) return 1;
@@ -550,7 +550,7 @@ void audio_stop_music(AudioAssets *a) {
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
     a->current_music = 0;
@@ -571,7 +571,7 @@ void audio_close(AudioAssets *a) {
     if (a->has_music_menu) {
         UnloadMusicStream(a->music_menu);
     }
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
             DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
             UnloadMusicStream(a->music_game[i]);
