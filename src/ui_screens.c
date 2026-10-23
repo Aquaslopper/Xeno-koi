@@ -175,6 +175,9 @@ int screens_audio_test_state(void) {
     return options_page == 1 ? audio_test_state : -1;
 }
 
+int screens_get_options_page(void) { return options_page; }
+void screens_set_options_page(int page) { options_page = (page == 1) ? 1 : 0; }
+
 #ifndef __EMSCRIPTEN__
 static int music_folder_open;
 static char music_folder_edit[MUSIC_FOLDER_CAP];

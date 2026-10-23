@@ -40,12 +40,19 @@ GameSettings settings;
 #define TRANS_HOLD_DUR   2.20f
 #define TRANS_IN_DUR     1.20f
 #define ROUND_BANNER_DUR 4.00f
+#define HUB_BLINK_DUR    0.20f
+#define HUB_WIPE_DUR     0.16f
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
 static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, pending_result_sfx = 0, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
+static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
+static float hub_trans_timer = 0.0f;
+static ScreenState hub_from_screen = SCREEN_START;
+static Rectangle hub_btn_rect = { 0, 0, 0, 0 };
+static const char *hub_btn_label = "";
 static int combo_player = -1, combo_page = 0;
 static int last_replay_round = 0;   /* replay only: last round the deal was shown for */
 static float replay_beat = 0.0f;    /* replay only: pause after a card lands */
@@ -71,8 +78,71 @@ static float smooth01(float x) {
 }
 
 static void start_transition(ScreenState target, int action, int track) {
+    hub_trans_active = 0;
+    if (hub_reset_opt_page) { screens_set_options_page(0); hub_reset_opt_page = 0; }
     transition_dir = 1; transition_timer = 0.0f;
     transition_target_screen = target; transition_action = action; transition_track = track;
+}
+
+static void start_hub_transition(ScreenState next_screen, int next_campaign,
+                                 Rectangle btn_r, const char *btn_lbl, int btn_fsz) {
+    hub_from_screen = screen;
+    hub_from_campaign = campaign_overlay_open;
+    screen = next_screen;
+    campaign_overlay_open = next_campaign;
+    hub_btn_rect = btn_r;
+    hub_btn_label = btn_lbl;
+    hub_btn_fsz = btn_fsz;
+    hub_trans_timer = 0.0f;
+    hub_trans_active = 1;
+}
+
+static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
+    if (sc == SCREEN_START) {
+        screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
+        if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+    } else if (sc == SCREEN_OPTIONS) {
+        screens_draw_options(&assets, &settings, mouse_pos);
+    } else if (sc == SCREEN_STATS) {
+        screens_draw_stats(&assets, &stats, &settings, &history, mouse_pos, confirm_reset, log_timer);
+    } else if (sc == SCREEN_CREDITS) {
+        screens_draw_credits(&assets, mouse_pos);
+    } else if (sc == SCREEN_MATCH_RESULT) {
+        screens_draw_match_result(&assets, &g, &settings, mouse_pos);
+    }
+}
+
+static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int flash_on) {
+    Font fnt = hub_from_campaign ? font_title : font_body;
+    float sp = hub_from_campaign ? 1.2f : 1.0f;
+    Vector2 ts = MeasureTextEx(fnt, txt, (float)fsz, sp);
+    Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - (float)fsz) * 0.5f) };
+    if (flash_on) {
+        Color outer1 = COLOR_PHOSPHOR; outer1.a = 115;
+        Color outer2 = COLOR_PHOSPHOR; outer2.a = 225;
+        DrawRectangleLinesEx((Rectangle){ r.x - 4.0f, r.y - 4.0f, r.width + 8.0f, r.height + 8.0f }, 1.5f, outer1);
+        DrawRectangleLinesEx((Rectangle){ r.x - 2.0f, r.y - 2.0f, r.width + 4.0f, r.height + 4.0f }, 2.0f, outer2);
+        DrawRectangleRec(r, COLOR_PHOSPHOR);
+        DrawRectangle((int)r.x + 2, (int)r.y + 2, (int)r.width - 4, (int)(r.height * 0.42f), (Color){ 255, 255, 255, 68 });
+        DrawTextEx(fnt, txt, pos, (float)fsz, sp, (Color){ 4, 10, 12, 255 });
+    } else {
+        DrawRectangleRec(r, (Color){ 0, 0, 0, 238 });
+        DrawRectangleLinesEx(r, 1.5f, COLOR_PHOSPHOR);
+        Color dim = COLOR_PHOSPHOR_DIM; dim.a = 150;
+        DrawTextEx(fnt, txt, pos, (float)fsz, sp, dim);
+    }
+}
+
+static void draw_hub_scan_beam(int split_y, float fade) {
+    if (fade <= 0.001f) return;
+    Color trail_hi = COLOR_PHOSPHOR; trail_hi.a = (unsigned char)(88.0f * fade);
+    Color trail_lo = COLOR_PHOSPHOR; trail_lo.a = 0;
+    DrawRectangleGradientV(0, split_y - 66, CANVAS_W, 66, trail_lo, trail_hi);
+    Color lead_hi = COLOR_PHOSPHOR; lead_hi.a = (unsigned char)(64.0f * fade);
+    DrawRectangleGradientV(0, split_y + 1, CANVAS_W, 7, lead_hi, trail_lo);
+    Color beam = COLOR_PHOSPHOR; beam.a = (unsigned char)(235.0f * fade);
+    DrawRectangle(0, split_y - 1, CANVAS_W, 2, beam);
+    DrawRectangle(0, split_y, CANVAS_W, 1, (Color){ 235, 255, 255, (unsigned char)(195.0f * fade) });
 }
 
 static void init_banner_sfx(void) {
@@ -375,29 +445,51 @@ static void update_draw_frame(void) {
     Vector2 vm = input_vmouse(l);
     ui_theme_set_mouse(vm);
 
-    if (transition_dir == 0) {
+    if (hub_trans_active) {
+        hub_trans_timer += dt;
+        if (hub_trans_timer >= (HUB_BLINK_DUR + HUB_WIPE_DUR)) {
+            hub_trans_active = 0;
+            hub_trans_timer = 0.0f;
+            if (hub_reset_opt_page) { screens_set_options_page(0); hub_reset_opt_page = 0; }
+        }
+    }
+
+    if (transition_dir == 0 && !hub_trans_active) {
         if (screen == SCREEN_START) {
             if (campaign_overlay_open) {
                 int cres = campaign_handle_click(&settings, &settings.current_opponent, vm);
-                if (cres == -1) { campaign_overlay_open = 0; audio_play_click(&audio); }
-                else if (cres == 1) {
+                if (cres == -1) {
+                    audio_play_click(&audio);
+                    if (CheckCollisionPointRec(vm, (Rectangle){ 1145, 48, 32, 28 }))
+                        start_hub_transition(SCREEN_START, 0, (Rectangle){ 1145, 48, 32, 28 }, "X", 18);
+                    else
+                        start_hub_transition(SCREEN_START, 0, (Rectangle){ 720, 570, 180, 48 }, "BACK", 20);
+                } else if (cres == 1) {
                     audio_play_click(&audio); ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 ScreenAction act = screens_handle_start_click(vm);
                 if (act != ACT_NONE) audio_play_click(&audio);
-                if (act == ACT_START_GAME) campaign_overlay_open = 1;
-                else if (act == ACT_GOTO_OPTIONS) screen = SCREEN_OPTIONS;
-                else if (act == ACT_GOTO_STATS) screen = SCREEN_STATS;
-                else if (act == ACT_GOTO_CREDITS) screen = SCREEN_CREDITS;
+                if (act == ACT_START_GAME) start_hub_transition(SCREEN_START, 1, (Rectangle){ 490, 320, 300, 40 }, "START MATCH", 18);
+                else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 370, 300, 40 }, "OPTION", 18);
+                else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 420, 300, 40 }, "STATS", 18);
+                else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 520, 300, 40 }, "CREDITS", 18);
                 else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
                 else if (act == ACT_QUIT) { quit_requested = 1; return; }
             }
         } else if (screen == SCREEN_CREDITS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) { audio_play_click(&audio); screen = SCREEN_START; }
+            if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) {
+                audio_play_click(&audio);
+                start_hub_transition(SCREEN_START, 0, (Rectangle){ 520, 530, 240, 46 }, "BACK", 22);
+            }
         } else if (screen == SCREEN_OPTIONS) {
-            if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) screen = SCREEN_START;
+            int prev_opt_page = screens_get_options_page();
+            if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) {
+                screens_set_options_page(prev_opt_page);
+                hub_reset_opt_page = 1;
+                start_hub_transition(SCREEN_START, 0, (Rectangle){ 300, 656, 260, 38 }, "BACK (SAVE)", 20);
+            }
         } else if (screen == SCREEN_STATS) {
 #ifndef __EMSCRIPTEN__
             /* replays/ only exists next to a desktop executable, so the browser build
@@ -413,7 +505,7 @@ static void update_draw_frame(void) {
                 if (!replay_used) {
                     act = screens_handle_stats_click(vm, &confirm_reset);
                     if (act != ACT_NONE) audio_play_click(&audio);
-                    if (act == ACT_GOTO_MENU) screen = SCREEN_START;
+                    if (act == ACT_GOTO_MENU) start_hub_transition(SCREEN_START, 0, (Rectangle){ 860, 610, 200, 44 }, "BACK", 20);
                     else if (act == ACT_SAVE_LOG) { storage_write_report(&stats, &history); log_timer = 2.0f; }
                     else if (act == ACT_RESET_STATS) storage_reset_stats(&stats);
                 }
@@ -435,7 +527,7 @@ static void update_draw_frame(void) {
             ScreenAction act = screens_handle_match_result_click(vm);
             if (act != ACT_NONE) audio_play_click(&audio);
             if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
-            else if (act == ACT_GOTO_MENU) screen = SCREEN_START;
+            else if (act == ACT_GOTO_MENU) start_hub_transition(SCREEN_START, 0, (Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20);
         } else if (screen == SCREEN_GAME && combo_player >= 0) {
             /* Own the entire frame, including dismissal: no timer, CPU, replay,
                animation, or underlying button can advance through this window. */
@@ -793,15 +885,41 @@ static void update_draw_frame(void) {
                        !cinematic_is_active() && transition_dir == 0 && transition_alpha <= 0.0f &&
                        round_banner_timer <= 0.0f && !(anim.active && anim.type == ANIM_BANNER) &&
                        IsCursorOnScreen() && IsWindowFocused(), vm);
-    BeginTextureMode(canvas);
-    if (screen == SCREEN_START) {
-        screens_draw_start(&assets, &stats, vm, saved_timer);
-        if (campaign_overlay_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, vm);
+    int hub_wipe_stage = hub_trans_active && screen != SCREEN_GAME && (hub_trans_timer >= HUB_BLINK_DUR - 1e-4f);
+    if (hub_wipe_stage) {
+        BeginTextureMode(overlay_canvas);
+        ClearBackground(BLACK);
+        draw_hub_screen_state(hub_from_screen, hub_from_campaign, (Vector2){ -1000.0f, -1000.0f });
+        EndTextureMode();
     }
-    else if (screen == SCREEN_OPTIONS) screens_draw_options(&assets, &settings, vm);
-    else if (screen == SCREEN_STATS) screens_draw_stats(&assets, &stats, &settings, &history, vm, confirm_reset, log_timer);
-    else if (screen == SCREEN_CREDITS) screens_draw_credits(&assets, vm);
-    else if (screen == SCREEN_MATCH_RESULT) screens_draw_match_result(&assets, &g, &settings, vm);
+
+    BeginTextureMode(canvas);
+    if (screen != SCREEN_GAME) {
+        if (hub_trans_active) {
+            Vector2 off_vm = { -1000.0f, -1000.0f };
+            if (!hub_wipe_stage) {
+                int flash_on = ((((int)(hub_trans_timer * 60.0f + 0.5f)) / 4) & 1) == 0;
+                draw_hub_screen_state(hub_from_screen, hub_from_campaign, off_vm);
+                draw_hub_strobe_button(hub_btn_rect, hub_btn_label, hub_btn_fsz, flash_on);
+            } else {
+                float u = fminf(1.0f, fmaxf(0.0f, (hub_trans_timer - HUB_BLINK_DUR) / HUB_WIPE_DUR));
+                float ease = 0.30f * u + 0.70f * smooth01(u);
+                int split_y = (int)roundf(ease * (float)CANVAS_H);
+                draw_hub_screen_state(screen, campaign_overlay_open, off_vm);
+                if (split_y < CANVAS_H) {
+                    BeginScissorMode(0, split_y, CANVAS_W, CANVAS_H - split_y);
+                    DrawTextureRec(overlay_canvas.texture,
+                                   (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
+                                   (Vector2){ 0, 0 }, WHITE);
+                    EndScissorMode();
+                }
+                float beam_fade = (u > 0.88f) ? ((1.0f - u) / 0.12f) : 1.0f;
+                draw_hub_scan_beam(split_y, beam_fade);
+            }
+        } else {
+            draw_hub_screen_state(screen, campaign_overlay_open, vm);
+        }
+    }
     else if (screen == SCREEN_GAME) {
         const char *status = ""; char cpu_status[64];
         if (replay_pb_active()) {
