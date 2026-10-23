@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Add 360 ms 2-stage CRT terminal hub transition across all non-loading menu screens (23 October 2026)
+
+- Added a **360 ms (`HUB_BLINK_DUR = 0.20f` + `HUB_WIPE_DUR = 0.16f`)** two-stage cinematic CRT terminal transition in `src/ui_main.c` across all 9 non-loading hub navigation routes (`MAIN MENU <-> OPTION / STATS / CREDITS / OPPONENT SELECT` and `MATCH RESULTS -> MAIN MENU`), plus `screens_get_options_page()` / `screens_set_options_page()` in `src/ui_screens.h` + `src/ui_screens.c`:
+  - **Stage 1 (`0.00 s -> 0.20 s`, 12 frames at 60 Hz):** Locks UI click input immediately and strobes ONLY the clicked button (`2f ON / 2f OFF` = 3 high-contrast phosphor invert flashes matching the exact `font_body` / `font_title` glyph metrics of the underlying button) while keeping the shared Giger background 100% stationary at `(0, 0, 1280, 720)` with zero scale or shift.
+  - **Stage 2 (`0.20 s -> 0.36 s`, 10 frames at 60 Hz):** Renders the outgoing hub state into `overlay_canvas` (holding `options_page` steady on Page 2 until completion before resetting to `0`) and the incoming hub state into `canvas`, clips the outgoing slice `[split_y .. 720]` via `BeginScissorMode(0, split_y, CANVAS_W, CANVAS_H - split_y)` over a full `DrawTextureRec(overlay_canvas.texture, { 0, 0, CANVAS_W, -CANVAS_H }, { 0, 0 }, WHITE)`, and sweeps a full-width CRT phosphor scan beam (`COLOR_PHOSPHOR` core + leading/trailing glow) top-to-bottom (`y = 0 -> 720`) with continuous BGM and untouched `SCREEN_GAME` dark card-back loading transitions (`start_transition`).
+- Added headless full-link software FBO + scissor + strobe regression test `tests/test_hub_transition.c` wired into `tests/test_table_ui.sh`.
+
+#### Checked
+- `RAYLIB_SRC=/tmp/raylib/src ./build.sh test`, `RAYLIB_SRC=/nonexistent ./build.sh test`, headers-only CI cache simulation (`RAYLIB_SRC=/tmp/raylib_hdrs_only ./tests/test_table_ui.sh`), all 23 `src/*.c` compiled cleanly under `-std=c99 -O2 -Wall -Wextra` (`-Werror` clean on `src/ui_main.c`, `src/ui_screens.c`, `tests/test_hub_transition.c`), `tests/test_card_tooltip.c` + `node tests/test_card_tooltip_web.js`, software-rasterized 6-frame storyboard inspection (`t = 0, 33, 67, 233, 283, 367 ms`), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_main.c`, `src/ui_screens.h`, `src/ui_screens.c`, `tests/test_hub_transition.c`, `tests/test_table_ui.sh`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/ui_card_tooltip.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c`, `docs/`, `assets/`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Add fixed left-column captured-card inventory info panel across all difficulties (23 October 2026)
 
 - Added standalone module `src/ui_capture_info.h` + `src/ui_capture_info.c` rendering a fixed-position HUD inventory readout at `{ 12, 304, 255, 200 }` (`x = 12`, `width = CAPTURE_PANEL_W = 255`, `4 px` gap above the human `B` capture lane at `y = 508`, matching `COLOR_PANEL_BG` + `ui_draw_panel_border` phosphor HUD styling and never attached to the mouse):
