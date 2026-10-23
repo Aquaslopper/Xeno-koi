@@ -393,7 +393,7 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
     }
     a->game_track_count = count;
     a->current_game_track = -1;
-    if (was_match) audio_start_match_music(a, 1);
+    if (was_match) audio_start_match_music(a, (count > 0) ? ((rand() % count) + 1) : 1);
     return count;
 }
 

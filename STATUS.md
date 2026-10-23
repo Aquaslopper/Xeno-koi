@@ -7,17 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
-### Restore pre-PR #93 audio DSP & capture envelope while keeping gold counter and 100-track playlist (23 October 2026)
+### Restore pre-PR #93 audio DSP, add 1 s capture hold before dim-away, and switch music only on loading screens (23 October 2026)
 
-- Restored the audio DSP in `src/ui_audio.c` (lines `1..350`: comb/all-pass delay tunings, pre-delay, feedback/damping, room return staging, parallel bass shelf/compressor from `9574b02`, Mid/Side chorus, and soft-knee peak limiter) and the capture action-card release envelope in `src/ui_board.c` (`reverb_energy -= 0.25f * frame_dt`, `0.10 s` / `0.18 s` smoothing from `0bcd342`) back to their exact state prior to PR #93's DSP retune (`465e7bd` / `9c4e18c`).
+- Restored the audio DSP in `src/ui_audio.c` (lines `1..350`: comb/all-pass delay tunings, pre-delay, feedback/damping, room return staging, parallel bass shelf/compressor from `9574b02`, Mid/Side chorus, and soft-knee peak limiter) back to its exact state prior to PR #93's DSP retune (`465e7bd` / `9c4e18c`).
+- Restored the capture action-card release curve in `src/ui_board.c` (`reverb_energy -= 0.25f * frame_dt`, `0.10 s` / `0.18 s` smoothing from `0bcd342`) and added a **`1.00 s` sustain hold (`reverb_hold = 1.00f`)** on `capture_edge || koi_edge` before `reverb_energy` starts dimming away.
 - Preserved in full:
   - **KK-ADD-10 gold minipoint counter (`src/ui_speed.c`):** glyph-shaped golden glow, serie size growth, and golden flash + ghost burst.
-  - **Unified 100-track music playlist (`src/ui_audio.h`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_screens.c`, `tests/test_music_folder.c`):** up to `100` `.mp3`/`.ogg`/`.wav` tracks with zero empty slots and unified menu/match playback.
+  - **Unified 100-track music playlist (`src/ui_audio.h`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_screens.c`, `tests/test_music_folder.c`):** `menu.mp3` is part of the built-in playlist alongside the match tracks, custom folders replace the playlist with up to `100` `.mp3`/`.ogg`/`.wav` tracks, random tracks play on the Main Menu and in matches, and **music only changes on loading-screen transitions (`start_transition`)** (instant in-game restarts via `R`, board `RESTART`, or Pause `RESTART MATCH` keep the current track playing without interruption).
   - **Glowing card-back loading transition, screen transitions, instant restart, and 4 s winner banner (`src/ui_main.c`).**
 
 #### Checked
 - `./build.sh test` (`500` engine matches, `test_music_folder.sh`, `test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), `./tools/audio_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
-- **Touched:** `src/ui_audio.c`, `src/ui_board.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/ui_speed.c`, `src/ui_main.c`, `src/ui_screens.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `docs/`, or assets.
+- **Touched:** `src/ui_audio.c`, `src/ui_board.c`, `src/ui_main.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/ui_speed.c`, `src/ui_screens.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `docs/`, or assets.
 
 ### KK-ADD-10 gold minipoint counter & 100-track custom music support (23 October 2026)
 

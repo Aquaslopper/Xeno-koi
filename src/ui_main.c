@@ -136,7 +136,8 @@ static void begin_new_match(int trk) {
 #endif
     ai_set_opponent(settings.current_opponent); taunt_init();
     taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
-    audio_start_match_music(&audio, trk);
+    if (trk > 0) audio_start_match_music(&audio, trk);
+    else audio_set_reverb(0.0f);
 }
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
@@ -537,10 +538,10 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_GAME) {
             int pause_toggled = 0, restarted_now = 0;
             if (((IsKeyPressed(KEY_ESCAPE) && (!drag.selected || is_paused)) || IsKeyPressed(KEY_P)) && !drag.on) { is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
-            else if (!is_paused && IsKeyPressed(KEY_R) && !drag.on) { audio_play_click(&audio); begin_new_match(pick_match_track(1)); restarted_now = 1; }
+            else if (!is_paused && IsKeyPressed(KEY_R) && !drag.on) { audio_play_click(&audio); begin_new_match(0); restarted_now = 1; }
             else if (!is_paused && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.on) {
                 if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) { audio_play_click(&audio); is_paused = 1; confirm_restart = 0; pause_toggled = 1; }
-                else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); begin_new_match(pick_match_track(1)); restarted_now = 1; }
+                else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); begin_new_match(0); restarted_now = 1; }
             }
 
             if (is_paused && !pause_toggled) {
@@ -548,7 +549,7 @@ static void update_draw_frame(void) {
                     ScreenAction act = screens_handle_pause_click(vm, &confirm_restart, 0);
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_RESUME) { is_paused = 0; confirm_restart = 0; }
-                    else if (act == ACT_RESTART_MATCH) begin_new_match(pick_match_track(1));
+                    else if (act == ACT_RESTART_MATCH) begin_new_match(0);
                     else if (act == ACT_ABANDON_MATCH) { replay_rec_abort(); confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
