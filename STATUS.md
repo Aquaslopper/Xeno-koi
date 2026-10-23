@@ -7,39 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
-### Envelope-following SoftLimiter & full bass restoration (23 October 2026)
+### Restore pre-PR #93 audio DSP, add 1 s capture hold before dim-away, and switch music only on loading screens (23 October 2026)
 
-- Replaced the instantaneous `0.88..0.98` waveshaper clipper (`soft_knee_limit`) at the end of `music_reverb_processor_impl` in `src/ui_audio.c` with the envelope-following `SoftLimiter` (`clean_limit_gain`: smooth attack/release peak follower, `threshold = 1.0f` / `0 dBFS`, applying `threshold + excess / (1 + excess)` to overall stereo gain rather than waveshaping individual samples, and leaving everything at or below `0 dBFS` untouched).
-- Restored both low-end spots from the earlier reverb/envelope commits:
-  - Restored `delta_captured * 0.22f` in `src/ui_board.c`.
-  - Removed the `±18°` comb feedback rotation in `src/ui_audio.c` (eliminating mono sub-300 Hz phase cancellation at high Space Reverb), restored `0.12f` early pre-delay blend, and applied `tank_norm` only to the `>300 Hz` reverb paths so late `<300 Hz` bass warmth (`80%–100%`) retains full level; updated `tests/test_action_audio.c` and re-recorded `tools/audio_guard.sha256`.
-
-#### Checked
-- `RAYLIB_SRC=/tmp/raylib/src ./build.sh test` (`500` engine matches, `test_music_folder.sh`, `test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, all 22 `src/*.c` under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_audio.c` and `src/ui_board.c`), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
-- **Touched:** `src/ui_audio.c`, `src/ui_board.c`, `tests/test_action_audio.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** parallel bass compressor settings, game rules, engine logic, scoring math, card definitions, `docs/`, or assets.
-
-### Capture action-tail extension & unified Menu/Match music playlist (23 October 2026)
-
-- Extended the capture action-reverb sustain and release tail in `src/ui_board.c` (`board_draw_table`) by `+2.15 s..+3.05 s`:
-  - Slowed the linear energy drain (`0.25 -> 0.11 /s`, `+0.20` per captured card) and added an asymmetric smooth release (`1.05 s` release vs `0.18 s` attack on `reverb_curve`), preserving the responsive 3-capture build (`~55% -> ~90% -> 100%` at real turn cadence) while keeping the audible space tail blooming for roughly `4.9 s` on a single 2-card capture (up from `1.9 s`) and `~9–10 s` at full stack (up from `~4.1 s`).
-- Unified Main Menu and Match music playback (`src/ui_audio.c`, `src/ui_main.c`, `tests/test_music_folder.c`):
-  - Included `assets/music/menu.mp3` directly in the default built-in track list (`menu.mp3`, `game1.mp3`, `game3.mp3` — 3 compact tracks with zero empty slots) rather than isolating it as a separate menu-only loop.
-  - Both Main Menu / subscreens (`Start`, `Options`, `Stats`, `Credits`, `Match Result`) and live matches now play and advance through the whole playlist (all built-in tracks including `menu.mp3`, or all `1..100` custom `.mp3`/`.ogg`/`.wav` tracks when a custom folder is set), keeping non-match playback dry (`reverb = 0`, except during `Test Effects` in Options) and seeding `srand` on startup; re-recorded `tools/audio_guard.sha256`.
+- Restored the audio DSP in `src/ui_audio.c` (lines `1..350`: comb/all-pass delay tunings, pre-delay, feedback/damping, room return staging, parallel bass shelf/compressor from `9574b02`, Mid/Side chorus, and soft-knee peak limiter) back to its exact state prior to PR #93's DSP retune (`465e7bd` / `9c4e18c`).
+- Restored the capture action-card release curve in `src/ui_board.c` (`reverb_energy -= 0.25f * frame_dt`, `0.10 s` / `0.18 s` smoothing from `0bcd342`) and added a **`1.00 s` sustain hold (`reverb_hold = 1.00f`)** on `capture_edge || koi_edge` before `reverb_energy` starts dimming away.
+- Preserved in full:
+  - **KK-ADD-10 gold minipoint counter (`src/ui_speed.c`):** glyph-shaped golden glow, serie size growth, and golden flash + ghost burst.
+  - **Unified 100-track music playlist (`src/ui_audio.h`, `src/ui_audio.c`, `src/ui_main.c`, `src/ui_screens.c`, `tests/test_music_folder.c`):** `menu.mp3` is part of the built-in playlist alongside the match tracks, custom folders replace the playlist with up to `100` `.mp3`/`.ogg`/`.wav` tracks, random tracks play on the Main Menu and in matches, and **music only changes on loading-screen transitions (`start_transition`)** (instant in-game restarts via `R`, board `RESTART`, or Pause `RESTART MATCH` keep the current track playing without interruption).
+  - **Glowing card-back loading transition, screen transitions, instant restart, and 4 s winner banner (`src/ui_main.c`).**
 
 #### Checked
-- `./tests/test_audio_dsp.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, all 22 `src/*.c` under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_board.c`, `src/ui_audio.c`, `src/ui_main.c`), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
-- **Touched:** `src/ui_board.c`, `src/ui_audio.c`, `src/ui_main.c`, `tests/test_music_folder.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_screens.c`, `src/ui_speed.c`, `docs/`, or assets.
-
-### Giant modulated Space Reverb retune (23 October 2026)
-
-- Retuned the reverb tank in `src/ui_audio.c` from a short static hall/room character (`1123..1657`-sample static combs, `5..13 ms` diffusers, `1.12 s` T60 at 50%) into a **giant, long Valhalla-style Space Reverb** while keeping the existing sidechain ducking (`sc_dim`), parallel +20 dB bass shelf/compressor, centered sub-bass (`hp300` on Side + `bass_late` Mid warmth above 80%), Mid/Side chorus, soft-knee peak limiter, and bit-exact zero-latency bypass untouched:
-  - Expanded delay rings (`REVERB_COMB_MAX = 16384`, `REVERB_AP_MAX = 8192`, `REVERB_PREDELAY_MAX = 8192`), widened the 8 prime macro comb taps (`2111..4649` samples, `~48..105 ms` base scaling up to `~280 ms` via `size = 0.80 + 1.85 * room`), extended pre-delay (`~8..80 ms`), and lengthened the 4-stage prime all-pass cascade (`397..1663` samples, `diffusion = 0.62..0.74`).
-  - Added a slow `0.23 Hz` 8-phase LFO (`s_space_phase`, reset cleanly in `reset_music_dsp()`) modulating all 8 macro combs (`±4..18` samples) plus gentle quadrature modulation on the outer two diffusers (`±2..6` samples) and an energy-preserving `±18°` orthogonal stereo feedback rotation across L/R comb pairs so transients melt into a wide, shimmering 3D stereo cloud with zero metallic ringing or ear bias.
-  - Raised cosmic decay feedback (`0.78..0.945`, giving `~4.5 s` T60 at `25%`, `~7.9 s` at default `50%`, and `~22 s` floating space tail at `100%` at `44.1 kHz`) with `sqrt(1 - fb^2)` tank-buildup normalization on `wet_gain` so max-space washes stay lush without surging loudness into the master limiter; re-recorded `tools/audio_guard.sha256`.
-
-#### Checked
-- `./tests/test_audio_dsp.sh` (`tests/test_audio_dsp.c` + `tests/test_action_audio.c` across `44.1 / 48 / 96 kHz`), `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, all 22 `src/*.c` under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_audio.c`), offline 30 s renders on shipped `assets/music/game1.mp3` & `game3.mp3`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
-- **Touched:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_screens.c`, `src/ui_speed.c`, `src/ui_board.c`, `docs/`, or assets.
+- `./build.sh test` (`500` engine matches, `test_music_folder.sh`, `test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), `./tools/audio_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- **Touched:** `src/ui_audio.c`, `src/ui_board.c`, `src/ui_main.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/ui_speed.c`, `src/ui_screens.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `docs/`, or assets.
 
 ### KK-ADD-10 gold minipoint counter & 100-track custom music support (23 October 2026)
 
