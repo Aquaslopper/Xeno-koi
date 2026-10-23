@@ -17,6 +17,27 @@ STRICT CONSTRAINTS:
 OUTPUT REQUIREMENT:
 WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
 
+## STRICT OUTPUT RULE WHEN CODING:
+Output format (fill 1:1):
+
+=========================================
+
+1. re-read AGENTS.md
+
+Confirm to follow SYSTEM DIRECTIVE
+
+3. What the request is, in the agent's words
+
+Awaiting approval. Nothing written to disk.
+
+------------------------------------------
+- SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
+- Touched: files
+- Not touched: files / areas
+- Checks run: checks
+
+=========================================
+
 ## Where the truth lives
 
 1. **The code** (`src/`) decides what the game does.
