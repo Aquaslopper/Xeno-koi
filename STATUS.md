@@ -7,6 +7,19 @@
 ## Status Summary
 ## Latest completed work
 
+### Add Koi-Koi decision screen & full wiki ruleset trigger tests to automated test suite (23 October 2026)
+
+- Rebased branch cleanly onto `origin/main` (`fc2d5c1`, preserving the `src/ui_audio.c` header warning byte-for-byte untouched).
+- Updated `tools/test_koikoi_trigger.c` to match 100% of the wiki's Koi-Koi screen rules without copying engine scoring logic:
+  - Fixed stale `KK-ADD-10` Tanzaku initial trigger pile to **4 ribbons** (`before=0 -> after=1`, plus `4->5` and `5->6` growth) instead of `5`.
+  - Added `KK-ADD-10` **9 Plains + Sake Cup (`09-A`, id `32`)** Kasu trigger (`before=0 -> after=1` and `10->11` growth), negative threshold controls (`Rain-Sanko`, `3` ungrouped ribbons, `8 Plains + Cup`, `No yaku`), Bright Rain Man upgrade path (`Sanko -> Ame-shiko -> Goko`), Ribbon set upgrades (`Akatan -> Akatan+Aotan`, `Aotan -> Akatan+Aotan`), `DECISION_SHOBU` award banking alongside `DECISION_KOI_KOI` continuation, and cross-ruleset checks across all 5 rulesets (`1`-call auto-Shobu in `Nintendo`/`Tournament`/`Yakuza` vs unlimited in `FudaWiki`/`KK-ADD-10`, empty-hand `hand_count == 0` auto-Shobu, `Viewings` disabled in `Tournament`/`Yakuza`, `4` ribbons & `9 Plains + Cup` exclusive to `KK-ADD-10`, and `FudaWiki` score-based `Ino + 4th animal` vs `KK-ADD-10` combo-based wait for `5th` animal).
+- Linked real `src/ui_screens.c` in `tests/test_table_ui.sh` and added `test_decide_overlay()` in `tests/test_table_ui.c`: verifies `screens_draw_decide_overlay` and `screens_check_decide_click` across all 13 yakus, non-mutation of `GameState`, Sake Cup (`id 32`) shown in Kasu cards in `KK-ADD-10` and omitted in `Nintendo`, all 8 simultaneous stacked `KK-ADD-10` yakus staying inside `{200, 45, 880, 630}` and strictly above the `y = 430` divider with `Base` / `x2 7+` / `x2 Opponent Koi` / `x6` capped streak / `IF YOU SHOBU NOW` lines, and `KOI-KOI` vs `SHOBU` button clicks driving `engine_decide()`.
+- Wired `tools/test_koikoi_trigger.c` unconditionally into `./build.sh test` (plus `./tests/test_table_ui.sh` whenever `raylib.h` is present at `RAYLIB_SRC` / `/tmp/raylib/src`).
+
+#### Checked
+- `./build.sh test` (500 engine matches, `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, `./tests/test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), `RAYLIB_SRC=/nonexistent ./build.sh test` (pre-Raylib CI mode), `ASan + UBSan` with `-Werror` on `tools/test_koikoi_trigger.c` and `./tests/test_table_ui.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `tools/test_koikoi_trigger.c`, `tests/test_table_ui.c`, `tests/test_table_ui.sh`, `build.sh`, `STATUS.md`. **Deliberately did not touch:** any file in `src/` (`src/ui_audio.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_screens.c`, `src/campaign.c`), `tools/audio_guard.sha256`, `docs/`, `assets/`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Restore pre-PR #93 audio DSP, add 1 s capture hold before dim-away, and switch music only on loading screens (23 October 2026)
 
 - Restored the audio DSP in `src/ui_audio.c` (lines `1..350`: comb/all-pass delay tunings, pre-delay, feedback/damping, room return staging, parallel bass shelf/compressor from `9574b02`, Mid/Side chorus, and soft-knee peak limiter) back to its exact state prior to PR #93's DSP retune (`465e7bd` / `9c4e18c`).
