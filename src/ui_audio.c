@@ -10,16 +10,17 @@
    tail under the dry music so it never smears or spikes. */
 #define CHORUS_HISTORY 2048
 #define REVERB_COMB_COUNT 8
-#define REVERB_COMB_MAX   4096
+#define REVERB_COMB_MAX   16384
 #define REVERB_AP_COUNT   4
-#define REVERB_AP_MAX     1536
-#define REVERB_PREDELAY_MAX 4096
+#define REVERB_AP_MAX     8192
+#define REVERB_PREDELAY_MAX 8192
 
-/* Independently chosen tunings for the classic parallel-comb/serial-diffuser topology. */
-static const int k_comb_len_l[REVERB_COMB_COUNT] = {1123, 1201, 1289, 1367, 1433, 1499, 1571, 1627};
-static const int k_comb_len_r[REVERB_COMB_COUNT] = {1147, 1229, 1307, 1399, 1459, 1523, 1597, 1657};
-static const int k_ap_len_l[REVERB_AP_COUNT] = {557, 443, 337, 227};
-static const int k_ap_len_r[REVERB_AP_COUNT] = {577, 461, 359, 251};
+/* Giant modulated cosmic-space tunings: wide prime macro delays (~48..105 ms base,
+   scaling up to ~280 ms) + long prime all-pass cascade (~9..38 ms base). */
+static const int k_comb_len_l[REVERB_COMB_COUNT] = {2111, 2447, 2819, 3203, 3583, 3947, 4283, 4591};
+static const int k_comb_len_r[REVERB_COMB_COUNT] = {2153, 2503, 2879, 3259, 3637, 4003, 4339, 4649};
+static const int k_ap_len_l[REVERB_AP_COUNT] = {1619, 1153, 739, 397};
+static const int k_ap_len_r[REVERB_AP_COUNT] = {1663, 1193, 773, 421};
 
 static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
 static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
@@ -51,8 +52,17 @@ static BiquadState s_bass_l, s_bass_r;
 static float s_bass_env;
 static float s_effect_cur[3] = {0.0f, 0.0f, 0.5f};
 static BiquadState s_chorus_hp;
-static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase;
+static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase, s_space_phase;
 static int s_chorus_index;
+
+typedef struct {
+    float envelope;
+    float attack_coef;
+    float release_coef;
+    float threshold;
+} SoftLimiter;
+
+static SoftLimiter s_limiter = { 0.0f, 0.985f, 0.9997f, 1.0f };
 
 #if __GCC_ATOMIC_INT_LOCK_FREE != 2
 #error Audio controls require lock-free unsigned int atomics
@@ -92,10 +102,10 @@ static void reset_music_dsp(void) {
     s_in_hp_l = s_in_hp_r = s_in_lp_l = s_in_lp_r = (BiquadState){0};
     s_bass_l = s_bass_r = (BiquadState){0};
     s_chorus_hp = (BiquadState){0};
-    s_sc_env = s_bass_env = s_reverb_cur = 0;
+    s_sc_env = s_bass_env = s_reverb_cur = s_limiter.envelope = 0;
     memset(s_chorus_history, 0, sizeof(s_chorus_history));
     s_chorus_index = 0;
-    s_chorus_phase = 0;
+    s_chorus_phase = s_space_phase = 0;
 }
 
 static float card_sfx_volume(float master_volume) {
@@ -134,14 +144,21 @@ static float bass_shelf10(BiquadState *s, float x) {
     return y;
 }
 
-/* Soft-knee peak limiter: 1:1 linear below knee, smoothly compressed above knee */
-static float soft_knee_limit(float x, float knee, float max_val) {
-    float ax = (x < 0.0f) ? -x : x;
-    if (ax <= knee) return x;
-    float span = max_val - knee;
-    float u = (ax - knee) / (span + (ax - knee));
-    float out = knee + span * u;
-    return (x < 0.0f) ? -out : out;
+/* Envelope-following soft-knee gain limiter: untouched at/below threshold (0 dBFS = 1.0),
+   smoothly reduces overall stereo gain above threshold without waveshaping the wave. */
+static float clean_limit_gain(SoftLimiter *limiter, float abs_x) {
+    if (abs_x > limiter->envelope) {
+        limiter->envelope = abs_x + limiter->attack_coef * (limiter->envelope - abs_x);
+    } else {
+        limiter->envelope = abs_x + limiter->release_coef * (limiter->envelope - abs_x);
+    }
+    float gain = 1.0f;
+    if (limiter->envelope > limiter->threshold) {
+        float excess = limiter->envelope - limiter->threshold;
+        float compressed_envelope = limiter->threshold + (excess / (1.0f + excess));
+        gain = compressed_envelope / limiter->envelope;
+    }
+    return gain;
 }
 
 /* Linear interpolation permits smooth room-size and chorus delay changes.
@@ -198,10 +215,11 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
-        /* Room dimensions depend on the saved slider, not the action pulse:
-           size 0.65..2.2, feedback 0.55..0.93, increasingly diffuse late field. */
-        float size = 0.65f + 1.55f*room;
-        float diffusion = 0.50f + 0.15f*room;
+        /* Giant modulated space dimensions depend on the saved slider:
+           size 0.80..2.72 (~50..290 ms macro taps), feedback 0.78..0.945,
+           high all-pass diffusion 0.62..0.74, and slow multi-phase LFO drift. */
+        float size = 0.80f + 1.92f*room;
+        float diffusion = 0.62f + 0.12f*room;
         float bp_in_l = dry_l;
         float bp_in_r = dry_r;
 
@@ -217,7 +235,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             bp_in_r += sfx_r * sfx_scaling;
         }
         
-        float pre_delay = 220 + 1980*room; /* ~5..50 ms at nominal 44.1 kHz. */
+        float pre_delay = 360 + 3150*room; /* ~8..80 ms at nominal 44.1 kHz. */
         float early_l = delay_tap(s_pre_buf_l, REVERB_PREDELAY_MAX, s_pre_idx_l, pre_delay);
         float early_r = delay_tap(s_pre_buf_r, REVERB_PREDELAY_MAX, s_pre_idx_r, pre_delay);
         s_pre_buf_l[s_pre_idx_l] = bp_in_l;
@@ -225,38 +243,42 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         if (++s_pre_idx_l == REVERB_PREDELAY_MAX) s_pre_idx_l = 0;
         if (++s_pre_idx_r == REVERB_PREDELAY_MAX) s_pre_idx_r = 0;
         float tail_releasing = (target + 0.02f < s_reverb_cur) ? 1.0f : 0.0f;
-        /* Low fixed input gain reserves feedback headroom, not an auto-gain. */
-        float feed_l = early_l*0.020f + early_r*0.005f;
-        float feed_r = early_r*0.020f + early_l*0.005f;
-        float feedback = (0.55f + 0.38f*room) - 0.08f*tail_releasing;
-        float damp = 0.40f - 0.20f*room;
+        /* Low fixed input gain reserves headroom for long space decay (up to ~22 s). */
+        float feed_l = early_l*0.0105f + early_r*0.0025f;
+        float feed_r = early_r*0.0105f + early_l*0.0025f;
+        float fb_base = 0.78f + 0.165f*powf(room, 0.65f);
+        float feedback = fb_base - 0.07f*tail_releasing;
+        float damp = 0.25f - 0.15f*room;
+        float mod_depth = 4.0f + 14.0f*room;
         float acc_l = 0.0f, acc_r = 0.0f;
 
         for (int c = 0; c < REVERB_COMB_COUNT; c++) {
-            int il = s_comb_idx_l[c];
-            float out_l = delay_tap(s_comb_buf_l[c], REVERB_COMB_MAX, il, k_comb_len_l[c]*size);
+            float phi = s_space_phase + c * 0.7853982f;
+            int il = s_comb_idx_l[c], ir = s_comb_idx_r[c];
+            float out_l = delay_tap(s_comb_buf_l[c], REVERB_COMB_MAX, il, k_comb_len_l[c]*size + mod_depth*sinf(phi));
+            float out_r = delay_tap(s_comb_buf_r[c], REVERB_COMB_MAX, ir, k_comb_len_r[c]*size + mod_depth*cosf(phi));
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
-            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
-            if (++il == REVERB_COMB_MAX) il = 0;
-            s_comb_idx_l[c] = il;
-            acc_l += s_comb_lp_l[c];
-
-            int ir = s_comb_idx_r[c];
-            float out_r = delay_tap(s_comb_buf_r[c], REVERB_COMB_MAX, ir, k_comb_len_r[c]*size);
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
+            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
             s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.80f, 0.80f);
+            if (++il == REVERB_COMB_MAX) il = 0;
             if (++ir == REVERB_COMB_MAX) ir = 0;
+            s_comb_idx_l[c] = il;
             s_comb_idx_r[c] = ir;
+            acc_l += s_comb_lp_l[c];
             acc_r += s_comb_lp_r[c];
         }
+        s_space_phase += 6.28318530718f * 0.23f / 44100.0f;
+        if (s_space_phase >= 6.28318530718f) s_space_phase -= 6.28318530718f;
 
-        /* Restore the 20x input staging, then normalize eight returns (~1/sqrt(8)). */
-        acc_l *= 7.0f;
-        acc_r *= 7.0f;
+        /* Restore low input staging and normalize the 8 modulated space returns. */
+        acc_l *= 11.5f;
+        acc_r *= 11.5f;
 
         for (int a = 0; a < REVERB_AP_COUNT; a++) {
+            float ap_mod = (a < 2) ? (2.0f + 4.0f*room) * ((a == 0) ? cosf(s_space_phase) : sinf(s_space_phase)) : 0.0f;
             int il = s_ap_idx_l[a];
-            float buf_l = delay_tap(s_ap_buf_l[a], REVERB_AP_MAX, il, k_ap_len_l[a]*size);
+            float buf_l = delay_tap(s_ap_buf_l[a], REVERB_AP_MAX, il, k_ap_len_l[a]*size + ap_mod);
             float in_l = acc_l;
             acc_l = buf_l - diffusion*in_l;
             s_ap_buf_l[a][il] = in_l + diffusion*acc_l;
@@ -264,7 +286,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             s_ap_idx_l[a] = il;
 
             int ir = s_ap_idx_r[a];
-            float buf_r = delay_tap(s_ap_buf_r[a], REVERB_AP_MAX, ir, k_ap_len_r[a]*size);
+            float buf_r = delay_tap(s_ap_buf_r[a], REVERB_AP_MAX, ir, k_ap_len_r[a]*size - ap_mod);
             float in_r = acc_r;
             acc_r = buf_r - diffusion*in_r;
             s_ap_buf_r[a][ir] = in_r + diffusion*acc_r;
@@ -282,15 +304,17 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         bass_late *= bass_late * (3 - 2*bass_late);
         float room_mid_hp = biquad_hp300(&s_in_hp_l, wet_mono);
         float room_side_hp = biquad_hp300(&s_in_hp_r, wet_stereo);
-        float room_mid = room_mid_hp + (wet_mono - room_mid_hp) * bass_late;
+        float tank_norm = sqrtf(1.0f - fb_base * fb_base) * 2.15f;
+        float room_mid = room_mid_hp * tank_norm + (wet_mono - room_mid_hp) * bass_late;
         /* Deep room bass stays centred; diffusion occupies the mid/high field. */
-        float room_side = room_side_hp;
+        float room_side = room_side_hp * tank_norm;
         /* Darker at low room settings; full-band at maximum. */
         float room_mid_lp = biquad_lp5000(&s_in_lp_l, room_mid);
         float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
-        float wet_gain = room * rev * 2.20f * sc_dim * (1 - 0.10f * tail_releasing);
+        float room_mix = sqrtf(room) * (0.65f + 0.35f * room);
+        float wet_gain = room_mix * rev * 2.30f * sc_dim * (1 - 0.10f * tail_releasing);
         float dry_gain = 1 - 0.30f * room * rev;
         float out_l = dry_l, out_r = dry_r;
         if (room * rev > 0.00001f) {
@@ -321,12 +345,12 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         s_chorus_phase += 6.28318530718f*0.60f/44100;
         if (s_chorus_phase >= 6.28318530718f) s_chorus_phase -= 6.28318530718f;
 
-        /* Stereo-linked protection: one gain for both ears, no image shift.
-           Dry bypass (including hot input) is zero-latency when all effects are off. */
-        float peak = fmaxf(fabsf(out_l), fabsf(out_r));
-        if (rev > 0.00001f && chorus + bass + room > 0.00001f && peak > 0.88f) {
-            float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;
+        if (rev > 0.00001f && chorus + bass + room > 0.00001f) {
+            float peak = fmaxf(fabsf(out_l), fabsf(out_r));
+            float gain = clean_limit_gain(&s_limiter, peak);
             out_l *= gain; out_r *= gain;
+        } else {
+            s_limiter.envelope = 0.0f;
         }
         pcm[f * 2 + 0] = out_l;
         pcm[f * 2 + 1] = out_r;
@@ -353,18 +377,19 @@ static int compare_music_paths(const void *a, const void *b) {
 }
 
 int audio_set_music_folder(AudioAssets *a, const char *folder) {
-    Music loaded[10] = {0};
+    Music loaded[AUDIO_MAX_TRACKS] = {0};
     int count = 0, custom = folder && folder[0];
     FilePathList files = {0};
     if (custom) {
         if (!DirectoryExists(folder)) return -1;
-        files = LoadDirectoryFilesEx(folder, ".mp3", false);
+        files = LoadDirectoryFilesEx(folder, ".mp3;.ogg;.wav", false);
         if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_music_paths);
     }
-    unsigned int limit = custom ? files.count : 10;
-    for (unsigned int i = 0; i < limit && count < 10; i++) {
+    unsigned int limit = custom ? files.count : 11;
+    for (unsigned int i = 0; i < limit && count < AUDIO_MAX_TRACKS; i++) {
         char path[64];
-        snprintf(path, sizeof(path), "assets/music/game%u.mp3", i + 1);
+        if (i == 0) snprintf(path, sizeof(path), "assets/music/menu.mp3");
+        else        snprintf(path, sizeof(path), "assets/music/game%u.mp3", i);
         const char *name = custom ? files.paths[i] : get_path(path);
         if (!FileExists(name)) continue;
         Music m = LoadMusicStream(name);
@@ -378,7 +403,7 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
     /* Stage the replacement first so invalid folders leave playback untouched. */
     int was_match = a->current_music == 2;
     if (was_match) audio_stop_music(a);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
             DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
             UnloadMusicStream(a->music_game[i]);
@@ -403,14 +428,6 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     a->sfx_volume = (sfx_vol >= 0.0f && sfx_vol <= 1.0f) ? sfx_vol : 0.5f;
 
     InitAudioDevice();
-
-    const char *p_menu = get_path("assets/music/menu.mp3");
-    if (FileExists(p_menu)) {
-        a->music_menu = LoadMusicStream(p_menu);
-        a->has_music_menu = 1;
-        SetMusicVolume(a->music_menu, a->bgm_volume);
-    }
-
     audio_set_music_folder(a, "");
 
     const char *p_flip = get_path("assets/sfx/card_flip.wav");
@@ -455,7 +472,7 @@ void audio_set_bgm_volume(AudioAssets *a, float volume) {
     if (volume > 1.0f) volume = 1.0f;
     a->bgm_volume = volume;
     if (a->has_music_menu) SetMusicVolume(a->music_menu, volume);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) SetMusicVolume(a->music_game[i], volume);
     }
 }
@@ -477,7 +494,7 @@ void audio_set_sfx_volume(AudioAssets *a, float volume) {
 void audio_update(AudioAssets *a) {
     if (a->current_music == 1 && a->has_music_menu) {
         UpdateMusicStream(a->music_menu);
-    } else if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    } else if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) {
             UpdateMusicStream(a->music_game[a->current_game_track]);
         }
@@ -492,10 +509,18 @@ void audio_preview_effect(AudioAssets *a, int enabled) {
 }
 
 void audio_play_menu_music(AudioAssets *a) {
+    if (a->game_track_count > 0) {
+        if (a->current_music != 2) audio_start_match_music(a, 1);
+        else {
+            audio_set_reverb(0);
+            if (audio_is_match_music_finished(a)) audio_start_match_music(a, a->current_game_track + 2);
+        }
+        return;
+    }
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
     a->current_music = 1;
@@ -505,18 +530,18 @@ void audio_play_menu_music(AudioAssets *a) {
     }
 }
 
-void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
+void audio_start_match_music(AudioAssets *a, int track_1_based) {
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
-    if (a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
-    int idx = track_1_to_10 - 1;
+    int idx = track_1_based - 1;
     if (idx < 0) idx = 0;
-    if (idx > 9) idx = 9;
-    /* Compact playlists also handle a folder with just one usable song. */
+    /* Compact playlists have zero empty slots (e.g. 2 built-in or N<=100 custom). */
     if (a->game_track_count > 0) idx %= a->game_track_count;
+    else if (idx >= AUDIO_MAX_TRACKS) idx = AUDIO_MAX_TRACKS - 1;
     a->current_game_track = idx;
     a->current_music = 2;
 
@@ -528,7 +553,7 @@ void audio_start_match_music(AudioAssets *a, int track_1_to_10) {
 }
 
 void audio_resume_match_music(AudioAssets *a) {
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track] && !IsMusicStreamPlaying(a->music_game[a->current_game_track])) {
             SetMusicVolume(a->music_game[a->current_game_track], a->bgm_volume);
             PlayMusicStream(a->music_game[a->current_game_track]);
@@ -537,7 +562,7 @@ void audio_resume_match_music(AudioAssets *a) {
 }
 
 int audio_is_match_music_finished(const AudioAssets *a) {
-    if (a->current_music != 2 || a->current_game_track < 0 || a->current_game_track >= 10) return 0;
+    if (a->current_music != 2 || a->current_game_track < 0 || a->current_game_track >= AUDIO_MAX_TRACKS) return 0;
     if (!a->has_music_game[a->current_game_track]) return 0;
     Music m = a->music_game[a->current_game_track];
     if (!IsMusicStreamPlaying(m)) return 1;
@@ -550,7 +575,7 @@ void audio_stop_music(AudioAssets *a) {
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu) StopMusicStream(a->music_menu);
-    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < 10) {
+    if (a->current_music == 2 && a->current_game_track >= 0 && a->current_game_track < AUDIO_MAX_TRACKS) {
         if (a->has_music_game[a->current_game_track]) StopMusicStream(a->music_game[a->current_game_track]);
     }
     a->current_music = 0;
@@ -571,7 +596,7 @@ void audio_close(AudioAssets *a) {
     if (a->has_music_menu) {
         UnloadMusicStream(a->music_menu);
     }
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
             DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
             UnloadMusicStream(a->music_game[i]);

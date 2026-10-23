@@ -239,7 +239,7 @@ static void handle_music_folder_input(GameSettings *s, AudioAssets *audio, Vecto
             music_folder_edit[len - 2] = '\0';
         }
         if (!audio || audio_set_music_folder(audio, music_folder_edit) < 0) {
-            music_folder_message = "Folder unavailable or no playable MP3 files. Music unchanged.";
+            music_folder_message = "Folder unavailable or no playable audio files. Music unchanged.";
             return;
         }
         strcpy(s->music_folder, music_folder_edit);
@@ -409,7 +409,7 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     }
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && options_page == 1 && CheckCollisionPointRec(vm, (Rectangle){ 650, 128, 300, 38 })) {
         strcpy(music_folder_edit, s->music_folder);
-        music_folder_message = "Up to 10 MP3s, no subfolders. Blank path restores built-in music.";
+        music_folder_message = "Up to 100 tracks (.mp3/.ogg/.wav), no subfolders. Blank restores default.";
         music_folder_open = 1;
         return ACT_NONE;
     }

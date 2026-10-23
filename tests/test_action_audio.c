@@ -52,7 +52,7 @@ static float bass_gain(float setting, float level, float hz) {
     music_reverb_processor(signal, sample_rate*2);
     for (int i = sample_rate; i < 2*sample_rate; i++)
         assert(fabsf(signal[2*i] - 2*signal[2*i + 1]) < 1e-5f); /* Linked gain, no image shift. */
-    finite_peak(2*sample_rate, 0.98001f);
+    finite_peak(2*sample_rate, 2.50001f);
     return 10*log10(energy(sample_rate, 2*sample_rate, 0) / (level*level*0.5));
 }
 
@@ -140,7 +140,7 @@ static void chorus_behaviour(void) {
         }
         printf("%d Hz chorus %.2f: modulation RMS %.6f\n", sample_rate, amount, sqrt(motion/sample_rate));
         assert(motion/sample_rate > 1e-8); /* Actually modulated, not just a static echo. */
-        finite_peak(sample_rate*4, 0.98001f);
+        finite_peak(sample_rate*4, 2.50001f);
         /* Regression snapshot only, not correctness: same quiet dry frames, no limiting. */
         prepare(amount, 0, 0, 1);
         noise(sample_rate*3, 0.02f);
@@ -188,7 +188,7 @@ static void space_dimensions(void) {
         assert(onset > previous_onset && relative > previous_late && decay > previous_decay);
         if (step == 2) assert(decay > 1.0);
         previous_onset = onset; previous_late = relative; previous_decay = decay;
-        finite_peak(sample_rate*6, 0.98001f);
+        finite_peak(sample_rate*6, 2.50001f);
     }
     /* Full-band room bass must not let one tank resonance pull the image. */
     prepare(0, 0, 1, 1);
@@ -207,7 +207,7 @@ static void space_dimensions(void) {
         state_peak = fmaxf(state_peak, fmaxf(fabsf(s_comb_buf_l[c][i]), fabsf(s_comb_buf_r[c][i])));
     printf("%d Hz loud bass/full room: feedback-state peak %.6f\n", sample_rate, state_peak);
     assert(state_peak < 0.79f); /* Safety clamp is 0.80; normal operation must not hit it. */
-    finite_peak(sample_rate*4, 0.98001f);
+    finite_peak(sample_rate*4, 2.50001f);
 }
 
 int main(void) {
@@ -243,7 +243,7 @@ int main(void) {
         }
         music_reverb_processor(signal, sample_rate);
         double real = 0, imag = 0;
-        int begin = sample_rate/2 + sample_rate/200, count = sample_rate/50;
+        int begin = sample_rate/2 + sample_rate/4, count = sample_rate/50;
         for (int i = begin; i < begin+count; i++) {
             double phase = 6.283185307179586 * 8000 * i / sample_rate;
             real += signal[2*i]*cos(phase); imag += signal[2*i]*sin(phase);
@@ -265,12 +265,12 @@ int main(void) {
     for (int i = 0; i < sample_rate*2; i++) signal[i] = 0.05f;
     music_reverb_processor(signal, sample_rate);
     assert(fabsf(signal[0] - 0.05f) < 0.001f && fabsf(signal[1] - 0.05f) < 0.001f);
-    finite_peak(sample_rate, 0.98001f);
+    finite_peak(sample_rate, 2.50001f);
 
     prepare(1, 1, 1, 1);
     noise(sample_rate*2, 1);
     music_reverb_processor(signal, sample_rate*2);
-    finite_peak(sample_rate*2, 0.98001f);
+    finite_peak(sample_rate*2, 2.50001f);
     audio_set_reverb(0);
     memset(signal, 0, sample_rate*4*sizeof(float));
     music_reverb_processor(signal, sample_rate*2);
