@@ -7,6 +7,27 @@
 ## Status Summary
 ## Latest completed work
 
+### Add fixed left-column captured-card inventory info panel across all difficulties (23 October 2026)
+
+- Added standalone module `src/ui_capture_info.h` + `src/ui_capture_info.c` rendering a fixed-position HUD inventory readout at `{ 12, 304, 255, 200 }` (`x = 12`, `width = CAPTURE_PANEL_W = 255`, `4 px` gap above the human `B` capture lane at `y = 508`, matching `COLOR_PANEL_BG` + `ui_draw_panel_border` phosphor HUD styling and never attached to the mouse):
+  - Pops up immediately whenever hovering any settled captured card in either the **Player (`YOU`)** or **CPU** capture lanes across **all difficulties** (`Easy`, `Hard`, `Master`, `Deus`), outlines the exact hovered mini-card in crowded stacks (frontmost drawn wins), and hides immediately on hover loss or modal overlays.
+  - Displays the enlarged crisp `106 x 172` card (`176:286` native aspect ratio) on the left and 5 fitted ASCII info rows on the right (`Card Name`, `Month`, `Flower / Suit`, `Category / Special Tag`, `Owner + Lane Index`).
+- Added minimal surgical hooks in `src/ui_board.c` (record settled mini-card rects in `draw_capture_lanes` and call `card_tooltip_clear()` right after drawing capture lanes so Easy Mode never double-pops a cursor tooltip over captured cards while keeping Easy-mode field/hand tooltips untouched) and `src/ui_main.c` (`capture_info_begin` / `capture_info_draw`), plus linked `src/ui_capture_info.c` and added `test_capture_info()` across all 48 cards for both `YOU` and `CPU` in `tests/test_table_ui.sh` / `tests/test_table_ui.c`.
+
+#### Checked
+- `RAYLIB_SRC=/tmp/raylib/src ./build.sh test` (`500` engine matches, `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh` including all 48 cards x 2 players + overlap + instant hide checks, `./tests/test_music_folder.sh`, `./tests/test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), `tests/test_card_tooltip.c` + `node tests/test_card_tooltip_web.js`, all 23 `src/*.c` compiled cleanly under `-std=c99 -O2 -Wall -Wextra -Werror`, full `1280 x 720` `stb_truetype` + `assets/atlas.png` pixel render inspection in Hard Mode, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_capture_info.h`, `src/ui_capture_info.c`, `src/ui_board.c`, `src/ui_main.c`, `tests/test_table_ui.sh`, `tests/test_table_ui.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_card_tooltip.h`, `src/ui_card_tooltip.c`, `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c`, `docs/`, `assets/`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
+### Remove redundant second loading screen when returning from Match Results to Main Menu (23 October 2026)
+
+- Changed `ACT_GOTO_MENU` handling on `SCREEN_MATCH_RESULT` in `src/ui_main.c` (`line 436`) from `start_transition(SCREEN_START, 3, 0);` to `screen = SCREEN_START;`, matching all other Main Menu hub screens (`SCREEN_OPTIONS`, `SCREEN_STATS`, `SCREEN_CREDITS`):
+  - **Preserved:** the post-match `MATCH RESULTS` button on `SCREEN_GAME` (`start_transition(SCREEN_MATCH_RESULT, 2, 0)`) still runs the full three-stage loading transition into `SCREEN_MATCH_RESULT` and switches to a new hub track, and `PLAY AGAIN` on `SCREEN_MATCH_RESULT` (`start_transition(SCREEN_GAME, 1, pick_match_track(1))`) still runs the loading transition into a new match.
+  - **Removed:** the redundant second loading screen when clicking `MAIN MENU` from `SCREEN_MATCH_RESULT` back to `SCREEN_START`; `transition_dir` stays `0`, `transition_alpha` stays `0.0f`, and the active `Music` stream keeps playing continuously at full `settings.bgm_volume` with zero volume dip, cut, or track change.
+
+#### Checked
+- `RAYLIB_SRC=/tmp/raylib/src ./build.sh test` (`500` engine matches, `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, `./tests/test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), full 22-file C99 compile check (`-std=c99 -O2 -Wall -Wextra -Werror` on `src/ui_main.c`), headless 60 Hz frame-stepping harness (`ASan + UBSan`) against all 22 `src/*.c` modules verifying `MATCH RESULTS` transition -> seamless zero-cut `MAIN MENU` switch (`0` extra `PlayMusicStream`/`StopMusicStream` calls, `0.000000` volume dip) -> `PLAY AGAIN` transition, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/ui_screens.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c`, `docs/`, `assets/`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Add Koi-Koi decision screen & full wiki ruleset trigger tests to automated test suite (23 October 2026)
 
 - Rebased branch cleanly onto `origin/main` (`fc2d5c1`, preserving the `src/ui_audio.c` header warning byte-for-byte untouched).

@@ -1,5 +1,6 @@
 #include "ui_board.h"
 #include "ui_card_tooltip.h"
+#include "ui_capture_info.h"
 #include "board_layout.h"
 #include "ui_motion.h"
 #include "ui_board_status.h"
@@ -494,7 +495,10 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
                 board_draw_card(ba, cid, dr); board_draw_card_glow(dr, 0.8f);
-            } else board_draw_card(ba, cid, dr);
+            } else {
+                board_draw_card(ba, cid, dr);
+                capture_info_record(cid, player, c + 1, count, dr);
+            }
         }
     }
 }
@@ -619,6 +623,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     board_draw_info_box(cpu_score_box, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
     draw_capture_lanes(ba, g, 1, 46.0f, (active_turn == 1) ? turn_flash_alpha : 0.0f);
     draw_capture_lanes(ba, g, 0, 508.0f, (active_turn == 0) ? turn_flash_alpha : 0.0f);
+    card_tooltip_clear();
     if (active_turn == 0 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(you_score_box, turn_flash_alpha);
     board_draw_info_box(you_score_box, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
 
