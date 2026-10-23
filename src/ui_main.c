@@ -103,7 +103,7 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
         screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
         if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
     } else if (sc == SCREEN_ATRIUM) {
-        plexus_draw(&assets, mouse_pos);
+        plexus_draw(&assets, &stats, mouse_pos);
     } else if (sc == SCREEN_OPTIONS) {
         screens_draw_options(&assets, &settings, mouse_pos);
     } else if (sc == SCREEN_STATS) {

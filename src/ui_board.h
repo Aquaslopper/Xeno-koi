@@ -53,6 +53,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm);
 int board_check_dealer_select_click(const GameState *g, Vector2 vm);
 
+/* Action-card audio effect telemetry getters for Atrium Plex Logfile */
+int   board_get_audio_action_triggers(void);
+float board_get_audio_peak_synergy(void);
+float board_get_audio_full_hold_seconds(void);
+
 /* Global clean font for high-readability UI details */
 extern Font small_font;
 

@@ -46,9 +46,10 @@ Its purpose is singular: studying a dormant, anomalous entity lurking deep withi
 
 1. **`SAVE & BACK`:**
    - Saves all progress and triggers the full loading screen transition back to the Main Menu.
-2. **`LOGFILE` *(Working Title — Quest Book & Research Archive)*:**
-   - Acts as the player's quest book and research terminal.
-   - Displays the latest/unlocked parts of the story so the player can revisit them a second time.
-   - Shows **Plexus-specific stats** (how many of the 48 cards have been archived, monthly completion progress, training records, and research notes).
+2. **`LOGFILE` *(Middle-Screen Window — [`plexus/plexus_logfile_mockup.png`](plexus_logfile_mockup.png))*:**
+   - Clicking `LOGFILE` opens a central window (`244, 45, 740, 557`) divided into three regions:
+     - **Top Story / Last Event Log (`y = 98..404`):** Records the information last given to the player, story sequences, and node events, with theme-colored `▲` / `▼` scroll arrows (and mouse-wheel support) to scroll back through earlier entries.
+     - **Bottom-Left Stats Panel (`265, 431, 423, 150`):** Displays telemetry drawn from existing systems — average speedbar drop time, card drop overlap accuracy ("how close"), Speedcoin minipoints & best perfect streak, action-card audio effect synergy (`reverb_synergy` peak & `100%` hold duration), plus archived card count and match records.
+     - **Bottom-Right 48-Card Atlas Map (`703, 431, 255, 151`):** Renders all 48 cards from `assets/atlas.png` (`12 × 4`); finished cards are highlighted at full brightness with a `COLOR_PHOSPHOR` border while unfinished cards remain dimmed.
 3. **`TRAINING 1` / `TRAINING 2` / `TRAINING 3` *(Unlockable Minigame Slots)*:**
    - Over time, as the player successfully completes new training/minigame types inside the 4-card monthly progression, those minigames unlock as permanent buttons along the bottom bar so they can be chosen directly for free-play sparring anytime.
