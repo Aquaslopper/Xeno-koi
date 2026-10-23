@@ -108,6 +108,178 @@ static void test_multipliers_and_awards(void) {
     assert(calculate_award(8, 2, 1) == 96); /* 8 * 2(7+) * 2(opp) * 3(self) */
 }
 
+/* ---------------------------------------------------------------------------
+ * Combo -> Koi-Koi screen trigger tests (added 23 Oct 2026).
+ *
+ * Contract under test: when a player's captures complete a new combo (yaku),
+ * the Koi-Koi / Shobu screen (PHASE_DECIDE) opens. Each case drives the real
+ * engine: player 0 already holds the "have" cards in captures, the field is
+ * left with exactly one card of the final card's month, and the stock top is
+ * the final card. engine_reveal_stock() then plays a normal stock stage, and
+ * the resulting phase is exactly what the game would show the player.
+ * ------------------------------------------------------------------------- */
+
+static int remove_card(GameState *g, int id) {
+    for (int p = 0; p < 2; p++)
+        for (int i = 0; i < g->hand_count[p]; i++)
+            if (g->hand[p][i] == id) {
+                for (int k = i; k < g->hand_count[p] - 1; k++) g->hand[p][k] = g->hand[p][k + 1];
+                g->hand_count[p]--;
+                return 1;
+            }
+    for (int i = 0; i < g->field_count; i++)
+        if (g->field[i] == id) {
+            for (int k = i; k < g->field_count - 1; k++) g->field[k] = g->field[k + 1];
+            g->field_count--;
+            return 1;
+        }
+    for (int i = 0; i < g->stock_count; i++)
+        if (g->stock[i] == id) {
+            for (int k = i; k < g->stock_count - 1; k++) g->stock[k] = g->stock[k + 1];
+            g->stock_count--;
+            return 1;
+        }
+    return 0;
+}
+
+static void run_combo_case(const char *name, Ruleset rs, const int *have, int n_have,
+                           int final_card, int field_card, int expect_screen) {
+    GameState g;
+    engine_init(&g, rs, 1, 0xC0FFEEu);
+    engine_start_round(&g);
+
+    for (int i = 0; i < n_have; i++) {
+        assert(remove_card(&g, have[i]));
+        g.captured[0][g.captured_count[0]++] = have[i];
+    }
+    /* Leave only field_card on the field in the final card's month, so the
+       stock draw produces one clean two-card capture (no draw choice). */
+    int m = CARDS[final_card].month;
+    for (int x = 0; x < 48; x++)
+        if (CARDS[x].month == m && x != final_card)
+            for (int i = 0; i < g.field_count; i++)
+                if (g.field[i] == x) {
+                    for (int k = i; k < g.field_count - 1; k++) g.field[k] = g.field[k + 1];
+                    g.field_count--;
+                    g.stock[g.stock_count++] = x;
+                    break;
+                }
+    assert(remove_card(&g, field_card));
+    g.field[g.field_count++] = field_card;
+    assert(remove_card(&g, final_card));
+    g.stock[g.stock_count++] = final_card;
+
+    if (g.hand_count[0] == 0) {
+        /* Keep one card in player 0's hand so an empty-hand auto-Shobu cannot
+           mask the decision this test is checking. Stock bottom is never the
+           final card (final card is the stock top). */
+        int c = g.stock[0];
+        for (int k = 0; k < g.stock_count - 1; k++) g.stock[k] = g.stock[k + 1];
+        g.stock_count--;
+        g.hand[0][g.hand_count[0]++] = c;
+    }
+
+    g.current_player = 0;
+    g.phase = PHASE_TURN_DRAW;
+    g.has_pending = 0;
+    assert(engine_validate_zones(&g));
+
+    assert(engine_reveal_stock(&g));
+    int screen = (g.phase == PHASE_DECIDE);
+    printf("    %-44s -> %s\n", name, screen ? "KOI-KOI SCREEN" : "no screen, play continues");
+    if (screen != expect_screen) {
+        fprintf(stderr, "FAIL: combo trigger case \"%s\": expected %s, got %s\n",
+                name, expect_screen ? "KOI-KOI SCREEN" : "no screen",
+                screen ? "KOI-KOI SCREEN" : "no screen");
+        exit(1);
+    }
+}
+
+static void test_hand_stage_probe(void) {
+    /* The maintainer's exact scenario: the third red ribbon is captured by
+       PLAYING A HAND CARD. The current flow asks the Koi-Koi question only at
+       the stock stage (finish_stock_turn); this test pins that contract so a
+       future "ask immediately" change is an explicit, reviewed edit. */
+    GameState g;
+    engine_init(&g, RULESET_KK_ADD_10, 1, 0xC0FFEEu);
+    engine_start_round(&g);
+
+    const int have[2] = { 1, 5 }; /* the first two red ribbons, already captured */
+    for (int i = 0; i < 2; i++) {
+        assert(remove_card(&g, have[i]));
+        g.captured[0][g.captured_count[0]++] = have[i];
+    }
+    assert(remove_card(&g, 9)); /* third red ribbon goes into the hand */
+    g.hand[0][g.hand_count[0]++] = 9;
+    /* Month 3 on the field must be exactly the curtain (8). */
+    for (int x = 10; x <= 11; x++)
+        for (int i = 0; i < g.field_count; i++)
+            if (g.field[i] == x) {
+                for (int k = i; k < g.field_count - 1; k++) g.field[k] = g.field[k + 1];
+                g.field_count--;
+                g.stock[g.stock_count++] = x;
+                break;
+            }
+    assert(remove_card(&g, 8));
+    g.field[g.field_count++] = 8;
+
+    g.current_player = 0;
+    g.phase = PHASE_TURN_HAND;
+    g.has_pending = 0;
+    assert(engine_validate_zones(&g));
+
+    assert(engine_play_hand(&g, 9, 8));
+    int screen = (g.phase == PHASE_DECIDE);
+    printf("    %-44s -> %s\n", "red poem finished with a HAND card (KK-ADD-10)",
+           screen ? "KOI-KOI SCREEN immediately"
+                  : "no screen yet - question comes at the stock stage");
+    assert(!screen && g.phase == PHASE_TURN_DRAW);
+}
+
+static void test_combo_triggers(void) {
+    printf("Combo -> Koi-Koi screen trigger (real engine, stock stage):\n");
+    printf("  [KK-ADD-10]\n");
+    run_combo_case("Akatan - 3 red ribbons (the poem)", RULESET_KK_ADD_10, (int[]){1, 5}, 2, 9, 8, 1);
+    run_combo_case("Aotan - 3 blue ribbons (the poem)", RULESET_KK_ADD_10, (int[]){21, 33}, 2, 37, 38, 1);
+    run_combo_case("Tanzaku - 4th ribbon, mixed (no poem)", RULESET_KK_ADD_10, (int[]){1, 13, 17}, 3, 21, 22, 1);
+    run_combo_case("Tanzaku grows - 5th ribbon", RULESET_KK_ADD_10, (int[]){1, 5, 9, 13}, 4, 21, 22, 1);
+    run_combo_case("Hanami-zake - cherry + sake cup", RULESET_KK_ADD_10, (int[]){8}, 1, 32, 34, 1);
+    run_combo_case("Tsukimi-zake - moon + sake cup", RULESET_KK_ADD_10, (int[]){28}, 1, 32, 34, 1);
+    run_combo_case("Sanko - 3 brights", RULESET_KK_ADD_10, (int[]){0, 8}, 2, 28, 30, 1);
+    run_combo_case("Shiko - 4 brights", RULESET_KK_ADD_10, (int[]){0, 8, 28}, 3, 44, 45, 1);
+    run_combo_case("Goko - 5 brights", RULESET_KK_ADD_10, (int[]){0, 8, 28, 44}, 4, 40, 41, 1);
+    run_combo_case("Ino-shika-cho - boar, deer, butterfly", RULESET_KK_ADD_10, (int[]){20, 24}, 2, 36, 38, 1);
+    run_combo_case("Tane - 5 animals", RULESET_KK_ADD_10, (int[]){4, 12, 16, 20}, 4, 24, 26, 1);
+    run_combo_case("Kasu - 9 plains + sake cup", RULESET_KK_ADD_10, (int[]){2, 3, 6, 7, 10, 11, 14, 15, 18}, 9, 32, 33, 1);
+    run_combo_case("Kasu - 10 plains", RULESET_KK_ADD_10, (int[]){2, 3, 6, 7, 10, 11, 14, 15, 18, 34}, 10, 45, 46, 1);
+    run_combo_case("control: 2 plains, no combo", RULESET_KK_ADD_10, NULL, 0, 2, 3, 0);
+    run_combo_case("control: rain man blocks 3 brights", RULESET_KK_ADD_10, (int[]){0, 8}, 2, 40, 41, 0);
+    run_combo_case("control: 3 mixed ribbons, no combo", RULESET_KK_ADD_10, (int[]){1, 13, 17}, 3, 12, 14, 0);
+
+    printf("  [NINTENDO]\n");
+    run_combo_case("Akatan - 3 red ribbons (the poem)", RULESET_NINTENDO, (int[]){1, 5}, 2, 9, 8, 1);
+    run_combo_case("Aotan - 3 blue ribbons (the poem)", RULESET_NINTENDO, (int[]){21, 33}, 2, 37, 38, 1);
+    run_combo_case("control: 4 mixed ribbons, needs 5", RULESET_NINTENDO, (int[]){1, 13, 17}, 3, 21, 22, 0);
+    run_combo_case("red poem grows - 6th ribbon (Akatan 5->8)", RULESET_NINTENDO, (int[]){1, 5, 9, 13, 17}, 5, 21, 22, 1);
+    run_combo_case("Hanami-zake - cherry + sake cup", RULESET_NINTENDO, (int[]){8}, 1, 32, 34, 1);
+    run_combo_case("Tsukimi-zake - moon + sake cup", RULESET_NINTENDO, (int[]){28}, 1, 32, 34, 1);
+    run_combo_case("Sanko - 3 brights", RULESET_NINTENDO, (int[]){0, 8}, 2, 28, 30, 1);
+    run_combo_case("Shiko - 4 brights", RULESET_NINTENDO, (int[]){0, 8, 28}, 3, 44, 45, 1);
+    run_combo_case("Goko - 5 brights", RULESET_NINTENDO, (int[]){0, 8, 28, 44}, 4, 40, 41, 1);
+    run_combo_case("Ino-shika-cho - boar, deer, butterfly", RULESET_NINTENDO, (int[]){20, 24}, 2, 36, 38, 1);
+    run_combo_case("Tane - 5 animals", RULESET_NINTENDO, (int[]){4, 12, 16, 20}, 4, 24, 26, 1);
+    run_combo_case("Kasu - 10 plains", RULESET_NINTENDO, (int[]){2, 3, 6, 7, 10, 11, 14, 15, 18, 34}, 10, 45, 46, 1);
+    run_combo_case("control: 9 plains + cup, no cup bonus", RULESET_NINTENDO, (int[]){2, 3, 6, 7, 10, 11, 14, 15, 18}, 9, 32, 33, 0);
+    run_combo_case("control: rain man blocks 3 brights", RULESET_NINTENDO, (int[]){0, 8}, 2, 40, 41, 0);
+
+    printf("  [TOURNAMENT]\n");
+    run_combo_case("sake + moon: viewings are DISABLED", RULESET_TOURNAMENT, (int[]){28}, 1, 32, 34, 0);
+    run_combo_case("Sanko - 3 brights", RULESET_TOURNAMENT, (int[]){0, 8}, 2, 28, 30, 1);
+
+    printf("  [Hand-stage probe]\n");
+    test_hand_stage_probe();
+}
+
 static void test_simulated_matches(void) {
     GameState g;
     for (int m = 0; m < 500; m++) {
@@ -162,6 +334,7 @@ int main(void) {
     test_deck_integrity();
     test_scoring_rulesets();
     test_multipliers_and_awards();
+    test_combo_triggers();
     test_simulated_matches();
     printf("All engine & ruleset tests passed (500 full matches verified).\n");
     return 0;
