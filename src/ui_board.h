@@ -39,6 +39,12 @@ Vector2 board_get_card_field_pos(const GameState *g, int card_id);
 
 /* Drawing primitives */
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest);
+
+/* Lane-panel inspect window (23 Oct 2026 mockup): hovering a captured mini in
+   the left lane panels opens a fixed window over the board with the card's art
+   and metadata. All difficulties; separate from the Easy-mode mouse tooltip. */
+void lane_tip_update(int active, Vector2 mouse);
+void lane_tip_draw(const BoardAssets *ba);
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest);
 void board_draw_card_shimmer(Rectangle dest, float speed);
 void board_draw_card_glow(Rectangle dest, float pulse_alpha);

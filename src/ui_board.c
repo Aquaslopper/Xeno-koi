@@ -455,6 +455,53 @@ void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
     DrawRectangleLinesEx(dest, 1.5f, gc);
 }
 
+/* Lane-panel inspect window (23 Oct 2026 mockup): after 500 ms on one captured
+   mini in the left lane panels, a static window in its own slot above the
+   panels shows the card, same size as a lane panel. All difficulties;
+   independent of the Easy-mode mouse tooltip (ui_card_tooltip.c). */
+static int lane_tip_active;
+static Vector2 lane_tip_mouse;
+static int lane_tip_hover = -1;   /* set while the lanes draw; last drawn wins */
+static int lane_tip_owner = 0;    /* player whose lane holds the hovered card */
+static int lane_tip_waiting = -1;
+static double lane_tip_started;
+static const double LANE_TIP_HOVER_DELAY = 0.5;
+
+void lane_tip_update(int active, Vector2 mouse) {
+    lane_tip_active = active;
+    lane_tip_mouse = mouse;
+    lane_tip_hover = -1;
+}
+
+static void lane_tip_record(int card_id, Rectangle bounds, int player) {
+    if (lane_tip_active && bounds.width > 0.0f && bounds.height > 0.0f &&
+        CheckCollisionPointRec(lane_tip_mouse, bounds)) {
+        lane_tip_hover = card_id;
+        lane_tip_owner = player;
+    }
+}
+
+void lane_tip_draw(const BoardAssets *ba) {
+    int candidate = lane_tip_active ? lane_tip_hover : -1;
+    double now = GetTime();
+    if (candidate != lane_tip_waiting) {
+        lane_tip_waiting = candidate;
+        lane_tip_started = now;
+    }
+    if (candidate < 0 || now - lane_tip_started < LANE_TIP_HOVER_DELAY) return;
+
+    /* Static slot in its own place above the bottom (YOU) lane panels - 4 px
+       gap like the lane rows, same size as a lane panel, with the card drawn
+       full-bleed to the panel size, per the mockup. */
+    Rectangle panel = { 12.0f, 508.0f - 4.0f - CAPTURE_PANEL_H, CAPTURE_PANEL_W, CAPTURE_PANEL_H };
+    DrawRectangleRec(panel, (Color){ 5, 8, 10, 245 });
+    ui_draw_panel_border(panel, COLOR_PHOSPHOR_DIM);
+    Rectangle src = { (float)((candidate >> 2) * ATLAS_CELL_W), (float)((candidate & 3) * ATLAS_CELL_H),
+                      (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
+    Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
+    DrawTexturePro(tex, src, panel, (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
 static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int player, float start_y, float flash_alpha) {
     static const char *const labels[4] = { "B", "A", "R", "P" };
     float card_w = MINI_CARD_W - 6.0f, card_h = MINI_CARD_H - 6.0f;
@@ -491,6 +538,7 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             int cid = lanes[t][c];
             motion_set_target(cid, (Vector2){ 54.0f + c * step, card_y }, (Vector2){ card_w, card_h }, 0.35f);
             Rectangle dr = motion_get_rect(cid);
+            lane_tip_record(cid, dr, player);
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
                 board_draw_card(ba, cid, dr); board_draw_card_glow(dr, 0.8f);

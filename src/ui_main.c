@@ -364,6 +364,7 @@ static void update_draw_frame(void) {
     int cur_w = GetScreenWidth(), cur_h = GetScreenHeight();
     if (cur_w < 960 || cur_h < 540) {
         card_tooltip_begin(0, (Vector2){ 0, 0 });
+        lane_tip_update(0, (Vector2){ 0, 0 });
         card_tooltip_draw();
         BeginDrawing(); ClearBackground(BLACK);
         DrawTextEx(font_body, "Enlarge the window to play (minimum 960x540)", (Vector2){ 20.0f, 20.0f }, 20.0f, 1.5f, COLOR_PHOSPHOR);
@@ -788,6 +789,11 @@ static void update_draw_frame(void) {
                        transition_dir == 0 && transition_alpha <= 0.0f && round_banner_timer <= 0.0f &&
                        !(anim.active && anim.type == ANIM_BANNER) &&
                        IsCursorOnScreen() && IsWindowFocused(), vm);
+    lane_tip_update(screen == SCREEN_GAME && !replay_pb_active() &&
+                    !is_paused && !drag.on && !cinematic_is_active() &&
+                    transition_dir == 0 && transition_alpha <= 0.0f && round_banner_timer <= 0.0f &&
+                    !(anim.active && anim.type == ANIM_BANNER) &&
+                    IsCursorOnScreen() && IsWindowFocused(), vm);
     BeginTextureMode(canvas);
     if (screen == SCREEN_START) {
         screens_draw_start(&assets, &stats, vm, saved_timer);
@@ -870,6 +876,7 @@ static void update_draw_frame(void) {
 
     BeginTextureMode(canvas);
     card_tooltip_draw();
+    lane_tip_draw(&assets);
     EndTextureMode();
 
     BeginDrawing(); ClearBackground(BLACK);
