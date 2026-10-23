@@ -7,6 +7,69 @@
 ## Status Summary
 ## Latest completed work
 
+### Match over: no second loading card on the way back to the menu (23 October 2026)
+
+- The match-result screen's menu button no longer runs the 5.2 s card-back loading transition. The maintainer's call: the match is over, the results screen (all rounds listed) is already the hub's exit, so a second loading screen makes no sense. The button now switches to the main menu directly — same end-state as the transition completion block (screen switch, the same flag resets), minus the card and minus the music restart: the track already playing on the results screen **keeps playing** into the menu. The per-frame music supervisor (`ui_main.c`: `audio.current_music` != 2 / finished checks) carries it over exactly as it already does on the menu, including picking a new random track when the current one ends. No `src/ui_audio.c` change.
+- File: `src/ui_main.c` only (the `ACT_GOTO_MENU` arm of the match-result click handler).
+
+#### Checked
+- Strict C99 `-Wall -Wextra -Werror -fsyntax-only` (raylib 5.5 headers) on `src/ui_main.c`; `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh` passes; `python3 tools/gen_wiki_tables.py --check` and `git diff --check` pass.
+
+#### Needs maintainer verification
+- Live playtest: finish a match -> results screen -> menu button lands on the main menu with no loading card **and no music change** (same track keeps playing); rematch button still shows its loading transition.
+
+**Touched:** `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `start_transition` and the other transition call sites, `src/ui_audio.c`, rules/scoring, all other `src/`, docs.
+
+### Lane-panel card inspect window (23 October 2026)
+
+- New left-side inspect window per the maintainer's mockup: hovering a captured-card mini in the left lane panels (B/A/R/P, both players' groups) for 500 ms opens a **static** window in its own slot directly above the bottom (YOU) lane panels — 4 px gap like the lane rows, **same size as a lane panel** (`{12, 466.6, 255, 37.4}`, canvas coords), with the card's own art (same atlas cell / DEUS-variant selection as the board) drawn **full-bleed to the panel size**. Playtest correction (23 Oct): the first build was a 336x224 floating window over the board with four metadata lines — wrong per the mockup (it covered the panels; card too small). The metadata lines are gone with it; the window is card-only now.
+- **All difficulties — independent of game modes.** The Easy-mode-only mouse tooltip (`src/ui_card_tooltip.c` + its gate in `ui_main.c`) is byte-identical to HEAD: this window is a separate mechanism (`lane_tip_update` / `lane_tip_record` / `lane_tip_draw` in `src/ui_board.c`, recorded while `draw_capture_lanes` draws each mini). Hides immediately on hover loss; suppressed while paused, dragging, in cinematics/transitions, or during banners — same display gates as the existing tooltip, minus the Easy-difficulty part.
+- Files: `src/ui_board.h` (2 declarations), `src/ui_board.c` (state + 3 functions + one record call in the lane loop), `src/ui_main.c` (3 wiring lines: per-frame update next to `card_tooltip_begin`, the small-window early-return path, and draw next to `card_tooltip_draw`).
+
+#### Checked
+- Strict C99 `-Wall -Wextra -Werror -fsyntax-only` (raylib 5.5 headers) on `src/ui_board.c` and `src/ui_main.c`; `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh` (compiles the real `ui_board.c`, headless) passes; `tests/test_card_tooltip.c` (untouched module) passes; 500-match engine suite passes; `python3 tools/gen_wiki_tables.py --check` and `git diff --check` pass. `git status` confirms `src/ui_card_tooltip.*`, `tests/test_card_tooltip.c`, and `docs/reference/cards.md` are unchanged.
+
+#### Needs maintainer verification
+- Visual on a live build: hover a lane mini (top CPU group and bottom YOUR group) for half a second — window in its own slot above the bottom lane panels, card art full-bleed to the panel (DEUS variant at DEUS); instant hide on move-off.
+
+**Touched:** `src/ui_board.h`, `src/ui_board.c`, `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_card_tooltip.c/.h` (Easy-mode tooltip stays exactly as it is), `tests/test_card_tooltip.c`, `docs/reference/cards.md`, all game modes/rules/scoring, `src/ui_audio.c`, all other `src/`, assets.
+
+### Combo -> Koi-Koi trigger tests (23 October 2026)
+
+- Added `test_combo_triggers()` + hand-stage probe to `tests/test_engine.c` (wired into the existing `./build.sh test` compile line, no build changes). Each case drives the **real engine** through a normal stock stage: player 0's captures already hold the combo minus its final card, the stock top is that card, and the test asserts whether the phase becomes `PHASE_DECIDE` (the Koi-Koi screen). **No game logic changed.**
+- Verified result (all pass, exit 0): **every combo opens the Koi-Koi screen** — Akatan/Aotan poems, Tanzaku (4th/5th ribbon in KK-ADD-10), both viewings (sake + cherry, sake + moon), Sanko/Shiko/Goko, Ino-shika-cho, Tane, Kasu — in KK-ADD-10, Nintendo, and Tournament. Sake + moon does NOT open the screen in Tournament/Yakuza because viewings are disabled there (ruleset rule, not a defect). Negative controls (2 plains; rain-man-blocking-3-brights; 3 mixed ribbons; 9 plains + cup in Nintendo) correctly open no screen.
+- **Hand-stage probe (the maintainer's playtest scenario):** a red poem completed with a *hand card* opens no screen at capture; the question is asked at the stock stage of the same turn (`combo_triggered` is only called from `finish_stock_turn`, `src/engine.c:384`). The probe pins this contract in CI, so "ask immediately at hand stage" becomes an explicit, reviewed change if ever wanted.
+- This answers the playtest report "no Koi-Koi on 3 red ribbons, screen at the 4th": the screen is combo-triggered, but it arrives at the stock stage — a poem finished with a hand card shows its screen when the stock card (often the next ribbon) lands; and 3 mixed ribbons are no combo in any ruleset, so the 4th ribbon (Tanzaku in KK-ADD-10) is genuinely the first combo.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Isrc tests/test_engine.c src/cards.c src/rules.c src/engine.c src/ai.c` + run: all 32 trigger cases + 500-match suite pass (exit 0). No other check needed: no engine/rules/docs/art touched.
+
+**Touched:** `tests/test_engine.c`, `STATUS.md`. **Deliberately did not touch:** all `src/` (no rule or flow change), tests other than `test_engine.c`, `docs/`, assets, `src/ui_audio.c`.
+
+### Credits screen: white slogan footer under BACK (23 October 2026)
+
+- The credits screen now shows the maintainer's slogan `[to_be Ψ(n)] ⊗ [not_to_be Φ(n)]` centered in **white** (`22 px`, Play) **between the second `[]` mark and the BACK button** (`y = 490`; the `[]` mark ends ~`474`, BACK starts at `530`), per the maintainer's playtest call: above the BACK button, under the `[]` thing.
+- The bundled Play/Audiowide fonts load with raylib's ASCII-only default charset (`32..126`), so Ψ/Φ/⊗ had no atlas glyphs. Fix: `src/ui_main.c` loads a small dedicated `font_slogan` atlas from the existing `assets/play.ttf`, baking exactly the `13` code points the line needs (raylib 5.5 `LoadFontEx` codepoint-array API — verified against the exact 5.5 source CI pins; no new asset files, proper unload on exit).
+- Play has no U+2297 glyph, so the tensor mark is drawn as a vector ring + X in `screens_draw_credits` (`src/ui_screens.c`): `48`-segment ring at `0.30 em` radius, `2 px` strokes, same white, flanked by one Play space width each side. Slogan literals use UTF-8 hex escapes (`\xCE\xA8` / `\xCE\xA6`) so the source stays pure ASCII.
+- Additive-only: one block in `screens_draw_credits` plus the font load/unload in `ui_main.c`. No gameplay, rules, or audio touched. Preview mock used for the placement decision: `/home/user/slogan_preview.png` (outside the repo).
+
+#### Checked
+- `gcc -std=c99 -Wall -Wextra -Werror -fsyntax-only -I/tmp/raylib/src` on `src/ui_main.c` and `src/ui_screens.c` against the exact raylib 5.5 the CI pins; `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh` passes; `python3 tools/gen_wiki_tables.py --check`, `./tools/audio_guard.sh` (DSP baseline untouched), and `git diff --check` pass.
+
+#### Needs maintainer verification
+- Visual on a live build: the white slogan line between the `[]` mark and BACK — typeface, the drawn tensor mark, and position.
+
+**Touched:** `src/ui_main.c`, `src/ui_screens.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c` (guard re-verified intact), all other `src/`, tests, `docs/`, assets.
+
+### Audio DSP frozen as maintainer-tuned (23 October 2026)
+
+- `AGENTS.md` now states, in the top STRICT CONSTRAINTS list and as the first Owner decision, that the audio DSP in `src/ui_audio.c` — effects (chorus, space reverb), compression (bass-shelf compressor, soft-knee limiter), and their constants, buffers, signal path, and processing order — is **forbidden to touch**: parts of it were fine-tuned by ear through the maintainer. The only valid path is the maintainer's explicit, specific instruction, after which `tools/audio_guard.sh --record` must re-baseline the file. The statement points to the existing byte-hash guard (`tools/audio_guard.sh` / `tools/audio_guard.sha256`) and to `docs/reference/audio-dsp.md`. No game code changed.
+
+#### Checked
+- `./tools/audio_guard.sh` passes (baseline `2852011640…fe97` at `51f54f5` intact), `python3 tools/gen_wiki_tables.py --check` passes, `git diff --check` passes.
+
+**Touched:** `AGENTS.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c` (guard re-verified intact), all other `src/`, tests, `docs/`, assets.
+
 ### Restore pre-PR #93 audio DSP, add 1 s capture hold before dim-away, and switch music only on loading screens (23 October 2026)
 
 - Restored the audio DSP in `src/ui_audio.c` (lines `1..350`: comb/all-pass delay tunings, pre-delay, feedback/damping, room return staging, parallel bass shelf/compressor from `9574b02`, Mid/Side chorus, and soft-knee peak limiter) back to its exact state prior to PR #93's DSP retune (`465e7bd` / `9c4e18c`).
