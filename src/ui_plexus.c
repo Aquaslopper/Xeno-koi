@@ -11,6 +11,8 @@ extern Font font_body;
 extern GameSettings settings;
 
 #define PLEXUS_LOG_MAX 32
+#define PLEXUS_PANEL_BG (Color){ 0, 0, 0, 228 }
+#define PLEXUS_SUBBOX_BG (Color){ 4, 8, 10, 236 }
 
 typedef struct {
     char tag[64];
@@ -48,7 +50,7 @@ static const char * const k_month_names[12] = {
     "DECEMBER // PAULOWNIA"
 };
 
-/* Geometry matching plexus/plexus_mockup.png and plexus/plexus_logfile_mockup.png */
+/* Geometry matching plexus/plexus_mockup.png and expanded vertically for un-squished 18px-22px text */
 static const Rectangle k_arrow_up_rect   = { 1096.0f,  60.0f,  48.0f,  30.0f };
 static const Rectangle k_arrow_down_rect = { 1096.0f, 610.0f,  48.0f,  30.0f };
 static const Rectangle k_card_rects[4] = {
@@ -57,7 +59,7 @@ static const Rectangle k_card_rects[4] = {
     { 1092.0f, 354.0f, 56.0f, 88.0f },
     { 1092.0f, 496.0f, 56.0f, 88.0f }
 };
-static const Rectangle k_briefing_rect = { 528.0f, 109.0f, 528.0f, 210.0f };
+static const Rectangle k_briefing_rect = { 516.0f,  82.0f, 540.0f, 250.0f };
 static const Rectangle k_start_rect    = { 896.0f, 348.0f, 160.0f,  48.0f };
 static const Rectangle k_bottom_rects[5] = {
     {  64.0f, 644.0f, 156.0f, 48.0f }, /* SAVE & BACK */
@@ -70,13 +72,17 @@ static const char * const k_bottom_labels[5] = {
     "SAVE & BACK", "LOGFILE", "TRAINING 1", "TRAINING 2", "TRAINING 3"
 };
 
-/* Logfile middle-screen window geometry (from plexus/plexus_logfile_mockup.png) */
-static const Rectangle k_logfile_win_rect     = { 244.0f,  45.0f, 740.0f, 557.0f };
-static const Rectangle k_log_top_area_rect    = { 244.0f,  98.0f, 740.0f, 306.0f };
-static const Rectangle k_log_scroll_up_rect   = { 590.0f, 101.0f,  48.0f,  26.0f };
-static const Rectangle k_log_scroll_down_rect = { 590.0f, 373.0f,  48.0f,  26.0f };
-static const Rectangle k_log_stats_rect       = { 265.0f, 431.0f, 423.0f, 150.0f };
-static const Rectangle k_log_atlas_rect       = { 703.0f, 431.0f, 255.0f, 151.0f };
+/* Expanded Logfile middle-screen window geometry (taller top & bottom for full-size readable text) */
+static const Rectangle k_logfile_win_rect     = { 236.0f,  22.0f, 756.0f, 602.0f };
+static const Rectangle k_log_top_area_rect    = { 236.0f,  74.0f, 756.0f, 312.0f };
+static const Rectangle k_log_scroll_up_rect   = { 590.0f,  80.0f,  48.0f,  28.0f };
+static const Rectangle k_log_scroll_down_rect = { 590.0f, 352.0f,  48.0f,  28.0f };
+static const Rectangle k_log_stats_rect       = { 254.0f, 400.0f, 436.0f, 208.0f };
+static const Rectangle k_log_atlas_rect       = { 704.0f, 400.0f, 270.0f, 208.0f };
+
+static void draw_text_snapped(Font font, const char *text, float x, float y, float fsz, float sp, Color col) {
+    DrawTextEx(font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
+}
 
 static void plexus_log_push(const char *tag, const char *title,
                             const char *l1, const char *l2, const char *l3) {
@@ -160,13 +166,13 @@ void plexus_unload_assets(void) {
 
 static void draw_plexus_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, int active) {
     int hov = CheckCollisionPointRec(vm, r);
-    DrawRectangleRec(r, (hov || active) ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
+    DrawRectangleRec(r, (hov || active) ? COLOR_BTN_HOVER_BG : PLEXUS_PANEL_BG);
     ui_draw_panel_border(r, (hov || active) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    Color col = COLOR_PHOSPHOR;
+    Color col = (hov || active) ? COLOR_TEXT_INFO : COLOR_PHOSPHOR;
     Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - (float)fsz) * 0.5f) };
     DrawTextEx(font_title, txt, pos, (float)fsz, 1.2f, col);
-    if (hov || active) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, col);
+    if (hov || active) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
 }
 
 static void draw_triangle_btn(Rectangle r, int is_up, Vector2 vm, int enabled) {
@@ -174,7 +180,7 @@ static void draw_triangle_btn(Rectangle r, int is_up, Vector2 vm, int enabled) {
     float cx = r.x + r.width * 0.5f;
     float top_y = r.y + 4.0f;
     float bot_y = r.y + r.height - 4.0f;
-    float hw = 12.0f;
+    float hw = 13.0f;
     Vector2 v1, v2, v3;
     if (is_up) {
         v1 = (Vector2){ cx, top_y };
@@ -185,33 +191,34 @@ static void draw_triangle_btn(Rectangle r, int is_up, Vector2 vm, int enabled) {
         v2 = (Vector2){ cx + hw, top_y };
         v3 = (Vector2){ cx - hw, top_y };
     }
-    Color fill = !enabled ? (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 70 }
-                          : (hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    Color fill = !enabled ? (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 85 }
+                          : (hov ? COLOR_TEXT_INFO : COLOR_PHOSPHOR);
     if (hov) {
         Color glow = COLOR_PHOSPHOR;
-        glow.a = 70;
-        DrawCircleGradient((int)cx, (int)(r.y + r.height * 0.5f), 18.0f, glow, (Color){ 0, 0, 0, 0 });
+        glow.a = 85;
+        DrawCircleGradient((int)cx, (int)(r.y + r.height * 0.5f), 20.0f, glow, (Color){ 0, 0, 0, 0 });
     }
     DrawTriangle(v1, v2, v3, fill);
     DrawTriangle(v1, v3, v2, fill);
 }
 
 static void draw_logfile_atlas_map(const BoardAssets *ba, Rectangle box, Vector2 vm) {
-    DrawRectangleRec(box, (Color){ 0, 0, 0, 195 });
+    DrawRectangleRec(box, PLEXUS_SUBBOX_BG);
     ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
 
     int done_cnt = count_finished_cards();
     char hdr[48];
-    snprintf(hdr, sizeof(hdr), "ATLAS CARDS  [%02d / 48]", done_cnt);
-    DrawTextEx(font_title, hdr, (Vector2){ floorf(box.x + 10.0f), floorf(box.y + 6.0f) }, 13.0f, 1.2f, COLOR_PHOSPHOR);
+    snprintf(hdr, sizeof(hdr), "ATLAS CARDS  [%02d/48]", done_cnt);
+    draw_text_snapped(font_title, hdr, box.x + 12.0f, box.y + 10.0f, 16.0f, 1.3f, COLOR_PHOSPHOR);
+    DrawLine((int)box.x + 12, (int)box.y + 34, (int)(box.x + box.width - 12.0f), (int)box.y + 34, COLOR_PHOSPHOR_DIM);
 
     /* 12 columns (Months 01..12) x 4 rows (Cards 0..3) = 48 cards */
-    float start_x = box.x + 9.0f;
-    float start_y = box.y + 24.0f;
-    float cell_w  = 18.0f;
-    float cell_h  = 28.0f;
-    float step_x  = 20.0f;
-    float step_y  = 30.5f;
+    float start_x = box.x + 10.0f;
+    float start_y = box.y + 42.0f;
+    float cell_w  = 19.0f;
+    float cell_h  = 36.0f;
+    float step_x  = 21.0f;
+    float step_y  = 40.0f;
 
     Texture2D tex = (ba && settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0)
                     ? ba->atlas_deus
@@ -226,7 +233,7 @@ static void draw_logfile_atlas_map(const BoardAssets *ba, Rectangle box, Vector2
 
             if (tex.id > 0) {
                 Rectangle src = { (float)(m * ATLAS_CELL_W), (float)(r * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-                Color tint = finished ? WHITE : (Color){ 65, 75, 82, 120 };
+                Color tint = finished ? WHITE : (Color){ 70, 80, 88, 125 };
                 DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
                 if (!finished) {
                     DrawRectangleRec(dst, (Color){ 0, 0, 0, 145 });
@@ -236,10 +243,10 @@ static void draw_logfile_atlas_map(const BoardAssets *ba, Rectangle box, Vector2
             }
 
             if (finished) {
-                DrawRectangleLinesEx(dst, hov ? 1.5f : 1.0f, COLOR_PHOSPHOR);
+                DrawRectangleLinesEx(dst, hov ? 2.0f : 1.5f, COLOR_PHOSPHOR);
             } else {
                 Color dim_b = COLOR_PHOSPHOR_DIM;
-                dim_b.a = hov ? 165 : 65;
+                dim_b.a = hov ? 180 : 75;
                 DrawRectangleLinesEx(dst, 1.0f, dim_b);
             }
         }
@@ -247,12 +254,12 @@ static void draw_logfile_atlas_map(const BoardAssets *ba, Rectangle box, Vector2
 }
 
 static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
-    DrawRectangleRec(box, (Color){ 0, 0, 0, 195 });
+    DrawRectangleRec(box, PLEXUS_SUBBOX_BG);
     ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
 
-    DrawTextEx(font_title, "STATS // SPEEDBAR, AUDIO & ARCHIVE",
-               (Vector2){ floorf(box.x + 12.0f), floorf(box.y + 7.0f) }, 13.0f, 1.2f, COLOR_PHOSPHOR);
-    DrawLine((int)box.x + 12, (int)box.y + 24, (int)(box.x + box.width - 12.0f), (int)box.y + 24, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "STATS // SPEEDBAR, AUDIO & ARCHIVE",
+                      box.x + 14.0f, box.y + 10.0f, 16.0f, 1.3f, COLOR_PHOSPHOR);
+    DrawLine((int)box.x + 14, (int)box.y + 34, (int)(box.x + box.width - 14.0f), (int)box.y + 34, COLOR_PHOSPHOR_DIM);
 
     int drops       = speed_bar_graded_drops();
     float avg_sec   = speed_bar_avg_drop_seconds();
@@ -266,80 +273,77 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
 
     char row1[96], row2[96], row3[96], row4[96], row5[96];
     if (drops > 0) {
-        snprintf(row1, sizeof(row1), "AVG SPEEDBAR TIME  :  %.2fs  (%d GRADED DROPS)", avg_sec, drops);
-        snprintf(row2, sizeof(row2), "HOW CLOSE (COVER)  :  %.1f%% MATCH OVERLAP", avg_cov);
+        snprintf(row1, sizeof(row1), "AVG SPEED   :  %.2fs  [%d DROPS]", avg_sec, drops);
+        snprintf(row2, sizeof(row2), "HOW CLOSE   :  %.1f%% MATCH OVERLAP", avg_cov);
     } else {
-        snprintf(row1, sizeof(row1), "AVG SPEEDBAR TIME  :  --.--s  (0 GRADED DROPS)");
-        snprintf(row2, sizeof(row2), "HOW CLOSE (COVER)  :  --.-%% MATCH OVERLAP");
+        snprintf(row1, sizeof(row1), "AVG SPEED   :  --.--s  [0 DROPS]");
+        snprintf(row2, sizeof(row2), "HOW CLOSE   :  --.-%% MATCH OVERLAP");
     }
-    snprintf(row3, sizeof(row3), "SPEEDCOIN / STREAK :  %d MP   //   BEST CHAIN x%d", life_mp, best_strk);
-    snprintf(row4, sizeof(row4), "ACTION AUDIO FX    :  PEAK %.0f%%  //  100%% HOLD %.1fs (%d)", aud_peak, aud_hold, aud_trig);
+    snprintf(row3, sizeof(row3), "SPEEDCOIN   :  %d MP  [BEST x%d]", life_mp, best_strk);
+    snprintf(row4, sizeof(row4), "AUDIO FX    :  %.0f%% PEAK  [%.1fs / %d]", aud_peak, aud_hold, aud_trig);
     if (st) {
-        snprintf(row5, sizeof(row5), "ARCHIVE & MATCHES  :  %02d/48 CARDS  //  %dW-%dL  //  KOI %d",
+        snprintf(row5, sizeof(row5), "[%02d/48 CARDS]  [%dW-%dL]  [KOI-%d]",
                  done_cards, st->matches_won, st->matches_lost, st->koi_calls_you);
     } else {
-        snprintf(row5, sizeof(row5), "ARCHIVE & MATCHES  :  %02d/48 CARDS ARCHIVED", done_cards);
+        snprintf(row5, sizeof(row5), "[%02d/48 CARDS]  [0W-0L]  [KOI-0]", done_cards);
     }
 
-    float lx = floorf(box.x + 12.0f);
-    DrawTextEx(font_body, row1, (Vector2){ lx, floorf(box.y +  31.0f) }, 15.0f, 1.0f, COLOR_TEXT_INFO);
-    DrawTextEx(font_body, row2, (Vector2){ lx, floorf(box.y +  54.0f) }, 15.0f, 1.0f, COLOR_TEXT_INFO);
-    DrawTextEx(font_body, row3, (Vector2){ lx, floorf(box.y +  77.0f) }, 15.0f, 1.0f, COLOR_PHOSPHOR);
-    DrawTextEx(font_body, row4, (Vector2){ lx, floorf(box.y + 100.0f) }, 15.0f, 1.0f, COLOR_TEXT_INFO);
-    DrawTextEx(font_body, row5, (Vector2){ lx, floorf(box.y + 123.0f) }, 15.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+    float lx = box.x + 14.0f;
+    draw_text_snapped(font_body, row1, lx, box.y +  44.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, row2, lx, box.y +  76.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, row3, lx, box.y + 108.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, row4, lx, box.y + 140.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, row5, lx, box.y + 172.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
 static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     ensure_log_seeded();
 
-    DrawRectangleRec(k_logfile_win_rect, COLOR_PANEL_BG);
+    DrawRectangleRec(k_logfile_win_rect, PLEXUS_PANEL_BG);
     ui_draw_panel_border(k_logfile_win_rect, COLOR_PHOSPHOR);
 
-    /* 1. Title Bar & Top Divider (y = 45..98) */
-    DrawTextEx(font_title, "LOGFILE",
-               (Vector2){ floorf(k_logfile_win_rect.x + 21.0f), floorf(k_logfile_win_rect.y + 18.0f) },
-               22.0f, 1.5f, COLOR_PHOSPHOR);
+    /* 1. Title Bar & Top Divider (y = 22..74) */
+    draw_text_snapped(font_title, "LOGFILE",
+                      k_logfile_win_rect.x + 22.0f, k_logfile_win_rect.y + 16.0f,
+                      24.0f, 1.5f, COLOR_PHOSPHOR);
     char idx_txt[64];
-    snprintf(idx_txt, sizeof(idx_txt), "ENTRY %02d / %02d   [USE ARROWS TO SCROLL]",
+    snprintf(idx_txt, sizeof(idx_txt), "[ENTRY %02d / %02d]   USE ARROWS TO SCROLL",
              s_log_count > 0 ? (s_log_cursor + 1) : 0, s_log_count);
-    Vector2 its = MeasureTextEx(font_body, idx_txt, 15.0f, 1.1f);
-    DrawTextEx(font_body, idx_txt,
-               (Vector2){ floorf(k_logfile_win_rect.x + k_logfile_win_rect.width - its.x - 22.0f),
-                          floorf(k_logfile_win_rect.y + 22.0f) },
-               15.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-    DrawLine((int)k_logfile_win_rect.x + 18, 98,
-             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 98, COLOR_PHOSPHOR_DIM);
+    Vector2 its = MeasureTextEx(font_body, idx_txt, 18.0f, 1.2f);
+    draw_text_snapped(font_body, idx_txt,
+                      k_logfile_win_rect.x + k_logfile_win_rect.width - its.x - 22.0f,
+                      k_logfile_win_rect.y + 20.0f,
+                      18.0f, 1.2f, COLOR_TEXT_INFO);
+    DrawLine((int)k_logfile_win_rect.x + 18, 74,
+             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 74, COLOR_PHOSPHOR_DIM);
 
-    /* 2. Top Section: Story / Last Event / Information Log + Up/Down Scroll Triangles (y = 98..404) */
+    /* 2. Top Section: Story / Last Event / Information Log + Up/Down Scroll Triangles (y = 74..386) */
     int can_scroll_up   = (s_log_cursor > 0);
     int can_scroll_down = (s_log_cursor + 1 < s_log_count);
     draw_triangle_btn(k_log_scroll_up_rect,   1, vm, can_scroll_up);
     draw_triangle_btn(k_log_scroll_down_rect, 0, vm, can_scroll_down);
 
-    float tx = floorf(k_logfile_win_rect.x + 24.0f);
+    float tx = k_logfile_win_rect.x + 24.0f;
     if (s_log_count > 0) {
         const PlexusLogEntry *cur = &s_log_entries[s_log_cursor];
-        DrawTextEx(font_body, cur->tag,   (Vector2){ tx, 132.0f }, 15.0f, 1.2f, COLOR_PHOSPHOR_DIM);
-        DrawTextEx(font_title, cur->title, (Vector2){ tx, 154.0f }, 18.0f, 1.3f, COLOR_PHOSPHOR);
-        DrawTextEx(font_body, cur->line1, (Vector2){ tx, 186.0f }, 16.0f, 1.1f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, cur->line2, (Vector2){ tx, 210.0f }, 16.0f, 1.1f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, cur->line3, (Vector2){ tx, 234.0f }, 16.0f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  cur->tag,   tx, 110.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, cur->title, tx, 136.0f, 20.0f, 1.3f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  cur->line1, tx, 170.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  cur->line2, tx, 198.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  cur->line3, tx, 226.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
 
         /* Show older entry preview below divider inside top log box */
         if (s_log_cursor + 1 < s_log_count) {
             const PlexusLogEntry *prev = &s_log_entries[s_log_cursor + 1];
-            Color dim_line = COLOR_PHOSPHOR_DIM;
-            dim_line.a = 90;
-            DrawLine((int)tx, 268, (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 24.0f), 268, dim_line);
-            DrawTextEx(font_body, prev->tag,   (Vector2){ tx, 278.0f }, 14.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-            DrawTextEx(font_body, prev->title, (Vector2){ tx, 298.0f }, 16.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-            DrawTextEx(font_body, prev->line1, (Vector2){ tx, 322.0f }, 15.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-            DrawTextEx(font_body, prev->line2, (Vector2){ tx, 344.0f }, 15.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+            DrawLine((int)tx, 260, (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 24.0f), 260, COLOR_PHOSPHOR_DIM);
+            draw_text_snapped(font_body,  prev->tag,   tx, 270.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+            draw_text_snapped(font_title, prev->title, tx, 294.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+            draw_text_snapped(font_body,  prev->line1, tx, 322.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
         }
     }
 
-    DrawLine((int)k_logfile_win_rect.x + 18, 404,
-             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 404, COLOR_PHOSPHOR_DIM);
+    DrawLine((int)k_logfile_win_rect.x + 18, 386,
+             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 386, COLOR_PHOSPHOR_DIM);
 
     /* 3. Bottom-Left Stats Box & Bottom-Right 48-Card Atlas Map */
     draw_logfile_stats_box(st, k_log_stats_rect);
@@ -402,8 +406,8 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     if (s_active_tab == 1) {
         draw_logfile_window(ba, st, vm);
     } else {
-        DrawRectangleRec(k_briefing_rect, COLOR_PANEL_BG);
-        ui_draw_panel_border(k_briefing_rect, COLOR_PHOSPHOR_DIM);
+        DrawRectangleRec(k_briefing_rect, PLEXUS_PANEL_BG);
+        ui_draw_panel_border(k_briefing_rect, COLOR_PHOSPHOR);
 
         char hdr[96];
         char sub[96];
@@ -427,12 +431,13 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             line3 = "Click START to test button or select a card on the right spine.";
         }
 
-        DrawTextEx(font_title, hdr, (Vector2){ floorf(k_briefing_rect.x + 20.0f), floorf(k_briefing_rect.y + 16.0f) }, 19.0f, 1.4f, COLOR_PHOSPHOR);
-        DrawLine((int)k_briefing_rect.x + 20, (int)k_briefing_rect.y + 44, (int)(k_briefing_rect.x + k_briefing_rect.width - 20.0f), (int)k_briefing_rect.y + 44, COLOR_PHOSPHOR_DIM);
-        DrawTextEx(font_body, sub, (Vector2){ floorf(k_briefing_rect.x + 20.0f), floorf(k_briefing_rect.y + 56.0f) }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        DrawTextEx(font_body, line1, (Vector2){ floorf(k_briefing_rect.x + 20.0f), floorf(k_briefing_rect.y + 96.0f) }, 17.0f, 1.1f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, line2, (Vector2){ floorf(k_briefing_rect.x + 20.0f), floorf(k_briefing_rect.y + 124.0f) }, 16.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-        DrawTextEx(font_body, line3, (Vector2){ floorf(k_briefing_rect.x + 20.0f), floorf(k_briefing_rect.y + 150.0f) }, 16.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_title, hdr,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 18.0f, 21.0f, 1.4f, COLOR_PHOSPHOR);
+        DrawLine((int)k_briefing_rect.x + 22, (int)k_briefing_rect.y + 50,
+                 (int)(k_briefing_rect.x + k_briefing_rect.width - 22.0f), (int)k_briefing_rect.y + 50, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_body,  sub,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 64.0f, 19.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body,  line1, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 108.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 142.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
 
         draw_plexus_btn(k_start_rect, "START", 18, vm, 0);
     }
