@@ -2,6 +2,7 @@
 
 > **Status:** Open-Ended Draft Concept (Nothing Set in Stone)  
 > **Background Canvas:** `assets/plexus.png` (`1280×720`)  
+> **Visual Layout Reference:** [`plexus/plexus_mockup.png`](plexus_mockup.png)  
 > **Companion Files:** [`plexus/roadmap_plexus.md`](roadmap_plexus.md) · [`plexus/story.md`](story.md) · [`plexus/training_games.md`](training_games.md)
 
 ---

@@ -19,6 +19,7 @@
 #include "ui_motion.h"
 #include "ui_audio.h"
 #include "ui_screens.h"
+#include "ui_plexus.h"
 #include "ui_input.h"
 #include "ui_combos.h"
 #include "campaign.h"
@@ -101,6 +102,8 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
     if (sc == SCREEN_START) {
         screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
         if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+    } else if (sc == SCREEN_ATRIUM) {
+        plexus_draw(&assets, mouse_pos);
     } else if (sc == SCREEN_OPTIONS) {
         screens_draw_options(&assets, &settings, mouse_pos);
     } else if (sc == SCREEN_STATS) {
@@ -472,11 +475,26 @@ static void update_draw_frame(void) {
                 ScreenAction act = screens_handle_start_click(vm);
                 if (act != ACT_NONE) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_hub_transition(SCREEN_START, 1, (Rectangle){ 490, 320, 300, 40 }, "START MATCH", 18);
-                else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 370, 300, 40 }, "OPTION", 18);
-                else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 420, 300, 40 }, "STATS", 18);
-                else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 520, 300, 40 }, "CREDITS", 18);
+                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 0, 0);
+                else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
+                else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
+                else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
                 else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
                 else if (act == ACT_QUIT) { quit_requested = 1; return; }
+            }
+        } else if (screen == SCREEN_ATRIUM) {
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                audio_play_click(&audio);
+                storage_save_all(&settings, &stats, &history);
+                start_transition(SCREEN_START, 0, 0);
+            } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                int p_clicked = 0;
+                ScreenAction act = plexus_handle_click(vm, &p_clicked);
+                if (p_clicked) audio_play_click(&audio);
+                if (act == ACT_GOTO_MENU) {
+                    storage_save_all(&settings, &stats, &history);
+                    start_transition(SCREEN_START, 0, 0);
+                }
             }
         } else if (screen == SCREEN_CREDITS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) {
@@ -1098,6 +1116,7 @@ int main(int argc, char **argv) {
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
+    plexus_unload_assets();
     board_unload_assets(&assets);
     if (post_shader.id > 0) UnloadShader(post_shader);
     UnloadRenderTexture(overlay_canvas); UnloadRenderTexture(canvas);
