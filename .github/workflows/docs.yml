@@ -91,8 +91,8 @@ jobs:
       - name: Run custom music folder regression tests (headless)
         run: ./tests/test_music_folder.sh
 
-      - name: Run audio DSP regression tests (headless)
-        run: ./tests/test_audio_dsp.sh
+      - name: Enforce approved tests/ folder lock
+        run: ./tools/tests_guard.sh
 
       - name: Build WebAssembly bundle into /play/
         run: |

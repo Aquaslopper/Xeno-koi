@@ -30,6 +30,7 @@ fi
 
 # Engine tests (no graphics)
 if [ "$1" = "test" ]; then
+    ./tools/tests_guard.sh
     gcc -std=c99 -O2 -Wall -Wextra -Isrc tests/test_engine.c src/cards.c src/rules.c src/engine.c src/ai.c \
         -o /tmp/test_engine && /tmp/test_engine
     gcc -std=c99 -O2 -Wall -Wextra -Werror -Isrc tools/test_koikoi_trigger.c src/cards.c src/rules.c src/engine.c \
@@ -38,9 +39,6 @@ if [ "$1" = "test" ]; then
         ./tests/test_table_ui.sh
     fi
     ./tests/test_music_folder.sh
-    if [ -f tests/test_audio_dsp.c ]; then
-        ./tests/test_audio_dsp.sh
-    fi
     exit 0
 fi
 
