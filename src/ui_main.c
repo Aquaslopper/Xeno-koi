@@ -435,7 +435,17 @@ static void update_draw_frame(void) {
             ScreenAction act = screens_handle_match_result_click(vm);
             if (act != ACT_NONE) audio_play_click(&audio);
             if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
-            else if (act == ACT_GOTO_MENU) start_transition(SCREEN_START, 3, 0);
+            else if (act == ACT_GOTO_MENU) {
+                /* The match is over and the results screen is already the hub, so
+                   return to the menu directly - no second loading card and no music
+                   restart: the track playing on the results screen keeps playing,
+                   and the per-frame music supervisor carries it over exactly as it
+                   does on the menu. */
+                screen = SCREEN_START;
+                campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
+                round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
+                is_paused = 0; confirm_restart = 0;
+            }
         } else if (screen == SCREEN_GAME && combo_player >= 0) {
             /* Own the entire frame, including dismissal: no timer, CPU, replay,
                animation, or underlying button can advance through this window. */
