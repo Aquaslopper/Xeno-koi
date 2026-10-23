@@ -195,7 +195,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         }
         float chorus = s_effect_cur[0], bass = s_effect_cur[1], room = s_effect_cur[2];
         float bass_amount = bass * rev;
-        float shelf_mix = (powf(10, bass_amount) - 1) / 2.16227766f; /* 0..20 dB before compression. */
+        float shelf_mix = (powf(10.0f, 1.5f * bass_amount) - 1.0f) / 2.16227766f; /* 0..30 dB before compression. */
         /* Parallel bass: compress ONLY the added shelf component. The original
            music never passes through this gain reduction, so kicks cannot duck vocals. */
         float added_l = (bass_shelf10(&s_bass_l, dry_l) - dry_l) * shelf_mix;
