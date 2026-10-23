@@ -55,6 +55,15 @@ static BiquadState s_chorus_hp;
 static float s_chorus_history[2][CHORUS_HISTORY], s_chorus_phase, s_space_phase;
 static int s_chorus_index;
 
+typedef struct {
+    float envelope;
+    float attack_coef;
+    float release_coef;
+    float threshold;
+} SoftLimiter;
+
+static SoftLimiter s_limiter = { 0.0f, 0.985f, 0.9997f, 1.0f };
+
 #if __GCC_ATOMIC_INT_LOCK_FREE != 2
 #error Audio controls require lock-free unsigned int atomics
 #endif
@@ -93,7 +102,7 @@ static void reset_music_dsp(void) {
     s_in_hp_l = s_in_hp_r = s_in_lp_l = s_in_lp_r = (BiquadState){0};
     s_bass_l = s_bass_r = (BiquadState){0};
     s_chorus_hp = (BiquadState){0};
-    s_sc_env = s_bass_env = s_reverb_cur = 0;
+    s_sc_env = s_bass_env = s_reverb_cur = s_limiter.envelope = 0;
     memset(s_chorus_history, 0, sizeof(s_chorus_history));
     s_chorus_index = 0;
     s_chorus_phase = s_space_phase = 0;
@@ -135,14 +144,21 @@ static float bass_shelf10(BiquadState *s, float x) {
     return y;
 }
 
-/* Soft-knee peak limiter: 1:1 linear below knee, smoothly compressed above knee */
-static float soft_knee_limit(float x, float knee, float max_val) {
-    float ax = (x < 0.0f) ? -x : x;
-    if (ax <= knee) return x;
-    float span = max_val - knee;
-    float u = (ax - knee) / (span + (ax - knee));
-    float out = knee + span * u;
-    return (x < 0.0f) ? -out : out;
+/* Envelope-following soft-knee gain limiter: untouched at/below threshold (0 dBFS = 1.0),
+   smoothly reduces overall stereo gain above threshold without waveshaping the wave. */
+static float clean_limit_gain(SoftLimiter *limiter, float abs_x) {
+    if (abs_x > limiter->envelope) {
+        limiter->envelope = abs_x + limiter->attack_coef * (limiter->envelope - abs_x);
+    } else {
+        limiter->envelope = abs_x + limiter->release_coef * (limiter->envelope - abs_x);
+    }
+    float gain = 1.0f;
+    if (limiter->envelope > limiter->threshold) {
+        float excess = limiter->envelope - limiter->threshold;
+        float compressed_envelope = limiter->threshold + (excess / (1.0f + excess));
+        gain = compressed_envelope / limiter->envelope;
+    }
+    return gain;
 }
 
 /* Linear interpolation permits smooth room-size and chorus delay changes.
@@ -200,9 +216,9 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
 
         /* Giant modulated space dimensions depend on the saved slider:
-           size 0.80..2.65 (~50..280 ms macro taps), feedback 0.78..0.945,
+           size 0.80..2.72 (~50..290 ms macro taps), feedback 0.78..0.945,
            high all-pass diffusion 0.62..0.74, and slow multi-phase LFO drift. */
-        float size = 0.80f + 1.85f*room;
+        float size = 0.80f + 1.92f*room;
         float diffusion = 0.62f + 0.12f*room;
         float bp_in_l = dry_l;
         float bp_in_r = dry_r;
@@ -243,12 +259,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             float out_r = delay_tap(s_comb_buf_r[c], REVERB_COMB_MAX, ir, k_comb_len_r[c]*size + mod_depth*cosf(phi));
             s_comb_lp_l[c] = out_l * (1.0f - damp) + s_comb_lp_l[c] * damp;
             s_comb_lp_r[c] = out_r * (1.0f - damp) + s_comb_lp_r[c] * damp;
-            /* Energy-preserving +/-18 deg stereo rotation swirls L/R across the tail with zero ear bias. */
-            float sgn = (c & 1) ? -0.3090170f : 0.3090170f;
-            float rot_l = 0.9510565f * s_comb_lp_l[c] - sgn * s_comb_lp_r[c];
-            float rot_r = sgn * s_comb_lp_l[c] + 0.9510565f * s_comb_lp_r[c];
-            s_comb_buf_l[c][il] = clamp_range(feed_l + rot_l * feedback, -0.80f, 0.80f);
-            s_comb_buf_r[c][ir] = clamp_range(feed_r + rot_r * feedback, -0.80f, 0.80f);
+            s_comb_buf_l[c][il] = clamp_range(feed_l + s_comb_lp_l[c] * feedback, -0.80f, 0.80f);
+            s_comb_buf_r[c][ir] = clamp_range(feed_r + s_comb_lp_r[c] * feedback, -0.80f, 0.80f);
             if (++il == REVERB_COMB_MAX) il = 0;
             if (++ir == REVERB_COMB_MAX) ir = 0;
             s_comb_idx_l[c] = il;
@@ -282,8 +294,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             s_ap_idx_r[a] = ir;
         }
 
-        float wet_l = acc_l + early_l * 0.05f;
-        float wet_r = acc_r + early_r * 0.05f;
+        float wet_l = acc_l + early_l * 0.12f;
+        float wet_r = acc_r + early_r * 0.12f;
 
         /* Stereo room return, with no width/covariance automation. */
         float wet_mono = 0.5f * (wet_l + wet_r);
@@ -292,17 +304,17 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         bass_late *= bass_late * (3 - 2*bass_late);
         float room_mid_hp = biquad_hp300(&s_in_hp_l, wet_mono);
         float room_side_hp = biquad_hp300(&s_in_hp_r, wet_stereo);
-        float room_mid = room_mid_hp + (wet_mono - room_mid_hp) * bass_late;
+        float tank_norm = sqrtf(1.0f - fb_base * fb_base) * 2.15f;
+        float room_mid = room_mid_hp * tank_norm + (wet_mono - room_mid_hp) * bass_late;
         /* Deep room bass stays centred; diffusion occupies the mid/high field. */
-        float room_side = room_side_hp;
+        float room_side = room_side_hp * tank_norm;
         /* Darker at low room settings; full-band at maximum. */
         float room_mid_lp = biquad_lp5000(&s_in_lp_l, room_mid);
         float room_side_lp = biquad_lp5000(&s_in_lp_r, room_side);
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
         float room_mix = sqrtf(room) * (0.65f + 0.35f * room);
-        float tank_norm = sqrtf(1.0f - fb_base * fb_base) * 2.15f;
-        float wet_gain = room_mix * tank_norm * rev * 2.30f * sc_dim * (1 - 0.10f * tail_releasing);
+        float wet_gain = room_mix * rev * 2.30f * sc_dim * (1 - 0.10f * tail_releasing);
         float dry_gain = 1 - 0.30f * room * rev;
         float out_l = dry_l, out_r = dry_r;
         if (room * rev > 0.00001f) {
@@ -333,12 +345,12 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         s_chorus_phase += 6.28318530718f*0.60f/44100;
         if (s_chorus_phase >= 6.28318530718f) s_chorus_phase -= 6.28318530718f;
 
-        /* Stereo-linked protection: one gain for both ears, no image shift.
-           Dry bypass (including hot input) is zero-latency when all effects are off. */
-        float peak = fmaxf(fabsf(out_l), fabsf(out_r));
-        if (rev > 0.00001f && chorus + bass + room > 0.00001f && peak > 0.88f) {
-            float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;
+        if (rev > 0.00001f && chorus + bass + room > 0.00001f) {
+            float peak = fmaxf(fabsf(out_l), fabsf(out_r));
+            float gain = clean_limit_gain(&s_limiter, peak);
             out_l *= gain; out_r *= gain;
+        } else {
+            s_limiter.envelope = 0.0f;
         }
         pcm[f * 2 + 0] = out_l;
         pcm[f * 2 + 1] = out_r;

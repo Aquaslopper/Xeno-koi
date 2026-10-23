@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Envelope-following SoftLimiter & full bass restoration (23 October 2026)
+
+- Replaced the instantaneous `0.88..0.98` waveshaper clipper (`soft_knee_limit`) at the end of `music_reverb_processor_impl` in `src/ui_audio.c` with the envelope-following `SoftLimiter` (`clean_limit_gain`: smooth attack/release peak follower, `threshold = 1.0f` / `0 dBFS`, applying `threshold + excess / (1 + excess)` to overall stereo gain rather than waveshaping individual samples, and leaving everything at or below `0 dBFS` untouched).
+- Restored both low-end spots from the earlier reverb/envelope commits:
+  - Restored `delta_captured * 0.22f` in `src/ui_board.c`.
+  - Removed the `±18°` comb feedback rotation in `src/ui_audio.c` (eliminating mono sub-300 Hz phase cancellation at high Space Reverb), restored `0.12f` early pre-delay blend, and applied `tank_norm` only to the `>300 Hz` reverb paths so late `<300 Hz` bass warmth (`80%–100%`) retains full level; updated `tests/test_action_audio.c` and re-recorded `tools/audio_guard.sha256`.
+
+#### Checked
+- `RAYLIB_SRC=/tmp/raylib/src ./build.sh test` (`500` engine matches, `test_music_folder.sh`, `test_audio_dsp.sh` across `44.1 / 48 / 96 kHz`), `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, all 22 `src/*.c` under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_audio.c` and `src/ui_board.c`), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- **Touched:** `src/ui_audio.c`, `src/ui_board.c`, `tests/test_action_audio.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** parallel bass compressor settings, game rules, engine logic, scoring math, card definitions, `docs/`, or assets.
+
 ### Capture action-tail extension & unified Menu/Match music playlist (23 October 2026)
 
 - Extended the capture action-reverb sustain and release tail in `src/ui_board.c` (`board_draw_table`) by `+2.15 s..+3.05 s`:
