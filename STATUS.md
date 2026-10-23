@@ -7,6 +7,21 @@
 ## Status Summary
 ## Latest completed work
 
+### Remove audio DSP, tooltip, and hub-transition test files and lock `tests/` against unapproved additions (23 October 2026)
+
+- Removed the 6 non-core test files from `tests/`:
+  - `tests/test_action_audio.c`, `tests/test_audio_dsp.c`, `tests/test_audio_dsp.sh`
+  - `tests/test_card_tooltip.c`, `tests/test_card_tooltip_web.js`
+  - `tests/test_hub_transition.c`
+- Cleaned the corresponding runner hooks in `tests/test_table_ui.sh`, `build.sh`, and `.github/workflows/docs.yml` while keeping `tests/raylib_audio_stub/raylib.h` intact for `tests/test_music_folder.sh`.
+- Locked `tests/` against unapproved test creation across 4 layers:
+  - Added `tools/tests_guard.manifest` + `tools/tests_guard.sh` (invoked by both `./build.sh test` and `.github/workflows/docs.yml`) so any unapproved file added inside `tests/` fails immediately with exit status `1`.
+  - Protected `/tests/` and `/tools/tests_guard.*` in `.github/CODEOWNERS`, `.github/workflows/guard-protected.yml`, and `AGENTS.md`.
+
+#### Checked
+- `./tools/tests_guard.sh` pass check (`7` approved files) + negative block check with a temporary unapproved file (`exit 1`), `RAYLIB_SRC=/tmp/raylib/src ./build.sh test`, `RAYLIB_SRC=/nonexistent ./build.sh test`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** deleted `tests/test_action_audio.c`, `tests/test_audio_dsp.c`, `tests/test_audio_dsp.sh`, `tests/test_card_tooltip.c`, `tests/test_card_tooltip_web.js`, `tests/test_hub_transition.c`; added `tools/tests_guard.manifest`, `tools/tests_guard.sh`; updated `tests/test_table_ui.sh`, `build.sh`, `.github/workflows/docs.yml`, `.github/workflows/guard-protected.yml`, `.github/CODEOWNERS`, `AGENTS.md`, `STATUS.md`. **Deliberately did not touch:** any file in `src/`, `docs/`, `assets/`, `tools/audio_guard.*`, `tests/raylib_audio_stub/raylib.h`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Add 360 ms 2-stage CRT terminal hub transition across all non-loading menu screens (23 October 2026)
 
 - Added a **360 ms (`HUB_BLINK_DUR = 0.20f` + `HUB_WIPE_DUR = 0.16f`)** two-stage cinematic CRT terminal transition in `src/ui_main.c` across all 9 non-loading hub navigation routes (`MAIN MENU <-> OPTION / STATS / CREDITS / OPPONENT SELECT` and `MATCH RESULTS -> MAIN MENU`), plus `screens_get_options_page()` / `screens_set_options_page()` in `src/ui_screens.h` + `src/ui_screens.c`:

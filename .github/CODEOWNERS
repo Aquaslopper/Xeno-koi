@@ -44,3 +44,8 @@
 /src/ui_board_status.c @Aquaslopper
 /src/board_layout.c @Aquaslopper
 /src/board_layout.h @Aquaslopper
+
+# Tests folder lock - no new tests without explicit owner approval
+/tests/ @Aquaslopper
+/tools/tests_guard.manifest @Aquaslopper
+/tools/tests_guard.sh @Aquaslopper

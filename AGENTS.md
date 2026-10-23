@@ -13,6 +13,7 @@ STRICT CONSTRAINTS:
 2. DO NOT modify any card databases, matching rules, or existing scoring logic.
 3. DO NOT introduce new libraries or overhaul the state architecture.
 4. Keep all changes minimal, surgical.
+5. NEVER create, edit, or delete files in `tests/` (or touch `tools/tests_guard.*`) without explicit prior approval from the maintainer. Run any scratch checks in `/tmp` and delete them before finishing.
 
 OUTPUT REQUIREMENT:
 WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
@@ -52,6 +53,7 @@ If a handoff rule and the wiki disagree, follow the wiki and the code, and say s
 - **Deus Supremus is open to everyone on purpose.** `DEUS_UNLOCKED_FOR_TESTING` in `src/campaign.c` is `1` while the maintainer tests the mode. Leave it alone.
 - **KK-ADD-10 is the maintainer's own house rule**, taken from an earlier game. It is the recommended first rule set for beginners. It is expected to change, so keep `docs/rulesets/kk-add-10.md` and the generated tables in step with `src/rules.c`.
 - **The handoff stays in the repo unchanged** for history. Do not edit or delete the PDF.
+- **`tests/` is locked (`tools/tests_guard.sh` + `tools/tests_guard.manifest`).** Do not add new test files or update `tools/tests_guard.manifest` unless the maintainer explicitly asks for a new test.
 
 ## Changing rules, cards, or opponents
 
