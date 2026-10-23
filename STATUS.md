@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Capture action-tail extension & unified Menu/Match music playlist (23 October 2026)
+
+- Extended the capture action-reverb sustain and release tail in `src/ui_board.c` (`board_draw_table`) by `+2.15 s..+3.05 s`:
+  - Slowed the linear energy drain (`0.25 -> 0.11 /s`, `+0.20` per captured card) and added an asymmetric smooth release (`1.05 s` release vs `0.18 s` attack on `reverb_curve`), preserving the responsive 3-capture build (`~55% -> ~90% -> 100%` at real turn cadence) while keeping the audible space tail blooming for roughly `4.9 s` on a single 2-card capture (up from `1.9 s`) and `~9–10 s` at full stack (up from `~4.1 s`).
+- Unified Main Menu and Match music playback (`src/ui_audio.c`, `src/ui_main.c`, `tests/test_music_folder.c`):
+  - Included `assets/music/menu.mp3` directly in the default built-in track list (`menu.mp3`, `game1.mp3`, `game3.mp3` — 3 compact tracks with zero empty slots) rather than isolating it as a separate menu-only loop.
+  - Both Main Menu / subscreens (`Start`, `Options`, `Stats`, `Credits`, `Match Result`) and live matches now play and advance through the whole playlist (all built-in tracks including `menu.mp3`, or all `1..100` custom `.mp3`/`.ogg`/`.wav` tracks when a custom folder is set), keeping non-match playback dry (`reverb = 0`, except during `Test Effects` in Options) and seeding `srand` on startup; re-recorded `tools/audio_guard.sha256`.
+
+#### Checked
+- `./tests/test_audio_dsp.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_music_folder.sh`, `RAYLIB_SRC=/tmp/raylib/src ./tests/test_table_ui.sh`, all 22 `src/*.c` under `-std=c99 -O2 -Wall -Wextra` (`-Werror` on `src/ui_board.c`, `src/ui_audio.c`, `src/ui_main.c`), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` pass.
+- **Touched:** `src/ui_board.c`, `src/ui_audio.c`, `src/ui_main.c`, `tests/test_music_folder.c`, `tools/audio_guard.sha256`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/ui_screens.c`, `src/ui_speed.c`, `docs/`, or assets.
+
 ### Giant modulated Space Reverb retune (23 October 2026)
 
 - Retuned the reverb tank in `src/ui_audio.c` from a short static hall/room character (`1123..1657`-sample static combs, `5..13 ms` diffusers, `1.12 s` T60 at 50%) into a **giant, long Valhalla-style Space Reverb** while keeping the existing sidechain ducking (`sc_dim`), parallel +20 dB bass shelf/compressor, centered sub-bass (`hp300` on Side + `bass_late` Mid warmth above 80%), Mid/Side chorus, soft-knee peak limiter, and bit-exact zero-latency bypass untouched:

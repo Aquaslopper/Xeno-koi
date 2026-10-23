@@ -11,20 +11,22 @@ int main(void) {
     audio_init(&a, 0.37f, 0.5f);
     assert(a.current_game_track == -1);
     raylib_stub_files_exist = true;
-    assert(audio_set_music_folder(&a, "") == 10);
-    assert(raylib_stub_attached == 10);
+    assert(audio_set_music_folder(&a, "") == 11);
+    assert(raylib_stub_attached == 11);
     assert(fabsf(raylib_stub_music_volume - 0.37f) < 0.001f);
 
     char *paths[] = {"/custom music/z.MP3", "/custom music/broken.mp3", "/custom music/b.ogg", "/custom music/a.wav"};
     raylib_stub_files = (FilePathList){4, 4, paths};
-    a.current_music = 1; /* Replacing match music must not interrupt the menu. */
+    a.current_music = 1;
     assert(audio_set_music_folder(&a, "/custom music") == 3);
     assert(a.game_track_count == 3 && a.current_music == 1);
     assert(strcmp(paths[0], "/custom music/a.wav") == 0);
     assert(strcmp(paths[1], "/custom music/b.ogg") == 0);
     assert(a.music_game[0].frameCount < a.music_game[1].frameCount);
-    assert(raylib_stub_music_unloaded == 10 && raylib_stub_detached == 10);
+    assert(raylib_stub_music_unloaded == 11 && raylib_stub_detached == 11);
     assert(raylib_stub_lists_unloaded == 1);
+    audio_play_menu_music(&a);
+    assert(a.current_music == 2 && a.current_game_track == 0);
     for (int i = 1; i <= AUDIO_MAX_TRACKS; i++) {
         audio_start_match_music(&a, i);
         assert(a.current_game_track >= 0 && a.current_game_track < 3);
@@ -55,8 +57,8 @@ int main(void) {
     assert(a.game_track_count == AUDIO_MAX_TRACKS);
     audio_start_match_music(&a, AUDIO_MAX_TRACKS);
     assert(a.current_game_track == AUDIO_MAX_TRACKS - 1 && a.has_music_game[AUDIO_MAX_TRACKS - 1]);
-    assert(audio_set_music_folder(&a, "") == 10);
-    assert(a.game_track_count == 10 && a.current_music == 2 && !a.has_music_game[10]);
+    assert(audio_set_music_folder(&a, "") == 11);
+    assert(a.game_track_count == 11 && a.current_music == 2 && !a.has_music_game[11]);
     audio_close(&a);
     assert(raylib_stub_music_unloaded == (int)raylib_stub_music_loaded);
     assert(raylib_stub_attached == raylib_stub_detached);

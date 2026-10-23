@@ -373,10 +373,11 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
         files = LoadDirectoryFilesEx(folder, ".mp3;.ogg;.wav", false);
         if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_music_paths);
     }
-    unsigned int limit = custom ? files.count : 10;
+    unsigned int limit = custom ? files.count : 11;
     for (unsigned int i = 0; i < limit && count < AUDIO_MAX_TRACKS; i++) {
         char path[64];
-        snprintf(path, sizeof(path), "assets/music/game%u.mp3", i + 1);
+        if (i == 0) snprintf(path, sizeof(path), "assets/music/menu.mp3");
+        else        snprintf(path, sizeof(path), "assets/music/game%u.mp3", i);
         const char *name = custom ? files.paths[i] : get_path(path);
         if (!FileExists(name)) continue;
         Music m = LoadMusicStream(name);
@@ -415,14 +416,6 @@ void audio_init(AudioAssets *a, float bgm_vol, float sfx_vol) {
     a->sfx_volume = (sfx_vol >= 0.0f && sfx_vol <= 1.0f) ? sfx_vol : 0.5f;
 
     InitAudioDevice();
-
-    const char *p_menu = get_path("assets/music/menu.mp3");
-    if (FileExists(p_menu)) {
-        a->music_menu = LoadMusicStream(p_menu);
-        a->has_music_menu = 1;
-        SetMusicVolume(a->music_menu, a->bgm_volume);
-    }
-
     audio_set_music_folder(a, "");
 
     const char *p_flip = get_path("assets/sfx/card_flip.wav");
@@ -504,6 +497,14 @@ void audio_preview_effect(AudioAssets *a, int enabled) {
 }
 
 void audio_play_menu_music(AudioAssets *a) {
+    if (a->game_track_count > 0) {
+        if (a->current_music != 2) audio_start_match_music(a, 1);
+        else {
+            audio_set_reverb(0);
+            if (audio_is_match_music_finished(a)) audio_start_match_music(a, a->current_game_track + 2);
+        }
+        return;
+    }
     audio_set_reverb(0);
     __atomic_add_fetch(&s_reset_epoch, 1u, __ATOMIC_RELAXED);
     if (a->current_music == 1 && a->has_music_menu && IsMusicStreamPlaying(a->music_menu)) return;

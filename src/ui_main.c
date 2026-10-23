@@ -322,7 +322,7 @@ static void update_draw_frame(void) {
                 begin_new_match(transition_track);
             } else if (transition_action == 2 || transition_action == 3) {
                 is_paused = 0; confirm_restart = 0;
-                audio_play_menu_music(&audio);
+                audio_start_match_music(&audio, pick_match_track(1));
                 if (pending_result_sfx > 0) audio_play_win(&audio);
                 else if (pending_result_sfx < 0) audio_play_lose(&audio);
                 pending_result_sfx = 0;
@@ -349,12 +349,10 @@ static void update_draw_frame(void) {
     int audio_test = screen == SCREEN_OPTIONS ? screens_audio_test_state() : -1;
     if (audio_test >= 0) {
         audio_preview_effect(&audio, audio_test);
-    } else if (in_game) {
-        if (audio.current_music != 2) audio_start_match_music(&audio, transition_track > 0 ? transition_track : pick_match_track(0));
-        else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, pick_match_track(1));
     } else {
-        audio_set_reverb(0.0f);
-        audio_play_menu_music(&audio);
+        if (!in_game) audio_set_reverb(0.0f);
+        if (audio.current_music != 2) audio_start_match_music(&audio, (in_game && transition_track > 0) ? transition_track : pick_match_track(0));
+        else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, pick_match_track(1));
     }
 
     if (saved_timer > 0.0f) saved_timer -= dt;
@@ -381,7 +379,7 @@ static void update_draw_frame(void) {
                 if (cres == -1) { campaign_overlay_open = 0; audio_play_click(&audio); }
                 else if (cres == 1) {
                     audio_play_click(&audio); ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
-                    start_transition(SCREEN_GAME, 1, pick_match_track(0));
+                    start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 ScreenAction act = screens_handle_start_click(vm);
@@ -433,7 +431,7 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
             if (act != ACT_NONE) audio_play_click(&audio);
-            if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(0));
+            if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
             else if (act == ACT_GOTO_MENU) start_transition(SCREEN_START, 3, 0);
         } else if (screen == SCREEN_GAME && combo_player >= 0) {
             /* Own the entire frame, including dismissal: no timer, CPU, replay,
@@ -539,10 +537,10 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_GAME) {
             int pause_toggled = 0, restarted_now = 0;
             if (((IsKeyPressed(KEY_ESCAPE) && (!drag.selected || is_paused)) || IsKeyPressed(KEY_P)) && !drag.on) { is_paused = !is_paused; confirm_restart = 0; pause_toggled = 1; }
-            else if (!is_paused && IsKeyPressed(KEY_R) && !drag.on) { audio_play_click(&audio); begin_new_match(pick_match_track(0)); restarted_now = 1; }
+            else if (!is_paused && IsKeyPressed(KEY_R) && !drag.on) { audio_play_click(&audio); begin_new_match(pick_match_track(1)); restarted_now = 1; }
             else if (!is_paused && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.on) {
                 if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) { audio_play_click(&audio); is_paused = 1; confirm_restart = 0; pause_toggled = 1; }
-                else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); begin_new_match(pick_match_track(0)); restarted_now = 1; }
+                else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); begin_new_match(pick_match_track(1)); restarted_now = 1; }
             }
 
             if (is_paused && !pause_toggled) {
@@ -550,7 +548,7 @@ static void update_draw_frame(void) {
                     ScreenAction act = screens_handle_pause_click(vm, &confirm_restart, 0);
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_RESUME) { is_paused = 0; confirm_restart = 0; }
-                    else if (act == ACT_RESTART_MATCH) begin_new_match(pick_match_track(0));
+                    else if (act == ACT_RESTART_MATCH) begin_new_match(pick_match_track(1));
                     else if (act == ACT_ABANDON_MATCH) { replay_rec_abort(); confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
@@ -916,6 +914,7 @@ int main(int argc, char **argv) {
 #else
     if (settings.fullscreen == 1) ToggleBorderlessWindowed();
 #endif
+    srand((unsigned int)time(NULL) ^ seed);
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
     init_banner_sfx();
