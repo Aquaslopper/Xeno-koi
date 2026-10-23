@@ -137,7 +137,7 @@ static void draw_hub_scan_beam(int split_y, float fade) {
     if (fade <= 0.001f) return;
     Color trail_hi = COLOR_PHOSPHOR; trail_hi.a = (unsigned char)(88.0f * fade);
     Color trail_lo = COLOR_PHOSPHOR; trail_lo.a = 0;
-    DrawRectangleGradientV(0, split_y - 22, CANVAS_W, 22, trail_lo, trail_hi);
+    DrawRectangleGradientV(0, split_y - 66, CANVAS_W, 66, trail_lo, trail_hi);
     Color lead_hi = COLOR_PHOSPHOR; lead_hi.a = (unsigned char)(64.0f * fade);
     DrawRectangleGradientV(0, split_y + 1, CANVAS_W, 7, lead_hi, trail_lo);
     Color beam = COLOR_PHOSPHOR; beam.a = (unsigned char)(235.0f * fade);
