@@ -898,7 +898,7 @@ static void update_draw_frame(void) {
         if (hub_trans_active) {
             Vector2 off_vm = { -1000.0f, -1000.0f };
             if (!hub_wipe_stage) {
-                int flash_on = ((((int)(hub_trans_timer * 60.0f + 0.5f)) / 2) & 1) == 0;
+                int flash_on = ((((int)(hub_trans_timer * 60.0f + 0.5f)) / 4) & 1) == 0;
                 draw_hub_screen_state(hub_from_screen, hub_from_campaign, off_vm);
                 draw_hub_strobe_button(hub_btn_rect, hub_btn_label, hub_btn_fsz, flash_on);
             } else {
