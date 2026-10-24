@@ -50,6 +50,34 @@ typedef enum {
 static int s_tut_active  = 0;
 static int s_tut_card_id = -1;
 static TutorialStep s_tut_step = TUT1_NONE;
+static int s_tut_telemetry_saved = 0;
+static int s_saved_drops = 0;
+static float s_saved_time_sum = 0.0f;
+static float s_saved_cover_sum = 0.0f;
+static int s_saved_best_streak = 0;
+static int s_saved_lifetime_mp = 0;
+static int s_saved_audio_triggers = 0;
+static float s_saved_audio_peak = 0.0f;
+static float s_saved_audio_hold = 0.0f;
+static int s_training_active = 0;
+
+static void tut_save_telemetry(void) {
+    if (s_tut_telemetry_saved) return;
+    speed_bar_get_telemetry(&s_saved_drops, &s_saved_time_sum, &s_saved_cover_sum,
+                            &s_saved_best_streak, &s_saved_lifetime_mp);
+    s_saved_audio_triggers = board_get_audio_action_triggers();
+    s_saved_audio_peak     = board_get_audio_peak_synergy();
+    s_saved_audio_hold     = board_get_audio_full_hold_seconds();
+    s_tut_telemetry_saved  = 1;
+}
+
+static void tut_restore_telemetry(int clear_saved) {
+    if (!s_tut_telemetry_saved) return;
+    speed_bar_set_telemetry(s_saved_drops, s_saved_time_sum, s_saved_cover_sum,
+                            s_saved_best_streak, s_saved_lifetime_mp);
+    board_set_audio_telemetry(s_saved_audio_triggers, s_saved_audio_peak, s_saved_audio_hold);
+    if (clear_saved) s_tut_telemetry_saved = 0;
+}
 
 static PlexusLogEntry s_log_entries[PLEXUS_LOG_MAX];
 static int s_log_count  = 0;
@@ -225,6 +253,8 @@ void plexus_load(void) {
     s_selected_month = 0;
     s_selected_slot = 3;
     s_active_tab = 0;
+    s_tut_telemetry_saved = 0;
+    s_training_active = 0;
     s_log_count = 0;
     s_log_cursor = 0;
     s_log_seeded = 0;
@@ -313,7 +343,21 @@ void plexus_save(void) {
 
     int drops = 0, best_strk = 0, life_mp = 0;
     float t_sum = 0.0f, c_sum = 0.0f;
-    speed_bar_get_telemetry(&drops, &t_sum, &c_sum, &best_strk, &life_mp);
+    int aud_trig = board_get_audio_action_triggers();
+    float aud_peak = board_get_audio_peak_synergy();
+    float aud_hold = board_get_audio_full_hold_seconds();
+    if (s_tut_telemetry_saved) {
+        drops = s_saved_drops;
+        t_sum = s_saved_time_sum;
+        c_sum = s_saved_cover_sum;
+        best_strk = s_saved_best_streak;
+        life_mp = s_saved_lifetime_mp;
+        aud_trig = s_saved_audio_triggers;
+        aud_peak = s_saved_audio_peak;
+        aud_hold = s_saved_audio_hold;
+    } else {
+        speed_bar_get_telemetry(&drops, &t_sum, &c_sum, &best_strk, &life_mp);
+    }
     fprintf(f,
             "finished_cards_mask=%llu\n"
             "selected_month=%d\n"
@@ -329,9 +373,7 @@ void plexus_save(void) {
             s_finished_cards_mask & ((1ULL << 48) - 1ULL),
             s_selected_month, s_selected_slot,
             drops, t_sum, c_sum, best_strk, life_mp,
-            board_get_audio_action_triggers(),
-            board_get_audio_peak_synergy(),
-            board_get_audio_full_hold_seconds());
+            aud_trig, aud_peak, aud_hold);
     for (int i = s_log_count - 1; i >= 0; i--) {
         fprintf(f, "log=%s\t%s\t%s\t%s\t%s\n",
                 s_log_entries[i].tag, s_log_entries[i].title,
@@ -679,10 +721,10 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             line3 = "Select a card on the right spine to return to Month view.";
         } else {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
-            snprintf(sub, sizeof(sub), "NORMAL MATCH  //  OPTION MENU SETTINGS");
-            line1 = "Launches a standard match using your current Option menu";
-            line2 = "settings (Ruleset, Difficulty, and Round count).";
-            line3 = "Click START to play a training match, or select a spine card.";
+            snprintf(sub, sizeof(sub), "TRAINING BRIEFING   [PLACEHOLDER]");
+            line1 = "[Placeholder info -- Training text to be added.]";
+            line2 = "Starts a normal match from Option menu settings.";
+            line3 = "Not a campaign match -- no awards are earned.";
         }
 
         draw_text_snapped(font_title, hdr,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 18.0f, 21.0f, 1.4f, COLOR_PHOSPHOR);
@@ -762,11 +804,12 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         /* Bottom tab 4 (TRAINING): launch normal match based on Option menu settings */
         if (s_active_tab == 4) {
             plexus_tutorial_abort();
-            plexus_log_push("TRAINING // NORMAL MATCH LAUNCHED",
-                            "FREE SPARRING -- OPTION MENU SETTINGS",
-                            "Starting a standard match configured by your current",
+            s_training_active = 1;
+            plexus_log_push("TRAINING // NORMAL MATCH",
+                            "TRAINING MODE -- NO CAMPAIGN AWARDS",
+                            "Starting a normal match configured by your current",
                             "Option menu settings (Ruleset, Difficulty, and Rounds).",
-                            "Match telemetry recorded to Atrium Plex LOGFILE.");
+                            "Non-campaign game: no clearance coins or unlocks earned.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -786,6 +829,8 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
         /* Month 1 Card 4 (bottom card, slot == 3, cid == 3): Koi-Koi tutorial (replayable any time) */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 3) {
+            s_training_active = 0;
+            tut_save_telemetry();
             s_tut_active  = 1;
             s_tut_card_id = cid;
             s_tut_step    = TUT1_WAIT_DEAL;
@@ -856,15 +901,27 @@ int plexus_tutorial_is_active(void) {
 }
 
 void plexus_tutorial_abort(void) {
+    tut_restore_telemetry(1);
     s_tut_active  = 0;
     s_tut_card_id = -1;
     s_tut_step    = TUT1_NONE;
 }
 
+int plexus_training_is_active(void) {
+    return s_training_active;
+}
+
+void plexus_training_stop(void) {
+    s_training_active = 0;
+}
+
 void plexus_tutorial_setup_round(GameState *g) {
     if (!g || !s_tut_active) return;
 
-    g->ruleset        = RULESET_FUDAWIKI;
+    tut_save_telemetry();
+    tut_restore_telemetry(0);
+
+    g->ruleset        = RULESET_KK_ADD_10;
     g->total_rounds   = 1;
     g->current_round  = 1;
     g->dealer         = 0;
@@ -981,8 +1038,8 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
         /* On Koi-Koi decision screen, if the player clicks directly on CALL KOI-KOI or SHOBU,
            unfreeze and let that click pass straight through to the Koi-Koi buttons! */
         if (s_tut_step == TUT1_PANEL_KOI_DECIDE &&
-            (CheckCollisionPointRec(vm, (Rectangle){ 410.0f, 518.0f, 210.0f, 48.0f }) ||
-             CheckCollisionPointRec(vm, (Rectangle){ 660.0f, 518.0f, 210.0f, 48.0f }))) {
+            (CheckCollisionPointRec(vm, (Rectangle){ 280.0f, 520.0f, 320.0f, 60.0f }) ||
+             CheckCollisionPointRec(vm, (Rectangle){ 680.0f, 520.0f, 320.0f, 60.0f }))) {
             s_tut_step = TUT1_FREE_PLAY;
             return 0;
         }
@@ -1031,7 +1088,7 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
 
     /* Highlight left-side scoring area when TUT1_PANEL_LEFT_AREA is active */
     if (s_tut_step == TUT1_PANEL_LEFT_AREA) {
-        Rectangle left_box = { 6.0f, 405.0f, 232.0f, 305.0f };
+        Rectangle left_box = { 9.0f, 505.0f, 261.0f, 206.0f };
         DrawRectangleLinesEx(left_box, 3.0f, COLOR_PHOSPHOR);
         Color glow = COLOR_PHOSPHOR;
         glow.a = (unsigned char)(65.0f * pulse);
@@ -1055,7 +1112,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     float y = pr.y + 18.0f;
 
     if (s_tut_step == TUT1_PANEL_INTRO) {
-        draw_text_snapped(font_title, "WELCOME, ENTITY 001 -- INFORMATIONAL UPGRADE INITIATED.",
+        draw_text_snapped(font_title, "ENTITY 001 -- INFORMATIONAL UPGRADE INITIATED",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 30.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 30.0f), COLOR_PHOSPHOR_DIM);
 
@@ -1072,7 +1129,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                           "immediately or call \"Koi-Koi\" to risk them for a higher score.",
                           x, y + 122.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_title,
-                          "Each of the 12 months features 4 identical floral cards.",
+                          "Each of the 12 months has 4 cards sharing the same plant.",
                           x, y + 154.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
 
         /* Visual card preview of the move to play: 08-A Geese -> 08-B Moon */
@@ -1097,7 +1154,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
 
         draw_text_snapped(font_title,
-                          "Between each move, a card from the deck is drawn automatically.",
+                          "Every hand play is followed by an automatic deck draw.",
                           x, y + 52.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
                           "Right after you play a card from your hand, the top card of the",
@@ -1129,7 +1186,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
 
         draw_text_snapped(font_title,
-                          "Captured cards are organized into your scoring area to build",
+                          "Captured cards move into your scoring area to build",
                           x, y + 54.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_title,
                           "specific point-generating combinations, or yaku.",
@@ -1141,7 +1198,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                           "or animals instantly completes a combo and allows you to",
                           x, y + 150.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
-                          "declare \"Koi-Koi\" or end the round.",
+                          "declare \"Koi-Koi\" or \"Shobu\" to end the round.",
                           x, y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
                           "<-- Your captured [08-B Moon] and [08-A Geese] are now stored",
@@ -1173,17 +1230,17 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         DrawRectangleLinesEx(c_moon, 2.0f, COLOR_PHOSPHOR);
         DrawRectangleLinesEx(c_sake, 2.0f, COLOR_PHOSPHOR);
         draw_text_snapped(font_title, "+", x + 98.0f, y + 216.0f, 24.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "TSUKIMI-ZAKE (MOON VIEWING) = 5 PTS",
-                          x + 222.0f, y + 216.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "TSUKIMI-ZAKE (MOON VIEWING): 5 PTS",
+                          x + 216.0f, y + 216.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
     } else if (s_tut_step == TUT1_PANEL_KOI_DECIDE) {
         draw_text_snapped(font_title, "You have completed a combo!",
                           x, y, 21.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 30.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 30.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
-                          "Tap \"Koi-Koi\" to keep playing for more points, or tap \"Stop\"",
+                          "Select \"KOI-KOI (CONTINUE)\" to keep playing for more points, or",
                           x, y + 46.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
-                          "(Shobu) to end the round and claim your victory.",
+                          "select \"SHOBU (BANK & END)\" to bank your points and win the round.",
                           x, y + 74.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     }
 
@@ -1192,6 +1249,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
 
 void plexus_tutorial_finish_match(void) {
     if (!s_tut_active) return;
+    tut_restore_telemetry(1);
     int cid = (s_tut_card_id >= 0 && s_tut_card_id < 48) ? s_tut_card_id : 3;
     s_finished_cards_mask |= (1ULL << cid);
     s_tut_active  = 0;

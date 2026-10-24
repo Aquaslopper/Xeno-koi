@@ -1,11 +1,26 @@
-> **Development handoff (last updated 24 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 25 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 24 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 25 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Atrium Plex `TRAINING` non-campaign mode and Month 01 Card 4 (`01-P2 Plain`) tutorial conversion to `RULESET_KK_ADD_10` + `DIFFICULTY_EASY` + zero-stats (25 October 2026)
+
+- Added Atrium Plex `TRAINING` non-campaign match mode (`plexus_training_is_active()` / `plexus_training_stop()` in `src/ui_plexus.h`, `src/ui_plexus.c`, and `src/ui_main.c`):
+  - Reuses the existing top briefing panel (`k_briefing_rect = { 516, 82, 540, 250 }`) with placeholder Training briefing copy and `START` button (`k_start_rect = { 896, 348, 160, 48 }`).
+  - Launches a normal match configured by the player's current Option menu settings (`Ruleset`, `Difficulty`, `Rounds`) while suppressing Campaign clearance coins/sector unlocks, `SCREEN_MATCH_RESULT` clearance banners, and `[ CPU TRANSMISSION ]` taunts, returning to `SCREEN_ATRIUM` on match abandon or Deus timeout.
+- Converted the Month 01 Card 4 (`slot = 3`, `cid = 3`, `[01-P2 Plain]`) guided tutorial onto `RULESET_KK_ADD_10` and `DIFFICULTY_EASY` with zero stat side effects and surgical pop-up fixes (`src/ui_plexus.c`, `src/ui_main.c`):
+  - Kept the existing guided 1-round flow on `SCREEN_GAME` (`board_draw_table`, `engine_*`, `input_handle_mouse`) and existing 5 pop-up panel layout intact.
+  - Switched `plexus_tutorial_setup_round()` from `RULESET_FUDAWIKI` to `RULESET_KK_ADD_10`, and routed tutorial AI decisions, Easy matching-card glow, and hover tooltips through `DIFFICULTY_EASY` while bypassing turn timers and CPU Koi-Koi taunts without touching `settings.difficulty` or `DEUS`.
+  - Snapshotted and restored Speedbar and Audio FX telemetry across tutorial start, mid-tutorial restarts/saves, completion, and abort so tutorial runs record zero changes in `stats.txt`, `history.txt`, `replays/`, `LOGFILE`, and `plexsave.txt`.
+  - Updated Decide pass-through hitboxes (`{280, 520, 320, 60}` and `{680, 520, 320, 60}`) and left capture-area highlight (`{9, 505, 261, 206}`) to match real `ui_screens.c` / `ui_board.c` bounds, and fixed inaccurate or overflowing text lines inside the 5 tutorial pop-up panels.
+
+#### Checked
+- `./build.sh test` (`500` engine matches, `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`), `gcc -std=c99 -O2 -Wall -Wextra -Werror` across all `24` `src/*.c` modules, `ASan + UBSan` tutorial end-to-end & zero-stats telemetry preservation harness, TTF advance-width verification across all `35` tutorial pop-up lines (`assets/audiowide.ttf` & `assets/play.ttf`), `./tools/tests_guard.sh` (`7` approved files), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.c`, `src/ui_screens.c`, `src/ui_board.c`, `src/ui_input.c`, `src/ui_audio.c`, `DEUS` mode, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
 
 ### Atrium Plex beta foundation: `plexsave.txt` persistence, logfile/replay cleanup, smooth-red locked bottom buttons, and grounded roadmap (24 October 2026)
 

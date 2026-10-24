@@ -18,6 +18,10 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked);
 /* Scripted Month 1 Tutorial Match hooks (used by SCREEN_GAME when launched from Atrium Plex) */
 int  plexus_tutorial_is_active(void);
 void plexus_tutorial_abort(void);
+
+/* Non-campaign Atrium Plex Training match state */
+int  plexus_training_is_active(void);
+void plexus_training_stop(void);
 void plexus_tutorial_setup_round(GameState *g);
 int  plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
                                       int board_settled, float overlay_alpha,
