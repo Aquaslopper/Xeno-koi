@@ -1,103 +1,82 @@
-**Learn the code before you code — what you have not read and verified is only an assumption, and a change built on an assumption risks breaking code it never understood: read the source first, verify how it actually behaves, and only then write the smallest change those verified facts justify.**
+Learn the code before you code — what you have not read and verified is only an assumption, and a change built on an assumption risks breaking code it never understood. Your definitive architectural map is LEARN_THE_CODE.md. Read it, verify how the code actually behaves, and only then write the smallest change those verified facts justify.
 
-# Agent & contributor notes for Xeno Koi
-
+Agent & contributor notes for Xeno Koi
 Read this before changing rules, scoring, cards, opponents, or the docs.
-# [SYSTEM DIRECTIVE: HYPER-FOCUS MODE ENGAGED]
 
-You are acting as a precision systems programmer on the Xeno-Koi C99 / Raylib game engine. 
-Read and strictly enforce all operational guardrails below before writing any code.
+[SYSTEM DIRECTIVE: HYPER-FOCUS MODE ENGAGED]
+You are acting as a precision systems programmer on the Xeno-Koi C99 / Raylib game engine. Read and strictly enforce all operational guardrails below before writing any code.
 
 STRICT CONSTRAINTS:
-1. DO NOT refactor or rewrite entire files.
-2. DO NOT modify any card databases, matching rules, or existing scoring logic.
-3. DO NOT introduce new libraries or overhaul the state architecture.
-4. Keep all changes minimal, surgical.
-5. NEVER create, edit, or delete files in `tests/` (or touch `tools/tests_guard.*`) without explicit prior approval from the maintainer. Run any scratch checks in `/tmp` and delete them before finishing.
+- DO NOT assume how any system works. Consult LEARN_THE_CODE.md for exact phase machines, audio DSP paths, and UI state triggers before writing a line.
+- DO NOT refactor or rewrite entire files.
+- DO NOT modify any card databases, matching rules, or existing scoring logic.
+- DO NOT introduce new libraries or overhaul the state architecture.
+- Keep all changes minimal, surgical.
+- NEVER create, edit, or delete files in tests/ (or touch tools/tests_guard.*) without explicit prior approval from the maintainer. Run any scratch checks in /tmp and delete them before finishing.
+- OUTPUT REQUIREMENT: WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
 
-OUTPUT REQUIREMENT:
-WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
-
-## STRICT OUTPUT RULE WHEN CODING:
+STRICT OUTPUT RULE WHEN CODING:
 Output format (fill 1:1):
 
 =========================================
 
-1. re-read AGENTS.md
-
+re-read AGENTS.md
 Confirm to follow SYSTEM DIRECTIVE
+Confirmed architecture via LEARN_THE_CODE.md
 
-3. What the request is, in the agent's words
-
+What the request is, in the agent's words
 Awaiting approval. Nothing written to disk.
 
-------------------------------------------
-- SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
-- Touched: files
-- Not touched: files / areas
-- Checks run: checks
-
+SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
+Touched: files
+Not touched: files / areas
+Checks run: checks
 =========================================
 
-## Where the truth lives
+Where the truth lives
+- The Architecture Map: LEARN_THE_CODE.md is the strict, zero-fluff guide to the current C/raylib architecture. It holds the absolute truth for phase states, AI heuristic logic, UI boundaries, and memory constraints. 
+- The Code: src/ decides what the game actually does.
+- The Wiki: docs/ (published from mkdocs.yml) explains the current rules. It is the reference for players and contributors.
+- The Legacy Contract: HANDOFF_KoiKoi_Giger_v2.pdf is legacy. It is the original build spec from 11 Oct 2026. Do not implement or document rules from it. Use LEARN_THE_CODE.md instead. Where the handoff disagrees with the code or the wiki, it is out of date (see docs/errata.md).
+- The Status: STATUS.md is the current development handoff, not a rulebook or deployment record. Update its date, completed work, checks actually run, and remaining verification when handing off a meaningful change. Its explicitly marked historical section is not current status.
 
-1. **The code** (`src/`) decides what the game does.
-2. **The wiki** (`docs/`, published from `mkdocs.yml`) explains the current rules. It is the reference for players and contributors.
-3. **`HANDOFF_KoiKoi_Giger_v2.pdf` is legacy.** It is the original build spec from 11 Oct 2026. Do not implement or document rules from it. Where it disagrees with the code or the wiki, the handoff is out of date. [`docs/errata.md`](docs/errata.md) lists each difference.
-4. **`STATUS.md` is the current development handoff**, not a rulebook or deployment record. Update its date, completed work, checks actually run, and remaining verification when handing off a meaningful change. Its explicitly marked historical section is not current status.
+If a rule in LEARN_THE_CODE.md and the wiki disagree, follow the wiki and the code, and say so in your summary.
 
-If a handoff rule and the wiki disagree, follow the wiki and the code, and say so in your summary.
+Owner decisions (do not reverse without asking the maintainer)
+Deus Supremus is open to everyone on purpose. DEUS_UNLOCKED_FOR_TESTING in src/campaign.c is 1 while the maintainer tests the mode. Leave it alone.
+KK-ADD-10 is the maintainer's own house rule, taken from an earlier game. It is the recommended first rule set for beginners. It is expected to change, so keep docs/rulesets/kk-add-10.md and the generated tables in step with src/rules.c.
+The handoff stays in the repo unchanged for history. Do not edit or delete the PDF.
+tests/ is locked (tools/tests_guard.sh + tools/tests_guard.manifest). Do not add new test files or update tools/tests_guard.manifest unless the maintainer explicitly asks for a new test.
 
-## Owner decisions (do not reverse without asking the maintainer)
-
-- **Deus Supremus is open to everyone on purpose.** `DEUS_UNLOCKED_FOR_TESTING` in `src/campaign.c` is `1` while the maintainer tests the mode. Leave it alone.
-- **KK-ADD-10 is the maintainer's own house rule**, taken from an earlier game. It is the recommended first rule set for beginners. It is expected to change, so keep `docs/rulesets/kk-add-10.md` and the generated tables in step with `src/rules.c`.
-- **The handoff stays in the repo unchanged** for history. Do not edit or delete the PDF.
-- **`tests/` is locked (`tools/tests_guard.sh` + `tools/tests_guard.manifest`).** Do not add new test files or update `tools/tests_guard.manifest` unless the maintainer explicitly asks for a new test.
-
-## Changing rules, cards, or opponents
-
+Changing rules, cards, or opponents
 Do all of these in the same change:
+- Edit the code in src/ (Check LEARN_THE_CODE.md first).
+- Regenerate the engine-derived tables: python3 tools/gen_wiki_tables.py
+- Update the hand-written prose in docs/ that describes the changed rule. The generator only fills marked blocks. It does not rewrite the explanations.
+- Add or update the entry in docs/errata.md if the change alters something the handoff described or a known issue.
+- Check the docs: 
+  python3 tools/gen_wiki_tables.py --check
+  python3 -m mkdocs build --strict
+CI runs the same checks (.github/workflows/docs.yml) and fails if the generated tables are stale.
 
-1. Edit the code in `src/`.
-2. Regenerate the engine-derived tables:
-   ```bash
-   python3 tools/gen_wiki_tables.py
-   ```
-3. Update the hand-written prose in `docs/` that describes the changed rule. The generator only fills marked blocks. It does not rewrite the explanations.
-4. Add or update the entry in `docs/errata.md` if the change alters something the handoff described or a known issue.
-5. Check the docs:
-   ```bash
-   python3 tools/gen_wiki_tables.py --check
-   python3 -m mkdocs build --strict
-   ```
+Building and checking
+tools/wiki_tables.c links the real src/rules.c and src/cards.c. Do not copy scoring logic into the docs or the generator.
+Card images in the wiki (docs/assets/cards/card-<id>.webp + back.webp, the DEUS variants, and the DEUS background/atlas) are cut from the shipped art by tools/make_card_images.py — never edit the art or the thumbnails by hand. Regenerate after any source-art or generator change: python3 tools/make_card_images.py (needs Pillow: pip install --break-system-packages pillow). This also writes tools/card_images.sha256; check source/output freshness with python3 tools/make_card_images.py --check. Afterwards rerun python3 tools/gen_wiki_tables.py, because the difficulty chart embeds card thumbnails.
+README.md's masthead band and link buttons are generated from the shipped art by tools/make_readme_art.py, and the to-scale table map docs/assets/readme/table-map.png with tools/make_board_figure.py (both write into that folder; both take --check) -- never edit docs/assets/readme/* by hand. Regenerate with python3 tools/make_readme_art.py, check with --check.
+The flow diagrams in docs/assets/figures/ (turn-flow.png on How to Play, award-pipeline.png on Multipliers & Awards) are drawn by tools/make_flow_figures.py from the stage order in src/engine.c and the gates in calculate_award() -- never edit the PNGs, and never put numbers in them, because totals belong in the generated tables. Regenerate with python3 tools/make_flow_figures.py, check with --check.
+The game screenshots in docs/assets/screenshots/ are hand-captured (the only images here no tool can make) and imported with python3 tools/make_screenshots.py --from <dir>; their seven close-ups are cropped from them at the rectangles in src/, so never trim a PNG by hand. Re-derive with python3 tools/make_screenshots.py, check with --check.
+Desktop builds: see build.sh. The linux, win, and wasm modes expect raylib in /tmp.
+./build.sh test runs tests/test_engine.c (500 simulated matches plus deck and scoring checks). ./tests/test_table_ui.sh runs headless table input and combo-panel checks; it needs Raylib headers at RAYLIB_SRC (default /tmp/raylib/src), but not the Raylib library.
+Do not commit build output: koikoi_linux, test_engine, dist/, site/, or compiled tool binaries. Build tools to /tmp.
 
-CI runs the same checks (`.github/workflows/docs.yml`) and fails if the generated tables are stale.
+Code changes
+Keep a change to the smallest diff that solves the problem. If a fix needs more than ~80 lines, stop and describe the plan first.
+Never bundle a refactor with a feature. Separate commits.
+Do not add a parameter to a shared function to pass a mode flag without saying so in the summary.
+Before finishing, list what you touched and what you deliberately did not touch.
 
-## Building and checking
+Pages site
+The wiki is deployed to GitHub Pages from main by .github/workflows/docs.yml. Any other workflow that deploys to the same Pages site replaces the whole site, so coordinate before adding one.
 
-- `tools/wiki_tables.c` links the real `src/rules.c` and `src/cards.c`. Do not copy scoring logic into the docs or the generator.
-- Card images in the wiki (`docs/assets/cards/card-<id>.webp` + `back.webp`, the DEUS variants, and the DEUS background/atlas) are cut from the shipped art by `tools/make_card_images.py` — never edit the art or the thumbnails by hand. Regenerate after any source-art or generator change: `python3 tools/make_card_images.py` (needs Pillow: `pip install --break-system-packages pillow`). This also writes `tools/card_images.sha256`; check source/output freshness with `python3 tools/make_card_images.py --check`. Afterwards rerun `python3 tools/gen_wiki_tables.py`, because the difficulty chart embeds card thumbnails.
-- `README.md`'s masthead band and link buttons are generated from the shipped art by `tools/make_readme_art.py`, and the to-scale table map `docs/assets/readme/table-map.png` with `tools/make_board_figure.py` (both write into that folder; both take `--check`) -- never edit `docs/assets/readme/*` by hand. Regenerate with `python3 tools/make_readme_art.py`, check with `--check`.
-- The flow diagrams in `docs/assets/figures/` (`turn-flow.png` on How to Play, `award-pipeline.png` on Multipliers & Awards) are drawn by `tools/make_flow_figures.py` from the stage order in `src/engine.c` and the gates in `calculate_award()` -- never edit the PNGs, and never put numbers in them, because totals belong in the generated tables. Regenerate with `python3 tools/make_flow_figures.py`, check with `--check`.
-- The game screenshots in `docs/assets/screenshots/` are hand-captured (the only images here no tool can make) and imported with `python3 tools/make_screenshots.py --from <dir>`; their seven close-ups are cropped from them at the rectangles in `src/`, so never trim a PNG by hand. Re-derive with `python3 tools/make_screenshots.py`, check with `--check`.
-- Desktop builds: see `build.sh`. The `linux`, `win`, and `wasm` modes expect raylib in `/tmp`.
-- `./build.sh test` runs `tests/test_engine.c` (500 simulated matches plus deck and scoring checks). `./tests/test_table_ui.sh` runs headless table input and combo-panel checks; it needs Raylib headers at `RAYLIB_SRC` (default `/tmp/raylib/src`), but not the Raylib library.
-- Do not commit build output: `koikoi_linux`, `test_engine`, `dist/`, `site/`, or compiled tool binaries. Build tools to `/tmp`.
-
-## Code changes
-- Keep a change to the smallest diff that solves the problem. If a fix
-  needs more than ~80 lines, stop and describe the plan first.
-- Never bundle a refactor with a feature. Separate commits.
-- Do not add a parameter to a shared function to pass a mode flag
-  without saying so in the summary.
-- Before finishing, list what you touched and what you deliberately
-  did not touch.
-
-## Pages site
-
-The wiki is deployed to GitHub Pages from `main` by `.github/workflows/docs.yml`. Any other workflow that deploys to the same Pages site replaces the whole site, so coordinate before adding one.
-
-## Pull requests
-
-Open PRs against `main`. Include the rule change, the docs updated, and the checks you ran.
+Pull requests
+Open PRs against main. Include the rule change, the docs updated, and the checks you ran.
