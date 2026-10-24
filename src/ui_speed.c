@@ -121,7 +121,23 @@ int speed_bar_graded_drops(void) { return s_stat_drops; }
 float speed_bar_avg_drop_seconds(void) { return (s_stat_drops > 0) ? (s_stat_time_sum / (float)s_stat_drops) : 0.0f; }
 float speed_bar_avg_cover_pct(void) { return (s_stat_drops > 0) ? ((s_stat_cover_sum / (float)s_stat_drops) * 100.0f) : 0.0f; }
 int speed_bar_best_streak(void) { return s_stat_best_streak; }
-int speed_bar_lifetime_minipoints(void) { return s_stat_lifetime_mp > s_total ? s_stat_lifetime_mp : s_total; }
+int speed_bar_lifetime_minipoints(void) { return s_stat_lifetime_mp; }
+
+void speed_bar_get_telemetry(int *drops, float *time_sum, float *cover_sum, int *best_streak, int *lifetime_mp) {
+    if (drops) *drops = s_stat_drops;
+    if (time_sum) *time_sum = s_stat_time_sum;
+    if (cover_sum) *cover_sum = s_stat_cover_sum;
+    if (best_streak) *best_streak = s_stat_best_streak;
+    if (lifetime_mp) *lifetime_mp = s_stat_lifetime_mp;
+}
+
+void speed_bar_set_telemetry(int drops, float time_sum, float cover_sum, int best_streak, int lifetime_mp) {
+    s_stat_drops = (drops > 0) ? drops : 0;
+    s_stat_time_sum = (time_sum >= 0.0f) ? time_sum : 0.0f;
+    s_stat_cover_sum = (cover_sum >= 0.0f) ? cover_sum : 0.0f;
+    s_stat_best_streak = (best_streak > 0) ? best_streak : 0;
+    s_stat_lifetime_mp = (lifetime_mp > 0) ? lifetime_mp : 0;
+}
 
 int speed_bar_total(void) {
     return s_total;

@@ -487,12 +487,13 @@ static void update_draw_frame(void) {
                 else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
                 else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
                 else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
-                else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
+                else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); plexus_save(); saved_timer = 2.0f; }
                 else if (act == ACT_QUIT) { quit_requested = 1; return; }
             }
         } else if (screen == SCREEN_ATRIUM) {
             if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
+                plexus_save();
                 storage_save_all(&settings, &stats, &history);
                 start_transition(SCREEN_START, 0, 0);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -500,6 +501,7 @@ static void update_draw_frame(void) {
                 ScreenAction act = plexus_handle_click(vm, &p_clicked);
                 if (p_clicked) audio_play_click(&audio);
                 if (act == ACT_GOTO_MENU) {
+                    plexus_save();
                     storage_save_all(&settings, &stats, &history);
                     start_transition(SCREEN_START, 0, 0);
                 } else if (act == ACT_START_GAME) {
@@ -893,6 +895,7 @@ static void update_draw_frame(void) {
                                 speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
                                 engine_next_round(&g);
                                 storage_record_match(&g, &settings, &stats, &history);
+                                plexus_save();
 #ifndef __EMSCRIPTEN__
                                 ui_replay_commit_auto(&history);
 #endif
@@ -1155,7 +1158,7 @@ int main(int argc, char **argv) {
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
 
-    storage_load_stats(&stats); storage_load_history(&history);
+    storage_load_stats(&stats); storage_load_history(&history); plexus_load();
     screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
     engine_init(&g, settings.ruleset, settings.rounds, seed);
     motion_init(); taunt_init(); ai_set_opponent(settings.current_opponent);

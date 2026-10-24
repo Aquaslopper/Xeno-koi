@@ -20,11 +20,13 @@ int  speed_bar_apply_match_bonus(GameState *g);   /* +total/10 to the human; ret
 int  speed_bar_total(void);                       /* minipoints earned this match */
 void speed_bar_draw(void);                        /* bar behind, gold numbers over it */
 
-/* Telemetry getters for Atrium Plex Logfile stats */
+/* Telemetry getters and persistence hooks for Atrium Plex Logfile stats */
 int   speed_bar_graded_drops(void);
 float speed_bar_avg_drop_seconds(void);
 float speed_bar_avg_cover_pct(void);
 int   speed_bar_best_streak(void);
 int   speed_bar_lifetime_minipoints(void);
+void  speed_bar_get_telemetry(int *drops, float *time_sum, float *cover_sum, int *best_streak, int *lifetime_mp);
+void  speed_bar_set_telemetry(int drops, float time_sum, float cover_sum, int best_streak, int lifetime_mp);
 
 #endif /* UI_SPEED_H */
