@@ -84,12 +84,12 @@ static const Rectangle k_start_rect    = { 896.0f, 348.0f, 160.0f,  48.0f };
 static const Rectangle k_bottom_rects[5] = {
     {  64.0f, 644.0f, 156.0f, 48.0f }, /* SAVE & BACK */
     { 246.0f, 644.0f, 152.0f, 48.0f }, /* LOGFILE */
-    { 428.0f, 644.0f, 170.0f, 48.0f }, /* TRAINING 1 */
-    { 624.0f, 644.0f, 170.0f, 48.0f }, /* TRAINING 2 */
-    { 820.0f, 644.0f, 170.0f, 48.0f }  /* TRAINING 3 */
+    { 428.0f, 644.0f, 170.0f, 48.0f }, /* SPEEDCOIN */
+    { 624.0f, 644.0f, 170.0f, 48.0f }, /* ACTION CARD */
+    { 820.0f, 644.0f, 170.0f, 48.0f }  /* TRAINING */
 };
 static const char * const k_bottom_labels[5] = {
-    "SAVE & BACK", "LOGFILE", "TRAINING 1", "TRAINING 2", "TRAINING 3"
+    "SAVE & BACK", "LOGFILE", "SPEEDCOIN", "ACTION CARD", "TRAINING"
 };
 
 /* Expanded Logfile middle-screen window geometry (taller top & bottom for full-size readable text) */
@@ -160,6 +160,27 @@ static int is_month_unlocked(int m) {
         if (!is_month_completed(prev)) return 0;
     }
     return 1;
+}
+
+static int is_card_locked_by_completion(int cid) {
+    if (cid < 0 || cid >= 48) return 0;
+    /* Exemption: Month 1 Card 4 (cid == 3, Koi-Koi tutorial) can be replayed any time */
+    if (cid == 3) return 0;
+    return (int)((s_finished_cards_mask >> cid) & 1ULL);
+}
+
+static int is_speedcoin_bottom_unlocked(void) {
+    return is_month_unlocked(4); /* Unlocks after all 4 cards of Month 1..4 are finished */
+}
+
+static int is_action_card_bottom_unlocked(void) {
+    return is_month_unlocked(8); /* Unlocks after all 4 cards of Month 1..8 are finished */
+}
+
+static int is_bottom_btn_unlocked(int idx) {
+    if (idx == 2) return is_speedcoin_bottom_unlocked();
+    if (idx == 3) return is_action_card_bottom_unlocked();
+    return 1; /* SAVE & BACK (0), LOGFILE (1), and TRAINING (4) are unlocked from the beginning */
 }
 
 static const char *resolve_asset_path(const char *rel) {
@@ -460,9 +481,9 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         const char *line1 = "";
         const char *line2 = "";
         const char *line3 = "";
+        int card_id = s_selected_month * 4 + s_selected_slot;
+        int card_locked_done = (s_active_tab == 0) && is_card_locked_by_completion(card_id);
         if (s_active_tab == 0) {
-            int card_id = s_selected_month * 4 + s_selected_slot;
-            int done = (int)((s_finished_cards_mask >> card_id) & 1ULL);
             if (!month_unlocked) {
                 snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s   [LOCKED]", s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]   [DIMMED]", s_selected_slot + 1, CARDS[card_id].name);
@@ -472,36 +493,48 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             } else if (s_selected_month == 0) {
                 static const char * const k_tut_titles[4] = {
                     "TUTORIAL 04 // FINAL VERIFICATION MATCH",
-                    "TUTORIAL 03 // KK-ADD-10 ACTION CARD AUDIO EFFECT",
-                    "TUTORIAL 02 // KK-ADD-10 SPECIAL SPEEDCOIN",
+                    "SPECIAL GAME // KK-ADD-10 ACTION CARD AUDIO EFFECT",
+                    "SPECIAL GAME // KK-ADD-10 SPECIAL SPEEDCOIN",
                     "TUTORIAL 01 // STANDARD RULES OF KOI-KOI"
                 };
                 static const char * const k_tut_desc1[4] = {
                     "Top card: play a short match to prove everything was understood.",
-                    "Third card: experience the KK-ADD-10 Action Card Audio Effect.",
-                    "Second card: master the KK-ADD-10 Special Speedcoin timer bar.",
+                    "Third card: special game for the Action Card Audio Effect.",
+                    "Second card: special game for the KK-ADD-10 Speedcoin bar.",
                     "Bottom card: learn floral matching, deck draw, yaku & Koi-Koi."
                 };
                 snprintf(hdr, sizeof(hdr), "MONTH 01  //  %s   [TUTORIAL]", k_month_names[0]);
-                snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]%s", s_selected_slot + 1, CARDS[card_id].name,
-                         done ? "   [FINISHED — TURNED FACE DOWN]" : "");
+                snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
-                line3 = "Complete all 4 tutorial cards (bottom to top) to unlock Month 02.";
+                line3 = (s_selected_slot == 3)
+                        ? "Koi-Koi tutorial exemption: can be replayed at any time."
+                        : "Complete all 4 tutorial cards (bottom to top) to unlock Month 02.";
             } else {
                 snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s", s_selected_month + 1, k_month_names[s_selected_month]);
-                snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]%s", s_selected_slot + 1, CARDS[card_id].name,
-                         done ? "   [FINISHED — TURNED FACE DOWN]" : "");
+                snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
                 line2 = "Complete all 4 cards of this month in any order to turn";
                 line3 = "each card face down and unlock the next month.";
             }
-        } else {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING %d", s_active_tab - 1);
-            snprintf(sub, sizeof(sub), "UNLOCKABLE SPARRING MODULE  [PLACEHOLDER]");
-            line1 = "Once unlocked from the 4-card monthly progression, this slot";
-            line2 = "launches the training minigame directly for free-play sparring.";
+        } else if (s_active_tab == 2) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
+            snprintf(sub, sizeof(sub), "SPECIAL GAME  //  KK-ADD-10 SPEEDCOIN");
+            line1 = "Special precision & speed minigame built around the KK-ADD-10";
+            line2 = "1.0-second timer bar and card drop overlap accuracy.";
             line3 = "Select a card on the right spine to return to Month view.";
+        } else if (s_active_tab == 3) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
+            snprintf(sub, sizeof(sub), "SPECIAL GAME  //  KK-ADD-10 ACTION CARD AUDIO");
+            line1 = "Special game focused on the KK-ADD-10 Action Card Audio Effect";
+            line2 = "stereo reverb synergy and capture streak resonance.";
+            line3 = "Select a card on the right spine to return to Month view.";
+        } else {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
+            snprintf(sub, sizeof(sub), "NORMAL MATCH  //  OPTION MENU SETTINGS");
+            line1 = "Launches a standard match using your current Option menu";
+            line2 = "settings (Ruleset, Difficulty, and Round count).";
+            line3 = "Click START to play a training match, or select a spine card.";
         }
 
         draw_text_snapped(font_title, hdr,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 18.0f, 21.0f, 1.4f, COLOR_PHOSPHOR);
@@ -512,7 +545,10 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 142.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
 
-        if (s_active_tab == 0 && !month_unlocked) {
+        int start_locked = (s_active_tab == 0 && (!month_unlocked || card_locked_done)) ||
+                           (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) ||
+                           (s_active_tab == 3 && !is_action_card_bottom_unlocked());
+        if (start_locked) {
             DrawRectangleRec(k_start_rect, PLEXUS_PANEL_BG);
             ui_draw_panel_border(k_start_rect, COLOR_PHOSPHOR_DIM);
             Vector2 ts = MeasureTextEx(font_title, "LOCKED", 18.0f, 1.2f);
@@ -525,10 +561,22 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         }
     }
 
-    /* 4. Bottom Bar: SAVE & BACK, LOGFILE, TRAINING 1, TRAINING 2, TRAINING 3 */
+    /* 4. Bottom Bar: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING */
     for (int i = 0; i < 5; i++) {
-        int active = (i > 0 && s_active_tab == i);
-        draw_plexus_btn(k_bottom_rects[i], k_bottom_labels[i], 16, vm, active);
+        int btn_unlocked = is_bottom_btn_unlocked(i);
+        if (!btn_unlocked) {
+            Rectangle r = k_bottom_rects[i];
+            DrawRectangleRec(r, PLEXUS_PANEL_BG);
+            ui_draw_panel_border(r, COLOR_PHOSPHOR_DIM);
+            Vector2 ts = MeasureTextEx(font_title, k_bottom_labels[i], 16.0f, 1.2f);
+            draw_text_snapped(font_title, k_bottom_labels[i],
+                              r.x + (r.width - ts.x) * 0.5f,
+                              r.y + (r.height - 16.0f) * 0.5f,
+                              16.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+        } else {
+            int active = (i > 0 && s_active_tab == i);
+            draw_plexus_btn(k_bottom_rects[i], k_bottom_labels[i], 16, vm, active);
+        }
     }
 }
 
@@ -591,11 +639,32 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
     }
     if (s_active_tab != 1 && CheckCollisionPointRec(vm, k_start_rect)) {
-        if (s_active_tab == 0 && !is_month_unlocked(s_selected_month)) {
+        /* Bottom tab 4 (TRAINING): launch normal match based on Option menu settings */
+        if (s_active_tab == 4) {
+            plexus_tutorial_abort();
+            plexus_log_push("TRAINING // NORMAL MATCH LAUNCHED",
+                            "FREE SPARRING — OPTION MENU SETTINGS",
+                            "Starting a standard match configured by your current",
+                            "Option menu settings (Ruleset, Difficulty, and Rounds).",
+                            "Match telemetry recorded to Atrium Plex LOGFILE.");
+            if (out_clicked) *out_clicked = 1;
+            return ACT_START_GAME;
+        }
+        if (s_active_tab == 2) {
+            if (!is_speedcoin_bottom_unlocked()) return ACT_NONE;
+            if (out_clicked) *out_clicked = 1;
+            return ACT_NONE;
+        }
+        if (s_active_tab == 3) {
+            if (!is_action_card_bottom_unlocked()) return ACT_NONE;
+            if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
         }
         int cid = s_selected_month * 4 + s_selected_slot;
-        /* Month 1 Card 4 (bottom card, slot == 3): launch scripted Tutorial Game 1 */
+        if (s_active_tab == 0 && (!is_month_unlocked(s_selected_month) || is_card_locked_by_completion(cid))) {
+            return ACT_NONE;
+        }
+        /* Month 1 Card 4 (bottom card, slot == 3, cid == 3): Koi-Koi tutorial (replayable any time) */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 3) {
             s_tut_active  = 1;
             s_tut_card_id = cid;
@@ -611,17 +680,29 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         s_finished_cards_mask |= (1ULL << cid);
         int month_done = is_month_completed(s_selected_month);
         char title[80];
-        if (month_done && s_selected_month + 1 < 12) {
+        if (month_done && s_selected_month == 3) {
+            snprintf(title, sizeof(title), "MONTH 04 COMPLETE — SPEEDCOIN UNLOCKED!");
+            plexus_log_push("STORY // SPEEDCOIN MODULE UNLOCKED", title,
+                            "All 4 cards of Month 04 are finished and locked.",
+                            "SPEEDCOIN is now unlocked in the bottom bar, and",
+                            "Month 05 is now active on the conditioning spine.");
+        } else if (month_done && s_selected_month == 7) {
+            snprintf(title, sizeof(title), "MONTH 08 COMPLETE — ACTION CARD UNLOCKED!");
+            plexus_log_push("STORY // ACTION CARD MODULE UNLOCKED", title,
+                            "All 4 cards of Month 08 are finished and locked.",
+                            "ACTION CARD is now unlocked in the bottom bar, and",
+                            "Month 09 is now active on the conditioning spine.");
+        } else if (month_done && s_selected_month + 1 < 12) {
             snprintf(title, sizeof(title), "MONTH %02d COMPLETE — MONTH %02d UNLOCKED!",
                      s_selected_month + 1, s_selected_month + 2);
             plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED", title,
-                            "All 4 cards of this month are finished and turned face down.",
+                            "All 4 cards of this month are finished and locked.",
                             "The next month on the conditioning spine is now active.",
                             "Use the up/down arrows to advance to the newly unlocked month.");
         } else {
-            snprintf(title, sizeof(title), "[%s] — FINISHED (TURNED FACE DOWN)", CARDS[cid].name);
+            snprintf(title, sizeof(title), "[%s] — FINISHED & LOCKED", CARDS[cid].name);
             plexus_log_push("LAST EVENT // CARD COMPLETED", title,
-                            "Card turned face down on the spine and highlighted in the Atlas.",
+                            "Card turned face down on the spine and locked.",
                             "Complete all 4 cards of the current month in any order to",
                             "unlock the next month on the spine.");
         }
@@ -635,6 +716,9 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
     }
     for (int i = 1; i < 5; i++) {
         if (CheckCollisionPointRec(vm, k_bottom_rects[i])) {
+            if (!is_bottom_btn_unlocked(i)) {
+                return ACT_NONE;
+            }
             s_active_tab = (s_active_tab == i) ? 0 : i;
             if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
@@ -995,10 +1079,10 @@ void plexus_tutorial_finish_match(void) {
     s_tut_step    = TUT1_NONE;
 
     char title[80];
-    snprintf(title, sizeof(title), "[%s] — TUTORIAL 01 COMPLETED (TURNED FACE DOWN)", CARDS[cid].name);
+    snprintf(title, sizeof(title), "[%s] — TUTORIAL 01 COMPLETED", CARDS[cid].name);
     plexus_log_push("STORY // TUTORIAL CARD 1 COMPLETED", title,
                     "Entity 001 completed Standard Rules of Koi-Koi conditioning.",
-                    "Card 4 of Month 01 is now turned face down on the spine.",
+                    "Card 4 of Month 01 is finished (and remains replayable).",
                     "Select the next card above it on the spine to continue.");
 }
 
