@@ -27,6 +27,27 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
 void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm);
 void plexus_tutorial_finish_match(void);
 
+/* Speedcoin Minigame event flags returned by plexus_speedcoin_update() */
+enum {
+    PLEXUS_SC_EVT_NONE        = 0,
+    PLEXUS_SC_EVT_CLICK       = (1 << 0),
+    PLEXUS_SC_EVT_DROP        = (1 << 1),
+    PLEXUS_SC_EVT_CAPTURE     = (1 << 2),
+    PLEXUS_SC_EVT_FLIP        = (1 << 3),
+    PLEXUS_SC_EVT_SYNTH       = (1 << 4),
+    PLEXUS_SC_EVT_EXIT_ATRIUM = (1 << 5)
+};
+
+/* Speedcoin Minigame hooks (Month 1 Card 2 & bottom SPEEDCOIN tab) */
+int  plexus_speedcoin_is_active(void);
+void plexus_speedcoin_abort(void);
+void plexus_speedcoin_setup_match(GameState *g, uint32_t seed);
+int  plexus_speedcoin_combos_hit(Vector2 vm);
+int  plexus_speedcoin_update(GameState *g, void *drag_ptr, AnimState *anim,
+                             Vector2 vm, int *hovered_idx, float dt);
+void plexus_speedcoin_draw(const BoardAssets *ba, const GameState *g, const AnimState *anim,
+                           const void *drag_ptr, int hovered_hand_idx, Vector2 vm);
+
 /* Unload lazy-loaded Atrium Plex background textures on shutdown */
 void plexus_unload_assets(void);
 
