@@ -26,35 +26,17 @@
   - *Node 4:* Forming a Yaku & the `KOI-KOI` vs. `SHOBU` decision.
   - *Month 1 Top Trial:* First timed solo clear combining all 4 fundamentals.
 
-### Archetype B — Speedcoin (`KK-ADD-10` Solo Reflex & Accuracy Minigame)
-- **Introduction Text:**
-  > **"Warning: Synaptic countdown active. You have 1000ms per move to extract Speedcoins through rapid, precise sequencing.** Slow execution degrades the yield; collect 50 units to synthesize 2nd hand.
-  >
-  > Complete as many waves as possible"
-- **Unlock & Placement:**
-  - **Month 1, Card 2 from bottom (`slot = 2`, `cid = 2`):** First playable introduction to Speedcoin during Month 1 conditioning.
-  - **Bottom Bar `SPEEDCOIN` Tab:** Unlocks permanently after all 4 cards of **Month 4** (Months 01–04) are completed.
-  - Recurring conditioning variant across later months.
-- **Solo Table Layout (`1280×720`, No Opponent):**
-  - **No upper CPU card row** and **no CPU side panels**.
-  - **Top-Left:** Big red **`03:00`** (`180s`) synaptic countdown timer with large visual indicators for `-1s` drain damage and `+10s` time injections.
-  - **Left Side (1 Panel Only):** Unified player captured-card inventory (`Bright`, `Animal`, `Ribbon`, `Plain`) for the active wave.
-  - **Right Side (1 Panel Only):** Unified player HUD showing Wave #, Hand (`1/2` or `2/2`), Total Score, Current Wave Combo Points, `2nd Hand Synthesis` progress (`0..50` Speedcoins), and active `KK-ADD-10` combos.
-  - **Center Field (`2 rows × 7 cards = 14 cards`):**
-    - Deals 2 rows of 7 cards (`14` on the table) + `8` cards in the player's hand (`22` cards dealt, `26` remaining in the stock pile).
-    - When either 7-card row is cleared completely, it auto-refills with `7` cards from the stock pile.
-    - *(Saved Design Note for Later Months / Variants: **`3 rows × 6 cards = 18 cards`** on the table + `8` in hand = `26` dealt, `22` in stock (`6 + 6 + 8 + 2` unlucky buried cards) — keep in reserve for higher-month escalations.)*
-- **Wave & 2-Hand Cap Loop (With Automatic Post-Move Deck Draw):**
-  - After each hand card is played onto the `2 × 7` table, **1 card is automatically drawn from the deck** (Koi-Koi style), capturing a matching month on the table if one exists or landing on the table if not (`14` table + `8` Hand 1 + `8` deck draws + `8` Hand 2 + `8` deck draws = `46` cards used, leaving the last `2` unlucky cards in the deck).
-  - **Per-Card Speedbar (`1000ms` per move — No Looping While Idle):**
-    - The `1000ms` bar runs down **once per card**. As long as the card is not played, no new timer starts.
-    - Dropping a hand card onto a matching table card before `1000ms` runs out awards **`1..10` Speedcoins** based on drop speed × card overlap accuracy.
-    - **Timer Damage (`-10s`):** If the `1000ms` bar reaches `0ms` without the player playing a card, **`-10 seconds`** is subtracted once from the 3-minute timer, the bar stays at `0ms`, and the player can only hope the post-move deck draw captures a card; the next `1000ms` timer starts only after the card is played.
-    - **Timer Bonus (`+10s`):** Every **10 Speedcoins** earned adds **`+10 seconds`** to the 3-minute timer.
-  - **Automatic Cumulative 2nd-Hand Trigger (`50, 100, 150...` Speedcoins, Cap at 2 Hands per Wave):**
-    - Speedcoins are **never spent** and carry over across waves.
-    - Every **50 Speedcoins** earned (`50, 100, 150, 200...`) automatically unlocks a **2nd Hand (`+8` cards from the deck)**, which triggers as soon as Hand 1 is empty (capped at 1 second hand per wave because a single 48-card deck cannot supply a 3rd hand).
-    - When the player's hand runs dry (after Hand 1 if the next `50`-SC threshold wasn't reached, or after Hand 2): **Wave Over** → the 3-minute timer freezes, `KK-ADD-10` combos are tallied and banked into Total Score, all 48 cards reshuffle, and the next Wave begins.
+### Archetype B — Speedbar Reflex Sparring *(Core Action Drill)*
+- **Setup:** No opponent. Field has open cards; player holds **8 cards** in hand.
+- **Loop:**
+  - The **Speedbar** runs down continuously.
+  - Player must rapidly spot and play matching cards from hand onto the field.
+  - Every fast capture refills time/momentum and pushes `reverb_synergy` up to **100%** (`reverb_hold` + smooth decay).
+  - Thinking slightly too long drops the audio synergy and drains the bar, pressuring immediate visual recognition.
+- **Possible Escalations (Later Months):**
+  - Wave refills (new field cards spawn as pairs are cleared).
+  - Decoy/dead cards on the field that must be ignored.
+  - Sustaining `reverb_synergy >= 80%` for an entire wave to pass.
 
 ### Archetype C — Yaku Assembly & Route Spotting *(Tactical Puzzles)*
 - **Setup:** Pre-arranged or semi-random board + hand with a limited number of turns or timer.

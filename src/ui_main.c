@@ -202,9 +202,7 @@ static void begin_new_match(int trk) {
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
     uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
     engine_init(&g, settings.ruleset, settings.rounds, match_seed);
-    if (plexus_speedcoin_is_active()) {
-        plexus_speedcoin_setup_match(&g, match_seed);
-    } else if (plexus_tutorial_is_active()) {
+    if (plexus_tutorial_is_active()) {
         plexus_tutorial_setup_round(&g);
         motion_deal_round(&g, 0.45f);
         cinematic_start(g.current_round);
@@ -217,7 +215,7 @@ static void begin_new_match(int trk) {
 #endif
     }
     ai_set_opponent(settings.current_opponent); taunt_init();
-    if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active())
+    if (!plexus_tutorial_is_active())
         taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
     if (trk > 0) audio_start_match_music(&audio, trk);
     else audio_set_reverb(0.0f);
@@ -478,7 +476,6 @@ static void update_draw_frame(void) {
                         start_hub_transition(SCREEN_START, 0, (Rectangle){ 720, 570, 180, 48 }, "BACK", 20);
                 } else if (cres == 1) {
                     plexus_tutorial_abort();
-                    plexus_speedcoin_abort();
                     audio_play_click(&audio); ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
@@ -566,11 +563,9 @@ static void update_draw_frame(void) {
                 combo_player = -1; is_paused = 0; audio_play_click(&audio);
             }
         } else if (screen == SCREEN_GAME && !is_paused && !drag.on &&
-                   IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-                   (plexus_speedcoin_is_active() ? plexus_speedcoin_combos_hit(vm) : combos_panel_hit(vm)) >= 0 &&
+                   IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && combos_panel_hit(vm) >= 0 &&
                    g.phase != PHASE_DEALER_SELECT) {
-            combo_player = plexus_speedcoin_is_active() ? plexus_speedcoin_combos_hit(vm) : combos_panel_hit(vm);
-            combo_page = 0;
+            combo_player = combos_panel_hit(vm); combo_page = 0;
             is_paused = 1; confirm_restart = 0; audio_play_click(&audio);
         } else if (screen == SCREEN_GAME && replay_pb_active()) {
             /* A replay feeds the recorded decisions straight into the engine; there is no
@@ -679,9 +674,8 @@ static void update_draw_frame(void) {
                     else if (act == ACT_RESTART_MATCH) begin_new_match(0);
                     else if (act == ACT_ABANDON_MATCH) {
                         replay_rec_abort(); confirm_restart = 0;
-                        if (plexus_tutorial_is_active() || plexus_speedcoin_is_active()) {
+                        if (plexus_tutorial_is_active()) {
                             plexus_tutorial_abort();
-                            plexus_speedcoin_abort();
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else {
                             start_transition(SCREEN_START, 3, 0);
@@ -690,19 +684,6 @@ static void update_draw_frame(void) {
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
             } else if (!is_paused && !pause_toggled && !restarted_now) {
-                if (plexus_speedcoin_is_active()) {
-                    int sc_evts = plexus_speedcoin_update(&g, &drag, &anim, vm, &hovered_idx, dt);
-                    if (sc_evts & PLEXUS_SC_EVT_CLICK)   audio_play_click(&audio);
-                    if (sc_evts & PLEXUS_SC_EVT_DROP)    audio_play_drop(&audio);
-                    if (sc_evts & PLEXUS_SC_EVT_CAPTURE) audio_play_capture(&audio);
-                    if (sc_evts & PLEXUS_SC_EVT_FLIP)    audio_play_flip(&audio);
-                    if (sc_evts & PLEXUS_SC_EVT_SYNTH)   audio_play_koi(&audio);
-                    if (sc_evts & PLEXUS_SC_EVT_EXIT_ATRIUM) {
-                        anim_init(&anim);
-                        pending_result_sfx = 1;
-                        start_transition(SCREEN_ATRIUM, 2, 0);
-                    }
-                } else {
                 int tut_settled = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
                 int tut_clicked = 0;
                 int tut_frozen = plexus_tutorial_update_and_click(&g, &anim, tut_settled, overlay_alpha,
@@ -941,7 +922,6 @@ static void update_draw_frame(void) {
                         }
                     }
                 }
-                }
             }
         }
     }
@@ -1032,17 +1012,13 @@ static void update_draw_frame(void) {
         } else if (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE) status = "CHOOSE ONE OF THE MATCHING CARDS";
         else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
 
-        if (plexus_speedcoin_is_active()) {
-            plexus_speedcoin_draw(&assets, &g, &anim, &drag, hovered_idx, vm);
-        } else {
-            board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
-                             replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY) : (settings.difficulty == DIFFICULTY_EASY),
-                             replay_running, status);
-            if (!replay_pb_active()) {
-                input_draw_selection(&g, &drag);
-                plexus_tutorial_draw_board_guides(&assets, &g);
-                taunt_draw();
-            }
+        board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
+                         replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY) : (settings.difficulty == DIFFICULTY_EASY),
+                         replay_running, status);
+        if (!replay_pb_active()) {
+            input_draw_selection(&g, &drag);
+            plexus_tutorial_draw_board_guides(&assets, &g);
+            taunt_draw();
         }
 
         if (!is_paused) {
