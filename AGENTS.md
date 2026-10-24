@@ -1,4 +1,4 @@
-Learn the code before you code — what you have not read and verified is only an assumption, and a change built on an assumption risks breaking code it never understood. Your definitive architectural map is LEARN_THE_CODE.md. Read it, verify how the code actually behaves, and only then write the smallest change those verified facts justify.
+Learn the code before you code — what you have not read and verified is only an assumption, and a change built on an assumption risks breaking code it never understood. Your definitive architectural map is LEARN_THE_CODE.md. Read the architectural map and answer the 6 questions, verify how the code actually behaves.
 
 Agent & contributor notes for Xeno Koi
 Read this before changing rules, scoring, cards, opponents, or the docs.
