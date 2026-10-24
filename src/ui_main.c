@@ -202,14 +202,21 @@ static void begin_new_match(int trk) {
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
     uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
     engine_init(&g, settings.ruleset, settings.rounds, match_seed);
+    if (plexus_tutorial_is_active()) {
+        plexus_tutorial_setup_round(&g);
+        motion_deal_round(&g, 0.45f);
+        cinematic_start(g.current_round);
+    } else {
 #ifndef __EMSCRIPTEN__
-    /* From here to the match end every decision of both players is written down,
-       so the finished match can be replayed (see docs/reference/modes.md). */
-    replay_rec_begin(match_seed, ai_rng, settings.ruleset, settings.rounds, settings.difficulty,
-                     settings.master_timer, settings.current_opponent);
+        /* From here to the match end every decision of both players is written down,
+           so the finished match can be replayed (see docs/reference/modes.md). */
+        replay_rec_begin(match_seed, ai_rng, settings.ruleset, settings.rounds, settings.difficulty,
+                         settings.master_timer, settings.current_opponent);
 #endif
+    }
     ai_set_opponent(settings.current_opponent); taunt_init();
-    taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
+    if (!plexus_tutorial_is_active())
+        taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
     if (trk > 0) audio_start_match_music(&audio, trk);
     else audio_set_reverb(0.0f);
 }
@@ -468,6 +475,7 @@ static void update_draw_frame(void) {
                     else
                         start_hub_transition(SCREEN_START, 0, (Rectangle){ 720, 570, 180, 48 }, "BACK", 20);
                 } else if (cres == 1) {
+                    plexus_tutorial_abort();
                     audio_play_click(&audio); ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
@@ -494,6 +502,8 @@ static void update_draw_frame(void) {
                 if (act == ACT_GOTO_MENU) {
                     storage_save_all(&settings, &stats, &history);
                     start_transition(SCREEN_START, 0, 0);
+                } else if (act == ACT_START_GAME) {
+                    start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 }
             }
         } else if (screen == SCREEN_CREDITS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -662,15 +672,30 @@ static void update_draw_frame(void) {
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_RESUME) { is_paused = 0; confirm_restart = 0; }
                     else if (act == ACT_RESTART_MATCH) begin_new_match(0);
-                    else if (act == ACT_ABANDON_MATCH) { replay_rec_abort(); confirm_restart = 0; start_transition(SCREEN_START, 3, 0); }
+                    else if (act == ACT_ABANDON_MATCH) {
+                        replay_rec_abort(); confirm_restart = 0;
+                        if (plexus_tutorial_is_active()) {
+                            plexus_tutorial_abort();
+                            start_transition(SCREEN_ATRIUM, 3, 0);
+                        } else {
+                            start_transition(SCREEN_START, 3, 0);
+                        }
+                    }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
             } else if (!is_paused && !pause_toggled && !restarted_now) {
-                if (round_banner_timer > 0.0f) {
+                int tut_settled = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
+                int tut_clicked = 0;
+                int tut_frozen = plexus_tutorial_update_and_click(&g, &anim, tut_settled, overlay_alpha,
+                                                                  vm, IsMouseButtonPressed(MOUSE_BUTTON_LEFT), &tut_clicked);
+                if (tut_clicked) audio_play_click(&audio);
+
+                if (tut_frozen) {
+                    hovered_idx = -1;
+                } else if (round_banner_timer > 0.0f) {
                     round_banner_timer -= dt;
                     if (round_banner_timer < 0.0f) round_banner_timer = 0.0f;
-                }
-                if (g.hitlag_timer > 0.0f) {
+                } else if (g.hitlag_timer > 0.0f) {
                     g.hitlag_timer -= dt;
                     if (g.hitlag_timer < 0.0f) g.hitlag_timer = 0.0f;
                 } else {
@@ -795,7 +820,30 @@ static void update_draw_frame(void) {
                             }
                             if (g.phase == PHASE_TURN_HAND) {
                                 int hand_before = g.hand_count[0];
-                                input_handle_mouse(&g, &drag, &anim, l, vm, &hovered_idx, 1);
+                                int allowed_cid = plexus_tutorial_allowed_hand_card(&g);
+                                int allow_input = 1;
+                                if (allowed_cid >= 0 && !drag.on) {
+                                    int allowed_idx = -1;
+                                    for (int hi = 0; hi < g.hand_count[0]; hi++) {
+                                        if (g.hand[0][hi] == allowed_cid) { allowed_idx = hi; break; }
+                                    }
+                                    if (drag.selected > 0 && drag.selected - 1 != allowed_idx) drag.selected = 0;
+                                    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && allowed_idx >= 0) {
+                                        Rectangle ar = board_get_hand_card_rect(allowed_idx, g.hand_count[0], 0);
+                                        int hit_allowed = CheckCollisionPointRec(vm, ar);
+                                        int hit_field_sel = (drag.selected == allowed_idx + 1) &&
+                                                            CheckCollisionPointRec(vm, board_get_field_rect());
+                                        if (!hit_allowed && !hit_field_sel) allow_input = 0;
+                                    }
+                                }
+                                if (allow_input) {
+                                    input_handle_mouse(&g, &drag, &anim, l, vm, &hovered_idx, 1);
+                                }
+                                if (allowed_cid >= 0) {
+                                    if (hovered_idx >= 0 && g.hand[0][hovered_idx] != allowed_cid) hovered_idx = -1;
+                                    if (drag.on && g.hand[0][drag.idx] != allowed_cid) { drag.on = 0; drag.idx = -1; }
+                                    if (drag.selected > 0 && g.hand[0][drag.selected - 1] != allowed_cid) drag.selected = 0;
+                                }
                                 if (g.hand_count[0] < hand_before) {
                                     if (g.last_captured_count > 0) audio_play_capture(&audio);
                                     else audio_play_drop(&audio);
@@ -835,7 +883,12 @@ static void update_draw_frame(void) {
                         input_unlocked && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                         if (screens_check_round_result_click(vm)) {
                             audio_play_click(&audio);
-                            if (g.current_round >= g.total_rounds) {
+                            if (plexus_tutorial_is_active()) {
+                                anim_init(&anim);
+                                plexus_tutorial_finish_match();
+                                pending_result_sfx = 1;
+                                start_transition(SCREEN_ATRIUM, 2, 0);
+                            } else if (g.current_round >= g.total_rounds) {
                                 anim_init(&anim);
                                 speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
                                 engine_next_round(&g);
@@ -962,7 +1015,11 @@ static void update_draw_frame(void) {
         board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY) : (settings.difficulty == DIFFICULTY_EASY),
                          replay_running, status);
-        if (!replay_pb_active()) { input_draw_selection(&g, &drag); taunt_draw(); }
+        if (!replay_pb_active()) {
+            input_draw_selection(&g, &drag);
+            plexus_tutorial_draw_board_guides(&assets, &g);
+            taunt_draw();
+        }
 
         if (!is_paused) {
             Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
@@ -989,6 +1046,11 @@ static void update_draw_frame(void) {
         EndTextureMode();
         BeginTextureMode(canvas);
         DrawTextureRec(overlay_canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H }, (Vector2){ 0, 0 }, (Color){ 255, 255, 255, (unsigned char)(oa * 255.0f) });
+        EndTextureMode();
+    }
+    if (screen == SCREEN_GAME && plexus_tutorial_is_active()) {
+        BeginTextureMode(canvas);
+        plexus_tutorial_draw_panel(&assets, vm);
         EndTextureMode();
     }
     if (transition_alpha > 0.0f) {
