@@ -1,7 +1,7 @@
 /* ABSOLUTE RULE — DO NOT TOUCH src/ui_audio.c: 
-   src/ui_audio.ccontains hand-tuned DSP by the maintainer and MUST NEVER be edited, 
+   src/ui_audio.c contains hand-tuned DSP by the maintainer and MUST NEVER be edited, 
    "fixed", optimized, or refactored for ANY reason (even if tests fail), 
-   and you MUST NEVER run./tools/audio_guard.sh --recordor modifytools/audio_guard.sha256 
+   and you MUST NEVER run ./tools/audio_guard.sh --record or modifytools/audio_guard.sha256 
    — STOP and ask the user instead.*/
 
 #include "ui_audio.h"
