@@ -387,6 +387,22 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
     }
 }
 
+/* Logfile stats live in ui_speed.c / ui_board.c / ui_plexus.c; stats.txt keeps them across restarts. */
+static void stats_pull_live(GameStats *st) {
+    speed_bar_stats_get(&st->speed_drops, &st->speed_time_sum, &st->speed_cover_sum,
+                        &st->speed_best_streak, &st->speed_lifetime_mp);
+    st->audio_triggers = board_get_audio_action_triggers();
+    st->audio_peak = board_get_audio_peak_synergy();
+    st->audio_hold = board_get_audio_full_hold_seconds();
+    st->cards_mask = plexus_cards_mask_get();
+}
+static void stats_push_live(const GameStats *st) {
+    speed_bar_stats_set(st->speed_drops, st->speed_time_sum, st->speed_cover_sum,
+                        st->speed_best_streak, st->speed_lifetime_mp);
+    board_audio_stats_set(st->audio_triggers, st->audio_peak, st->audio_hold);
+    plexus_cards_mask_set(st->cards_mask);
+}
+
 static void update_draw_frame(void) {
     frame_count++;
     float dt = fminf(0.05f, GetFrameTime());
@@ -492,20 +508,20 @@ static void update_draw_frame(void) {
                 else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
                 else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
                 else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
-                else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
+                else if (act == ACT_SAVE) { stats_pull_live(&stats); storage_save_all(&settings, &stats, &history); saved_timer = 2.0f; }
                 else if (act == ACT_QUIT) { quit_requested = 1; return; }
             }
         } else if (screen == SCREEN_ATRIUM) {
             if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
-                storage_save_all(&settings, &stats, &history);
+                stats_pull_live(&stats); storage_save_all(&settings, &stats, &history);
                 start_transition(SCREEN_START, 0, 0);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int p_clicked = 0;
                 ScreenAction act = plexus_handle_click(vm, &p_clicked);
                 if (p_clicked) audio_play_click(&audio);
                 if (act == ACT_GOTO_MENU) {
-                    storage_save_all(&settings, &stats, &history);
+                    stats_pull_live(&stats); storage_save_all(&settings, &stats, &history);
                     start_transition(SCREEN_START, 0, 0);
                 } else if (act == ACT_START_GAME) {
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
@@ -540,7 +556,7 @@ static void update_draw_frame(void) {
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_GOTO_MENU) start_hub_transition(SCREEN_START, 0, (Rectangle){ 860, 610, 200, 44 }, "BACK", 20);
                     else if (act == ACT_SAVE_LOG) { storage_write_report(&stats, &history); log_timer = 2.0f; }
-                    else if (act == ACT_RESET_STATS) storage_reset_stats(&stats);
+                    else if (act == ACT_RESET_STATS) { storage_reset_stats(&stats); stats_push_live(&stats); }
                 }
             }
 #ifndef __EMSCRIPTEN__
@@ -902,7 +918,7 @@ static void update_draw_frame(void) {
                                 anim_init(&anim);
                                 speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
                                 engine_next_round(&g);
-                                storage_record_match(&g, &settings, &stats, &history);
+                                stats_pull_live(&stats); storage_record_match(&g, &settings, &stats, &history);
 #ifndef __EMSCRIPTEN__
                                 ui_replay_commit_auto(&history);
 #endif
@@ -1165,7 +1181,7 @@ int main(int argc, char **argv) {
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
 
-    storage_load_stats(&stats); storage_load_history(&history);
+    storage_load_stats(&stats); stats_push_live(&stats); storage_load_history(&history);
     screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
     engine_init(&g, settings.ruleset, settings.rounds, seed);
     motion_init(); taunt_init(); ai_set_opponent(settings.current_opponent);
@@ -1184,6 +1200,7 @@ int main(int argc, char **argv) {
     while (!WindowShouldClose() && !quit_requested) update_draw_frame();
 #endif
 
+    stats_pull_live(&stats); storage_save_stats(&stats); /* quit / window close */
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);

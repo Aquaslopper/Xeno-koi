@@ -217,6 +217,15 @@ void storage_load_stats(GameStats *st) {
             else if (strcmp(k, "master_matches") == 0) st->master_matches = val;
             else if (strcmp(k, "current_streak") == 0) st->current_streak = val;
             else if (strcmp(k, "best_streak") == 0 || strcmp(k, "max_win_streak") == 0) st->best_streak = val;
+            else if (strcmp(k, "speed_drops") == 0) st->speed_drops = val;
+            else if (strcmp(k, "speed_time_sum") == 0) st->speed_time_sum = (float)atof(v);
+            else if (strcmp(k, "speed_cover_sum") == 0) st->speed_cover_sum = (float)atof(v);
+            else if (strcmp(k, "speed_best_streak") == 0) st->speed_best_streak = val;
+            else if (strcmp(k, "speed_lifetime_mp") == 0) st->speed_lifetime_mp = val;
+            else if (strcmp(k, "audio_triggers") == 0) st->audio_triggers = val;
+            else if (strcmp(k, "audio_peak") == 0) st->audio_peak = (float)atof(v);
+            else if (strcmp(k, "audio_hold") == 0) st->audio_hold = (float)atof(v);
+            else if (strcmp(k, "cards_mask") == 0) st->cards_mask = strtoull(v, NULL, 10);
             else if (strncmp(k, "yaku_", 5) == 0) {
                 int yidx = atoi(k + 5);
                 if (yidx >= 0 && yidx < YAKU_COUNT) st->yaku_counts[yidx] = val;
@@ -276,6 +285,17 @@ void storage_save_stats(const GameStats *st) {
 
     if (st->master_matches > 0 && pos < sizeof(buf)) {
         int w = snprintf(buf + pos, sizeof(buf) - pos, "master_matches=%d\n", st->master_matches);
+        if (w > 0 && pos + (size_t)w < sizeof(buf)) pos += (size_t)w;
+    }
+
+    if (pos < sizeof(buf)) {
+        int w = snprintf(buf + pos, sizeof(buf) - pos,
+                         "speed_drops=%d\nspeed_time_sum=%.4f\nspeed_cover_sum=%.4f\n"
+                         "speed_best_streak=%d\nspeed_lifetime_mp=%d\n"
+                         "audio_triggers=%d\naudio_peak=%.4f\naudio_hold=%.4f\ncards_mask=%llu\n",
+                         st->speed_drops, st->speed_time_sum, st->speed_cover_sum,
+                         st->speed_best_streak, st->speed_lifetime_mp,
+                         st->audio_triggers, st->audio_peak, st->audio_hold, st->cards_mask);
         if (w > 0 && pos + (size_t)w < sizeof(buf)) pos += (size_t)w;
     }
 

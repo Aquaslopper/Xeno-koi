@@ -48,6 +48,13 @@ typedef struct {
     int current_streak;
     int best_streak;
     int yaku_counts[YAKU_COUNT];
+    /* Atrium Plex Logfile stats (kept live in ui_speed.c / ui_board.c / ui_plexus.c) */
+    int speed_drops;
+    float speed_time_sum, speed_cover_sum;
+    int speed_best_streak, speed_lifetime_mp;
+    int audio_triggers;
+    float audio_peak, audio_hold;
+    unsigned long long cards_mask;
 } GameStats;
 
 typedef struct {

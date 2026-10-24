@@ -57,6 +57,7 @@ int board_check_dealer_select_click(const GameState *g, Vector2 vm);
 int   board_get_audio_action_triggers(void);
 float board_get_audio_peak_synergy(void);
 float board_get_audio_full_hold_seconds(void);
+void  board_audio_stats_set(int triggers, float peak, float hold); /* restore saved Logfile stats */
 
 /* Global clean font for high-readability UI details */
 extern Font small_font;

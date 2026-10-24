@@ -32,5 +32,7 @@ float speed_bar_avg_drop_seconds(void);
 float speed_bar_avg_cover_pct(void);
 int   speed_bar_best_streak(void);
 int   speed_bar_lifetime_minipoints(void);
+void  speed_bar_stats_get(int *drops, float *time_sum, float *cover_sum, int *best_streak, int *lifetime_mp);
+void  speed_bar_stats_set(int drops, float time_sum, float cover_sum, int best_streak, int lifetime_mp);
 
 #endif /* UI_SPEED_H */

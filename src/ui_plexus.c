@@ -141,6 +141,9 @@ static void ensure_log_seeded(void) {
                     "placeholder mode) and review updates inside LOGFILE.");
 }
 
+unsigned long long plexus_cards_mask_get(void) { return s_finished_cards_mask; }
+void plexus_cards_mask_set(unsigned long long m) { s_finished_cards_mask = m & ((1ULL << 48) - 1ULL); }
+
 static int count_finished_cards(void) {
     int cnt = 0;
     for (int i = 0; i < 48; i++) {

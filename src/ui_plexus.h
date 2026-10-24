@@ -28,6 +28,8 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm);
 void plexus_tutorial_finish_match(void);
 
 /* SPEEDCOIN solo table hooks (Month 1 Card 3 / SPEEDCOIN tab): normal table, no CPU, 14 table cards */
+unsigned long long plexus_cards_mask_get(void);   /* finished Atrium cards, saved in stats.txt */
+void plexus_cards_mask_set(unsigned long long m);
 int  plexus_speedcoin_is_active(void);
 void plexus_speedcoin_abort(void);
 void plexus_speedcoin_setup_round(GameState *g);

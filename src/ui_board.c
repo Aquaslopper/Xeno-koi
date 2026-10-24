@@ -67,6 +67,9 @@ static float s_audio_full_hold_sec = 0.0f;
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
 float board_get_audio_full_hold_seconds(void) { return s_audio_full_hold_sec; }
+void  board_audio_stats_set(int triggers, float peak, float hold) {
+    s_audio_action_triggers = triggers; s_audio_peak_synergy = peak; s_audio_full_hold_sec = hold;
+}
 
 static void pick_dark_particle_dims(int roll, int *out_w, int *out_h) {
     /* Wide variety of particle sizes: fine dust (1-2px), medium flakes (3-4px),
