@@ -485,6 +485,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         const char *line1 = "";
         const char *line2 = "";
         const char *line3 = "";
+        int sc_info = 0; /* Month 1 Card 3 (SPEEDCOIN): longer briefing text */
         int card_id = s_selected_month * 4 + s_selected_slot;
         int card_locked_done = (s_active_tab == 0) && is_card_locked_by_completion(card_id);
         if (s_active_tab == 0) {
@@ -509,6 +510,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                 };
                 snprintf(hdr, sizeof(hdr), "MONTH 01  //  %s   [TUTORIAL]", k_month_names[0]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
+                sc_info = (s_selected_slot == 2);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
                 line3 = (s_selected_slot == 3)
@@ -545,9 +547,23 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         DrawLine((int)k_briefing_rect.x + 22, (int)k_briefing_rect.y + 50,
                  (int)(k_briefing_rect.x + k_briefing_rect.width - 22.0f), (int)k_briefing_rect.y + 50, COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,  sub,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 64.0f, 19.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_body,  line1, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 108.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 142.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+        if (sc_info) {
+            static const char * const k_sc_info[5] = {
+                "Warning: Synaptic countdown active. You have 1000ms per move",
+                "to extract Speedcoins through rapid, precise sequencing.",
+                "Slow execution degrades the yield; collect 50 units to",
+                "synthesize 2nd hand.",
+                "Complete as many waves as possible."
+            };
+            static const float k_sc_info_y[5] = { 108.0f, 132.0f, 156.0f, 180.0f, 216.0f };
+            for (int li = 0; li < 5; li++)
+                draw_text_snapped(font_body, k_sc_info[li], k_briefing_rect.x + 22.0f,
+                                  k_briefing_rect.y + k_sc_info_y[li], 18.0f, 1.2f, COLOR_TEXT_INFO);
+        } else {
+            draw_text_snapped(font_body,  line1, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 108.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+            draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 142.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+            draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+        }
 
         int start_locked = (s_active_tab == 0 && (!month_unlocked || card_locked_done)) ||
                            (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) ||
