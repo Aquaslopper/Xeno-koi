@@ -46,6 +46,7 @@ typedef enum {
     TUT1_FREE_PLAY
 } TutorialStep;
 
+static int s_sc_active   = 0; /* SPEEDCOIN solo table launched from Atrium Plex */
 static int s_tut_active  = 0;
 static int s_tut_card_id = -1;
 static TutorialStep s_tut_step = TUT1_NONE;
@@ -642,6 +643,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         /* Bottom tab 4 (TRAINING): launch normal match based on Option menu settings */
         if (s_active_tab == 4) {
             plexus_tutorial_abort();
+            s_sc_active = 0;
             plexus_log_push("TRAINING // NORMAL MATCH LAUNCHED",
                             "FREE SPARRING — OPTION MENU SETTINGS",
                             "Starting a standard match configured by your current",
@@ -652,8 +654,10 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
         if (s_active_tab == 2) {
             if (!is_speedcoin_bottom_unlocked()) return ACT_NONE;
+            plexus_tutorial_abort();
+            s_sc_active = 1;
             if (out_clicked) *out_clicked = 1;
-            return ACT_NONE;
+            return ACT_START_GAME;
         }
         if (s_active_tab == 3) {
             if (!is_action_card_bottom_unlocked()) return ACT_NONE;
@@ -664,8 +668,16 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (s_active_tab == 0 && (!is_month_unlocked(s_selected_month) || is_card_locked_by_completion(cid))) {
             return ACT_NONE;
         }
+        /* Month 1 Card 3 (2nd from bottom, slot == 2, cid == 2): SPEEDCOIN solo table */
+        if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 2) {
+            plexus_tutorial_abort();
+            s_sc_active = 1;
+            if (out_clicked) *out_clicked = 1;
+            return ACT_START_GAME;
+        }
         /* Month 1 Card 4 (bottom card, slot == 3, cid == 3): Koi-Koi tutorial (replayable any time) */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 3) {
+            s_sc_active   = 0;
             s_tut_active  = 1;
             s_tut_card_id = cid;
             s_tut_step    = TUT1_WAIT_DEAL;
@@ -1086,3 +1098,48 @@ void plexus_tutorial_finish_match(void) {
                     "Select the next card above it on the spine to continue.");
 }
 
+/* SPEEDCOIN solo table: the normal table without the CPU (Month 1 Card 3 / SPEEDCOIN tab) */
+int plexus_speedcoin_is_active(void) { return s_sc_active; }
+
+void plexus_speedcoin_abort(void) {
+    s_sc_active = 0;
+    speed_solo_set(0);
+}
+
+void plexus_speedcoin_setup_round(GameState *g) {
+    if (!g || !s_sc_active) return;
+
+    int deck[48];
+    for (int i = 0; i < 48; i++) deck[i] = i;
+    for (int i = 47; i > 0; i--) {
+        int j = (int)(engine_rand(&g->rng_state) % (uint32_t)(i + 1));
+        int tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
+    }
+
+    g->ruleset        = RULESET_KK_ADD_10;
+    g->dealer         = 0;
+    g->current_player = 0;
+    g->phase          = PHASE_TURN_HAND;
+    g->hand_count[0]  = 8;
+    g->hand_count[1]  = 0;
+    g->field_count    = 14;
+    g->stock_count    = 26;
+    g->captured_count[0] = 0;
+    g->captured_count[1] = 0;
+    g->has_pending    = 0;
+    g->pending_card   = -1;
+    g->last_base[0]   = 0;
+    g->last_base[1]   = 0;
+    memset(g->last_yaku_points, 0, sizeof(g->last_yaku_points));
+    g->koi_called[0]  = 0;
+    g->koi_called[1]  = 0;
+    memset(&g->current_round_record, 0, sizeof(g->current_round_record));
+    g->current_round_record.round_number = g->current_round;
+    g->current_round_record.dealer = g->dealer;
+
+    memcpy(g->hand[0], &deck[0], 8 * sizeof(int));
+    memcpy(g->field, &deck[8], 14 * sizeof(int));
+    memcpy(g->stock, &deck[22], 26 * sizeof(int));
+
+    speed_solo_set(1);
+}

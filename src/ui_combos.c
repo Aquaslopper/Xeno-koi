@@ -1,4 +1,5 @@
 #include "ui_combos.h"
+#include "ui_speed.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -30,8 +31,10 @@ Rectangle combos_panel_rect(int player) {
 }
 
 int combos_panel_hit(Vector2 mouse) {
-    for (int p = 0; p < 2; p++)
+    for (int p = 0; p < 2; p++) {
+        if (p == 1 && speed_solo_active()) continue;
         if (CheckCollisionPointRec(mouse, combos_panel_rect(p))) return p;
+    }
     return -1;
 }
 
@@ -44,6 +47,7 @@ void combos_draw_sidebar(const GameState *g) {
     while (size > 12 && MeasureTextEx(font_body, ruleset_names[g->ruleset], size, 0.5f).x > 96) size--;
     label(ruleset_names[g->ruleset], 1168, 47, 96, size, COLOR_TEXT_INFO);
     for (int p = 1; p >= 0; p--) {
+        if (p == 1 && speed_solo_active()) continue;
         ScoreResult s = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         Rectangle r = combos_panel_rect(p);
         DrawRectangleRec(r, COLOR_PANEL_BG);

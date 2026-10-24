@@ -9,6 +9,7 @@ extern Font font_body;
 #define SPEED_FLASH_TIME  0.30f
 #define SPEED_PULSE_TIME  0.55f
 #define SPEED_GHOST_TIME  0.42f
+#define SOLO_CLOCK_SECONDS 180.0f
 
 static float s_remaining;   /* seconds left on this turn's bar */
 static float s_frac;        /* visible fill fraction (frozen at drop for the flash) */
@@ -21,6 +22,8 @@ static int   s_total;       /* minipoints this match */
 static int   s_streak;      /* consecutive perfect catches */
 static int   s_last_round;
 static int   s_bonus_applied;
+static int   s_solo;        /* SPEEDCOIN solo table (no CPU) */
+static float s_clock;       /* solo clock, seconds left */
 
 /* Session telemetry for Atrium Plex Logfile stats */
 static int   s_stat_drops;
@@ -37,6 +40,15 @@ void speed_bar_reset(void) {
     s_total = 0; s_streak = 0;
     s_last_round = -1; s_bonus_applied = 0;
 }
+
+void speed_solo_set(int on) {
+    s_solo = on ? 1 : 0;
+    s_clock = SOLO_CLOCK_SECONDS;
+}
+
+int speed_solo_active(void) { return s_solo; }
+
+float speed_clock_seconds(void) { return s_clock; }
 
 /* Award minipoints for one hand-card capture. A perfect catch (10) starts or
    continues a serie: every perfect catch in a serie of two or more carries a
@@ -71,6 +83,13 @@ void speed_bar_update(const GameState *g, float dt, int input_unlocked) {
     if (s_ghost > 0.0f) { s_ghost -= dt; if (s_ghost < 0.0f) s_ghost = 0.0f; }
     s_chain_vis += (s_chain - s_chain_vis) * (1.0f - expf(-dt * 8.0f));
     if (s_chain == 0.0f && s_chain_vis < 0.01f) s_chain_vis = 0.0f;
+
+    /* SPEEDCOIN solo clock: runs while the player can play a card. */
+    if (s_solo && input_unlocked && g->current_player == 0 &&
+        (g->phase == PHASE_TURN_HAND || g->phase == PHASE_HAND_CHOICE)) {
+        s_clock -= dt;
+        if (s_clock < 0.0f) s_clock = 0.0f;
+    }
 
     int turn_live = (g->current_player == 0 && g->phase == PHASE_TURN_HAND);
     if (turn_live && input_unlocked) {
@@ -218,4 +237,19 @@ void speed_bar_draw(void) {
             EndBlendMode();
         }
     }
+}
+
+/* SPEEDCOIN solo clock: big red MM:SS where the CPU score box normally sits. */
+void speed_clock_draw(void) {
+    if (!s_solo) return;
+    int secs = (int)ceilf(s_clock);
+    const char *txt = TextFormat("%02d:%02d", secs / 60, secs % 60);
+    Rectangle box = { 12.0f, 12.0f, CAPTURE_PANEL_W, 76.0f };
+    Color red = { 235, 40, 40, 255 };
+    DrawRectangleRec(box, COLOR_PANEL_BG);
+    ui_draw_panel_border(box, red);
+    float fsz = 60.0f, sp = 2.0f;
+    Vector2 ts = MeasureTextEx(font_body, txt, fsz, sp);
+    DrawTextEx(font_body, txt, (Vector2){ box.x + (box.width - ts.x) * 0.5f, box.y + (box.height - ts.y) * 0.5f },
+               fsz, sp, red);
 }

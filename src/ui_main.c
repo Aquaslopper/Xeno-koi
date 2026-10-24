@@ -196,7 +196,7 @@ static int pick_match_track(int next) {
 static void begin_new_match(int trk) {
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
     replay_rec_abort();
-    anim_init(&anim); motion_init(); speed_bar_reset(); memset(&drag, 0, sizeof(drag));
+    anim_init(&anim); motion_init(); speed_bar_reset(); speed_solo_set(0); memset(&drag, 0, sizeof(drag));
     hovered_idx = -1; is_paused = 0; confirm_restart = 0; combo_player = -1; combo_page = 0;
     human_turn_started = 0; deus_banner_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
@@ -204,6 +204,10 @@ static void begin_new_match(int trk) {
     engine_init(&g, settings.ruleset, settings.rounds, match_seed);
     if (plexus_tutorial_is_active()) {
         plexus_tutorial_setup_round(&g);
+        motion_deal_round(&g, 0.45f);
+        cinematic_start(g.current_round);
+    } else if (plexus_speedcoin_is_active()) {
+        plexus_speedcoin_setup_round(&g);
         motion_deal_round(&g, 0.45f);
         cinematic_start(g.current_round);
     } else {
@@ -215,7 +219,7 @@ static void begin_new_match(int trk) {
 #endif
     }
     ai_set_opponent(settings.current_opponent); taunt_init();
-    if (!plexus_tutorial_is_active())
+    if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active())
         taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
     if (trk > 0) audio_start_match_music(&audio, trk);
     else audio_set_reverb(0.0f);
@@ -476,6 +480,7 @@ static void update_draw_frame(void) {
                         start_hub_transition(SCREEN_START, 0, (Rectangle){ 720, 570, 180, 48 }, "BACK", 20);
                 } else if (cres == 1) {
                     plexus_tutorial_abort();
+                    plexus_speedcoin_abort();
                     audio_play_click(&audio); ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
@@ -674,8 +679,9 @@ static void update_draw_frame(void) {
                     else if (act == ACT_RESTART_MATCH) begin_new_match(0);
                     else if (act == ACT_ABANDON_MATCH) {
                         replay_rec_abort(); confirm_restart = 0;
-                        if (plexus_tutorial_is_active()) {
+                        if (plexus_tutorial_is_active() || plexus_speedcoin_is_active()) {
                             plexus_tutorial_abort();
+                            plexus_speedcoin_abort();
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else {
                             start_transition(SCREEN_START, 3, 0);
@@ -795,7 +801,7 @@ static void update_draw_frame(void) {
 
                     if (g.current_player == 0 && input_unlocked) {
                         if (g.phase == PHASE_TURN_HAND) {
-                            if (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS) {
+                            if (!speed_solo_active() && (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS)) {
                                 if (!human_turn_started) {
                                     g.player_timer = (settings.difficulty == DIFFICULTY_DEUS || settings.master_timer == 15) ? 15.0f : 30.0f;
                                     human_turn_started = 1;
@@ -887,6 +893,10 @@ static void update_draw_frame(void) {
                                 anim_init(&anim);
                                 plexus_tutorial_finish_match();
                                 pending_result_sfx = 1;
+                                start_transition(SCREEN_ATRIUM, 2, 0);
+                            } else if (plexus_speedcoin_is_active()) {
+                                anim_init(&anim);
+                                plexus_speedcoin_abort();
                                 start_transition(SCREEN_ATRIUM, 2, 0);
                             } else if (g.current_round >= g.total_rounds) {
                                 anim_init(&anim);

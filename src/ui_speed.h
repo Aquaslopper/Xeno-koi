@@ -20,6 +20,12 @@ int  speed_bar_apply_match_bonus(GameState *g);   /* +total/10 to the human; ret
 int  speed_bar_total(void);                       /* minipoints earned this match */
 void speed_bar_draw(void);                        /* bar behind, gold numbers over it */
 
+/* Atrium Plex SPEEDCOIN table: solo (no CPU) with a 180 s clock at the top left. */
+void  speed_solo_set(int on);                     /* on: solo table + clock reset to 180 s */
+int   speed_solo_active(void);
+float speed_clock_seconds(void);                  /* seconds left on the solo clock */
+void  speed_clock_draw(void);                     /* big red clock, top left (solo only) */
+
 /* Telemetry getters for Atrium Plex Logfile stats */
 int   speed_bar_graded_drops(void);
 float speed_bar_avg_drop_seconds(void);

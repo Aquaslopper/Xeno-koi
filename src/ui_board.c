@@ -629,16 +629,18 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     Rectangle cpu_score_box = { 12, 12, CAPTURE_PANEL_W, 30 };
     Rectangle you_score_box = { 12, 678, CAPTURE_PANEL_W, 30 };
-    if (active_turn == 1 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(cpu_score_box, turn_flash_alpha);
-    board_draw_info_box(cpu_score_box, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
-    draw_capture_lanes(ba, g, 1, 46.0f, (active_turn == 1) ? turn_flash_alpha : 0.0f);
+    if (!speed_solo_active()) {
+        if (active_turn == 1 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(cpu_score_box, turn_flash_alpha);
+        board_draw_info_box(cpu_score_box, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
+        draw_capture_lanes(ba, g, 1, 46.0f, (active_turn == 1) ? turn_flash_alpha : 0.0f);
+    }
     draw_capture_lanes(ba, g, 0, 508.0f, (active_turn == 0) ? turn_flash_alpha : 0.0f);
     card_tooltip_clear();
     if (active_turn == 0 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(you_score_box, turn_flash_alpha);
     board_draw_info_box(you_score_box, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
 
     /* 3. CPU Hand */
-    int cpu_count = g->hand_count[1];
+    int cpu_count = speed_solo_active() ? 0 : g->hand_count[1];
     float cpu_step = 62.0f, cpu_w = (cpu_count > 0) ? ((cpu_count - 1) * cpu_step + CPU_CARD_W) : 0, cpu_x = 710.0f - cpu_w / 2.0f;
     for (int i = 0; i < cpu_count; i++) {
         int cid = g->hand[1][i];
@@ -803,6 +805,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
     if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
+    if (!replay_mode) speed_clock_draw();
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

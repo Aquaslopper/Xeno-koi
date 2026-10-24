@@ -27,6 +27,11 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
 void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm);
 void plexus_tutorial_finish_match(void);
 
+/* SPEEDCOIN solo table hooks (Month 1 Card 3 / SPEEDCOIN tab): normal table, no CPU, 14 table cards */
+int  plexus_speedcoin_is_active(void);
+void plexus_speedcoin_abort(void);
+void plexus_speedcoin_setup_round(GameState *g);
+
 /* Unload lazy-loaded Atrium Plex background textures on shutdown */
 void plexus_unload_assets(void);
 
