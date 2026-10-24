@@ -293,7 +293,7 @@
         var Module = {
             preRun: [function() {
                 try {
-                    var files = ['settings.txt', 'stats.txt', 'history.txt', 'stats_report.txt'];
+                    var files = ['settings.txt', 'stats.txt', 'history.txt', 'stats_report.txt', 'plexsave.txt'];
                     files.forEach(function(fn) {
                         var val = window.localStorage.getItem('xenokoi_' + fn);
                         if (val !== null) FS.writeFile('/' + fn, val);

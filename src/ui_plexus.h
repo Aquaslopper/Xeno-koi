@@ -30,4 +30,8 @@ void plexus_tutorial_finish_match(void);
 /* Unload lazy-loaded Atrium Plex background textures on shutdown */
 void plexus_unload_assets(void);
 
+/* Load / save Atrium Plex progress and telemetry (plexsave.txt) */
+void plexus_load(void);
+void plexus_save(void);
+
 #endif /* UI_PLEXUS_H */

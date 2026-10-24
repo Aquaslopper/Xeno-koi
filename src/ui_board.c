@@ -67,6 +67,11 @@ static float s_audio_full_hold_sec = 0.0f;
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
 float board_get_audio_full_hold_seconds(void) { return s_audio_full_hold_sec; }
+void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec) {
+    s_audio_action_triggers = (triggers > 0) ? triggers : 0;
+    s_audio_peak_synergy = (peak >= 0.0f) ? (peak > 1.0f ? 1.0f : peak) : 0.0f;
+    s_audio_full_hold_sec = (full_hold_sec >= 0.0f) ? full_hold_sec : 0.0f;
+}
 
 static void pick_dark_particle_dims(int roll, int *out_w, int *out_h) {
     /* Wide variety of particle sizes: fine dust (1-2px), medium flakes (3-4px),
@@ -587,9 +592,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (syn_x > 1.0f) syn_x = 1.0f;
     float reverb_synergy = 0.30f * syn_x + 0.70f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
     audio_set_reverb(reverb_synergy);
-    if (capture_edge || koi_edge) s_audio_action_triggers++;
-    if (reverb_synergy > s_audio_peak_synergy) s_audio_peak_synergy = reverb_synergy;
-    if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += frame_dt;
+    if (!replay_mode) {
+        if (capture_edge || koi_edge) s_audio_action_triggers++;
+        if (reverb_synergy > s_audio_peak_synergy) s_audio_peak_synergy = reverb_synergy;
+        if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += frame_dt;
+    }
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {

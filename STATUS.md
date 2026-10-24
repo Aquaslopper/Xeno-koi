@@ -1,11 +1,26 @@
-> **Development handoff (last updated 23 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 24 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 23 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 24 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Atrium Plex beta foundation: `plexsave.txt` persistence, logfile/replay cleanup, smooth-red locked bottom buttons, and grounded roadmap (24 October 2026)
+
+- Rewrote `plexus/roadmap_plexus.md` into a grounded 5-phase Atrium Plex beta plan aligned with the real `src/` architecture (preserving existing table code without duplication).
+- Added standalone Atrium Plex persistence (`plexsave.txt`) in `src/ui_plexus.h` + `src/ui_plexus.c`, wired into `src/ui_main.c`, `src/ui_speed.h` + `src/ui_speed.c`, `src/ui_board.h` + `src/ui_board.c`, and `web/shell.html` (`localStorage` sync via `FS.rename`) without touching protected `src/storage.c`:
+  - Persists `finished_cards_mask` (`48`-bit card mask), `selected_month`, `selected_slot`, Speedbar telemetry (`speed_drops`, `speed_time_sum`, `speed_cover_sum`, `speed_best_streak`, `speed_lifetime_mp`), Audio FX telemetry (`audio_triggers`, `audio_peak`, `audio_hold`), and up to `24` tab-delimited `LOGFILE` questbook entries via atomic `.tmp` + `rename`.
+  - Loads once at startup (`plexus_load()`) and saves on Atrium `SAVE & BACK` / `ESC`, Main Menu `SAVE`, and match completion.
+- Cleaned up Atrium Plex logfile and telemetry edge cases:
+  - Guarded `board_draw_table()` audio synergy accumulation with `if (!replay_mode)` so watching saved replays no longer contaminates live `LOGFILE` Audio FX stats.
+  - Stopped `plexus_handle_click()` from pushing duplicate `SEQ 00` log entries on spine card/month selection clicks, replaced 13 UTF-8 `—` strings with ASCII `--` in `src/ui_plexus.c` so `assets/play.ttf` never renders `?` glyphs, and removed the dead `plexus/plexus_normal.png` fallback while leaving `plexus/plexus_normal.png` untouched.
+- Styled locked Atrium Plex bottom-bar buttons (`"SPEEDCOIN"` and `"ACTION CARD"`, `!is_bottom_btn_unlocked(i)`) in a smooth, non-flashy dark-wine / muted crimson (`draw_plexus_locked_btn()` in `src/ui_plexus.c`: `{ 26, 8, 10, 228 }` fill, subtle bevel sheen, `{ 148, 56, 60, 200 }` border, `{ 182, 82, 86, 225 }` label, below the `0.65` bloom threshold and without `ui_draw_panel_border()`'s white hover-flare flashes) across all 6 terminal themes.
+
+#### Checked
+- `./build.sh test` (`500` engine matches, `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`), `./tools/tests_guard.sh` (`7` approved files), `python3 tools/gen_wiki_tables.py --check`, `-std=c99 -O2 -Wall -Wextra -Werror` across touched `src/` modules with Raylib 5.5 headers, `ASan + UBSan` `plexsave.txt` round-trip/corrupt-input/replay-isolation verification, software raster verification of locked bottom-bar buttons (`TEAL` & `CRIMSON` themes), and `git diff --check` all exit `0`.
+- **Touched:** `plexus/roadmap_plexus.md`, `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_board.h`, `src/ui_board.c`, `web/shell.html`, `STATUS.md`. **Deliberately did not touch:** `src/storage.c`, `src/storage.h`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/ui_audio.c`, `src/ui_screens.c`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
 
 ### Remove audio DSP, tooltip, and hub-transition test files and lock `tests/` against unapproved additions (23 October 2026)
 

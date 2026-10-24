@@ -1,66 +1,72 @@
-# ATRIUM PLEX — Open-Ended Brainstorm & Build Roadmap
+# ATRIUM PLEX — Beta Roadmap (`roadmap_plexus.md`)
 
-> **Status:** Active Brainstorming & Concept Phase  
-> **Incubator Folder:** `plexus/` (staged separately before production integration into `src/`)  
-> **Visual Anchor:** `assets/plexus.png`  
-> **Main Menu Entry:** `ATRIUM PLEX` (placed directly under `START MATCH`, entered via full loading transition)
-
----
-
-## Core Vision
-
-**ATRIUM PLEX** (*The Plexus*) is a biomechanical conditioning and sparring sanctuary inside **XENO / KOI** — not a static text tutorial or disconnected minigame list, but a living progression tree built around the **12 Months / 48 Cards** of the deck.
-
-- **`START MATCH`** remains untouched as the primary Main Menu button.
-- **`ATRIUM PLEX`** sits directly below `START MATCH` and transitions with the full loading screen into its own dedicated background (`assets/plexus.png`).
-- Inside the Plexus, **tutorial, reflex training, solo sparring, deep stats/explanations, and long-term unlocks** (including the eventual true awakening of **`DEUS SUPREMUS`**) converge into one cohesive mode.
-- Companion design notebooks: [`plexus/layout_concept.md`](layout_concept.md) (screen layout, 4-card spine & bottom bar flow), [`plexus/story.md`](story.md) (narrative & non-linear monthly art sequences), and [`plexus/training_games.md`](training_games.md) (training/minigame ideas & 48-card mapping).
+> **Status:** Active Beta — Hub & Foundation Phase
+> **Canvas:** `assets/plexus.png` + `assets/plexus_normal.png` (`1280×720`)
+> **Visual References:** [`plexus/plexus_mockup.png`](plexus_mockup.png) · [`plexus/plexus_logfile_mockup.png`](plexus_logfile_mockup.png)
 
 ---
 
-## Step 1 — Name & Story / Lore *(Brainstorm in `plexus/story.md`)*
+## Core Engineering Rules (Non-Negotiable)
 
-- [ ] Define the exact identity and non-linear art story of **ATRIUM PLEX** (*The Plexus*) in [`plexus/story.md`](story.md).
-- [ ] Design **Sequence 00 (Introduction)** triggered the first time the player enters the Atrium Plex, plus the **12 Monthly Continuations** (`Months 01–12`).
-- [ ] Connect the weird, non-linear visual/narrative arc from Month 1 to the apex seal of **`DEUS SUPREMUS`**.
-
----
-
-## Step 2 — Visual Mockup & Menu Layout *(Mockup -> UI Brainstorm)*
-
-- [ ] Review owner's visual mockup for the **ATRIUM PLEX** screen over `assets/plexus.png`.
-- [ ] Map the `1280×720` layout while preserving visual breathing room for the artwork in `assets/plexus.png`:
-  - Navigation controls (`BACK`, sub-views, node selection).
-  - The progression tree structure (12 Months × 4 Cards + Monthly Capstone trials).
-  - Detailed Stats & Codex/Explanation view inside the Plexus.
+1. **Build With Existing Systems — Never Duplicate the Table:**
+   - Every playable tutorial or minigame launched from Atrium Plex runs on the **real game engine and table** (`engine.c`, `rules.c`, `ui_board.c`, `ui_input.c`, `ui_speed.c`, `ui_audio.c`, `ui_screens.c`, and `SCREEN_GAME` in `ui_main.c`).
+   - Never clone or rewrite a second board, input loop, or scoring system inside `ui_plexus.c`.
+   - Core game behavior and protected mechanics (`src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*`, `src/ai.*`, `src/storage.*`, `src/ui_screens.c`) stay untouched unless explicitly approved.
+2. **48-Card Spine Only (`12 Months × 4 Cards`):**
+   - Progression follows the 48 Hanafuda cards (`0..47`), 4 cards stacked per Month switched via `▲` / `▼`. No extra capstone nodes or parallel trees.
+3. **Completion & Face-Down Lock Rule:**
+   - Completing a card turns it **face down** (`assets/back.png`) on the spine, lights it up in the `LOGFILE` 48-card Atlas grid, and **locks** it.
+   - **Tutorial Exemption:** Month 01 Card 4 (`cid == 3`, bottom slot — Standard Rules of Koi-Koi) stays unlocked after completion so the player can replay the tutorial anytime.
+   - **Beta Placeholder Behavior:** Cards that do not have a game built yet lock and flip face down immediately when `START` is clicked so monthly gating (`all 4 cards -> next Month`) works during beta testing.
 
 ---
 
-## Step 3 — Define the Training & Minigame Archetypes *(Brainstorm in `plexus/training_games.md`)*
+## Phase 1 — Hub Cleanup, `plexsave.txt` & Bottom Bar States *(First Priority)*
 
-- [ ] Define the core solo training mechanics (player vs. board, clock, and audio — no standard CPU turn loop):
-  - **Interactive Tutorial Conditioning:** Learning suit matching, deck flips, captures, and yaku by playing hands-on scenarios.
-  - **Speedbar Reflex Sparring:** 8 cards in hand vs. field cards with a draining speedbar — chaining fast matches to hold `reverb_synergy` at `100%` without hesitating too long.
-  - **Additional Sparring Modes:** Yaku spotting/assembly, blind/memory reads, risk/Koi-Koi drills, and Monthly Boss/Capstone trials discovered during brainstorming.
-
----
-
-## Step 4 — Map the 12 Months × 4 Cards Progression Tree *(Brainstorm in `plexus/training_games.md`)*
-
-- [ ] **Month 1 (January — Pine, First 4 Cards + Top Trial):**
-  - Card 1–4 interactive tutorial progression + Month 1 capstone trial at the top.
-- [ ] **Months 2–12 (Cards 05–48 + Monthly Capstones):**
-  - Define branching routes across the 12 months.
-  - Assign training/minigame archetypes and modifiers to each month's 4 cards and top node.
-  - Define progression rewards, detailed stat tracking, and the final **`DEUS SUPREMUS`** unlock condition.
+- [x] **1. Dedicated Persistence (`plexsave.txt`):**
+  - Save and load Atrium Plex state in `plexsave.txt` directly from `src/ui_plexus.c` using the atomic `.tmp` + `rename()` pattern (leaving protected `src/storage.*` untouched).
+  - Add `'plexsave.txt'` to `web/shell.html`'s `localStorage` file list so desktop and Web/WASM builds both persist on `SAVE & BACK`, `ESC`, and Main Menu `SAVE`.
+  - Persist: `finished_cards_mask` (48-bit), selected month/slot, Plexus telemetry counters (speedbar drops, time sum, overlap sum, best streak, lifetime minipoints, audio triggers/peak/hold), and logfile progress.
+- [ ] **2. Bottom Bar Controls (`SAVE & BACK` | `LOGFILE` | `SPEEDCOIN` | `ACTION CARD` | `TRAINING`):**
+  - **Locked Minigame Buttons (`SPEEDCOIN`, `ACTION CARD`):** Render locked buttons in a distinct **red locked state** (dim red fill/border + red label via `COLOR_RED` tones) so the player clearly sees they are locked until unlocked.
+  - **`TRAINING` Placeholder:** Keep `TRAINING` as an explicit non-playable beta placeholder for now — remove the current behavior that launches a real Campaign match and leaks Campaign coins/stats.
+- [ ] **3. Spine Briefings & Month 02 Alignment:**
+  - Month 01 (`January // Pine`): Tutorial spine (Card 4 playable & replayable; Cards 1–3 beta lock-on-start until built).
+  - Month 02 (`February // Plum`): Assign as the upcoming **Speedcoin** minigame month (`KK-ADD-10`), replacing outdated Month 04 gating assumptions once built.
 
 ---
 
-## Step 5 — Step-by-Step Implementation *(Open-Ended, Scoped After Brainstorming)*
+## Phase 2 — Clean Rebuild of Month 01 Tutorial on the Real Table
 
-*Each build step below will be scoped inside `plexus/` and integrated into `src/` only after explicit owner approval:*
+- [ ] **Use `SCREEN_GAME` Directly Without Side Effects:**
+  - Drive a real 1-round `SCREEN_GAME` deal without copying table rendering or input handling.
+  - Isolate tutorial runs from `settings.difficulty` (`MASTER`/`DEUS` turn timers and Deus setting overrides), Campaign stats/coins, and replay recording while restoring user `settings` untouched on exit.
+- [ ] **Fix UI Coordinates & Completion Guards:**
+  - Match real `ui_screens.c` Decide hitboxes (`{280, 520, 320, 60}` and `{680, 520, 320, 60}`) and real `ui_board.c` left capture-lane bounds (`x = 12, w = 255`).
+  - Correct inaccurate rules/button text (4 cards per monthly suit with distinct ranks, `SHOBU` label) and only award completion when the tutorial round is properly completed.
 
-- [ ] **Step 5a — Main Menu Entry & Hub Shell:** Add `ATRIUM PLEX` under `START MATCH`, wire full loading screen transition, load `assets/plexus.png`, and build the initial screen shell.
-- [ ] **Step 5b — Plexus Menu & Tree UI:** Implement the interactive node/tree interface from the approved mockup and persistent progress storage.
-- [ ] **Step 5c — Solo Sparring Engine & Month 1 (Tutorial):** Build the solo training board loop (reusing board rendering, speedbar, and `reverb_synergy` audio response) and the first 4 tutorial cards + Month 1 top game.
-- [ ] **Step 5d — Months 2–12, Detailed Stats Screen & Apex Unlocks:** Expand the remaining monthly branches, minigame variants, detailed stats/explanations view, and `DEUS SUPREMUS` progression hook.
+---
+
+## Phase 3 — Speedcoin Minigame *(Month 02, `RULESET_KK_ADD_10`)*
+
+- [ ] **Design & Scope Before Coding:**
+  - Built strictly on **`RULESET_KK_ADD_10`** and the existing `ui_speed.c` speedbar + minipoints system on the real table (`ui_board.c` / `ui_input.c`).
+  - Completing Month 02 unlocks the Speedcoin shortcut button on the bottom bar for free replay.
+
+---
+
+## Phase 4 — Remaining Minigames, Training Mode & PlexusStats Refinement
+
+- [ ] **Action Card Audio Minigame & Later Months:**
+  - Scope and wire onto the real table and existing `reverb_synergy` envelope (`ui_board.c` / `ui_audio.c`), unlocking the second bottom-bar minigame slot when cleared.
+- [ ] **`TRAINING` Mode:**
+  - Define and wire dedicated Plexus sparring/training behavior once minigame foundations are complete (isolated from Campaign progression).
+- [ ] **Plexus Telemetry (`LOGFILE` Stats Box):**
+  - Refine persistent Plexus-specific stats (`average speed`, `how close` overlap %, Speedcoin minipoints/streak, audio synergy) backed by `plexsave.txt`.
+
+---
+
+## Phase 5 — Atrium Plex Story *(Later)*
+
+- [ ] **Deferred Until Gameplay & Hub Are Solid:**
+  - Introduce the non-linear biomechanical story sequences (`Sequence 00` intro + monthly fragments archived in `LOGFILE`) after Phases 1–4 are verified.
