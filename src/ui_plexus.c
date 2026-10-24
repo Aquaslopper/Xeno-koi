@@ -70,6 +70,9 @@ static SpeedcoinStep s_sc_step                 = SC_STEP_NONE;
 static uint32_t      s_sc_rng                  = 0x9E3779B9u;
 static float         s_sc_clock                = 180.0f;
 static float         s_sc_move_timer           = 0.0f;
+static int           s_sc_move_expired         = 0;
+static int           s_sc_deck_phase           = 0; /* 0: none, 1: start flip, 2: flying, 3: settling */
+static int           s_sc_drawn_card           = -1;
 static int           s_sc_wave_num             = 1;
 static int           s_sc_waves_completed      = 0;
 static int           s_sc_hand_num             = 1;
@@ -709,7 +712,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                             "SPECIAL GAME // KK-ADD-10 SPEEDCOIN",
                             "Warning: Synaptic countdown active (03:00).",
                             "1000ms per move to extract Speedcoins; 50 SC synthesizes 2nd hand.",
-                            "+10s per 10 Speedcoins; -1s clock drain per 1000ms timeout.");
+                            "+10s per 10 Speedcoins; -10s clock drain per 1000ms timeout.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -1236,6 +1239,9 @@ static void sc_start_wave(GameState *g, int wave_idx) {
     s_sc_hand_num             = 1;
     s_sc_wave_coins           = 0;
     s_sc_move_timer           = 0.0f;
+    s_sc_move_expired         = 0;
+    s_sc_deck_phase           = 0;
+    s_sc_drawn_card           = -1;
     s_sc_synth_banner_timer   = 0.0f;
     s_sc_refill_banner_timer  = 0.0f;
     s_sc_drop_popup_timer     = 0.0f;
@@ -1305,9 +1311,11 @@ int plexus_speedcoin_is_active(void) {
 }
 
 void plexus_speedcoin_abort(void) {
-    s_sc_active  = 0;
-    s_sc_card_id = -1;
-    s_sc_step    = SC_STEP_NONE;
+    s_sc_active     = 0;
+    s_sc_card_id    = -1;
+    s_sc_step       = SC_STEP_NONE;
+    s_sc_deck_phase = 0;
+    s_sc_drawn_card = -1;
 }
 
 int plexus_speedcoin_combos_hit(Vector2 vm) {
@@ -1321,6 +1329,9 @@ void plexus_speedcoin_setup_match(GameState *g, uint32_t seed) {
     s_sc_rng                  = seed ^ 0xA5A55A5Au;
     s_sc_clock                = 180.0f;
     s_sc_move_timer           = 0.0f;
+    s_sc_move_expired         = 0;
+    s_sc_deck_phase           = 0;
+    s_sc_drawn_card           = -1;
     s_sc_wave_num             = 1;
     s_sc_waves_completed      = 0;
     s_sc_hand_num             = 1;
@@ -1387,6 +1398,9 @@ static void sc_finish_current_wave(GameState *g) {
     g->total_score[0]     = s_sc_banked_combo_pts;
     s_sc_step             = SC_STEP_WAVE_END;
     s_sc_move_timer       = 0.0f;
+    s_sc_move_expired     = 0;
+    s_sc_deck_phase       = 0;
+    s_sc_drawn_card       = -1;
     speed_bar_consume();
 }
 
@@ -1413,9 +1427,13 @@ static void sc_refill_row_from_stock(GameState *g, int r, int *out_evts) {
 static void sc_post_move_check(GameState *g, int *out_evts) {
     if (!g) return;
 
-    /* 1. Check if the player's hand just ran out */
+    /* 1. Check if the player's hand just ran out:
+          Speedcoins are never spent and carry over across waves.
+          Every 50 Speedcoins earned (50, 100, 150, 200...) unlocks one 2nd Hand
+          (capped at 1 second hand per wave). */
+    int next_synth_target = (s_sc_hands_synthesized + 1) * 50;
     if (g->hand_count[0] <= 0) {
-        if (s_sc_hand_num == 1 && s_sc_wave_coins >= 50 && g->stock_count > 0) {
+        if (s_sc_hand_num == 1 && s_sc_total_coins >= next_synth_target && g->stock_count > 0) {
             /* Synthesize 2nd Hand (capped at 2 hands per wave) */
             int take = (g->stock_count >= 8) ? 8 : g->stock_count;
             Vector2 stock_pos = { SC_STOCK_RECT.x, SC_STOCK_RECT.y };
@@ -1443,9 +1461,9 @@ static void sc_post_move_check(GameState *g, int *out_evts) {
         }
     }
 
-    /* 2. Auto-refill any emptied 7-card row on the table if stock has cards */
+    /* 2. Auto-refill any emptied 7-card row on the table if stock has enough spare cards */
     for (int r = 0; r < 2; r++) {
-        if (s_sc_row_count[r] == 0 && g->stock_count > 0) {
+        if (s_sc_row_count[r] == 0 && g->stock_count > g->hand_count[0]) {
             sc_refill_row_from_stock(g, r, out_evts);
         }
     }
@@ -1456,6 +1474,72 @@ static void sc_post_move_check(GameState *g, int *out_evts) {
     if (s_sc_row_count[0] == 0 && s_sc_row_count[1] == 0 && g->stock_count == 0) {
         sc_finish_current_wave(g);
     }
+}
+
+static void sc_resolve_drawn_stock_card(GameState *g, AnimState *anim, int drawn_cid, int *out_evts) {
+    if (!g || drawn_cid < 0 || drawn_cid >= 48) return;
+    int match_r[4], match_c[4], match_cid[4];
+    Rectangle match_rect[4];
+    int mc = 0;
+    int m = CARDS[drawn_cid].month;
+    for (int r = 0; r < 2; r++) {
+        for (int col = 0; col < s_sc_row_count[r]; col++) {
+            int fcid = s_sc_row_cards[r][col];
+            if (CARDS[fcid].month == m && mc < 4) {
+                match_r[mc]    = r;
+                match_c[mc]    = col;
+                match_cid[mc]  = fcid;
+                match_rect[mc] = sc_get_row_card_rect(r, col, s_sc_row_count[r]);
+                mc++;
+            }
+        }
+    }
+
+    Vector2 cap_dest = { 96.0f, 380.0f };
+    if (mc > 0) {
+        Vector2 cap_starts[4];
+        cap_starts[0] = (Vector2){ match_rect[0].x, match_rect[0].y };
+        g->last_captured[0] = drawn_cid;
+        g->last_captured_count = 1;
+        if (g->captured_count[0] < 48) g->captured[0][g->captured_count[0]++] = drawn_cid;
+
+        if (mc >= 3) {
+            for (int k = 0; k < mc; k++) {
+                cap_starts[g->last_captured_count] = (Vector2){ match_rect[k].x, match_rect[k].y };
+                g->last_captured[g->last_captured_count++] = match_cid[k];
+                if (g->captured_count[0] < 48) g->captured[0][g->captured_count[0]++] = match_cid[k];
+            }
+            for (int r = 1; r >= 0; r--) {
+                for (int col = s_sc_row_count[r] - 1; col >= 0; col--) {
+                    if (CARDS[s_sc_row_cards[r][col]].month == m) {
+                        sc_remove_row_card(r, col);
+                    }
+                }
+            }
+        } else {
+            cap_starts[1] = (Vector2){ match_rect[0].x, match_rect[0].y };
+            g->last_captured[1] = match_cid[0];
+            g->last_captured_count = 2;
+            if (g->captured_count[0] < 48) g->captured[0][g->captured_count[0]++] = match_cid[0];
+            sc_remove_row_card(match_r[0], match_c[0]);
+        }
+
+        anim_start_capture(anim, 0, g->last_captured, g->last_captured_count, cap_starts, cap_dest, 0.28f);
+        s_sc_reverb_energy += (float)g->last_captured_count * 0.22f;
+        if (s_sc_reverb_energy > 1.0f) s_sc_reverb_energy = 1.0f;
+        s_sc_reverb_hold = 0.60f;
+        if (out_evts) *out_evts |= PLEXUS_SC_EVT_CAPTURE;
+    } else {
+        int target_r = (s_sc_row_count[0] <= s_sc_row_count[1]) ? 0 : 1;
+        if (s_sc_row_count[target_r] < 16) {
+            s_sc_row_cards[target_r][s_sc_row_count[target_r]++] = drawn_cid;
+            sc_sort_cards_by_month(s_sc_row_cards[target_r], s_sc_row_count[target_r]);
+        }
+        Rectangle tr = sc_find_table_card_rect(drawn_cid);
+        motion_set_instant(drawn_cid, (Vector2){ tr.x, tr.y }, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
+        if (out_evts) *out_evts |= PLEXUS_SC_EVT_DROP;
+    }
+    sc_sync_game_field(g);
 }
 
 static void sc_resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2 c, int *out_evts) {
@@ -1539,7 +1623,7 @@ static void sc_resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vect
             sc_remove_row_card(match_r[best_k], match_c[best_k]);
         }
 
-        anim_start_capture(anim, 0, g->last_captured, g->last_captured_count, cap_starts, cap_dest, 0.36f);
+        anim_start_capture(anim, 0, g->last_captured, g->last_captured_count, cap_starts, cap_dest, 0.30f);
         if (out_evts) *out_evts |= PLEXUS_SC_EVT_CAPTURE;
 
         /* Drive reverb synergy on capture */
@@ -1547,14 +1631,17 @@ static void sc_resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vect
         if (s_sc_reverb_energy > 1.0f) s_sc_reverb_energy = 1.0f;
         s_sc_reverb_hold = 0.60f;
 
-        /* Grade Speedbar (Speed x Overlap Accuracy) */
+        /* Grade Speedbar (Speed x Overlap Accuracy) if the 1000ms per-card timer has not expired */
         int before_mp = speed_bar_total();
-        speed_bar_grade(best_cover);
+        if (!s_sc_move_expired) {
+            speed_bar_grade(best_cover);
+        } else {
+            speed_bar_consume();
+        }
         int gained_mp = speed_bar_total() - before_mp;
         if (gained_mp < 0) gained_mp = 0;
         s_sc_wave_coins += gained_mp;
         s_sc_total_coins = speed_bar_total();
-        s_sc_move_timer  = 0.0f;
 
         s_sc_drop_popup_timer = 0.90f;
         s_sc_drop_popup_mp    = gained_mp;
@@ -1581,11 +1668,12 @@ static void sc_resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vect
         }
         motion_set_instant(card_id, drag->pos, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
         speed_bar_consume();
-        s_sc_move_timer = 0.0f;
         if (out_evts) *out_evts |= PLEXUS_SC_EVT_DROP;
     }
 
-    sc_post_move_check(g, out_evts);
+    sc_sync_game_field(g);
+    /* Queue the automatic post-move deck draw (Koi-Koi style) */
+    s_sc_deck_phase = 1;
 }
 
 int plexus_speedcoin_update(GameState *g, void *drag_ptr, AnimState *anim,
@@ -1609,8 +1697,10 @@ int plexus_speedcoin_update(GameState *g, void *drag_ptr, AnimState *anim,
         Rectangle btn = { 824.0f, 488.0f, 196.0f, 44.0f };
         if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(vm, btn)) ||
             IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
-            s_sc_step       = SC_STEP_PLAY;
-            s_sc_move_timer = 0.0f;
+            s_sc_step         = SC_STEP_PLAY;
+            s_sc_move_timer   = 0.0f;
+            s_sc_move_expired = 0;
+            s_sc_deck_phase   = 0;
             speed_bar_consume();
             evts |= PLEXUS_SC_EVT_CLICK;
         }
@@ -1668,21 +1758,70 @@ int plexus_speedcoin_update(GameState *g, void *drag_ptr, AnimState *anim,
     /* SC_STEP_PLAY: 3-minute countdown is active */
     s_sc_clock -= dt;
 
-    int input_unlocked = !anim_is_blocking(anim);
-    speed_bar_update(g, dt, input_unlocked);
-
-    if (input_unlocked) {
-        s_sc_move_timer += dt;
-        while (s_sc_move_timer >= 1.0f) {
-            /* 1000ms bar reached its end without taking a card -> -1s damage to 3min clock */
-            s_sc_move_timer -= 1.0f;
-            s_sc_clock      -= 1.0f;
-            s_sc_damage_seconds_total++;
-            s_sc_damage_flash = 0.85f;
-            /* Re-arm the bottom-right 1000ms bar for the next 1s drain cycle */
+    /* Advance automatic post-move deck draw (Koi-Koi style) before arming the next card's timer */
+    if (s_sc_deck_phase == 1 && !anim_is_blocking(anim)) {
+        if (g->stock_count > 0) {
+            int drawn_cid = g->stock[--g->stock_count];
+            s_sc_drawn_card = drawn_cid;
+            Rectangle land = sc_get_row_card_rect((s_sc_row_count[0] <= s_sc_row_count[1]) ? 0 : 1, 3, 7);
+            for (int r = 0; r < 2; r++) {
+                for (int col = 0; col < s_sc_row_count[r]; col++) {
+                    int fcid = s_sc_row_cards[r][col];
+                    if (CARDS[fcid].month == CARDS[drawn_cid].month) {
+                        land = sc_get_row_card_rect(r, col, s_sc_row_count[r]);
+                        r = 2;
+                        break;
+                    }
+                }
+            }
+            anim_start_stock_fly(anim, drawn_cid,
+                                 (Vector2){ SC_STOCK_RECT.x, SC_STOCK_RECT.y },
+                                 (Vector2){ land.x, land.y }, 0.24f);
+            s_sc_deck_phase = 2;
+            evts |= PLEXUS_SC_EVT_FLIP;
+        } else {
+            s_sc_deck_phase   = 0;
+            s_sc_move_timer   = 0.0f;
+            s_sc_move_expired = 0;
             speed_bar_consume();
-            speed_bar_update(g, 0.0f, 1);
+            sc_post_move_check(g, &evts);
         }
+    } else if (s_sc_deck_phase == 2) {
+        if (!anim->active || anim->elapsed >= anim->duration) {
+            anim->active = 0;
+            sc_resolve_drawn_stock_card(g, anim, s_sc_drawn_card, &evts);
+            s_sc_drawn_card = -1;
+            s_sc_deck_phase = 3;
+        }
+    }
+    if (s_sc_deck_phase == 3 && !anim_is_blocking(anim)) {
+        s_sc_deck_phase   = 0;
+        s_sc_move_timer   = 0.0f;
+        s_sc_move_expired = 0;
+        speed_bar_consume();
+        sc_post_move_check(g, &evts);
+    }
+
+    int input_unlocked = (s_sc_step == SC_STEP_PLAY) && (s_sc_deck_phase == 0) && !anim_is_blocking(anim);
+
+    /* Per-card 1000ms timer: runs down ONCE per move. When it expires, it subtracts -10s
+       once and stays at 0ms until the card is played (no new timer starts while idle). */
+    if (!s_sc_move_expired) {
+        speed_bar_update(g, dt, input_unlocked);
+        if (input_unlocked) {
+            s_sc_move_timer += dt;
+            if (s_sc_move_timer >= 1.0f) {
+                s_sc_move_timer           = 1.0f;
+                s_sc_move_expired         = 1;
+                s_sc_clock               -= 10.0f;
+                s_sc_damage_seconds_total += 10;
+                s_sc_damage_flash         = 1.15f;
+                speed_bar_consume();
+            }
+        }
+    } else {
+        /* Keep gold number flash animations ticking without re-arming a new 1000ms bar */
+        speed_bar_update(g, dt, 0);
     }
 
     if (s_sc_clock <= 0.0f) {
@@ -1854,19 +1993,22 @@ static void sc_draw_right_player_panel(const GameState *g, Vector2 vm) {
 
     /* 2. 2nd Hand Synthesis Meter (50 SC target) & +10s Bonus Counter */
     draw_text_snapped(font_title, "2ND HAND", 1158.0f, 120.0f, 14.0f, 1.0f, COLOR_PHOSPHOR);
-    int w_sc = s_sc_wave_coins;
-    float fill_frac = fminf(1.0f, (float)w_sc / 50.0f);
+    int prev_target = s_sc_hands_synthesized * 50;
+    int next_target = (s_sc_hands_synthesized + 1) * 50;
+    int prog_sc = s_sc_total_coins - prev_target;
+    if (prog_sc < 0) prog_sc = 0;
+    float fill_frac = fminf(1.0f, (float)prog_sc / 50.0f);
     if (s_sc_hand_num >= 2) {
         draw_text_snapped(font_body, "SYNTHESIZED", 1158.0f, 140.0f, 14.0f, 0.8f, COLOR_AMBER);
-    } else if (w_sc >= 50) {
-        draw_text_snapped(font_body, "READY! (50+)", 1158.0f, 140.0f, 14.0f, 0.8f, COLOR_AMBER);
+    } else if (s_sc_total_coins >= next_target) {
+        draw_text_snapped(font_body, TextFormat("READY! (%d+)", next_target), 1158.0f, 140.0f, 14.0f, 0.8f, COLOR_AMBER);
     } else {
-        draw_text_snapped(font_body, TextFormat("%d / 50 SC", w_sc), 1158.0f, 140.0f, 15.0f, 1.0f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, TextFormat("%d / %d SC", s_sc_total_coins, next_target), 1158.0f, 140.0f, 15.0f, 1.0f, COLOR_TEXT_INFO);
     }
     Rectangle bar_bg = { 1158.0f, 162.0f, 100.0f, 14.0f };
     DrawRectangleRec(bar_bg, (Color){ 10, 16, 18, 230 });
     DrawRectangle((int)bar_bg.x, (int)bar_bg.y, (int)(bar_bg.width * fill_frac), (int)bar_bg.height,
-                  (w_sc >= 50 || s_sc_hand_num >= 2) ? COLOR_AMBER : COLOR_PHOSPHOR);
+                  (s_sc_total_coins >= next_target || s_sc_hand_num >= 2) ? COLOR_AMBER : COLOR_PHOSPHOR);
     DrawRectangleLinesEx(bar_bg, 1.0f, COLOR_PHOSPHOR_DIM);
 
     int to_next_ten = 10 - (s_sc_total_coins % 10);
@@ -1942,10 +2084,10 @@ static void sc_draw_top_left_timer(void) {
         draw_text_snapped(font_title, TextFormat("+%ds SPEEDCOIN BONUS!", s_sc_last_bonus_sec),
                           24.0f, 94.0f, 15.0f, 1.1f, COLOR_AMBER);
     } else if (s_sc_damage_flash > 0.0f) {
-        draw_text_snapped(font_title, "-1s SYNAPTIC DRAIN! (1000ms)",
+        draw_text_snapped(font_title, "-10s SYNAPTIC DRAIN! (1000ms)",
                           24.0f, 94.0f, 14.0f, 1.0f, COLOR_RED);
     } else {
-        draw_text_snapped(font_body, "-1s / 1000ms IDLE  |  +10s / 10 SC",
+        draw_text_snapped(font_body, "-10s / 1000ms EXPIRY  |  +10s / 10 SC",
                           24.0f, 95.0f, 14.0f, 0.8f, COLOR_TEXT_INFO_DIM);
     }
 }
@@ -1972,24 +2114,24 @@ static void sc_draw_overlay_panels(const GameState *g, Vector2 vm) {
                           "Slow execution degrades the yield; collect 50 units to synthesize 2nd hand.",
                           x, y + 118.0f, 19.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_title,
-                          "Complete as many waves as possible",
+                          "Complette as many waves as possible",
                           x, y + 158.0f, 20.0f, 1.3f, COLOR_AMBER);
 
         DrawLine((int)x, (int)(y + 196.0f), (int)(pr.x + pr.width - 28.0f), (int)(y + 196.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
-                          "- Table deals 2 rows of 7 cards + 8 in hand. Empty rows auto-refill from deck.",
+                          "- Table deals 2 rows of 7 cards + 8 in hand. Each move flips 1 deck card.",
                           x, y + 212.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
                           "- Every 10 Speedcoins adds +10s to the 03:00 clock.",
                           x, y + 240.0f, 17.0f, 1.1f, COLOR_AMBER);
         draw_text_snapped(font_body,
-                          "- Every 1000ms without taking a card drains -1s from the 03:00 clock.",
+                          "- If the 1000ms per-card timer expires before you play, -10s is subtracted.",
                           x, y + 268.0f, 17.0f, 1.1f, COLOR_RED);
         draw_text_snapped(font_body,
-                          "- When your hand runs dry, the clock freezes, KK-ADD-10 combos are counted,",
+                          "- Speedcoins are never spent: every 50 SC (50, 100, 150...) auto-deals a 2nd",
                           x, y + 296.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
         draw_text_snapped(font_body,
-                          "  and all 48 cards reshuffle for the next wave.",
+                          "  hand when Hand 1 is empty. When your hand runs dry, combos are banked.",
                           x, y + 320.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
 
         Rectangle btn = { 824.0f, 488.0f, 196.0f, 44.0f };
@@ -2077,7 +2219,7 @@ static void sc_draw_overlay_panels(const GameState *g, Vector2 vm) {
                           TextFormat("Clock Time Added (+10s / 10):  +%d seconds", s_sc_bonus_seconds_total),
                           x, y + 262.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
         draw_text_snapped(font_body,
-                          TextFormat("Synaptic Drain (-1s / 1000ms): -%d seconds", s_sc_damage_seconds_total),
+                          TextFormat("Synaptic Drain (-10s / 1000ms): -%d seconds", s_sc_damage_seconds_total),
                           x, y + 296.0f, 18.0f, 1.2f, COLOR_RED);
         draw_text_snapped(font_body,
                           "All speed & overlap accuracy metrics have been logged to ATRIUM PLEX.",
@@ -2173,6 +2315,21 @@ void plexus_speedcoin_draw(const BoardAssets *ba, const GameState *g, const Anim
         }
     }
 
+    /* Render 3D stock card flip animation during the automatic post-move deck draw */
+    if (anim && anim->active && anim->type == ANIM_STOCK_FLY) {
+        float t = (anim->duration > 0.0f) ? (anim->elapsed / anim->duration) : 1.0f;
+        if (t > 1.0f) t = 1.0f;
+        float flip_scale = fabsf(cosf(t * 3.14159265f));
+        if (flip_scale < 0.08f) flip_scale = 0.08f;
+        float w = (float)FIELD_CARD_W * flip_scale;
+        Rectangle fr = { anim->current_pos.x + ((float)FIELD_CARD_W - w) * 0.5f,
+                         anim->current_pos.y, w, (float)FIELD_CARD_H };
+        board_draw_card_shadow(fr, sinf(t * 3.14159265f));
+        if (t < 0.5f) board_draw_card_back(ba, fr);
+        else          board_draw_card(ba, anim->card_id, fr);
+        board_draw_card_glow(fr, 0.9f);
+    }
+
     /* Highlight matching cards when click-selected */
     if (drag && !drag->on && drag->selected > 0 && drag->selected <= g->hand_count[0]) {
         int sel_cid = g->hand[0][drag->selected - 1];
@@ -2193,18 +2350,23 @@ void plexus_speedcoin_draw(const BoardAssets *ba, const GameState *g, const Anim
 
     /* 5. High-Visibility Peripheral 1000ms Synaptic Bar (above player hand) */
     Rectangle syn_bar = { 434.0f, 494.0f, 648.0f, 22.0f };
-    float rem_frac = (s_sc_step == SC_STEP_PLAY) ? fmaxf(0.0f, 1.0f - s_sc_move_timer) : 1.0f;
+    float rem_frac = (s_sc_step == SC_STEP_PLAY)
+                     ? (s_sc_move_expired ? 0.0f : fmaxf(0.0f, 1.0f - s_sc_move_timer))
+                     : 1.0f;
     DrawRectangleRec(syn_bar, COLOR_PANEL_BG);
     Color syn_fill = (rem_frac > 0.5f) ? COLOR_PHOSPHOR : (rem_frac > 0.2f) ? COLOR_AMBER : COLOR_RED;
     if (s_sc_damage_flash > 0.45f) syn_fill = COLOR_RED;
     DrawRectangle((int)syn_bar.x, (int)syn_bar.y, (int)(syn_bar.width * rem_frac), (int)syn_bar.height,
                   (Color){ syn_fill.r, syn_fill.g, syn_fill.b, 175 });
-    ui_draw_panel_border(syn_bar, (s_sc_damage_flash > 0.0f) ? COLOR_RED : COLOR_PHOSPHOR_DIM);
+    ui_draw_panel_border(syn_bar, (s_sc_damage_flash > 0.0f || s_sc_move_expired) ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     int rem_ms = (int)roundf(rem_frac * 1000.0f);
-    draw_text_snapped(font_title,
-                      TextFormat("SYNAPTIC WINDOW: %04d ms   //   WAVE SC: %d / 50", rem_ms, s_sc_wave_coins),
+    int next_synth = (s_sc_hands_synthesized + 1) * 50;
+    const char *syn_lbl = s_sc_move_expired
+        ? TextFormat("SYNAPTIC WINDOW EXPIRED (-10s) — PLAY A CARD   //   SC: %d / %d", s_sc_total_coins, next_synth)
+        : TextFormat("SYNAPTIC WINDOW: %04d ms   //   SC: %d / %d", rem_ms, s_sc_total_coins, next_synth);
+    draw_text_snapped(font_title, syn_lbl,
                       syn_bar.x + 14.0f, syn_bar.y + 3.0f, 15.0f, 1.1f,
-                      (s_sc_damage_flash > 0.0f) ? COLOR_RED : COLOR_TEXT_INFO);
+                      (s_sc_damage_flash > 0.0f || s_sc_move_expired) ? COLOR_RED : COLOR_TEXT_INFO);
 
     /* Mid-table banners for 2nd Hand Synthesis, Row Auto-Refill, and Drop Popup */
     if (s_sc_synth_banner_timer > 0.0f) {

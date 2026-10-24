@@ -44,16 +44,17 @@
     - Deals 2 rows of 7 cards (`14` on the table) + `8` cards in the player's hand (`22` cards dealt, `26` remaining in the stock pile).
     - When either 7-card row is cleared completely, it auto-refills with `7` cards from the stock pile.
     - *(Saved Design Note for Later Months / Variants: **`3 rows × 6 cards = 18 cards`** on the table + `8` in hand = `26` dealt, `22` in stock (`6 + 6 + 8 + 2` unlucky buried cards) — keep in reserve for higher-month escalations.)*
-- **Wave & 2-Hand Cap Loop (No Koi-Koi Deck Flip):**
-  - Pure Hand → Table reflex matching (no automatic stock flip between moves; if a hand card has no match on the table, the player places it onto the table).
-  - **Speedbar (`1000ms` per move):**
-    - Dropping a hand card onto a matching table card within `1000ms` awards **`1..10` Speedcoins** based on drop speed × card overlap accuracy.
-    - **Timer Damage (`-1s`):** Every time the `1000ms` bar drains completely (`1.0s` without taking a card), **`-1 second`** is subtracted from the 3-minute timer.
+- **Wave & 2-Hand Cap Loop (With Automatic Post-Move Deck Draw):**
+  - After each hand card is played onto the `2 × 7` table, **1 card is automatically drawn from the deck** (Koi-Koi style), capturing a matching month on the table if one exists or landing on the table if not (`14` table + `8` Hand 1 + `8` deck draws + `8` Hand 2 + `8` deck draws = `46` cards used, leaving the last `2` unlucky cards in the deck).
+  - **Per-Card Speedbar (`1000ms` per move — No Looping While Idle):**
+    - The `1000ms` bar runs down **once per card**. As long as the card is not played, no new timer starts.
+    - Dropping a hand card onto a matching table card before `1000ms` runs out awards **`1..10` Speedcoins** based on drop speed × card overlap accuracy.
+    - **Timer Damage (`-10s`):** If the `1000ms` bar reaches `0ms` without the player playing a card, **`-10 seconds`** is subtracted once from the 3-minute timer, the bar stays at `0ms`, and the player can only hope the post-move deck draw captures a card; the next `1000ms` timer starts only after the card is played.
     - **Timer Bonus (`+10s`):** Every **10 Speedcoins** earned adds **`+10 seconds`** to the 3-minute timer.
-  - **Synthesizing the 2nd Hand (`50` Speedcoins, Cap at 2 Hands per Wave):**
-    - A wave is capped at **2 Hands maximum** (Hand 1 = `8` cards, optional Hand 2 = `8` cards).
-    - If the player collects **`>= 50` Speedcoins** during Hand 1, playing the 8th card synthesizes **Hand 2 (`+8` cards from the deck)** inside the same wave so captured cards keep accumulating for high-point `KK-ADD-10` combos (leaving the final unreached deck cards as the "unlucky" buried cards of that wave).
-    - If the player collects **`< 50` Speedcoins** in Hand 1, or once Hand 2 runs dry: **Wave Over** → the 3-minute timer freezes, `KK-ADD-10` combos are tallied and banked into Total Score, all 48 cards reshuffle, and the next Wave begins.
+  - **Automatic Cumulative 2nd-Hand Trigger (`50, 100, 150...` Speedcoins, Cap at 2 Hands per Wave):**
+    - Speedcoins are **never spent** and carry over across waves.
+    - Every **50 Speedcoins** earned (`50, 100, 150, 200...`) automatically unlocks a **2nd Hand (`+8` cards from the deck)**, which triggers as soon as Hand 1 is empty (capped at 1 second hand per wave because a single 48-card deck cannot supply a 3rd hand).
+    - When the player's hand runs dry (after Hand 1 if the next `50`-SC threshold wasn't reached, or after Hand 2): **Wave Over** → the 3-minute timer freezes, `KK-ADD-10` combos are tallied and banked into Total Score, all 48 cards reshuffle, and the next Wave begins.
 
 ### Archetype C — Yaku Assembly & Route Spotting *(Tactical Puzzles)*
 - **Setup:** Pre-arranged or semi-random board + hand with a limited number of turns or timer.
