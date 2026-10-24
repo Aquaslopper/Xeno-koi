@@ -27,9 +27,9 @@
   - Save and load Atrium Plex state in `plexsave.txt` directly from `src/ui_plexus.c` using the atomic `.tmp` + `rename()` pattern (leaving protected `src/storage.*` untouched).
   - Add `'plexsave.txt'` to `web/shell.html`'s `localStorage` file list so desktop and Web/WASM builds both persist on `SAVE & BACK`, `ESC`, and Main Menu `SAVE`.
   - Persist: `finished_cards_mask` (48-bit), selected month/slot, Plexus telemetry counters (speedbar drops, time sum, overlap sum, best streak, lifetime minipoints, audio triggers/peak/hold), and logfile progress.
-- [ ] **2. Bottom Bar Controls (`SAVE & BACK` | `LOGFILE` | `SPEEDCOIN` | `ACTION CARD` | `TRAINING`):**
-  - **Locked Minigame Buttons (`SPEEDCOIN`, `ACTION CARD`):** Render locked buttons in a distinct **red locked state** (dim red fill/border + red label via `COLOR_RED` tones) so the player clearly sees they are locked until unlocked.
-  - **`TRAINING` Placeholder:** Keep `TRAINING` as an explicit non-playable beta placeholder for now — remove the current behavior that launches a real Campaign match and leaks Campaign coins/stats.
+- [x] **2. Bottom Bar Controls (`SAVE & BACK` | `LOGFILE` | `SPEEDCOIN` | `ACTION CARD` | `TRAINING`):**
+  - **Locked Minigame Buttons (`SPEEDCOIN`, `ACTION CARD`):** Rendered in a smooth, non-flashy dark-wine / muted crimson locked state (`draw_plexus_locked_btn()`) until unlocked.
+  - **`TRAINING` Normal Non-Campaign Match:** Clicking `TRAINING` displays the top briefing panel with placeholder info and the `START` button underneath, which starts a normal match using Option menu settings with no campaign awards (no clearance coins, sector unlocks, or campaign banners).
 - [ ] **3. Spine Briefings & Month 02 Alignment:**
   - Month 01 (`January // Pine`): Tutorial spine (Card 4 playable & replayable; Cards 1–3 beta lock-on-start until built).
   - Month 02 (`February // Plum`): Assign as the upcoming **Speedcoin** minigame month (`KK-ADD-10`), replacing outdated Month 04 gating assumptions once built.
@@ -38,12 +38,12 @@
 
 ## Phase 2 — Clean Rebuild of Month 01 Tutorial on the Real Table
 
-- [ ] **Use `SCREEN_GAME` Directly Without Side Effects:**
-  - Drive a real 1-round `SCREEN_GAME` deal without copying table rendering or input handling.
-  - Isolate tutorial runs from `settings.difficulty` (`MASTER`/`DEUS` turn timers and Deus setting overrides), Campaign stats/coins, and replay recording while restoring user `settings` untouched on exit.
-- [ ] **Fix UI Coordinates & Completion Guards:**
-  - Match real `ui_screens.c` Decide hitboxes (`{280, 520, 320, 60}` and `{680, 520, 320, 60}`) and real `ui_board.c` left capture-lane bounds (`x = 12, w = 255`).
-  - Correct inaccurate rules/button text (4 cards per monthly suit with distinct ranks, `SHOBU` label) and only award completion when the tutorial round is properly completed.
+- [x] **Use `SCREEN_GAME` Directly Without Side Effects:**
+  - Drive a real 1-round `SCREEN_GAME` deal on `RULESET_KK_ADD_10` and `DIFFICULTY_EASY` without copying table rendering or input handling.
+  - Isolate tutorial runs from `settings.difficulty` (`MASTER`/`DEUS` turn timers and Deus setting overrides), Campaign stats/coins, replay recording, and Speedbar/Audio FX telemetry while leaving user `settings` and `DEUS` untouched.
+- [x] **Fix UI Coordinates & Completion Guards:**
+  - Match real `ui_screens.c` Decide hitboxes (`{280, 520, 320, 60}` and `{680, 520, 320, 60}`) and real `ui_board.c` left capture-lane bounds (`{9, 505, 261, 206}` around `x = 12, w = 255`).
+  - Correct inaccurate or overflowing rules/button text inside the 5 existing pop-up panels (4 cards per monthly suit sharing the same plant, `KOI-KOI (CONTINUE)` / `SHOBU (BANK & END)` labels) and only award completion when the tutorial round finishes.
 
 ---
 
