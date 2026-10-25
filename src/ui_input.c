@@ -189,10 +189,12 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
         int cid = g->hand[0][drag->selected - 1], matches = 0, hit = -1;
         for (int i = 0; i < g->field_count; i++) {
             int f = g->field[i];
-            if (CARDS[f].month == CARDS[cid].month) matches++;
+            if (!board_is_blind_field_card(f) && CARDS[f].month == CARDS[cid].month) matches++;
             if (CheckCollisionPointRec(vm, board_get_field_card_rect_of(g, f))) hit = f;
         }
-        if ((hit >= 0 && CARDS[hit].month == CARDS[cid].month) ||
+        int hit_blind = (hit >= 0 && board_is_blind_field_card(hit));
+        if ((hit >= 0 && !hit_blind && CARDS[hit].month == CARDS[cid].month) ||
+            hit_blind ||
             (!matches && hit < 0 && CheckCollisionPointRec(vm, board_get_field_rect()))) {
             drag->idx = drag->selected - 1;
             Rectangle slot = board_get_hand_card_rect(drag->idx, g->hand_count[0], 0);
@@ -266,9 +268,10 @@ void input_draw_selection(const GameState *g, const DragState *drag) {
     Rectangle selected_card = motion_get_rect(cid);
     board_draw_card_glow(selected_card, 1.0f);
     ui_theme_draw_panel_flares_keyed(selected_card, cid + 1);
+    if (board_is_action_distraction_high()) return;
     for (int i = 0; i < g->field_count; i++) {
         int f = g->field[i];
-        if (CARDS[f].month == CARDS[cid].month) {
+        if (!board_is_blind_field_card(f) && CARDS[f].month == CARDS[cid].month) {
             Rectangle matching_card = motion_get_rect(f);
             board_draw_card_glow(matching_card, 1.0f);
             ui_theme_draw_panel_flares_keyed(matching_card, f + 1);
