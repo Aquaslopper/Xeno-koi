@@ -172,7 +172,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
     float controls[3] = { (settings & 1023u) / 1000.0f, ((settings >> 10) & 1023u) / 1000.0f, (settings >> 20) / 1000.0f };
 
     for (unsigned int f = 0; f < frames; f++) {
-        float rate = (target > s_reverb_cur) ? 0.0004f : 0.0012f;
+        float rate = (target > s_reverb_cur) ? 0.0004f : 0.0008f;
         s_reverb_cur += (target - s_reverb_cur) * rate;
         if (fabsf(target - s_reverb_cur) < 0.0001f) s_reverb_cur = target;
         float rev = clamp_range(s_reverb_cur, 0.0f, 1.0f);
