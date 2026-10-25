@@ -16,6 +16,12 @@ void speed_bar_reset(void);                       /* new match: clear everything
 void speed_bar_update(const GameState *g, float dt, int input_unlocked);
 void speed_bar_consume(void);                     /* hand play resolved with no grade */
 void speed_bar_grade(float cover);                /* capture graded: cover is 0..1 */
+void speed_bar_consume_visual(void);              /* non-KK-ADD-10 miss: break visual serie */
+void speed_bar_grade_visual(float cover);         /* non-KK-ADD-10 match: stage hit popup */
+void speed_hit_popup_commit(float x, float y);    /* spawn Gold+Magenta hit numbers at card top */
+void speed_hit_popup_discard(void);               /* discard staged hit popup (2-match cancel) */
+void speed_hit_popups_update(float dt);           /* advance floating hit numbers (incl. hitlag) */
+void speed_hit_popups_draw(void);                 /* render floating Gold+Magenta hit numbers */
 int  speed_bar_apply_match_bonus(GameState *g);   /* +total/10 to the human; returns the bonus */
 int  speed_bar_total(void);                       /* minipoints earned this match */
 void speed_bar_draw(void);                        /* bar behind, gold numbers over it */

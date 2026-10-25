@@ -64,6 +64,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
     Vector2 cap_starts[4];
     cap_starts[0] = drag->pos;
     Vector2 player_cap_dest = { 80.0f, 570.0f };
+    Vector2 hit_pos = { -1.0f, -1.0f };
 
     if (mc == 0) {
         printf("DROP centre=(%d,%d) -> PLACE hand[%d]=%s\n",
@@ -76,6 +77,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
         fflush(stdout);
         cap_starts[1] = board_get_card_field_pos(g, matches[0]);
+        hit_pos = cap_starts[1];
         grade_cover = drop_cover(g, c, matches[0]);
         engine_play_hand(g, card_id, -1);
         replay_rec_play(0, card_id, -1);
@@ -87,11 +89,13 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
         printf("DROP centre=(%d,%d) -> CAPTURE ALL FOUR for %s\n",
                (int)c.x, (int)c.y, CARDS[card_id].name);
         fflush(stdout);
+        int best_k = 0;
         for (int k = 0; k < 3; k++) {
             cap_starts[k + 1] = board_get_card_field_pos(g, matches[k]);
+            float ck = drop_cover(g, c, matches[k]);
+            if (k == 0 || ck > grade_cover) { grade_cover = ck; best_k = k; }
         }
-        grade_cover = fmaxf(fmaxf(drop_cover(g, c, matches[0]), drop_cover(g, c, matches[1])),
-                            drop_cover(g, c, matches[2]));
+        hit_pos = cap_starts[best_k + 1];
         engine_play_hand(g, card_id, -1);
         replay_rec_play(0, card_id, -1);
         if (g->last_captured_count > 0) {
@@ -118,6 +122,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                    (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[0]);
+            hit_pos = cap_starts[1];
             grade_cover = drop_cover(g, c, matches[0]);
             engine_play_hand(g, card_id, matches[0]);
             replay_rec_play(0, card_id, matches[0]);
@@ -130,6 +135,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
                    (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[1]].name);
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[1]);
+            hit_pos = cap_starts[1];
             grade_cover = drop_cover(g, c, matches[1]);
             engine_play_hand(g, card_id, matches[1]);
             replay_rec_play(0, card_id, matches[1]);
@@ -149,6 +155,12 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
     if (g->ruleset == RULESET_KK_ADD_10) {
         if (grade_cover >= 0.0f) speed_bar_grade(grade_cover);
         else speed_bar_consume();
+    } else {
+        if (grade_cover >= 0.0f) speed_bar_grade_visual(grade_cover);
+        else speed_bar_consume_visual();
+    }
+    if (hit_pos.x >= 0.0f && g->last_captured_count > 0) {
+        speed_hit_popup_commit(hit_pos.x + 38.0f, hit_pos.y);
     }
 }
 
