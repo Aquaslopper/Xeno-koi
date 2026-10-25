@@ -53,35 +53,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm);
 int board_check_dealer_select_click(const GameState *g, Vector2 vm);
 
-/* Action-card audio effect telemetry getters and persistence hook for Atrium Plex Logfile */
-typedef enum {
-    ACTION_SYM_SKULL = 0,
-    ACTION_SYM_HAND,
-    ACTION_SYM_REV_ARROW,
-    ACTION_SYM_ONE_EYE,
-    ACTION_SYM_GOLD_COIN,
-    ACTION_SYM_COUNT
-} ActionCardSymbol;
-
+/* Audio FX telemetry getters and thin Action Card input/blindness mirror */
 int   board_get_audio_action_triggers(void);
 float board_get_audio_peak_synergy(void);
 float board_get_audio_full_hold_seconds(void);
 void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec);
-int   board_get_action_symbols_fired(void);
-int   board_get_action_lifetime_time(void);
-void  board_set_action_card_telemetry(int symbols_fired, int lifetime_time);
-void  board_set_action_card_mode(int active, float music_level);
-void  board_reset_action_card_match(void);
-void  board_advance_action_card_round(void);
-int   board_get_action_ceiling_count(void);
-int   board_consume_action_ceiling_count(void);
-int   board_claim_action_ceiling_count(int who);
-int   board_get_action_round_time_stats(int *out_you, int *out_you_pts, int *out_cpu, int *out_cpu_pts, int *out_meter);
-int   board_get_action_match_time_stats(int *out_you, int *out_you_pts, int *out_cpu, int *out_cpu_pts, int *out_meter);
-int   board_get_action_symbol(int *out_armed);
-int   board_take_pending_action_symbol(void);
-void  board_draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash);
-void  board_trigger_action_blind_cards(const GameState *g, uint32_t *rng_state, int count);
+void  board_sync_action_card_mask(uint64_t blind_mask, int distraction_high);
 int   board_is_blind_field_card(int card_id);
 int   board_is_action_distraction_high(void);
 
