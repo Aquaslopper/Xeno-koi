@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Global player hand-card match hitlag pop-up numbers (Gold Speedcoin + Magenta Accuracy) & card-slam SFX (25 October 2026)
+
+- Added action-RPG floating hit-number pop-ups and a dedicated card-slam SFX hook across all rulesets and game modes (`src/ui_speed.h`, `src/ui_speed.c`, `src/ui_input.c`, `src/ui_board.c`, `src/ui_main.c`):
+  - **Player Hand Match Pop-Ups Only (`src/ui_input.c`, `src/ui_speed.*`, `src/ui_main.c`):** Sampled the struck field card's visual coordinates (`board_get_card_field_pos`) before `engine_play_hand` / `engine_pick_hand_choice` removes it from `field[]`, spawning floating **Gold** Speedcoin (`+%d`) and **Magenta** Accuracy (`%d%%`) numbers strictly on player hand-card matches (including confirmed `PHASE_HAND_CHOICE` picks, discarded cleanly on `CANCEL`; never triggered on CPU plays, stock draws, or unmatched drops).
+  - **All-Modes Visual Grading Without Telemetry Side Effects (`src/ui_speed.*`):** Added `speed_bar_grade_visual()` and `speed_bar_consume_visual()` so non-`KK-ADD-10` rulesets (`Nintendo`, `FudaWiki`, `Tournament`, `Yakuza` / `Deus`) compute the exact same Speedcoin + serie gain and overlap percentage for the hitlag pop-up without mutating `KK-ADD-10` match bonus points (`s_total`) or `LOGFILE` Speedbar telemetry.
+  - **Hitlag-Synced Rise & Fade (`src/ui_speed.c`, `src/ui_board.c`, `src/ui_main.c`):** Updated active pop-ups before the `g.hitlag_timer` freeze branch (`speed_hit_popups_update(dt)`) and rendered them at the top of `board_draw_table` (`speed_hit_popups_draw()`), so the Gold and Magenta numbers pop in with an impact flash and scale spring right inside the `0.15s` cinematic hitlag, float smoothly upward above the struck card, and fade out cleanly.
+  - **Card-Slam Match SFX Hook (`src/ui_main.c`):** Added `init_card_slam_sfx()` / `play_card_slam_sfx()` loading custom `assets/sfx/card_slam.wav` (or `.ogg`, with a `0.11s` procedural snap+thud fallback until the asset file is placed in `assets/sfx/`) and triggered it at the exact moment a player hand card slams onto a matching field card, with zero edits to locked `src/ui_audio.c`.
+
+#### Checked
+- `gcc -std=c99 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, dedicated hit-popup behavioral harness (Gold `+10` + Magenta `100%` spawn on match, monotonic upward motion inside `0.15s` hitlag, clean vanish at `0.78s`, zero `s_total`/telemetry side-effects on non-`KK-ADD-10`, zero pop-ups on unmatched drops, `2-MATCH CHOICE` stage + cancel discard), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_input.c`, `src/ui_board.c`, `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/ui_plexus.c` (`SPEEDCOIN_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex Phase 3 Step 4b: unscripted Speedcoin Tutorial on Month 01 `slot 2` (`01-P1 Plain`) (25 October 2026)
 
 - Implemented the unscripted Speedcoin Tutorial on Month 01's second plain card (`slot == 2`, `cid == 2`, `[01-P1 Plain]`) across `src/ui_plexus.h`, `src/ui_plexus.c`, and `src/ui_main.c` (`SPEEDCOIN_UNLOCKED_FOR_TESTING` kept at `1` per maintainer directive):

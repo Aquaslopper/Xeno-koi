@@ -1,8 +1,22 @@
 #include "ui_speed.h"
 #include "ui_theme.h"
 #include <math.h>
+#include <string.h>
 
 extern Font font_body;
+
+#define HIT_POPUP_MAX 4
+#define HIT_POPUP_DUR 0.78f
+
+typedef struct {
+    int   active;
+    float x, y, elapsed;
+    int   mp, acc;
+} HitPopup;
+
+static HitPopup s_popups[HIT_POPUP_MAX];
+static int s_vis_streak;
+static int s_pending_popup_ready, s_pending_popup_mp, s_pending_popup_acc;
 
 #define SPEED_BAR_SECONDS 1.0f
 #define SPEED_BAR_RECT    (Rectangle){ 1160.0f, 662.0f, 112.0f, 40.0f }
@@ -64,9 +78,11 @@ void speed_bar_reset(void) {
     s_armed = 0; s_started = 0;
     s_flash = 0.0f; s_pulse = 0.0f; s_ghost = 0.0f;
     s_chain = 0.0f; s_chain_vis = 0.0f; s_time = 0.0f;
-    s_total = 0; s_streak = 0;
+    s_total = 0; s_streak = 0; s_vis_streak = 0;
     s_last_round = -1; s_bonus_applied = 0;
     s_sc_turn_drained = 0;
+    s_pending_popup_ready = 0;
+    memset(s_popups, 0, sizeof(s_popups));
 }
 
 void speed_mode_begin(void) {
@@ -92,7 +108,9 @@ void speed_mode_begin(void) {
 void speed_mode_begin_wave(int wave_num) {
     s_remaining = 0.0f; s_frac = 0.0f;
     s_armed = 0; s_started = 0;
-    s_streak = 0; s_chain = 0.0f;
+    s_streak = 0; s_vis_streak = 0; s_chain = 0.0f;
+    s_pending_popup_ready = 0;
+    memset(s_popups, 0, sizeof(s_popups));
     s_sc_clock_live = 0;
     s_sc_wave = (wave_num > 0) ? wave_num : 1;
     s_sc_wave_start_mp = s_total;
@@ -183,7 +201,7 @@ static void award(int mp) {
 void speed_bar_update(const GameState *g, float dt, int input_unlocked) {
     if (!g) return;
     if (g->phase == PHASE_DEALER_SELECT) { speed_bar_reset(); return; }
-    if (g->current_round != s_last_round) { s_last_round = g->current_round; s_streak = 0; s_chain = 0.0f; }
+    if (g->current_round != s_last_round) { s_last_round = g->current_round; s_streak = 0; s_vis_streak = 0; s_chain = 0.0f; }
     s_time += dt;
     if (s_flash > 0.0f) { s_flash -= dt; if (s_flash < 0.0f) s_flash = 0.0f; }
     if (s_pulse > 0.0f) { s_pulse -= dt; if (s_pulse < 0.0f) s_pulse = 0.0f; }
@@ -236,7 +254,8 @@ void speed_bar_consume(void) {
     s_frac = s_sc_active ? 0.0f : (s_remaining / SPEED_BAR_SECONDS);
     if (s_sc_active) s_remaining = 0.0f;
     s_armed = 0; s_started = 0;
-    s_streak = 0; s_chain = 0.0f;
+    s_streak = 0; s_vis_streak = 0; s_chain = 0.0f;
+    s_pending_popup_ready = 0;
     if (s_sc_active && was_started) {
         s_sc_miss_hits++;
         if (s_sc_miss_hits >= 3) s_sc_reverse_deck = 1;
@@ -247,11 +266,23 @@ void speed_bar_consume(void) {
     }
 }
 
+static int compute_drop_mp(float cover, float *out_clamped_cover) {
+    float c = cover < 0.0f ? 0.0f : (cover > 1.0f ? 1.0f : cover);
+    if (out_clamped_cover) *out_clamped_cover = c;
+    float half = SPEED_BAR_SECONDS * 0.5f;
+    float s = (s_remaining >= half) ? 1.0f : s_remaining / half;
+    float a = (cover >= 0.80f) ? 1.0f : cover / 0.80f;
+    if (s <= 0.0f) a = 0.0f;
+    int mp = (int)lroundf(10.0f * s * a);
+    return (mp > 10) ? 10 : ((mp < 0) ? 0 : mp);
+}
+
 void speed_bar_grade(float cover) {
     float elapsed = SPEED_BAR_SECONDS - s_remaining;
     if (elapsed < 0.0f) elapsed = 0.0f;
     if (elapsed > SPEED_BAR_SECONDS) elapsed = SPEED_BAR_SECONDS;
-    float clamped_cover = cover < 0.0f ? 0.0f : (cover > 1.0f ? 1.0f : cover);
+    float clamped_cover = 0.0f;
+    int mp = compute_drop_mp(cover, &clamped_cover);
     if (s_sc_active) {
         if (cover > 0.0f) {
             s_sc_miss_hits = 0;
@@ -267,16 +298,54 @@ void speed_bar_grade(float cover) {
     s_stat_drops++;
     s_stat_time_sum += elapsed;
     s_stat_cover_sum += clamped_cover;
-    float half = SPEED_BAR_SECONDS * 0.5f;
-    float s = (s_remaining >= half) ? 1.0f : s_remaining / half;
-    float a = (cover >= 0.80f) ? 1.0f : cover / 0.80f;
-    if (s <= 0.0f) a = 0.0f;
-    int mp = (int)lroundf(10.0f * s * a);
-    if (mp > 10) mp = 10;
-    if (mp < 0) mp = 0;
     s_frac = s_remaining / SPEED_BAR_SECONDS;
     s_armed = 0; s_started = 0;
+    int before = s_total;
     award(mp);
+    s_pending_popup_mp = s_total - before;
+    s_pending_popup_acc = (int)lroundf(clamped_cover * 100.0f);
+    s_pending_popup_ready = 1;
+}
+
+void speed_bar_consume_visual(void) {
+    s_armed = 0; s_started = 0; s_vis_streak = 0; s_pending_popup_ready = 0;
+}
+
+void speed_bar_grade_visual(float cover) {
+    float clamped_cover = 0.0f;
+    int mp = compute_drop_mp(cover, &clamped_cover);
+    int gained = mp;
+    if (mp >= 10) {
+        s_vis_streak++;
+        gained = 10 + ((s_vis_streak >= 2) ? 10 : 0) + ((s_vis_streak == 2) ? 10 : 0);
+    } else s_vis_streak = 0;
+    s_armed = 0; s_started = 0;
+    s_pending_popup_mp = gained;
+    s_pending_popup_acc = (int)lroundf(clamped_cover * 100.0f);
+    s_pending_popup_ready = 1;
+}
+
+void speed_hit_popup_commit(float x, float y) {
+    if (!s_pending_popup_ready) return;
+    int slot = 0;
+    for (int i = 0; i < HIT_POPUP_MAX; i++) {
+        if (!s_popups[i].active) { slot = i; break; }
+        if (s_popups[i].elapsed > s_popups[slot].elapsed) slot = i;
+    }
+    if (x < 56.0f) x = 56.0f; else if (x > 1140.0f) x = 1140.0f;
+    if (y < 64.0f) y = 64.0f; else if (y > 660.0f) y = 660.0f;
+    s_popups[slot] = (HitPopup){ 1, x, y, 0.0f, s_pending_popup_mp, s_pending_popup_acc };
+    s_pending_popup_ready = 0;
+}
+
+void speed_hit_popup_discard(void) { s_pending_popup_ready = 0; }
+
+void speed_hit_popups_update(float dt) {
+    for (int i = 0; i < HIT_POPUP_MAX; i++) {
+        if (!s_popups[i].active) continue;
+        s_popups[i].elapsed += dt;
+        if (s_popups[i].elapsed >= HIT_POPUP_DUR) s_popups[i].active = 0;
+    }
 }
 
 int speed_bar_graded_drops(void) { return s_stat_drops; }
@@ -395,5 +464,47 @@ void speed_bar_draw(void) {
             DrawTextEx(font_body, txt, pos, fsz, sp, (Color){ 255, 196, 38, (unsigned char)fminf(255.0f, (36.0f + 78.0f * serie + 125.0f * flash) * shim) });
             EndBlendMode();
         }
+    }
+}
+
+static void draw_hit_num(const char *txt, float cx, float cy, float fsz, Color core, Color hi, Color glow, Color outl, float flash, float alpha) {
+    static const float ox[8] = { -1.0f, 1.0f, 0.0f, 0.0f, -0.72f, 0.72f, -0.72f, 0.72f };
+    static const float oy[8] = { 0.0f, 0.0f, -1.0f, 1.0f, -0.72f, -0.72f, 0.72f, 0.72f };
+    float sp = 1.2f;
+    Vector2 ts = MeasureTextEx(font_body, txt, fsz, sp);
+    Vector2 pos = { cx - ts.x * 0.5f, cy - 0.529f * fsz };
+    outl.a = (unsigned char)((float)outl.a * alpha);
+    for (int i = 0; i < 8; i++)
+        DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 1.6f, pos.y + oy[i] * 1.6f }, fsz, sp, outl);
+    BeginBlendMode(BLEND_ADDITIVE);
+    Color gcol = glow;
+    gcol.a = (unsigned char)fminf(255.0f, (46.0f + 62.0f * flash) * alpha);
+    for (int i = 0; i < 8; i++)
+        DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 2.1f, pos.y + oy[i] * 2.1f }, fsz, sp, gcol);
+    EndBlendMode();
+    Color fill = mix_color(core, hi, flash);
+    fill.a = (unsigned char)(255.0f * alpha);
+    DrawTextEx(font_body, txt, pos, fsz, sp, fill);
+}
+
+void speed_hit_popups_draw(void) {
+    for (int i = 0; i < HIT_POPUP_MAX; i++) {
+        if (!s_popups[i].active) continue;
+        float t = s_popups[i].elapsed, u = t / HIT_POPUP_DUR;
+        if (u < 0.0f || u >= 1.0f) continue;
+        float inv = 1.0f - u;
+        float rise = 62.0f * (1.0f - inv * inv * inv);
+        float pop = (t < 0.11f) ? (1.0f + 0.34f * (1.0f - t / 0.11f) * (1.0f - t / 0.11f)) : 1.0f;
+        float flash = (t < 0.14f) ? (1.0f - t / 0.14f) : 0.0f;
+        float alpha = (u < 0.05f) ? (u / 0.05f) : ((u > 0.55f) ? ((1.0f - u) / 0.45f) : 1.0f);
+        alpha = alpha * (2.0f - alpha);
+        float cy = s_popups[i].y - 10.0f - rise;
+        float mp_sz = ((s_popups[i].mp >= 20) ? 28.0f : 25.0f) * pop;
+        draw_hit_num(TextFormat("+%d", s_popups[i].mp), s_popups[i].x, cy - 13.0f, mp_sz,
+                     (Color){ 255, 206, 40, 255 }, (Color){ 255, 250, 205, 255 },
+                     (Color){ 255, 168, 16, 255 }, (Color){ 18, 10, 0, 232 }, flash, alpha);
+        draw_hit_num(TextFormat("%d%%", s_popups[i].acc), s_popups[i].x, cy + 12.0f, 19.5f * pop,
+                     (Color){ 255, 58, 214, 255 }, (Color){ 255, 212, 248, 255 },
+                     (Color){ 255, 24, 186, 255 }, (Color){ 20, 0, 18, 232 }, flash, alpha);
     }
 }

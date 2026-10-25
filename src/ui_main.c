@@ -61,8 +61,8 @@ static int last_overlay_paused = 0, hovered_idx = -1, frame_count = 0, human_tur
 static ScreenState transition_target_screen = SCREEN_START, screen = SCREEN_START;
 static GamePhase last_overlay_phase = PHASE_NONE, prev_round_phase = PHASE_NONE;
 static AudioAssets audio;
-static Sound sfx_banner;
-static int has_sfx_banner = 0;
+static Sound sfx_banner, sfx_card_slam;
+static int has_sfx_banner = 0, has_sfx_card_slam = 0;
 static RenderTexture2D canvas, overlay_canvas;
 static Shader post_shader;
 static BoardAssets assets;
@@ -187,6 +187,42 @@ static void play_banner_sfx(void) {
     if (!has_sfx_banner || audio.sfx_volume <= 0.0f) return;
     SetSoundVolume(sfx_banner, audio.sfx_volume);
     PlaySound(sfx_banner);
+}
+
+static void init_card_slam_sfx(void) {
+    if (!IsAudioDeviceReady()) return;
+    const char *dir = GetApplicationDirectory() ? GetApplicationDirectory() : "";
+    const char *cands[4] = {
+        "assets/sfx/card_slam.wav", TextFormat("%s/assets/sfx/card_slam.wav", dir),
+        "assets/sfx/card_slam.ogg", TextFormat("%s/assets/sfx/card_slam.ogg", dir)
+    };
+    for (int i = 0; i < 4; i++) {
+        if (FileExists(cands[i])) {
+            sfx_card_slam = LoadSound(cands[i]);
+            has_sfx_card_slam = (sfx_card_slam.stream.buffer != NULL);
+            if (has_sfx_card_slam) return;
+        }
+    }
+    enum { SR = 44100, FRAMES = 4851 }; /* 0.11 s fallback impact until assets/sfx/card_slam.wav is added */
+    static float pcm[FRAMES * 2];
+    for (int i = 0; i < FRAMES; i++) {
+        float t = (float)i / (float)SR;
+        float thud = expf(-t * 38.0f) * sinf(6.2831853f * (165.0f * expf(-t * 26.0f) + 58.0f) * t);
+        float snap = expf(-t * 170.0f) * (0.55f * sinf(6.2831853f * 1420.0f * t) + 0.45f * sinf(6.2831853f * 2680.0f * t));
+        float s = (0.72f * thud + 0.34f * snap) * 0.42f;
+        pcm[i * 2 + 0] = s;
+        pcm[i * 2 + 1] = s;
+    }
+    Wave w = { .frameCount = FRAMES, .sampleRate = SR, .sampleSize = 32, .channels = 2, .data = pcm };
+    sfx_card_slam = LoadSoundFromWave(w);
+    has_sfx_card_slam = (sfx_card_slam.stream.buffer != NULL);
+}
+
+static void play_card_slam_sfx(void) {
+    if (!has_sfx_card_slam || audio.sfx_volume <= 0.0f) return;
+    float v = fminf(1.0f, fmaxf(0.40f, audio.sfx_volume * 1.90f));
+    SetSoundVolume(sfx_card_slam, v);
+    PlaySound(sfx_card_slam);
 }
 
 static int pick_match_track(int next) {
@@ -732,6 +768,7 @@ static void update_draw_frame(void) {
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
                 }
             } else if (!is_paused && !pause_toggled && !restarted_now) {
+                speed_hit_popups_update(dt);
                 int tut_settled = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
                 int tut_clicked = 0;
                 int tut_frozen = plexus_tutorial_update_and_click(&g, &anim, tut_settled, overlay_alpha,
@@ -948,7 +985,7 @@ static void update_draw_frame(void) {
                                     if (drag.selected > 0 && g.hand[0][drag.selected - 1] != allowed_cid) drag.selected = 0;
                                 }
                                 if (g.hand_count[0] < hand_before) {
-                                    if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                    if (g.last_captured_count > 0) { play_card_slam_sfx(); audio_play_capture(&audio); }
                                     else audio_play_drop(&audio);
                                 } else if (g.phase == PHASE_HAND_CHOICE) {
                                     audio_play_drop(&audio);
@@ -957,8 +994,15 @@ static void update_draw_frame(void) {
                         }
                         else if (g.phase == PHASE_HAND_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
-                            if (res == 1) { audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio); }
-                            else if (res == 2) { audio_play_click(&audio); speed_bar_consume(); engine_cancel_hand_choice(&g); replay_rec_cancel(0); }
+                            if (res == 1) {
+                                Vector2 hp = board_get_card_field_pos(&g, tid);
+                                audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid);
+                                if (g.last_captured_count > 0) { play_card_slam_sfx(); audio_play_capture(&audio); speed_hit_popup_commit(hp.x + 38.0f, hp.y); }
+                            } else if (res == 2) {
+                                audio_play_click(&audio);
+                                if (g.ruleset == RULESET_KK_ADD_10) speed_bar_consume(); else speed_bar_consume_visual();
+                                engine_cancel_hand_choice(&g); replay_rec_cancel(0);
+                            }
                         } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
                                 audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
@@ -1271,6 +1315,7 @@ int main(int argc, char **argv) {
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
     init_banner_sfx();
+    init_card_slam_sfx();
     audio_set_effects(settings.effect_chorus, settings.effect_bass, settings.effect_reverb);
 #ifndef __EMSCRIPTEN__
     if (settings.music_folder[0]) audio_set_music_folder(&audio, settings.music_folder);
@@ -1322,6 +1367,7 @@ int main(int argc, char **argv) {
 #endif
 
     plexus_save();
+    if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
