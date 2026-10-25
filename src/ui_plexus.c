@@ -22,6 +22,8 @@ typedef struct {
     char line1[96];
     char line2[96];
     char line3[96];
+    int  read;
+    int  viewed_open;
 } PlexusLogEntry;
 
 static Texture2D s_plexus_bg = { 0 };
@@ -83,6 +85,29 @@ static PlexusLogEntry s_log_entries[PLEXUS_LOG_MAX];
 static int s_log_count  = 0;
 static int s_log_cursor = 0; /* 0 = newest (last given to player), increases toward older entries */
 static int s_log_seeded = 0;
+static unsigned int s_last_briefing_hash = 0u;
+static int s_briefing_hash_ready = 0;
+static float s_briefing_glow = 0.0f;
+
+static void commit_viewed_log_entries(int except_idx) {
+    for (int i = 0; i < s_log_count; i++) {
+        if (i != except_idx && s_log_entries[i].viewed_open) {
+            s_log_entries[i].read = 1;
+            s_log_entries[i].viewed_open = 0;
+        }
+    }
+}
+
+static unsigned int hash_briefing_line(unsigned int h, const char *s) {
+    if (!s) return h;
+    while (*s) {
+        h ^= (unsigned int)(unsigned char)(*s++);
+        h *= 16777619u;
+    }
+    h ^= 255u;
+    h *= 16777619u;
+    return h;
+}
 
 static const char * const k_month_names[12] = {
     "JANUARY // PINE",
@@ -147,6 +172,7 @@ static void copy_clean(char *dst, size_t cap, const char *src) {
 
 static void plexus_log_push(const char *tag, const char *title,
                             const char *l1, const char *l2, const char *l3) {
+    commit_viewed_log_entries(-1);
     if (s_log_count < PLEXUS_LOG_MAX) {
         s_log_count++;
     }
@@ -158,6 +184,8 @@ static void plexus_log_push(const char *tag, const char *title,
     copy_clean(s_log_entries[0].line1, sizeof(s_log_entries[0].line1), l1);
     copy_clean(s_log_entries[0].line2, sizeof(s_log_entries[0].line2), l2);
     copy_clean(s_log_entries[0].line3, sizeof(s_log_entries[0].line3), l3);
+    s_log_entries[0].read = 0;
+    s_log_entries[0].viewed_open = 0;
     s_log_cursor = 0;
 }
 
@@ -258,8 +286,12 @@ void plexus_load(void) {
     s_log_count = 0;
     s_log_cursor = 0;
     s_log_seeded = 0;
+    s_briefing_hash_ready = 0;
+    s_briefing_glow = 0.0f;
 
     int drops = 0, best_strk = 0, life_mp = 0, aud_trig = 0;
+    unsigned long log_read_mask = 0UL;
+    int has_read_mask = 0;
     float t_sum = 0.0f, c_sum = 0.0f, aud_peak = 0.0f, aud_hold = 0.0f;
     speed_bar_set_telemetry(0, 0.0f, 0.0f, 0, 0);
     board_set_audio_telemetry(0, 0.0f, 0.0f);
@@ -299,6 +331,9 @@ void plexus_load(void) {
             } else if (strcmp(k, "selected_slot") == 0) {
                 int sl = atoi(v);
                 if (sl >= 0 && sl < 4) s_selected_slot = sl;
+            } else if (strcmp(k, "log_read_mask") == 0) {
+                log_read_mask = strtoul(v, NULL, 10);
+                has_read_mask = 1;
             } else if (strcmp(k, "speed_drops") == 0) {
                 int d = atoi(v);
                 if (d >= 0) drops = d;
@@ -327,6 +362,12 @@ void plexus_load(void) {
         }
     }
     fclose(f);
+    if (has_read_mask) {
+        for (int i = 0; i < s_log_count && i < 32; i++) {
+            s_log_entries[i].read = (int)((log_read_mask >> i) & 1UL);
+            s_log_entries[i].viewed_open = 0;
+        }
+    }
     if (drops == 0) { t_sum = 0.0f; c_sum = 0.0f; }
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
@@ -335,6 +376,11 @@ void plexus_load(void) {
 
 void plexus_save(void) {
     ensure_log_seeded();
+    commit_viewed_log_entries(-1);
+    unsigned long log_read_mask = 0UL;
+    for (int i = 0; i < s_log_count && i < 32; i++) {
+        if (s_log_entries[i].read) log_read_mask |= (1UL << i);
+    }
     char target[512], tmp[520];
     snprintf(target, sizeof(target), "%s", resolve_asset_path("plexsave.txt"));
     snprintf(tmp, sizeof(tmp), "%s.tmp", target);
@@ -362,6 +408,7 @@ void plexus_save(void) {
             "finished_cards_mask=%llu\n"
             "selected_month=%d\n"
             "selected_slot=%d\n"
+            "log_read_mask=%lu\n"
             "speed_drops=%d\n"
             "speed_time_sum=%.4f\n"
             "speed_cover_sum=%.4f\n"
@@ -372,6 +419,7 @@ void plexus_save(void) {
             "audio_hold=%.4f\n",
             s_finished_cards_mask & ((1ULL << 48) - 1ULL),
             s_selected_month, s_selected_slot,
+            log_read_mask,
             drops, t_sum, c_sum, best_strk, life_mp,
             aud_trig, aud_peak, aud_hold);
     for (int i = s_log_count - 1; i >= 0; i--) {
@@ -542,6 +590,7 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
 
 static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     ensure_log_seeded();
+    commit_viewed_log_entries(s_log_cursor);
 
     DrawRectangleRec(k_logfile_win_rect, PLEXUS_PANEL_BG);
     ui_draw_panel_border(k_logfile_win_rect, COLOR_PHOSPHOR);
@@ -554,10 +603,19 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     snprintf(idx_txt, sizeof(idx_txt), "[ENTRY %02d / %02d]   USE ARROWS TO SCROLL",
              s_log_count > 0 ? (s_log_cursor + 1) : 0, s_log_count);
     Vector2 its = MeasureTextEx(font_body, idx_txt, 18.0f, 1.2f);
+    float idx_x = k_logfile_win_rect.x + k_logfile_win_rect.width - its.x - 22.0f;
     draw_text_snapped(font_body, idx_txt,
-                      k_logfile_win_rect.x + k_logfile_win_rect.width - its.x - 22.0f,
-                      k_logfile_win_rect.y + 20.0f,
+                      idx_x, k_logfile_win_rect.y + 20.0f,
                       18.0f, 1.2f, COLOR_TEXT_INFO);
+    if (s_log_count > 0 && s_log_cursor >= 0 && s_log_cursor < s_log_count &&
+        !s_log_entries[s_log_cursor].read) {
+        s_log_entries[s_log_cursor].viewed_open = 1;
+        Vector2 nts = MeasureTextEx(font_body, "[new]", 15.0f, 1.1f);
+        draw_text_snapped(font_body, "[new]",
+                          idx_x - nts.x - 10.0f,
+                          k_logfile_win_rect.y + 22.0f,
+                          15.0f, 1.1f, COLOR_PHOSPHOR);
+    }
     DrawLine((int)k_logfile_win_rect.x + 18, 74,
              (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 74, COLOR_PHOSPHOR_DIM);
 
@@ -644,7 +702,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         if (month_unlocked && sel) board_draw_card_glow(cr, pulse);
         else if (month_unlocked && (hov || done)) board_draw_card_glow(cr, 0.45f);
         if (ba) {
-            if (month_unlocked && done) {
+            if (month_unlocked && done && card_id != 3) {
                 board_draw_card_back(ba, cr);
             } else {
                 board_draw_card(ba, card_id, cr);
@@ -655,16 +713,19 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         }
         Color bcol = !month_unlocked ? (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 95 }
                                      : ((sel || hov || done) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-        DrawRectangleLinesEx((Rectangle){ cr.x - 1.0f, cr.y - 1.0f, cr.width + 2.0f, cr.height + 2.0f },
-                             sel ? 2.0f : 1.0f, bcol);
+        Rectangle border_r = { cr.x - 1.0f, cr.y - 1.0f, cr.width + 2.0f, cr.height + 2.0f };
+        DrawRectangleLinesEx(border_r, sel ? 2.0f : 1.0f, bcol);
+        if (sel) {
+            ui_theme_set_panel_flare_glow(border_r, 0.78f + 0.22f * pulse);
+        }
+        ui_theme_draw_panel_flares(border_r);
     }
 
     /* 3. Middle Screen: either Logfile Window (tab 1) or Task / Training Briefing + START button */
     if (s_active_tab == 1) {
         draw_logfile_window(ba, st, vm);
     } else {
-        DrawRectangleRec(k_briefing_rect, PLEXUS_PANEL_BG);
-        ui_draw_panel_border(k_briefing_rect, COLOR_PHOSPHOR);
+        commit_viewed_log_entries(-1);
 
         char hdr[96];
         char sub[96];
@@ -727,6 +788,46 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             line3 = "Not a campaign match -- no awards are earned.";
         }
 
+        unsigned int bh = 2166136261u;
+        bh = hash_briefing_line(bh, hdr);
+        bh = hash_briefing_line(bh, sub);
+        bh = hash_briefing_line(bh, line1);
+        bh = hash_briefing_line(bh, line2);
+        bh = hash_briefing_line(bh, line3);
+        float dt = GetFrameTime();
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.05f) dt = 0.05f;
+        if (!s_briefing_hash_ready) {
+            s_last_briefing_hash = bh;
+            s_briefing_hash_ready = 1;
+        } else if (bh != s_last_briefing_hash) {
+            s_last_briefing_hash = bh;
+            s_briefing_glow = 1.0f;
+        } else if (s_briefing_glow > 0.0f) {
+            s_briefing_glow -= dt * 1.15f;
+            if (s_briefing_glow < 0.0f) s_briefing_glow = 0.0f;
+        }
+        float bglow = s_briefing_glow * s_briefing_glow * (3.0f - 2.0f * s_briefing_glow);
+
+        DrawRectangleRec(k_briefing_rect, PLEXUS_PANEL_BG);
+        if (bglow > 0.001f) {
+            Color fill_glow = COLOR_PHOSPHOR;
+            fill_glow.a = (unsigned char)(56.0f * bglow);
+            DrawRectangleRec(k_briefing_rect, fill_glow);
+            ui_theme_set_panel_flare_glow(k_briefing_rect, bglow);
+        }
+        ui_draw_panel_border(k_briefing_rect, COLOR_PHOSPHOR);
+        if (bglow > 0.001f) {
+            Color ring = COLOR_PHOSPHOR;
+            ring.a = (unsigned char)(255.0f * bglow);
+            DrawRectangleLinesEx(k_briefing_rect, 2.0f, ring);
+            Color outer = COLOR_PHOSPHOR;
+            outer.a = (unsigned char)(145.0f * bglow);
+            DrawRectangleLinesEx((Rectangle){ k_briefing_rect.x - 2.0f, k_briefing_rect.y - 2.0f,
+                                              k_briefing_rect.width + 4.0f, k_briefing_rect.height + 4.0f },
+                                 1.5f, outer);
+        }
+
         draw_text_snapped(font_title, hdr,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 18.0f, 21.0f, 1.4f, COLOR_PHOSPHOR);
         DrawLine((int)k_briefing_rect.x + 22, (int)k_briefing_rect.y + 50,
                  (int)(k_briefing_rect.x + k_briefing_rect.width - 22.0f), (int)k_briefing_rect.y + 50, COLOR_PHOSPHOR_DIM);
@@ -781,13 +882,13 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
     }
 
     if (CheckCollisionPointRec(vm, k_arrow_up_rect)) {
-        s_selected_month = (s_selected_month + 11) % 12;
+        s_selected_month = (s_selected_month + 1) % 12;
         s_active_tab = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
     if (CheckCollisionPointRec(vm, k_arrow_down_rect)) {
-        s_selected_month = (s_selected_month + 1) % 12;
+        s_selected_month = (s_selected_month + 11) % 12;
         s_active_tab = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;

@@ -7,6 +7,19 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex fine-tuning: open tutorial card, briefing panel & spine perimeter-dot glow indicators, month arrow fix, and Logfile `[new]` badge (25 October 2026)
+
+- Applied 5 surgical Atrium Plex UI & persistence refinements in `src/ui_plexus.c` (rebased onto `main` `47f297e` / PR #116):
+  1. **Tutorial card stays face-up:** Excluded Month 01 Card 4 (`card_id == 3`, `[01-P2 Plain]`) from `board_draw_card_back()` on the spine while keeping its `s_finished_cards_mask` bit set for Month 01 gating and Atlas `[xx/48]` progress.
+  2. **Briefing panel glow & dot flare on text update:** Hashed the rendered `k_briefing_rect` text lines so any new text triggers a smooth phosphor wash/border halo and calls `ui_theme_set_panel_flare_glow(k_briefing_rect, bglow)` to illuminate all 5 perimeter dots.
+  3. **Right-spine card perimeter dots:** Added `ui_theme_draw_panel_flares()` to all 4 spine card borders (`{cr.x - 1, cr.y - 1, cr.width + 2, cr.height + 2}`) and kept `ui_theme_set_panel_flare_glow()` active (`0.78 + 0.22 * pulse`) on the selected card so its moving dots stay continuously visible and glowing.
+  4. **Month arrow orientation:** Fixed inverted spine triangles so `▲` (`k_arrow_up_rect`) advances forward (`Month 01 -> Month 02 -> ... -> Month 12`) and `▼` (`k_arrow_down_rect`) steps backward.
+  5. **Logfile `[new]` unread indicator:** Added per-entry `read` / `viewed_open` tracking (persisted via `log_read_mask` in `plexsave.txt`) and rendered `"[new]"` at the top of the Logfile window left beside `[ENTRY xx / xx]` until the entry has been viewed and scrolled past or closed.
+
+#### Checked
+- `./build.sh test` (`500` engine matches, `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`), `gcc -std=c99 -O2 -Wall -Wextra -Werror` across all `24` `src/*.c` modules, `ASan + UBSan` 5-item Atrium Plex verification harness, TTF advance-width verification on `[new]` / `[ENTRY xx / xx]`, `./tools/tests_guard.sh` (`7` approved files), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_theme.c`, `src/ui_main.c`, `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/ui_board.c`, `src/rules.c`, `src/engine.c`, `src/cards.c`, `src/campaign.c` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.c`, `src/ui_screens.c`, `src/ui_input.c`, `DEUS` mode, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex `TRAINING` non-campaign mode and Month 01 Card 4 (`01-P2 Plain`) tutorial conversion to `RULESET_KK_ADD_10` + `DIFFICULTY_EASY` + zero-stats (25 October 2026)
 
 - Added Atrium Plex `TRAINING` non-campaign match mode (`plexus_training_is_active()` / `plexus_training_stop()` in `src/ui_plexus.h`, `src/ui_plexus.c`, and `src/ui_main.c`):
