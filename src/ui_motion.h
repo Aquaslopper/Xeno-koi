@@ -56,6 +56,7 @@ void motion_deal_round(const GameState *g, float duration);
 
 /* --- MATCH START / ROUND START Cinematic --- */
 void cinematic_start(int round_num);
+void cinematic_start_countdown(int wave_num);
 void cinematic_update(float dt);
 int cinematic_is_active(void);
 float cinematic_get_alpha(void);

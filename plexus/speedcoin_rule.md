@@ -42,13 +42,15 @@ Everything on the table stays in its standard position **except** CPU elements a
 Each **Wave** behaves like a round in a match, repeating Wave after Wave (`Wave 1, Wave 2, ... Wave 5, Wave 10, ...`) until the countdown timer reaches `0`.
 
 ### 3.1 Wave Deal (`48` Cards Total)
+### 3.1 Wave Deal (`48` Cards) & Pre-Wave `3 -> 2 -> 1 -> START` Countdown
 - Shuffle all `48` cards (`0..47`):
   - **Table (Field):** **`14` cards** (`2` rows of `7` cards; redeal if all `4` cards of a single month land on the initial field).
   - **Player Hand (`Hand 1`):** **`8` cards** (`hand_count[0] = 8`, `hand_count[1] = 0`).
   - **Deck (`Stock`):** **`26` cards** (`stock_count = 26`).
+- **Pre-Wave Center Countdown (`3 -> 2 -> 1 -> START`):** Before every Wave begins (`Wave 1`, `Wave 2`, ...), a centered HUD countdown runs **`3` -> `2` -> `1` -> `START`** (`0 = START`) while `input_unlocked == 0` and both the `180s` clock and `1.00s` Speedbar remain frozen until `START` finishes.
 
 ### 3.2 Turn Loop (Repeat per Card)
-1. **Player Turn (`PHASE_TURN_HAND`):** Once animations settle (`input_unlocked`), the `1.00 s` Speedbar starts draining.
+1. **Player Turn (`PHASE_TURN_HAND`):** Once animations and the pre-Wave countdown settle (`input_unlocked`), the `1.00 s` Speedbar starts draining.
 2. **Player Plays 1 Card from Hand:**
    - Standard `ui_input.c` + `engine.c` + `ui_speed.c` resolution runs unchanged (including `PHASE_HAND_CHOICE` if the player drops inaccurately when `2` matches exist).
    - If the player places an unmatched card on the table (`0` matches), the card stays on the table and the Speedbar runs empty -> **`-10 seconds`** penalty (see §4).
@@ -65,7 +67,7 @@ Each **Wave** behaves like a round in a match, repeating Wave after Wave (`Wave 
   - Once `Hand 2` is dealt from the deck (or a new Wave begins), the deck's Second-Hand glow turns off.
 - **End of `Hand 1` (`8` Cards Played, `18` Cards Left in Stock):**
   - **If `wave_coins >= 50`:** Deal **`8` new cards** from the `18`-card Stock into `hand[0]` (`10` cards remain in Stock). Play continues through all `8` cards of `Hand 2` + `8` Stock flips (`10 - 8 =` **`2` cards** left in Stock when `Hand 2` empties — a **3rd hand can never exist**).
-  - **If `wave_coins < 50` (or after `Hand 2` empties):** The Wave ends, banks the Wave's `KK-ADD-10` combo award (`score_captures` + `calculate_award(base_points, 0, 0)`) into `YOU SCORE`, resets the per-Wave Speedcoin & `+10s` counters for the next Wave, and deals the **next Wave** as long as the countdown timer is `> 0`.
+  - **If `wave_coins < 50` (or after `Hand 2` empties):** The Wave ends (`PHASE_ROUND_END`), **freezes the `180s` countdown timer**, banks the Wave's `KK-ADD-10` combo award (`score_captures` + `calculate_award(base_points, 0, 0)`) into `YOU SCORE`, and opens the standard between-round score screen (`screens_draw_round_result`) showing the Wave's completed combos and award. Clicking **`NEXT ROUND`** deals the next Wave and runs the **`3 -> 2 -> 1 -> START`** pre-Wave countdown before resuming the `180s` clock.
 
 ---
 
@@ -73,7 +75,7 @@ Each **Wave** behaves like a round in a match, repeating Wave after Wave (`Wave 
 
 - **Starting Time:** **`180.0` seconds**, displayed prominently inside the top-left panel (`{12, 12, 255, 199}`), with border/perimeter-dot flare feedback on `+10s` / `-10s` events.
 - **No Upper Cap:** No hard ceiling — if fast play pushes the clock above `180.0` seconds, all earned time is kept.
-- **When Time Ticks:** Counts down at `1×` real time during active gameplay (`SCREEN_GAME`, paused when `GAME PAUSED` or combo detail overlay is open).
+- **When Time Ticks:** Counts down at `1×` real time during active Wave gameplay (`SCREEN_GAME`), and **freezes** during the pre-Wave `3 -> 2 -> 1 -> START` countdown, during the between-Wave round score screen (`PHASE_ROUND_END`), and when `GAME PAUSED` or the combo detail overlay is open.
 
 ### 4.1 `-10 Seconds` Penalties
 1. **Speedbar Runs Out (`s_remaining` hits `0.0s` while thinking):**

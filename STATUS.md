@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Speedcoin playtest fine-tuning step 1: between-wave round score screen, timer freeze, and pre-wave `3 -> 2 -> 1 -> START` countdown (25 October 2026)
+
+- Implemented Step 1 of Speedcoin playtest fine-tuning across `src/ui_motion.h`, `src/ui_motion.c`, `src/ui_speed.c`, `src/ui_plexus.c`, and `src/ui_main.c` with zero shared-signature changes:
+  1. **Between-Wave Round Score Screen & Combo Banking:** When a Wave ends (`PHASE_ROUND_END` once `Hand 2` is not pending), `plexus_speedcoin_bank_wave()` banks the Wave's `KK-ADD-10` combos into `YOU SCORE` and populates `g.current_round_record` (`score_result`, `base_points`, `mult_seven`, `award`), keeping `g.captured[0]` intact and opening the standard round score screen (`screens_draw_round_result`) until the player clicks `NEXT ROUND` to deal the next Wave.
+  2. **Timer Freeze Between Waves:** Paused `s_sc_clock_live` immediately on `PHASE_ROUND_END` / `PHASE_MATCH_END` and reset `s_sc_clock_live = 0` in `speed_mode_begin_wave()` so the `180s` countdown timer freezes solid while the round score screen is open and stays frozen until the next Wave's live player turn unlocks.
+  3. **Pre-Wave `3 -> 2 -> 1 -> START` Center Countdown:** Added `cinematic_start_countdown(int wave_num)` in `src/ui_motion.*` and triggered it before Wave 1 and before every subsequent Wave (`3` -> `2` -> `1` -> `START` in the centered HUD box with `// WAVE x //` subtitle while `cinematic_is_active()` holds `input_unlocked == 0` and keeps both timers paused until `START` clears).
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` and `gcc -std=c11 -O2 -Wall -Wextra -Werror` across all `src/*.c` modules, `tests/test_engine.c` (`500` full matches), `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, `ASan + UBSan` Speedcoin Wave-end score screen + timer-freeze + `3 -> 2 -> 1 -> START` countdown harness, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_motion.h`, `src/ui_motion.c`, `src/ui_speed.c`, `src/ui_plexus.c`, `src/ui_main.c`, `plexus/speedcoin_rule.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `src/ui_input.c`, `DEUS` mode, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex Speedcoin groundwork implementation & open `SPEEDCOIN` button for testing (25 October 2026)
 
 - Documented the Speedcoin solo highscore specification in `plexus/speedcoin_rule.md`, updated `plexus/roadmap_plexus.md` with the 4-stage minigame workflow (`Rule Spec -> Open Button for Testing -> Playtest & Fine-Tuning -> Full Spine Integration`), and implemented Speedcoin across `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_board.c`, `src/ui_combos.c`, `src/ui_plexus.h`, `src/ui_plexus.c`, and `src/ui_main.c` with zero shared-signature changes:

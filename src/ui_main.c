@@ -209,6 +209,7 @@ static void begin_new_match(int trk) {
         g.rng_state = match_seed ? match_seed : 1u;
         plexus_speedcoin_setup_wave(&g, 1);
         motion_deal_round(&g, 0.45f);
+        cinematic_start_countdown(1);
     } else if (plexus_tutorial_is_active()) {
         plexus_tutorial_setup_round(&g);
         motion_deal_round(&g, 0.45f);
@@ -933,18 +934,16 @@ static void update_draw_frame(void) {
                             if (plexus_speedcoin_deal_hand2(&g)) {
                                 audio_play_flip(&audio);
                                 anim_start_banner(&anim, "50 MP // BONUS HAND DEALT", 1.10f);
-                            } else {
-                                int w_done = speed_mode_wave();
-                                int award = plexus_speedcoin_bank_wave(&g);
-                                plexus_speedcoin_setup_wave(&g, w_done + 1);
-                                motion_deal_round(&g, 0.45f);
-                                audio_play_flip(&audio);
-                                anim_start_banner(&anim,
-                                                  (award > 0) ? TextFormat("WAVE %d CLEAR  +%d PTS", w_done, award)
-                                                              : TextFormat("WAVE %d COMPLETE", w_done),
-                                                  1.10f);
+                                prev_round_phase = PHASE_NONE;
+                            } else if (prev_round_phase != PHASE_ROUND_END) {
+                                plexus_speedcoin_bank_wave(&g);
+                                prev_round_phase = PHASE_ROUND_END;
+                                round_banner_timer = 0.0f;
+                                play_banner_sfx();
+                                if (anim.active && anim.type == ANIM_BANNER) anim.active = 0;
                             }
-                            prev_round_phase = PHASE_NONE;
+                        } else if (g.phase != PHASE_ROUND_END) {
+                            prev_round_phase = g.phase;
                         }
                     } else if (g.phase == PHASE_ROUND_END && prev_round_phase != PHASE_ROUND_END && !cinematic_is_active()) {
                         prev_round_phase = PHASE_ROUND_END;
@@ -956,11 +955,18 @@ static void update_draw_frame(void) {
                         prev_round_phase = g.phase;
                     }
 
-                    if (!plexus_speedcoin_is_active() && g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f && overlay_alpha >= 0.65f &&
+                    if (g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f && overlay_alpha >= 0.65f &&
                         input_unlocked && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                         if (screens_check_round_result_click(vm)) {
                             audio_play_click(&audio);
-                            if (plexus_tutorial_is_active()) {
+                            if (plexus_speedcoin_is_active()) {
+                                int next_w = speed_mode_wave() + 1;
+                                anim_init(&anim); prev_round_phase = PHASE_NONE;
+                                plexus_speedcoin_setup_wave(&g, next_w);
+                                motion_deal_round(&g, 0.45f);
+                                audio_play_flip(&audio);
+                                cinematic_start_countdown(next_w);
+                            } else if (plexus_tutorial_is_active()) {
                                 anim_init(&anim);
                                 plexus_tutorial_finish_match();
                                 pending_result_sfx = 1;
@@ -1009,8 +1015,10 @@ static void update_draw_frame(void) {
 
     if (g.phase != PHASE_TURN_HAND || g.current_player != 0) drag.selected = 0;
     int replay_running = replay_pb_active();
-    int round_panel_ready = !plexus_speedcoin_is_active() && !plexus_speedcoin_result_active() &&
-                            ((g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || g.phase == PHASE_MATCH_END);
+    int round_panel_ready = !plexus_speedcoin_result_active() &&
+                            (plexus_speedcoin_is_active()
+                             ? (g.phase == PHASE_ROUND_END && prev_round_phase == PHASE_ROUND_END)
+                             : ((g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || g.phase == PHASE_MATCH_END));
     int overlay_active = (screen == SCREEN_GAME) &&
                          (replay_running ? is_paused :
                           (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE ||

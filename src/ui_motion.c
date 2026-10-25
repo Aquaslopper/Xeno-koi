@@ -14,6 +14,7 @@ static CardMotion g_cards[48];
 static float s_cinematic_timer = 0.0f;
 static float s_cinematic_duration = 1.5f;
 static int s_cinematic_round = 1;
+static int s_cinematic_countdown = 0;
 
 void motion_init(void) {
     memset(g_cards, 0, sizeof(g_cards));
@@ -22,6 +23,7 @@ void motion_init(void) {
         g_cards[i].shimmer_alpha = 0.0f;
     }
     s_cinematic_timer = 0.0f;
+    s_cinematic_countdown = 0;
 }
 
 void motion_set_instant(int card_id, Vector2 pos, Vector2 size) {
@@ -251,9 +253,17 @@ void motion_deal_round(const GameState *g, float duration) {
 }
 
 void cinematic_start(int round_num) {
+    s_cinematic_countdown = 0;
     s_cinematic_timer = 1.5f;
     s_cinematic_duration = 1.5f;
     s_cinematic_round = round_num;
+}
+
+void cinematic_start_countdown(int wave_num) {
+    s_cinematic_countdown = 1;
+    s_cinematic_round = (wave_num > 0) ? wave_num : 1;
+    s_cinematic_duration = 3.55f;
+    s_cinematic_timer = 3.55f;
 }
 
 void cinematic_update(float dt) {
@@ -270,6 +280,12 @@ int cinematic_is_active(void) {
 float cinematic_get_alpha(void) {
     if (s_cinematic_timer <= 0.0f) return 0.0f;
     float elapsed = s_cinematic_duration - s_cinematic_timer;
+    if (s_cinematic_countdown) {
+        if (elapsed < 0.12f) return elapsed / 0.12f;
+        if (elapsed <= 3.30f) return 1.0f;
+        float f = (s_cinematic_duration - elapsed) / 0.25f;
+        return (f < 0.0f) ? 0.0f : ((f > 1.0f) ? 1.0f : f);
+    }
     if (elapsed < 0.25f) {
         return elapsed / 0.25f;
     } else if (elapsed <= 1.10f) {
@@ -286,7 +302,11 @@ void cinematic_draw(void) {
 
     const char *title;
     char buf[64];
-    if (s_cinematic_round <= 1) {
+    char sub_buf[48];
+    if (s_cinematic_countdown) {
+        float elapsed = s_cinematic_duration - s_cinematic_timer;
+        title = (elapsed < 1.0f) ? "3" : (elapsed < 2.0f) ? "2" : (elapsed < 3.0f) ? "1" : "START";
+    } else if (s_cinematic_round <= 1) {
         title = "MATCH START";
     } else {
         snprintf(buf, sizeof(buf), "ROUND %d START", s_cinematic_round);
@@ -299,7 +319,7 @@ void cinematic_draw(void) {
     int tw = (int)ceilf(title_size.x);
     int pad_x = 54;
     int pad_y = 24;
-    int box_w = tw + pad_x * 2;
+    int box_w = s_cinematic_countdown ? 280 : (tw + pad_x * 2);
     int box_h = (int)font_size + pad_y * 2;
     int box_x = (CANVAS_W - box_w) / 2;
     int box_y = (CANVAS_H - box_h) / 2 - 20;
@@ -335,10 +355,17 @@ void cinematic_draw(void) {
     ui_theme_draw_panel_flares(box);
     Color text_col = col_base;
     text_col.a = (unsigned char)(255 * alpha);
-    DrawTextEx(font_title, title, (Vector2){ (float)(box_x + pad_x), (float)(box_y + pad_y) },
+    float tx = s_cinematic_countdown ? floorf(box.x + (box.width - title_size.x) * 0.5f) : (float)(box_x + pad_x);
+    DrawTextEx(font_title, title, (Vector2){ tx, (float)(box_y + pad_y) },
                font_size, spacing, text_col);
 
-    const char *sub = (s_cinematic_round <= 1) ? "// NEURAL LINK ESTABLISHED //" : "// DECK SHUFFLED & DEALT //";
+    const char *sub;
+    if (s_cinematic_countdown) {
+        snprintf(sub_buf, sizeof(sub_buf), "// WAVE %d //", s_cinematic_round);
+        sub = sub_buf;
+    } else {
+        sub = (s_cinematic_round <= 1) ? "// NEURAL LINK ESTABLISHED //" : "// DECK SHUFFLED & DEALT //";
+    }
     const float sub_size = 14.0f;
     const float sub_spacing = 1.2f;
     Vector2 sub_measure = MeasureTextEx(font_body, sub, sub_size, sub_spacing);

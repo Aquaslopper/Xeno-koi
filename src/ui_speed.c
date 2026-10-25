@@ -83,6 +83,7 @@ void speed_mode_begin_wave(int wave_num) {
     s_remaining = 0.0f; s_frac = 0.0f;
     s_armed = 0; s_started = 0;
     s_streak = 0; s_chain = 0.0f;
+    s_sc_clock_live = 0;
     s_sc_wave = (wave_num > 0) ? wave_num : 1;
     s_sc_wave_start_mp = s_total;
     s_sc_wave_ten_steps = 0;
@@ -172,8 +173,14 @@ void speed_bar_update(const GameState *g, float dt, int input_unlocked) {
 
     int turn_live = (g->current_player == 0 && g->phase == PHASE_TURN_HAND);
     if (s_sc_active) {
-        if (turn_live && input_unlocked) s_sc_clock_live = 1;
-        if (s_sc_clock_live && g->phase != PHASE_MATCH_END) {
+        if (g->phase == PHASE_ROUND_END || g->phase == PHASE_MATCH_END) {
+            s_sc_clock_live = 0;
+            s_armed = 0;
+            s_started = 0;
+        } else if (turn_live && input_unlocked) {
+            s_sc_clock_live = 1;
+        }
+        if (s_sc_clock_live) {
             s_sc_clock -= dt;
             if (s_sc_clock < 0.0f) s_sc_clock = 0.0f;
         }

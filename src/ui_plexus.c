@@ -1505,9 +1505,9 @@ int plexus_speedcoin_deal_hand2(GameState *g) {
     if (g->current_round_record.winner == 0 && g->current_round_record.award > 0) {
         g->total_score[0] -= g->current_round_record.award;
     }
+    memset(&g->current_round_record, 0, sizeof(g->current_round_record));
+    g->current_round_record.round_number = g->current_round;
     g->current_round_record.winner = -1;
-    g->current_round_record.award = 0;
-    g->current_round_record.base_points = 0;
     yaku_snapshot(g->ruleset, g->captured[0], g->captured_count[0], g->last_yaku_points[0]);
     g->last_base[0] = score_captures_base(g->ruleset, g->captured[0], g->captured_count[0]);
 
@@ -1532,10 +1532,15 @@ int plexus_speedcoin_bank_wave(GameState *g) {
     }
     ScoreResult sr = score_captures(g->ruleset, g->captured[0], g->captured_count[0]);
     int award = calculate_award(sr.base_points, 0, 0);
-    if (award > 0) {
+    if (sr.yaku_count > 0 && award > 0) {
         g->total_score[0] += award;
         g->current_round_record.winner = 0;
+        g->current_round_record.draw_reason = 0;
+        g->current_round_record.lucky_hand = 0;
         g->current_round_record.base_points = sr.base_points;
+        g->current_round_record.mult_seven = (sr.base_points >= 7) ? 2 : 1;
+        g->current_round_record.mult_opp_koi = 1;
+        g->current_round_record.mult_self_koi = 1;
         g->current_round_record.award = award;
         g->current_round_record.score_result = sr;
     }
