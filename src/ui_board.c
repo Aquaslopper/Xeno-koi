@@ -564,7 +564,7 @@ static void draw_speedcoin_clock_panel(void) {
                        r.x + r.width * 0.5f, r.y + 170.0f, 13.0f, 0.6f, COLOR_PHOSPHOR_DIM);
 }
 
-static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt) {
+static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt, int wine_right) {
     if (lvl >= *hold) {
         *hold = lvl;
         *timer = 0.35f;
@@ -573,26 +573,41 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     } else {
         *hold = fmaxf(lvl, *hold - 0.48f * dt);
     }
+    Color hi_c   = wine_right ? (Color){ 224, 136, 146, 255 } : COLOR_TEXT_INFO;
+    Color base_c = wine_right ? (Color){ 182,  70,  82, 255 } : COLOR_PHOSPHOR;
+    Color dim_c  = wine_right ? (Color){ 136,  48,  58, 255 } : COLOR_PHOSPHOR_DIM;
     DrawRectangleRec(bar, COLOR_PANEL_BG);
     int ix = (int)bar.x + 2, iw = (int)bar.width - 4, ih = (int)bar.height - 4, bot = (int)bar.y + 2 + ih;
     int fh = (int)lroundf((float)ih * lvl);
     if (fh > 0) {
-        Color top_c = COLOR_TEXT_INFO, bot_c = COLOR_PHOSPHOR;
+        Color top_c = hi_c, bot_c = base_c;
         top_c.a = (unsigned char)(195.0f + 60.0f * lvl);
         bot_c.a = (unsigned char)(135.0f + 95.0f * lvl);
         DrawRectangleGradientV(ix, bot - fh, iw, fh, top_c, bot_c);
-        DrawRectangle(ix, bot - fh, iw, (fh >= 2) ? 2 : 1, COLOR_TEXT_INFO);
+        DrawRectangle(ix, bot - fh, iw, (fh >= 2) ? 2 : 1, hi_c);
     }
-    for (int t = 1; t <= 3; t++) {
-        int ty = bot - (ih * t) / 4;
-        DrawLine(ix, ty, ix + iw, ty, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 120 });
+    if (wine_right) {
+        for (int t = 1; t <= 3; t++) {
+            int ty = bot - (ih * t) / 4;
+            Color lc = (ty >= bot - fh)
+                ? (Color){ (unsigned char)(dim_c.r / 3), (unsigned char)(dim_c.g / 3), (unsigned char)(dim_c.b / 3), 165 }
+                : (Color){ base_c.r, base_c.g, base_c.b, 150 };
+            DrawLine(ix, ty, ix + iw, ty, lc);
+        }
+    } else {
+        int ty = bot - (ih * 9) / 10;
+        Color lc = (ty >= bot - fh)
+            ? (Color){ (unsigned char)(dim_c.r / 3), (unsigned char)(dim_c.g / 3), (unsigned char)(dim_c.b / 3), 165 }
+            : (Color){ base_c.r, base_c.g, base_c.b, 155 };
+        DrawLine(ix, ty, ix + iw, ty, lc);
     }
     if (*hold > 0.02f) {
         int py = bot - (int)lroundf((float)ih * (*hold));
-        DrawRectangle(ix, (py < (int)bar.y + 2) ? ((int)bar.y + 2) : py, iw, 2, COLOR_PHOSPHOR);
+        DrawRectangle(ix, (py < (int)bar.y + 2) ? ((int)bar.y + 2) : py, iw, 2, base_c);
     }
-    if (lvl > 0.05f) ui_theme_set_panel_flare_glow(bar, lvl);
-    ui_draw_panel_border(bar, (lvl > 0.65f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    int is_full = (lvl >= 0.98f);
+    if (is_full) ui_theme_set_panel_flare_glow(bar, 1.0f);
+    ui_draw_panel_border(bar, is_full ? base_c : dim_c);
 }
 
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
@@ -622,6 +637,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         prev_koi = cur_koi;
         capture_streak = 0;
         reverb_hold = reverb_energy = reverb_mid = reverb_curve = 0.0f;
+        s_action_peak_hold = s_action_peak_timer = 0.0f;
         s_action_added_hold = s_action_added_timer = s_action_tank_env = 0.0f;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
@@ -757,16 +773,17 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
     if (s_action_card_mode) {
-        float tc = (s_action_music_level > s_action_tank_env) ? 0.06f : 0.24f;
+        float tc = (s_action_music_level > s_action_tank_env) ? 0.08f : 0.26f;
         s_action_tank_env += (s_action_music_level - s_action_tank_env) * (1.0f - expf(-frame_dt / tc));
         float fx_sum = settings.effect_reverb + 0.75f * settings.effect_bass + 0.55f * settings.effect_chorus;
-        float fx_scale = (fx_sum > 0.001f) ? fminf(1.20f, 0.55f + 0.90f * fx_sum) : 0.0f;
-        float drive = (s_action_music_level > 0.001f) ? fminf(1.0f, 0.30f + 0.82f * s_action_tank_env) : 0.0f;
+        float fx_scale = (fx_sum > 0.001f && settings.bgm_volume > 0.001f) ? fminf(1.05f, 0.70f + 0.60f * fx_sum) : 0.0f;
+        float drive = (s_action_music_level > 0.005f) ? fminf(1.0f, 0.35f + 2.50f * s_action_tank_env) : 0.0f;
         float added_lvl = fminf(1.0f, reverb_synergy * fx_scale * drive);
-        draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, s_action_music_level,
-                                 &s_action_peak_hold, &s_action_peak_timer, frame_dt);
+        float music_lvl = fminf(1.0f, s_action_music_level * (0.58f + 0.54f * reverb_synergy * reverb_synergy));
+        draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
+                                 &s_action_peak_hold, &s_action_peak_timer, frame_dt, 0);
         draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
-                                 &s_action_added_hold, &s_action_added_timer, frame_dt);
+                                 &s_action_added_hold, &s_action_added_timer, frame_dt, 1);
     }
 
     /* 5. Field Cards (Insertion sort via board_field_sort_slots + month bitmask for O(1) Easy Mode glow) */

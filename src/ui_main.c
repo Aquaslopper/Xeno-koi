@@ -237,17 +237,20 @@ static float s_music_meter_vis = 0.0f;
 static void music_meter_processor(void *buffer, unsigned int frames) {
     const float *pcm = (const float *)buffer;
     if (!pcm || frames == 0) return;
-    static float ms_env = 0.0f;
+    static float ms_env = 0.0f, ref_env = 0.26f;
     static unsigned int last_ep = 0;
     unsigned int ep = __atomic_load_n(&s_music_meter_epoch, __ATOMIC_RELAXED);
-    if (ep != last_ep) { ms_env = 0.0f; last_ep = ep; }
+    if (ep != last_ep) { ms_env = 0.0f; ref_env = 0.26f; last_ep = ep; }
     for (unsigned int f = 0; f < frames; f++) {
         float l = pcm[f * 2 + 0], r = pcm[f * 2 + 1], p2 = 0.5f * (l * l + r * r);
         if (!(p2 >= 0.0f) || p2 > 4.0f) p2 = 0.0f;
-        ms_env += (p2 - ms_env) * 0.00030f;
+        ms_env += (p2 - ms_env) * 0.000090f;
     }
     if (ms_env < 1e-12f) ms_env = 0.0f;
-    float norm = fminf(1.0f, fmaxf(0.0f, (sqrtf(ms_env) - 0.035f) / 0.345f));
+    float rms = sqrtf(ms_env);
+    if (rms > ref_env) ref_env += (fminf(0.36f, rms) - ref_env) * fminf(1.0f, 0.000018f * (float)frames);
+    else               ref_env += (fmaxf(0.20f, rms) - ref_env) * fminf(1.0f, 0.0000020f * (float)frames);
+    float norm = (rms > 0.020f) ? fminf(1.0f, (rms - 0.020f) / (ref_env * 0.96f)) : 0.0f;
     __atomic_store_n(&s_music_meter_raw, (unsigned int)(norm * 1000000.0f), __ATOMIC_RELAXED);
 }
 
@@ -539,8 +542,8 @@ static void update_draw_frame(void) {
     sync_music_meter_tap(ac_table);
     if (ac_table) {
         float raw = __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f;
-        float tgt = (settings.bgm_volume > 0.001f && audio.current_music == 2) ? powf(raw, 1.25f) * (1.0f - transition_alpha) : 0.0f;
-        s_music_meter_vis += (tgt - s_music_meter_vis) * (1.0f - expf(-dt / ((tgt > s_music_meter_vis) ? 0.045f : 0.160f)));
+        float tgt = (settings.bgm_volume > 0.001f && audio.current_music == 2) ? raw * (1.0f - transition_alpha) : 0.0f;
+        s_music_meter_vis += (tgt - s_music_meter_vis) * (1.0f - expf(-dt / ((tgt > s_music_meter_vis) ? 0.220f : 0.340f)));
     }
     board_set_action_card_mode(ac_table, s_music_meter_vis);
 

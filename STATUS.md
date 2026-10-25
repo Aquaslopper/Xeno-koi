@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex Phase 4 Step 1b: Action Card dual-meter calibration, threshold lines, full-only dot shine & soft wine-red right bar (25 October 2026)
+
+- Refined the Action Card vs-CPU dual vertical meters (`src/ui_main.c`, `src/ui_board.c`, `plexus/roadmap_plexus.md`) on top of the maintainer's fine-tuned `4–5`-card `reverb_synergy` envelope (`977264b`), keeping `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` and `ACTION_CARD_UNLOCKED_FOR_TESTING = 1`:
+  - **Left Music Meter Headroom & Slower Ballistics (`src/ui_main.c`, `src/ui_board.c`):** Slowed `music_meter_processor`'s RMS integrator (`0.00030f -> 0.000090f`, ~250 ms) with a clamped adaptive track-crest reference (`[0.20f, 0.36f]`), slowed UI meter smoothing (`0.045s/0.160s -> 0.220s/0.340s`), and scaled the left bar by `s_action_music_level * (0.58f + 0.54f * reverb_synergy^2)` so unboosted music breathes smoothly up to `<= 58%` without spiking and hits the `100%` ceiling only when the music track is active under full Action Card boost (`4–5` quick matches).
+  - **Full-Only Perimeter Dot Shine on Both Meters (`src/ui_board.c`):** Gated `ui_theme_set_panel_flare_glow(bar, 1.0f)` (and bright border elevation) on `lvl >= 0.98f` for both `{414, 170, 14, 264}` and `{1082, 170, 14, 264}` so panel perimeter dots shine exclusively when a meter is full.
+  - **Asymmetric Mechanic Threshold Lines (`src/ui_board.c`):** Left music meter now draws a single horizontal threshold line `10%` below the ceiling (`90%` fill height, `y = 198`); right added-energy meter keeps all three horizontal threshold lines (`25%`, `50%`, `75%`, `y = 367, 302, 237`), with crisp etched contrast both above and inside the liquid fill.
+  - **Soft Wine-Red Right Meter (`src/ui_board.c`):** Styled the right-hand added-energy meter in Atrium's soft wine-red palette (`{224, 136, 146}` crest -> `{182, 70, 82}` fill/peak-hold, `{136, 48, 58}` dim border) while preserving `1:1` full-scale alignment with `reverb_synergy` across default and custom Options FX sliders.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./build.sh test` (`500` full matches + `test_koikoi_trigger`), `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, ASan+UBSan Action Card dual-meter behavioral test harness (unboosted `<= 58%`, single `90%` left line at `y = 198`, 3 right lines, soft wine-red gradient, full-only dot shine on both bars, and music-drop dip during full boost), real-MP3 (`game1.mp3`/`game3.mp3`) DSP calibration verification across `0/0/0.5`, `0.5/0.5/0.5`, and `1.0/1.0/1.0` FX presets, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_board.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/ui_plexus.*` (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` & `ACTION_CARD_UNLOCKED_FOR_TESTING = 1` preserved), `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex Phase 4 Step 1a: unlocked `ACTION CARD` button, dedicated `KK-ADD-10` Action Card table & vertical music-peak indicator (25 October 2026)
 
 - Started Phase 4 of Atrium Plex (`src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_board.h`, `src/ui_board.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`) while keeping `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`:
