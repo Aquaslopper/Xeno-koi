@@ -20,9 +20,14 @@ int  plexus_tutorial_is_active(void);
 int  plexus_tutorial_panel_open(void);
 void plexus_tutorial_abort(void);
 
-/* Non-campaign Atrium Plex Training match state */
-int  plexus_training_is_active(void);
-void plexus_training_stop(void);
+/* Non-campaign Atrium Plex Training match state & dedicated stats end screen */
+int          plexus_training_is_active(void);
+void         plexus_training_stop(void);
+void         plexus_training_finish(const GameState *g);
+int          plexus_training_result_active(void);
+void         plexus_training_close_result(void);
+void         plexus_draw_training_result(const BoardAssets *ba, const GameState *g, const GameStats *st, Vector2 vm);
+ScreenAction plexus_handle_training_result_click(Vector2 vm, int *out_clicked);
 
 /* Atrium Plex Action Card mode state */
 int  plexus_action_card_is_active(void);

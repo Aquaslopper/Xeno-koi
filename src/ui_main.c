@@ -147,6 +147,8 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
     } else if (sc == SCREEN_MATCH_RESULT) {
         if (plexus_speedcoin_result_active())
             plexus_draw_speedcoin_result(&assets, &stats, mouse_pos);
+        else if (plexus_training_result_active())
+            plexus_draw_training_result(&assets, &g, &stats, mouse_pos);
         else {
             screens_draw_match_result(&assets, &g, (plexus_training_is_active() || plexus_action_card_is_active()) ? NULL : &settings, mouse_pos);
             draw_match_result_extras(&g);
@@ -416,7 +418,7 @@ static void begin_new_match(int trk) {
         engine_start_round(&g);
         motion_deal_round(&g, 0.45f);
         cinematic_start(g.current_round);
-    } else {
+    } else if (!plexus_training_is_active()) {
 #ifndef __EMSCRIPTEN__
         /* From here to the match end every decision of both players is written down,
            so the finished match can be replayed (see docs/reference/modes.md). */
@@ -657,7 +659,7 @@ static void update_draw_frame(void) {
         if (transition_timer >= TRANS_HOLD_DUR) {
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
             if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
-            if (screen != SCREEN_MATCH_RESULT) plexus_speedcoin_close_result();
+            if (screen != SCREEN_MATCH_RESULT) { plexus_speedcoin_close_result(); plexus_training_close_result(); }
             if (screen != SCREEN_GAME && screen != SCREEN_MATCH_RESULT) board_reset_action_card_match();
             campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
             round_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; prev_round_phase = PHASE_NONE;
@@ -756,7 +758,7 @@ static void update_draw_frame(void) {
                 ScreenAction act = screens_handle_start_click(vm);
                 if (act != ACT_NONE) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_hub_transition(SCREEN_START, 1, (Rectangle){ 490, 320, 300, 40 }, "START MATCH", 18);
-                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 0, 0);
+                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
                 else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
                 else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
                 else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
@@ -768,7 +770,7 @@ static void update_draw_frame(void) {
                 audio_play_click(&audio);
                 plexus_save();
                 storage_save_all(&settings, &stats, &history);
-                start_transition(SCREEN_START, 0, 0);
+                start_transition(SCREEN_START, 3, 0);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int p_clicked = 0;
                 ScreenAction act = plexus_handle_click(vm, &p_clicked);
@@ -776,7 +778,7 @@ static void update_draw_frame(void) {
                 if (act == ACT_GOTO_MENU) {
                     plexus_save();
                     storage_save_all(&settings, &stats, &history);
-                    start_transition(SCREEN_START, 0, 0);
+                    start_transition(SCREEN_START, 3, 0);
                 } else if (act == ACT_START_GAME) {
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 }
@@ -836,6 +838,13 @@ static void update_draw_frame(void) {
                 if (sc_clicked) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+            }
+        } else if (screen == SCREEN_MATCH_RESULT && plexus_training_result_active()) {
+            if (IsKeyPressed(KEY_ESCAPE)) { audio_play_click(&audio); start_transition(SCREEN_ATRIUM, 3, 0); }
+            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                int tr_clicked = 0;
+                if (plexus_handle_training_result_click(vm, &tr_clicked) == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+                if (tr_clicked) audio_play_click(&audio);
             }
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
@@ -1310,6 +1319,8 @@ static void update_draw_frame(void) {
                                 engine_next_round(&g);
                                 if (plexus_action_card_is_active()) {
                                     plexus_action_card_finish_match(&g);
+                                } else if (plexus_training_is_active()) {
+                                    plexus_training_finish(&g);
                                 } else {
                                     storage_record_match(&g, &settings, &stats, &history);
 #ifndef __EMSCRIPTEN__
@@ -1317,7 +1328,7 @@ static void update_draw_frame(void) {
 #endif
                                 }
                                 plexus_save();
-                                if (g.total_score[0] > g.total_score[1]) {
+                                if (!plexus_training_result_active() && g.total_score[0] > g.total_score[1]) {
                                     pending_result_sfx = 1;
                                     if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
                                         bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
@@ -1334,7 +1345,7 @@ static void update_draw_frame(void) {
                                         campaign_update_unlocks(&settings);
                                         storage_save_settings(&settings);
                                     }
-                                } else if (g.total_score[0] < g.total_score[1]) pending_result_sfx = -1;
+                                } else if (!plexus_training_result_active() && g.total_score[0] < g.total_score[1]) pending_result_sfx = -1;
                                 start_transition(SCREEN_MATCH_RESULT, 2, 0);
                             } else {
                                 anim_init(&anim); prev_round_phase = PHASE_NONE;

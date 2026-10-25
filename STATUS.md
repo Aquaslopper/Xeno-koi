@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex hub music track switch & dedicated `TRAINING` stats end screen (25 October 2026)
+
+- Implemented the two Atrium Plex refinements across `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, and `plexus/roadmap_plexus.md` while keeping `src/ui_audio.c`, `src/ui_screens.c`, all testing unlock flags (`DEUS`, `SPEEDCOIN`, `ACTION CARD` = `1`), and all `reverb_synergy` parameters untouched:
+  - **Fresh Music Track Across Main Menu <-> Atrium Plex Loading Screen (`src/ui_main.c`):** Updated `ACT_GOTO_ATRIUM` (`SCREEN_START -> SCREEN_ATRIUM`) and `ESC` / `SAVE & BACK` (`SCREEN_ATRIUM -> SCREEN_START`) from `start_transition(..., 0, 0)` to `start_transition(..., 3, 0)` so `audio_start_match_music(&audio, pick_match_track(1))` starts a new track at the loading-card midpoint instead of resuming the previous track.
+  - **Dedicated Non-Match `TRAINING` Stats & Telemetry End Screen (`src/ui_plexus.*`, `src/ui_main.c`):** Isolated `TRAINING` from `storage_record_match()`, `replay_rec_begin()`, `ui_replay_commit_auto()`, and match win/lose fanfare, and added `plexus_training_finish()` + `plexus_draw_training_result()` + `plexus_handle_training_result_click()` displaying session stats (config, points, rounds, best round, Koi-Koi calls, combos formed, Speedcoins, and 12-round log), overall career archive stats (`GameStats`), and Atrium Plex Speedbar/Audio FX/Archive telemetry with a single `ATRIUM PLEX` exit button (`+ ESC`) back to `SCREEN_ATRIUM`.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` on `src/ui_plexus.c` and `src/ui_main.c` (plus all 24 `src/*.c` modules), `./build.sh test` (`500` full matches + `test_koikoi_trigger`), `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, ASan+UBSan `TRAINING` stats end-screen & bounds harness, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `reverb_energy` / `reverb_synergy` parameters in `src/ui_board.c`, `src/ui_screens.c`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex Phase 4 Step 4b: Action Card ruleset specification (`plexus/action_card_rule.md`) & Month 01 `slot 1` (`01-RP Poetry`) 3-round Easy Action Card Tutorial (25 October 2026)
 
 - Added the standalone Action Card specification in `plexus/action_card_rule.md` and implemented the Month 01 third spine card (`slot 1`, `cid == 1`, `[01-RP Poetry]`) Action Card tutorial (`src/ui_board.h`, `src/ui_board.c`, `src/ui_plexus.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`), keeping `ACTION_CARD_UNLOCKED_FOR_TESTING = 1`, `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`, `DEUS_UNLOCKED_FOR_TESTING = 1`, and all `reverb_synergy` / DSP parameters untouched:

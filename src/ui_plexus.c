@@ -86,6 +86,7 @@ static float s_saved_audio_hold = 0.0f;
 static int s_saved_ac_symbols = 0;
 static int s_saved_ac_time = 0;
 static int s_training_active = 0;
+static int s_training_result_view = 0;
 static int s_action_card_active = 0;
 static int s_ac_runs = 0;
 static int s_ac_wins = 0;
@@ -359,6 +360,7 @@ void plexus_load(void) {
     s_swing_active = 0;
     s_tut_telemetry_saved = 0;
     s_training_active = 0;
+    s_training_result_view = 0;
     s_action_card_active = 0;
     s_ac_runs = 0;
     s_ac_wins = 0;
@@ -1180,6 +1182,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             plexus_tutorial_abort();
             plexus_speedcoin_abort();
             plexus_action_card_abort();
+            s_training_result_view = 0;
             s_training_active = 1;
             plexus_log_push("TRAINING // NORMAL MATCH",
                             "TRAINING MODE -- NO CAMPAIGN AWARDS",
@@ -1362,6 +1365,100 @@ int plexus_training_is_active(void) {
 
 void plexus_training_stop(void) {
     s_training_active = 0;
+    s_training_result_view = 0;
+}
+
+static const Rectangle k_tr_exit_plex_rect = { 510.0f, 632.0f, 260.0f, 50.0f };
+
+int  plexus_training_result_active(void) { return s_training_result_view; }
+void plexus_training_close_result(void)  { s_training_result_view = 0; }
+
+void plexus_training_finish(const GameState *g) {
+    s_training_active = 0;
+    s_training_result_view = 1;
+    if (!g) return;
+    ensure_log_seeded();
+    char l1[96];
+    snprintf(l1, sizeof(l1), "Completed %d rounds  //  Points: YOU %d - CPU %d.",
+             g->total_rounds, g->total_score[0], g->total_score[1]);
+    plexus_log_push("TRAINING // SESSION COMPLETE", "TRAINING TELEMETRY RECORDED",
+                    l1, "Training session finished -- career match record untouched.",
+                    "Review Speedbar & Audio FX telemetry below.");
+}
+
+ScreenAction plexus_handle_training_result_click(Vector2 vm, int *out_clicked) {
+    if (out_clicked) *out_clicked = 0;
+    if (!s_training_result_view || !CheckCollisionPointRec(vm, k_tr_exit_plex_rect)) return ACT_NONE;
+    if (out_clicked) *out_clicked = 1;
+    return ACT_GOTO_ATRIUM;
+}
+
+void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, const GameStats *st, Vector2 vm) {
+    static const char *const k_yaku_names[YAKU_COUNT] = {
+        "GOKO", "SHIKO", "AME-SHIKO", "SANKO", "HANAMI-ZAKE", "TSUKIMI-ZAKE",
+        "INO-SHIKA-CHO", "AKATAN", "AOTAN", "AKATAN+AOTAN", "TANE", "TANZAKU", "KASU"
+    };
+    ensure_plexus_assets();
+    if (s_plexus_bg.id > 0)
+        DrawTexturePro(s_plexus_bg, (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    else ClearBackground(BLACK);
+    DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 200 });
+    const char *hdr = "TRAINING  //  STATS & TELEMETRY";
+    Vector2 hts = MeasureTextEx(font_title, hdr, 28.0f, 1.4f);
+    draw_text_snapped(font_title, hdr, (1280.0f - hts.x) * 0.5f, 24.0f, 28.0f, 1.4f, COLOR_PHOSPHOR);
+
+    Rectangle lbox = { 100.0f, 76.0f, 524.0f, 530.0f }, rtop = { 656.0f, 76.0f, 524.0f, 304.0f };
+    DrawRectangleRec(lbox, PLEXUS_PANEL_BG); ui_draw_panel_border(lbox, COLOR_PHOSPHOR);
+    DrawRectangleRec(rtop, PLEXUS_PANEL_BG); ui_draw_panel_border(rtop, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "TRAINING SESSION  //  STATS", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    DrawLine(116, 118, 608, 118, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "OVERALL STATS  //  ARCHIVE", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    DrawLine(672, 118, 1164, 118, COLOR_PHOSPHOR_DIM);
+
+    int rw = 0, rl = 0, rd = 0, hi_you = 0, hi_cpu = 0, y_tot = 0, top_y = -1, top_yv = 0, fav_y = -1, fav_yv = 0;
+    int lc = g ? ((g->ledger_count > 12) ? 12 : g->ledger_count) : 0, mp = speed_bar_total();
+    for (int i = 0; i < lc; i++) {
+        int w = g->ledger[i].winner, aw = g->ledger[i].award;
+        if (w == 0) { rw++; if (aw > hi_you) hi_you = aw; }
+        else if (w == 1) { rl++; if (aw > hi_cpu) hi_cpu = aw; }
+        else rd++;
+    }
+    for (int y = 0; y < YAKU_COUNT; y++) {
+        if (g) { y_tot += g->human_yaku_counts[y]; if (g->human_yaku_counts[y] > top_yv) { top_yv = g->human_yaku_counts[y]; top_y = y; } }
+        if (st && st->yaku_counts[y] > fav_yv) { fav_yv = st->yaku_counts[y]; fav_y = y; }
+    }
+    const char *r_nm = !g ? "--" : (g->ruleset == RULESET_FUDAWIKI) ? "FUDAWIKI" : (g->ruleset == RULESET_KK_ADD_10) ? "KK-ADD-10" :
+                       (g->ruleset == RULESET_TOURNAMENT) ? "TOURNAMENT" : (g->ruleset == RULESET_YAKUZA) ? "YAKUZA" : "NINTENDO";
+    const char *d_nm = (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" : (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+                       (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
+    draw_text_snapped(font_body, TextFormat("CONFIG        :  %s  |  %s  |  %d RDS", r_nm, d_nm, g ? g->total_rounds : 0), 118.0f, 128.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("TOTAL POINTS  :  YOU %d PTS  |  CPU %d PTS", g ? g->total_score[0] : 0, g ? g->total_score[1] : 0), 118.0f, 158.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("ROUNDS        :  YOU %d  |  CPU %d  |  DRAW %d", rw, rl, rd), 118.0f, 188.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("BEST ROUND    :  YOU %d PTS  |  CPU %d PTS", hi_you, hi_cpu), 118.0f, 218.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("KOI-KOI CALLS :  YOU %d  |  CPU %d", g ? g->match_koi_calls[0] : 0, g ? g->match_koi_calls[1] : 0), 118.0f, 248.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("COMBOS FORMED :  %d  [%s]", y_tot, (top_y >= 0) ? k_yaku_names[top_y] : "NONE"), 118.0f, 278.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, (g && g->ruleset == RULESET_KK_ADD_10) ? TextFormat("SPEEDCOINS    :  %d MP  (+%d PTS)", mp, mp / 10) : TextFormat("SPEEDCOINS    :  %d MP", mp), 118.0f, 308.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    DrawLine(116, 344, 608, 344, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "ROUND LOG", 118.0f, 354.0f, 16.0f, 1.2f, COLOR_PHOSPHOR);
+    for (int i = 0; i < lc; i++) {
+        const RoundRecord *rr = &g->ledger[i];
+        const char *who = (rr->winner == 0) ? "YOU" : (rr->winner == 1) ? "CPU" : "DRAW";
+        draw_text_snapped(font_body, TextFormat("R%02d: %s (%d PTS)", rr->round_number, who, rr->award),
+                          118.0f + (float)(i / 6) * 246.0f, 382.0f + (float)(i % 6) * 32.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    }
+
+    int mp_cnt = st ? st->matches_played : 0;
+    float wr = (mp_cnt > 0) ? ((float)st->matches_won / (float)mp_cnt * 100.0f) : 0.0f;
+    draw_text_snapped(font_body, TextFormat("MATCHES       :  %d  (%dW / %dL / %dD  --  %.1f%%)", mp_cnt, st ? st->matches_won : 0, st ? st->matches_lost : 0, st ? st->matches_drawn : 0, wr), 674.0f, 128.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("CAREER ROUNDS :  YOU %d  |  CPU %d", st ? st->rounds_won_you : 0, st ? st->rounds_won_cpu : 0), 674.0f, 158.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("TOTAL POINTS  :  FOR %d  |  AGAINST %d", st ? st->points_for : 0, st ? st->points_against : 0), 674.0f, 188.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("BEST RECORDS  :  ROUND %d PTS  |  WIN %d PTS", st ? st->highest_round_score : 0, st ? st->best_award : 0), 674.0f, 218.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("KOI & STREAK  :  YOU %d / CPU %d  |  MAX x%d (NOW x%d)", st ? st->koi_calls_you : 0, st ? st->koi_calls_cpu : 0, st ? st->best_streak : 0, st ? st->current_streak : 0), 674.0f, 248.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("DIFF & COMBO  :  E:%d H:%d M:%d  |  %s", st ? st->easy_matches : 0, st ? st->hard_matches : 0, st ? st->master_matches : 0, (fav_y >= 0) ? k_yaku_names[fav_y] : "NONE"), 674.0f, 278.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+
+    draw_logfile_stats_box(st, (Rectangle){ 656.0f, 398.0f, 524.0f, 208.0f });
+    draw_plexus_btn(k_tr_exit_plex_rect, "ATRIUM PLEX", 18, vm, 0);
+    (void)ba;
 }
 
 int plexus_action_card_is_active(void) {

@@ -72,8 +72,8 @@
   - [x] **1c. Action Card Atrium Plex Integration (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` Kept Open Per Maintainer Directive):**
     - [x] **Telemetry, `KK-ADD-10` Lock & Options / Deus Deck Integration:** Link Action Card matches, W-L, best score, symbols fired, and claimed time numbers alongside Speedbar & Audio FX telemetry across `ACTION CARD` briefing, `LOGFILE`, and `plexsave.txt`; always enforce `RULESET_KK_ADD_10` when launched from the bottom bar while honoring Options menu Rounds and Difficulty (`EASY`, `HARD`, `MASTER` 15s/30s timer, and `DEUS` AI + 15s sudden-death timer + `atlas_deus` deck); keep `ACTION_CARD_UNLOCKED_FOR_TESTING = 1`.
     - [x] **Month 01 `slot 1` Tutorial & Spine Gating:** Build the Month 01 `slot 1` (`01-RP Poetry`) 3-round Easy Action Card tutorial card (freeze-on-start twin bio-meter & Five Horrors briefings with live meter highlights + `32x32` symbol badges, unlocking `slot 0` `01-B Crane` upon completing all 3 rounds) alongside Month 08 milestone gating (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` kept open).
-- [x] **`TRAINING` Non-Campaign Match Mode:**
-  - Launches a normal match from Option menu settings via `k_briefing_rect` + `k_start_rect` without Campaign awards.
+- [x] **`TRAINING` Non-Campaign Mode & Dedicated Stats End Screen:**
+  - Launches a non-campaign Training session from Option menu settings via `k_briefing_rect` + `k_start_rect` without mutating career match/replay records, ending on a dedicated Atrium Plex stats & telemetry screen (`plexus_draw_training_result`) with an `ATRIUM PLEX` exit back to the Plex.
 - [x] **Plexus Telemetry & Highscore Ranklists (`plexsave.txt`):**
   - Persist Speedcoin ranklist and Action Card match/symbol/time stats alongside Speedbar and Audio FX telemetry in `plexsave.txt`.
 
