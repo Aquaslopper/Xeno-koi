@@ -1111,7 +1111,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             if (!is_bottom_btn_unlocked(i)) {
                 return ACT_NONE;
             }
-            s_active_tab = (s_active_tab == i) ? 0 : i;
+            s_active_tab = i;
             if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
         }
@@ -1252,7 +1252,8 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
             s_tut_step = TUT2_PANEL_CORE;
         else if (s_tut_step == TUT2_WAIT_MOVE4 && board_settled && g->phase == PHASE_TURN_HAND && g->current_player == 0 && g->hand_count[0] <= 4)
             s_tut_step = TUT2_PANEL_SYNC;
-        else if (s_tut_step == TUT2_PLAY_TO_WAVE_END && board_settled && g->phase == PHASE_ROUND_END && !speed_mode_can_deal_hand2())
+        else if (s_tut_step == TUT2_PLAY_TO_WAVE_END && g->hand_count[0] == 0 && g->phase != PHASE_HAND_CHOICE &&
+                 !(anim && anim->active && anim->type == ANIM_CAPTURE_FLY))
             s_tut_step = TUT2_PANEL_HAND2;
         else if (s_tut_step == TUT2_WAIT_SCORE_SCREEN && g->phase == PHASE_ROUND_END && overlay_alpha >= 0.85f)
             s_tut_step = TUT2_PANEL_NO_HESITATION;
