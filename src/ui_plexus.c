@@ -64,7 +64,11 @@ typedef enum {
     TUT2_PANEL_HAND2,
     TUT2_WAIT_SCORE_SCREEN,
     TUT2_PANEL_NO_HESITATION,
-    TUT2_FREE_PLAY
+    TUT2_FREE_PLAY,
+    TUT3_WAIT_START,
+    TUT3_PANEL_METERS,
+    TUT3_PANEL_HORRORS,
+    TUT3_FREE_PLAY
 } TutorialStep;
 
 static int s_tut_active  = 0;
@@ -959,7 +963,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                 };
                 static const char * const k_tut_desc1[4] = {
                     "Short match to verify everything learned.",
-                    "Special game for the Action Card Audio Effect.",
+                    "3 Rounds (Easy) -- Twin bio-meters & 5 Plexus horrors.",
                     "180s Speedcoin saturation tutorial.",
                     "Learn floral matching, deck draw, yaku & Koi-Koi."
                 };
@@ -1219,6 +1223,21 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                                   !is_slot_unlocked_in_month(s_selected_month, s_selected_slot))) {
             return ACT_NONE;
         }
+        /* Month 1 Card 2 (poetry ribbon, slot == 1, cid == 1): 3-round Easy Action Card tutorial */
+        if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 1) {
+            s_training_active = 0;
+            plexus_speedcoin_abort();
+            tut_save_telemetry();
+            s_tut_active = 1; s_tut_card_id = cid; s_tut_step = TUT3_WAIT_START;
+            s_action_card_active = 1;
+            plexus_log_push("TUTORIAL // PROTOCOL 03 INITIATED",
+                            "CARD 2 OF 4 : [01-RP Poetry] -- ACTION CARD AUDIO EFFECT",
+                            "Locked to 3 Rounds (Easy) on KK-ADD-10 with twin bio-meters.",
+                            "Read the two Construct briefings, then finish all 3 rounds",
+                            "to unlock Card 1 on the conditioning spine.");
+            if (out_clicked) *out_clicked = 1;
+            return ACT_START_GAME;
+        }
         /* Month 1 Card 3 (second plain card, slot == 2, cid == 2): unscripted Speedcoin tutorial */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 2) {
             s_training_active = 0;
@@ -1328,11 +1347,13 @@ int plexus_tutorial_is_active(void) {
 
 void plexus_tutorial_abort(void) {
     int was_sc_tut = (s_tut_active && s_tut_card_id == 2);
+    int was_ac_tut = (s_tut_active && s_tut_card_id == 1);
     tut_restore_telemetry(1);
     s_tut_active  = 0;
     s_tut_card_id = -1;
     s_tut_step    = TUT1_NONE;
     if (was_sc_tut) plexus_speedcoin_abort();
+    if (was_ac_tut) s_action_card_active = 0;
 }
 
 int plexus_training_is_active(void) {
@@ -1349,11 +1370,16 @@ int plexus_action_card_is_active(void) {
 
 void plexus_action_card_abort(void) {
     s_action_card_active = 0;
+    if (s_tut_active && s_tut_card_id == 1) {
+        tut_restore_telemetry(1);
+        s_tut_active = 0; s_tut_card_id = -1; s_tut_step = TUT1_NONE;
+    }
 }
 
 void plexus_action_card_finish_match(const GameState *g) {
     if (!g) return;
     ensure_log_seeded();
+    int is_ac_tut = (s_tut_active && s_tut_card_id == 1);
     int you = g->total_score[0], cpu = g->total_score[1];
     s_ac_runs++;
     if (you > cpu) s_ac_wins++;
@@ -1361,7 +1387,8 @@ void plexus_action_card_finish_match(const GameState *g) {
     if (you > s_ac_best_score) s_ac_best_score = you;
 
     const char *res = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
-    const char *d_name = (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" :
+    const char *d_name = is_ac_tut ? "EASY" :
+                         (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" :
                          (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
                          (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
     int mp = speed_bar_total();
@@ -1377,6 +1404,31 @@ void plexus_action_card_finish_match(const GameState *g) {
     snprintf(l3, sizeof(l3), "Action Card Record: %dW-%dL (%d Runs)  //  Best: %d PTS.",
              s_ac_wins, s_ac_losses, s_ac_runs, s_ac_best_score);
     plexus_log_push("ACTION CARD // MATCH SUMMARY", title, l1, l2, l3);
+
+    if (is_ac_tut) {
+        s_tut_telemetry_saved = 0;
+        if (s_tut_step == TUT3_FREE_PLAY) {
+            int was_done = (int)((s_finished_cards_mask >> 1) & 1ULL);
+            s_finished_cards_mask |= (1ULL << 1);
+            if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 0)) {
+                s_selected_slot = 0; s_active_tab = 0;
+                stage_spine_flip(0, 0, 0.35f);
+            }
+            if (!was_done && is_month_completed(0)) {
+                plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED",
+                                "MONTH 01 COMPLETE -- [NEXT] READY!",
+                                "All 4 cards of Month 01 are completed.",
+                                "[NEXT] is now active above the top spine card.",
+                                "Press [NEXT] to swing in Month 02 irreversibly.");
+            } else if (!was_done) {
+                plexus_log_push("STORY // TUTORIAL CARD 3 COMPLETED",
+                                "[01-RP Poetry] -- ACTION CARD PROTOCOL COMPLETED",
+                                "Entity 001 completed Action Card Audio Effect conditioning.",
+                                "Card 2 of Month 01 is complete; Card 1 turned face up",
+                                "and unlocked at the apex of Month 01's spine.");
+            }
+        }
+    }
 }
 
 void plexus_tutorial_setup_round(GameState *g) {
@@ -1384,6 +1436,10 @@ void plexus_tutorial_setup_round(GameState *g) {
 
     tut_save_telemetry();
     tut_restore_telemetry(0);
+    if (s_tut_card_id == 1) {
+        g->ruleset = RULESET_KK_ADD_10; g->total_rounds = 3; g->dealer = 0;
+        engine_start_round(g); s_tut_step = TUT3_WAIT_START; return;
+    }
 
     g->ruleset        = RULESET_KK_ADD_10;
     g->total_rounds   = 1;
@@ -1450,13 +1506,17 @@ static int tut_step_is_frozen(TutorialStep st) {
             st == TUT2_PANEL_SYNC ||
             st == TUT2_PANEL_PARASITE ||
             st == TUT2_PANEL_HAND2 ||
-            st == TUT2_PANEL_NO_HESITATION) ? 1 : 0;
+            st == TUT2_PANEL_NO_HESITATION ||
+            st == TUT3_PANEL_METERS ||
+            st == TUT3_PANEL_HORRORS) ? 1 : 0;
 }
 
 static Rectangle tut_panel_rect_for_step(TutorialStep st) {
     if (st == TUT1_PANEL_KOI_DECIDE) return (Rectangle){ 260.0f, 26.0f, 760.0f, 178.0f };
     if (st == TUT2_PANEL_NO_HESITATION) return (Rectangle){ 266.0f, 175.0f, 748.0f, 340.0f };
     if (st >= TUT2_PANEL_CORE && st <= TUT2_PANEL_HAND2) return (Rectangle){ 410.0f, 145.0f, 748.0f, 360.0f };
+    if (st == TUT3_PANEL_METERS)  return (Rectangle){ 440.0f, 142.0f, 636.0f, 382.0f };
+    if (st == TUT3_PANEL_HORRORS) return (Rectangle){ 440.0f, 126.0f, 636.0f, 424.0f };
     return (Rectangle){ 280.0f, 150.0f, 720.0f, 380.0f };
 }
 
@@ -1480,6 +1540,20 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
                                      Vector2 vm, int mouse_pressed, int *out_clicked) {
     if (out_clicked) *out_clicked = 0;
     if (!s_tut_active || !g) return 0;
+
+    if (s_tut_card_id == 1) {
+        if (s_tut_step == TUT3_WAIT_START && board_settled && g->phase == PHASE_TURN_HAND)
+            s_tut_step = TUT3_PANEL_METERS;
+        if (!tut_step_is_frozen(s_tut_step)) return 0;
+        if (mouse_pressed) {
+            Rectangle pr = tut_panel_rect_for_step(s_tut_step), cr = tut_continue_rect_for_panel(pr);
+            if (CheckCollisionPointRec(vm, pr) || CheckCollisionPointRec(vm, cr)) {
+                if (out_clicked) *out_clicked = 1;
+                s_tut_step = (s_tut_step == TUT3_PANEL_METERS) ? TUT3_PANEL_HORRORS : TUT3_FREE_PLAY;
+            }
+        }
+        return 1;
+    }
 
     if (s_tut_card_id == 2) {
         if (speed_mode_clock() <= 0.0f) return 0;
@@ -1619,6 +1693,12 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
             ui_theme_set_panel_flare_glow(fb, 1.0f);
             ui_theme_draw_panel_flares(fb);
         }
+    } else if (s_tut_card_id == 1) {
+        float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
+        Rectangle hl_l = { 402.0f, 129.0f, 38.0f, 309.0f }, hl_r = { 1076.0f, 136.0f, 26.0f, 302.0f };
+        Color lc = COLOR_PHOSPHOR, rc = { 224, 136, 146, 255 };
+        DrawRectangleLinesEx(hl_l, 2.5f, lc); lc.a = (unsigned char)(52.0f * pulse); DrawRectangleRec(hl_l, lc);
+        DrawRectangleLinesEx(hl_r, 2.5f, rc); rc.a = (unsigned char)(56.0f * pulse); DrawRectangleRec(hl_r, rc);
     }
 
     Rectangle pr = tut_panel_rect_for_step(s_tut_step);
@@ -1626,7 +1706,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     DrawRectangleRec(pr, PLEXUS_PANEL_BG);
     ui_draw_panel_border(pr, COLOR_PHOSPHOR);
 
-    float pad = (s_tut_card_id == 2) ? 20.0f : 26.0f;
+    float pad = (s_tut_card_id == 1) ? 16.0f : (s_tut_card_id == 2) ? 20.0f : 26.0f;
     float x = pr.x + pad;
     float y = pr.y + 18.0f;
 
@@ -1804,6 +1884,39 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                                   (l == k_p2[p].hi) ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
                 ly += 29.0f;
             }
+        }
+    } else if (s_tut_step == TUT3_PANEL_METERS) {
+        Color wine_hi = { 224, 136, 146, 255 };
+        draw_text_snapped(font_body, "===============================================", x, y - 2.0f, 15.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_title, "[ATRIUM PLEX \"ACTION CARD AUDIO EFFECT\" /ACAE/]", x, y + 16.0f, 17.0f, 1.0f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "===============================================", x, y + 36.0f, 15.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_body, "This is no longer classic Hanafuda. It is an anatomical conduit.", x, y + 60.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "Balance the twin bio-meters:", x, y + 90.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "> LEFT METER:", x, y + 120.0f, 16.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "Audio Pulse. Heavy beats shifts the badge:", x, y + 142.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "[Skull -> Hand -> Reverse Arrow -> One Eye -> Gold Coin]", x, y + 166.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "> RIGHT METER:", x, y + 198.0f, 16.0f, 1.1f, wine_hi);
+        draw_text_snapped(font_body, "Wine-Red Reservoir. Harvests vital fluid from captures.", x, y + 220.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "[75%): start arming audio badge] [50%: critical: armed badge activation]", x, y + 244.0f, 16.0f, 1.0f, wine_hi);
+    } else if (s_tut_step == TUT3_PANEL_HORRORS) {
+        static const struct { const char *lbl; const char *d1; const char *d2; } k_h[5] = {
+            { "SKULL:",         "Dissolves half the field back into the bone-deck.", NULL },
+            { "HAND:",          "Parasitically swaps your hand with the CPU.", NULL },
+            { "REVERSE ARROW:", "Rips half of all captured cards back into the stock.", NULL },
+            { "ONE EYE:",       "Calcifies 2 field cards face-down. Tooltips off.", NULL },
+            { "GOLD COIN:",     "Devours the ceiling counter. Converts 100 ticks", "into 10 PTS for the active player." }
+        };
+        draw_text_snapped(font_title, "ENERGY BELOW 50%. THE ARMED INFECTION FIRES!", x, y, 18.0f, 1.1f, (Color){ 224, 136, 146, 255 });
+        DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - pad), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_body, "The sigil erupts through the floor, striking whoever is currently", x, y + 40.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "pulling the turn levers (YOU or CPU). Control your tempo.", x, y + 64.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_title, "THE FIVE HORRORS OF THE PLEXUS:", x, y + 98.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        for (int s = 0; s < 5; s++) {
+            float ry = y + 132.0f + (float)s * 38.0f;
+            board_draw_action_symbol_icon(ba, s, x + 16.0f, ry + 10.0f, 1, 0.0f);
+            draw_text_snapped(font_body, k_h[s].lbl, x + 40.0f, ry + 2.0f, 16.0f, 1.0f, COLOR_PHOSPHOR);
+            draw_text_snapped(font_body, k_h[s].d1,  x + 188.0f, ry + 2.0f, 16.0f, 1.0f, COLOR_TEXT_INFO);
+            if (k_h[s].d2) draw_text_snapped(font_body, k_h[s].d2, x + 188.0f, ry + 22.0f, 16.0f, 1.0f, COLOR_TEXT_INFO);
         }
     }
 

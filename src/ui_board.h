@@ -80,6 +80,7 @@ int   board_get_action_round_time_stats(int *out_you, int *out_you_pts, int *out
 int   board_get_action_match_time_stats(int *out_you, int *out_you_pts, int *out_cpu, int *out_cpu_pts, int *out_meter);
 int   board_get_action_symbol(int *out_armed);
 int   board_take_pending_action_symbol(void);
+void  board_draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash);
 void  board_trigger_action_blind_cards(const GameState *g, uint32_t *rng_state, int count);
 int   board_is_blind_field_card(int card_id);
 int   board_is_action_distraction_high(void);

@@ -400,7 +400,8 @@ static void begin_new_match(int trk) {
     human_turn_started = 0; deus_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
     uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
-    engine_init(&g, plexus_action_card_is_active() ? RULESET_KK_ADD_10 : settings.ruleset, settings.rounds, match_seed);
+    int init_rounds = (plexus_tutorial_is_active() && plexus_action_card_is_active()) ? 3 : settings.rounds;
+    engine_init(&g, plexus_action_card_is_active() ? RULESET_KK_ADD_10 : settings.ruleset, init_rounds, match_seed);
     if (plexus_speedcoin_is_active()) {
         g.rng_state = match_seed ? match_seed : 1u;
         plexus_speedcoin_setup_wave(&g, 1);
@@ -697,13 +698,14 @@ static void update_draw_frame(void) {
         else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, pick_match_track(1));
     }
     int ac_table = in_game && plexus_action_card_is_active();
+    int ac_paused = is_paused || plexus_tutorial_panel_open();
     sync_music_meter_tap(ac_table);
-    if (ac_table && !is_paused) {
+    if (ac_table && !ac_paused) {
         float raw = __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f;
         float tgt = (audio.current_music == 2) ? raw * (1.0f - transition_alpha) : 0.0f;
         s_music_meter_vis += (tgt - s_music_meter_vis) * (1.0f - expf(-dt / ((tgt > s_music_meter_vis) ? 0.035f : 0.120f)));
     }
-    board_set_action_card_mode(ac_table ? (is_paused ? 2 : 1) : 0, s_music_meter_vis);
+    board_set_action_card_mode(ac_table ? (ac_paused ? 2 : 1) : 0, s_music_meter_vis);
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -1297,7 +1299,7 @@ static void update_draw_frame(void) {
                                 motion_deal_round(&g, 0.45f);
                                 audio_play_flip(&audio);
                                 cinematic_start_countdown(next_w);
-                            } else if (plexus_tutorial_is_active()) {
+                            } else if (plexus_tutorial_is_active() && !plexus_action_card_is_active()) {
                                 anim_init(&anim);
                                 plexus_tutorial_finish_match();
                                 pending_result_sfx = 1;
@@ -1445,7 +1447,7 @@ static void update_draw_frame(void) {
         } else if (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE) status = "CHOOSE ONE OF THE MATCHING CARDS";
         else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
 
-        board_set_action_card_mode(ac_table ? (is_paused ? 2 : 1) : 0, s_music_meter_vis);
+        board_set_action_card_mode(ac_table ? (ac_paused ? 2 : 1) : 0, s_music_meter_vis);
         board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY)
                                         : (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY),

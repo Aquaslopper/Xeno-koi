@@ -739,7 +739,7 @@ static void draw_action_card_distraction(Rectangle dr, int slot_key, float added
     if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
 }
 
-static void draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash) {
+void board_draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash) {
     Rectangle box = { cx - 16.0f, cy - 16.0f, 32.0f, 32.0f };
     DrawRectangleRec(box, COLOR_PANEL_BG);
     if (armed) ui_theme_set_panel_flare_glow(box, fminf(1.0f, 0.72f + 0.28f * flash));
@@ -1191,7 +1191,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         }
         draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
                                  &s_action_peak_hold, &s_action_peak_timer, env_dt, 0);
-        draw_action_symbol_icon(ba, s_action_symbol_idx, 421.0f, 148.0f, s_action_symbol_armed, s_action_symbol_flash);
+        board_draw_action_symbol_icon(ba, s_action_symbol_idx, 421.0f, 148.0f, s_action_symbol_armed, s_action_symbol_flash);
         draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
                                  &s_action_added_hold, &s_action_added_timer, env_dt, 1);
         if (s_action_ceil_started) {
