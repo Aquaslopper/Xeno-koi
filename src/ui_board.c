@@ -650,8 +650,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* Audio reverb follows a smooth S-curve (never a spike):
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.09f;
-    if (koi_edge)           reverb_energy += 0.35f;
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.14f;
+    if (koi_edge)           reverb_energy += 0.21f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
     if (capture_edge || koi_edge) {
         reverb_hold = 0.30f;
@@ -663,7 +663,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.10f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.18f));
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.21f));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
