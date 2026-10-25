@@ -23,6 +23,7 @@ void ui_theme_set_mouse(Vector2 virtual_mouse);
 void ui_theme_draw_panel_flares(Rectangle r);
 void ui_theme_draw_panel_flares_keyed(Rectangle r, int key);
 void ui_theme_set_panel_flare_glow(Rectangle r, float glow);
+void ui_theme_set_global_flare_boost(float glow_floor, float speed_mult);
 void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing, Color col);
 void ui_draw_panel_border(Rectangle r, Color border_color);
 

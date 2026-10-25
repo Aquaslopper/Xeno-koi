@@ -100,6 +100,13 @@ static Vector2 s_previous_panel_mouse;
 static int s_panel_mouse_valid;
 static int s_previous_panel_mouse_valid;
 static double s_last_flare_time = -1.0;
+static float s_global_flare_glow = 0.0f;
+static float s_global_flare_speed = 1.0f;
+
+void ui_theme_set_global_flare_boost(float glow_floor, float speed_mult) {
+    s_global_flare_glow = (glow_floor < 0.0f) ? 0.0f : ((glow_floor > 1.0f) ? 1.0f : glow_floor);
+    s_global_flare_speed = (speed_mult < 0.1f) ? 1.0f : ((speed_mult > 5.0f) ? 5.0f : speed_mult);
+}
 
 void ui_theme_set_mouse(Vector2 virtual_mouse) {
     s_previous_panel_mouse = s_panel_mouse;
@@ -183,7 +190,7 @@ static void panel_flares_update(double now) {
         for (int i = 0; i < MAX_FLARES_PER_BOX; i++) {
             PanelFlare *f = &box->flares[i];
             if (!f->active) continue;
-            f->distance = panel_wrap_distance(f->distance + f->direction * f->speed * dt, perimeter);
+            f->distance = panel_wrap_distance(f->distance + f->direction * f->speed * s_global_flare_speed * dt, perimeter);
             f->life -= dt;
             if (f->life <= 0.0f) f->active = 0;
         }
@@ -302,7 +309,7 @@ static void panel_flares_draw(Rectangle r, int key) {
     double now = GetTime();
     PanelFlareBox *box = panel_flare_box_get(bounds, now, key);
     if (!box) return;
-    float glow_floor = box->glow_floor;
+    float glow_floor = (s_global_flare_glow > box->glow_floor) ? s_global_flare_glow : box->glow_floor;
     box->glow_floor = 0.0f;
     int held_card = (key > 0);
     int hovered = s_panel_mouse_valid && CheckCollisionPointRec(s_panel_mouse, bounds);

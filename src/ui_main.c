@@ -237,17 +237,25 @@ static float s_music_meter_vis = 0.0f;
 static void music_meter_processor(void *buffer, unsigned int frames) {
     const float *pcm = (const float *)buffer;
     if (!pcm || frames == 0) return;
-    static float ms_env = 0.0f;
+    static float fast_ms = 0.0f, lo_rms = 0.12f, hi_rms = 0.24f;
     static unsigned int last_ep = 0;
     unsigned int ep = __atomic_load_n(&s_music_meter_epoch, __ATOMIC_RELAXED);
-    if (ep != last_ep) { ms_env = 0.0f; last_ep = ep; }
+    if (ep != last_ep) { fast_ms = 0.0f; lo_rms = 0.12f; hi_rms = 0.24f; last_ep = ep; }
     for (unsigned int f = 0; f < frames; f++) {
         float l = pcm[f * 2 + 0], r = pcm[f * 2 + 1], p2 = 0.5f * (l * l + r * r);
         if (!(p2 >= 0.0f) || p2 > 4.0f) p2 = 0.0f;
-        ms_env += (p2 - ms_env) * 0.00030f;
+        fast_ms += (p2 - fast_ms) * 0.00085f;
     }
-    if (ms_env < 1e-12f) ms_env = 0.0f;
-    float norm = fminf(1.0f, fmaxf(0.0f, (sqrtf(ms_env) - 0.035f) / 0.345f));
+    if (fast_ms < 1e-12f) fast_ms = 0.0f;
+    float rms = sqrtf(fast_ms), c_sec = (float)frames / 44100.0f;
+    if (rms > hi_rms) hi_rms += (rms - hi_rms) * (1.0f - expf(-c_sec / 0.05f));
+    else              hi_rms += (rms - hi_rms) * (1.0f - expf(-c_sec / 0.90f));
+    if (rms < lo_rms) lo_rms += (rms - lo_rms) * (1.0f - expf(-c_sec / 0.06f));
+    else              lo_rms += (rms - lo_rms) * (1.0f - expf(-c_sec / 0.90f));
+    float gate = (hi_rms > 0.015f) ? fminf(1.0f, (hi_rms - 0.015f) / 0.075f) : 0.0f;
+    float floor_r = lo_rms * 0.88f, span = fmaxf(0.025f, hi_rms - floor_r);
+    float beat = fminf(1.0f, fmaxf(0.0f, (rms - floor_r) / span));
+    float norm = gate * (0.08f + 0.92f * powf(beat, 1.20f));
     __atomic_store_n(&s_music_meter_raw, (unsigned int)(norm * 1000000.0f), __ATOMIC_RELAXED);
 }
 
@@ -276,7 +284,7 @@ static void begin_new_match(int trk) {
     if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() && !plexus_action_card_is_active() &&
         settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
     replay_rec_abort();
-    anim_init(&anim); motion_init(); speed_bar_reset(); memset(&drag, 0, sizeof(drag));
+    anim_init(&anim); motion_init(); speed_bar_reset(); board_reset_action_card_match(); memset(&drag, 0, sizeof(drag));
     hovered_idx = -1; is_paused = 0; confirm_restart = 0; combo_player = -1; combo_page = 0;
     human_turn_started = 0; deus_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
@@ -537,12 +545,12 @@ static void update_draw_frame(void) {
     }
     int ac_table = in_game && plexus_action_card_is_active();
     sync_music_meter_tap(ac_table);
-    if (ac_table) {
+    if (ac_table && !is_paused) {
         float raw = __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f;
-        float tgt = (settings.bgm_volume > 0.001f && audio.current_music == 2) ? powf(raw, 1.25f) * (1.0f - transition_alpha) : 0.0f;
-        s_music_meter_vis += (tgt - s_music_meter_vis) * (1.0f - expf(-dt / ((tgt > s_music_meter_vis) ? 0.045f : 0.160f)));
+        float tgt = (audio.current_music == 2) ? raw * (1.0f - transition_alpha) : 0.0f;
+        s_music_meter_vis += (tgt - s_music_meter_vis) * (1.0f - expf(-dt / ((tgt > s_music_meter_vis) ? 0.035f : 0.120f)));
     }
-    board_set_action_card_mode(ac_table, s_music_meter_vis);
+    board_set_action_card_mode(ac_table ? (is_paused ? 2 : 1) : 0, s_music_meter_vis);
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -1270,6 +1278,7 @@ static void update_draw_frame(void) {
         } else if (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE) status = "CHOOSE ONE OF THE MATCHING CARDS";
         else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
 
+        board_set_action_card_mode(ac_table ? (is_paused ? 2 : 1) : 0, s_music_meter_vis);
         board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY)
                                         : (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY),
@@ -1291,6 +1300,7 @@ static void update_draw_frame(void) {
                 draw_hover_action_label(replay_running ? "STOP" : "RESTART", restart_btn);
             }
         }
+        ui_theme_set_global_flare_boost(0.0f, 1.0f);
         if (sc_ending) screens_draw_banner("GAME OVER");
         else if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
         if (!replay_running && round_banner_timer > 0.0f) draw_round_end_banner(&g, round_banner_timer);
