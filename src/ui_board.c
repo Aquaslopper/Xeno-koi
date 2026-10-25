@@ -905,10 +905,17 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     if (wine_right) {
         for (int t = 1; t <= 3; t++) {
             int ty = bot - (ih * t) / 4;
-            Color lc = (ty >= bot - fh)
-                ? (Color){ (unsigned char)(dim_c.r / 3), (unsigned char)(dim_c.g / 3), (unsigned char)(dim_c.b / 3), 165 }
-                : (Color){ base_c.r, base_c.g, base_c.b, 150 };
-            DrawLine(ix, ty, ix + iw, ty, lc);
+            if (t == 2) {
+                Color mc = (ty >= bot - fh)
+                    ? (Color){ (unsigned char)(dim_c.r / 3), (unsigned char)(dim_c.g / 3), (unsigned char)(dim_c.b / 3), 210 }
+                    : (Color){ hi_c.r, hi_c.g, hi_c.b, 215 };
+                DrawRectangle(ix, ty - 1, iw, 3, mc);
+            } else {
+                Color lc = (ty >= bot - fh)
+                    ? (Color){ (unsigned char)(dim_c.r / 3), (unsigned char)(dim_c.g / 3), (unsigned char)(dim_c.b / 3), 165 }
+                    : (Color){ base_c.r, base_c.g, base_c.b, 150 };
+                DrawLine(ix, ty, ix + iw, ty, lc);
+            }
         }
     } else {
         int ty = bot - (ih * 9) / 10;
@@ -923,6 +930,12 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     }
     if (is_full) ui_theme_set_panel_flare_glow(bar, 1.0f);
     ui_draw_panel_border(bar, is_full ? base_c : dim_c);
+    if (wine_right) {
+        int mid_y = bot - ih / 2;
+        Color cap_c = (mid_y >= bot - fh) ? hi_c : base_c;
+        DrawRectangle((int)bar.x - 3, mid_y - 1, 5, 3, cap_c);
+        DrawRectangle((int)(bar.x + bar.width) - 2, mid_y - 1, 5, 3, cap_c);
+    }
 }
 
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
@@ -1137,10 +1150,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (s_action_card_mode) {
         float added_lvl = reverb_synergy;
         int right_full = (added_lvl >= 0.98f);
-        float b_tc = right_full ? 0.08f : 0.14f;
-        s_action_full_boost += ((right_full ? 1.0f : 0.0f) - s_action_full_boost) * (1.0f - expf(-env_dt / b_tc));
+        int right_fh = right_full ? 260 : (int)lroundf(260.0f * added_lvl);
+        int right_above_third = (right_fh > (260 * 3) / 4);
+        float b_tc = right_above_third ? 0.04f : 0.14f;
+        s_action_full_boost += ((right_above_third ? 1.0f : 0.0f) - s_action_full_boost) * (1.0f - expf(-env_dt / b_tc));
         float base_music = 0.80f * s_action_music_level;
-        float full_music = fminf(1.0f, 0.36f + 0.68f * s_action_music_level);
+        float full_music = fminf(1.0f, 0.40f + 0.68f * s_action_music_level);
         float music_lvl = base_music + (full_music - base_music) * s_action_full_boost;
         int live_round = g && g->phase != PHASE_DEALER_SELECT &&
                          g->phase != PHASE_ROUND_END && g->phase != PHASE_MATCH_END;
@@ -1167,8 +1182,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             } else if (s_action_above_90 && music_lvl < 0.84f) {
                 s_action_above_90 = 0;
             }
-            int right_fh = right_full ? 260 : (int)lroundf(260.0f * added_lvl);
-            if (s_action_symbol_armed && right_fh < (260 / 4)) {
+            if (s_action_symbol_armed && right_fh < (260 / 2)) {
                 s_action_pending_sym = s_action_symbol_idx;
                 s_action_symbol_armed = 0;
                 s_action_symbol_flash = 1.0f;
