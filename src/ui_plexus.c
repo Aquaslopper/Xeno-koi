@@ -80,9 +80,11 @@ static int s_saved_audio_triggers = 0;
 static float s_saved_audio_peak = 0.0f;
 static float s_saved_audio_hold = 0.0f;
 static int s_training_active = 0;
+static int s_action_card_active = 0;
 
-/* Solo Speedcoin mode & persistent Top-8 Ranklist (saved in plexsave.txt) */
-#define SPEEDCOIN_UNLOCKED_FOR_TESTING 1
+/* Solo Speedcoin & Action Card modes (unlocked for testing; saved in plexsave.txt) */
+#define SPEEDCOIN_UNLOCKED_FOR_TESTING   1
+#define ACTION_CARD_UNLOCKED_FOR_TESTING 1
 #define SPEEDCOIN_RANK_MAX 8
 
 typedef struct {
@@ -297,7 +299,7 @@ static int is_speedcoin_bottom_unlocked(void) {
 }
 
 static int is_action_card_bottom_unlocked(void) {
-    return is_month_unlocked(8); /* Unlocks after all 4 cards of Month 1..8 are finished */
+    return ACTION_CARD_UNLOCKED_FOR_TESTING || is_month_unlocked(8); /* Unlocks after all 4 cards of Month 1..8 are finished */
 }
 
 static int is_bottom_btn_unlocked(int idx) {
@@ -344,6 +346,7 @@ void plexus_load(void) {
     s_swing_active = 0;
     s_tut_telemetry_saved = 0;
     s_training_active = 0;
+    s_action_card_active = 0;
     s_speedcoin_active = 0;
     s_speedcoin_result_view = 0;
     s_sc_rank_count = 0;
@@ -951,9 +954,9 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         } else if (s_active_tab == 3) {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
             snprintf(sub, sizeof(sub), "SPECIAL GAME  //  KK-ADD-10 ACTION CARD AUDIO");
-            line1 = "Special game focused on the KK-ADD-10 Action Card Audio Effect";
-            line2 = "stereo reverb synergy and capture streak resonance.";
-            line3 = "Select a card on the right spine to return to Month view.";
+            line1 = "KK-ADD-10 table with live vertical music-peak indicator.";
+            line2 = "Stereo reverb synergy and capture streak resonance.";
+            line3 = "Press START to launch the Action Card table.";
         } else {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
             snprintf(sub, sizeof(sub), "TRAINING BRIEFING   [PLACEHOLDER]");
@@ -1088,6 +1091,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (s_active_tab == 4) {
             plexus_tutorial_abort();
             plexus_speedcoin_abort();
+            plexus_action_card_abort();
             s_training_active = 1;
             plexus_log_push("TRAINING // NORMAL MATCH",
                             "TRAINING MODE -- NO CAMPAIGN AWARDS",
@@ -1100,6 +1104,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (s_active_tab == 2) {
             if (!is_speedcoin_bottom_unlocked()) return ACT_NONE;
             plexus_tutorial_abort();
+            plexus_action_card_abort();
             s_training_active = 0;
             s_speedcoin_result_view = 0;
             s_speedcoin_active = 1;
@@ -1108,8 +1113,17 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
         if (s_active_tab == 3) {
             if (!is_action_card_bottom_unlocked()) return ACT_NONE;
+            plexus_tutorial_abort();
+            plexus_speedcoin_abort();
+            s_training_active = 0;
+            s_action_card_active = 1;
+            plexus_log_push("ACTION CARD // AUDIO RESONANCE",
+                            "ACTION CARD MODE -- KK-ADD-10 TABLE",
+                            "Launching KK-ADD-10 Action Card table with live",
+                            "music-peak indicator between the deck and field.",
+                            "Non-campaign mode for audio synergy tuning.");
             if (out_clicked) *out_clicked = 1;
-            return ACT_NONE;
+            return ACT_START_GAME;
         }
         int cid = s_selected_month * 4 + s_selected_slot;
         if (s_active_tab == 0 && (s_swing_active || !is_month_unlocked(s_selected_month) ||
@@ -1119,6 +1133,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         /* Month 1 Card 3 (second plain card, slot == 2, cid == 2): unscripted Speedcoin tutorial */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 2) {
             s_training_active = 0;
+            plexus_action_card_abort();
             s_speedcoin_result_view = 0;
             tut_save_telemetry();
             s_tut_active       = 1;
@@ -1137,6 +1152,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 3) {
             s_training_active = 0;
             plexus_speedcoin_abort();
+            plexus_action_card_abort();
             tut_save_telemetry();
             s_tut_active  = 1;
             s_tut_card_id = cid;
@@ -1236,6 +1252,14 @@ int plexus_training_is_active(void) {
 
 void plexus_training_stop(void) {
     s_training_active = 0;
+}
+
+int plexus_action_card_is_active(void) {
+    return s_action_card_active;
+}
+
+void plexus_action_card_abort(void) {
+    s_action_card_active = 0;
 }
 
 void plexus_tutorial_setup_round(GameState *g) {

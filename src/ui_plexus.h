@@ -24,6 +24,10 @@ void plexus_tutorial_abort(void);
 int  plexus_training_is_active(void);
 void plexus_training_stop(void);
 
+/* Atrium Plex Action Card mode state */
+int  plexus_action_card_is_active(void);
+void plexus_action_card_abort(void);
+
 /* Atrium Plex Speedcoin solo highscore mode & dedicated result screen */
 int          plexus_speedcoin_is_active(void);
 void         plexus_speedcoin_abort(void);

@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex Phase 4 Step 1a: unlocked `ACTION CARD` button, dedicated `KK-ADD-10` Action Card table & vertical music-peak indicator (25 October 2026)
+
+- Started Phase 4 of Atrium Plex (`src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_board.h`, `src/ui_board.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`) while keeping `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`:
+  - **Unlocked `ACTION CARD` Mode (`src/ui_plexus.*`, `src/ui_main.c`):** Added `ACTION_CARD_UNLOCKED_FOR_TESTING = 1` and `plexus_action_card_is_active()` / `plexus_action_card_abort()` so clicking `ACTION CARD` (`tab 3`) -> `START` launches a dedicated non-campaign `RULESET_KK_ADD_10` Action Card match directly onto Round 1 (`engine_start_round`), isolated from Campaign stats, clearance coins, replays, boss taunts, and Master/Deus turn timers, and returning cleanly to `SCREEN_ATRIUM` on `ABANDON MATCH` or `MAIN MENU`. Also tightened `tab 3` briefing copy so every line stays within `496 px`.
+  - **Action-Card-Only Vertical Music-Peak Bar (`src/ui_board.*`, `src/ui_main.c`):** Added a lock-free read-only `AudioStream` processor tap (`music_meter_processor` / `sync_music_meter_tap`, attached strictly while on the Action Card table and detached on exit/shutdown with zero edits to locked `src/ui_audio.c`) feeding `board_set_action_card_mode(active, level)`. When and only when Action Card mode is active, `draw_action_music_bar()` renders a theme-colored (`COLOR_PHOSPHOR` / `COLOR_TEXT_INFO`) vertical peak-level bar with 25%/50%/75% ticks and peak-hold marker at `{414, 170, 14, 264}` between the right edge of the Stock deck (`x = 406`) and the Field (`FIELD_X = 430`) for human-ear tuning.
+
+#### Checked
+- `gcc -std=c99 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, dedicated ASan+UBSan Action Card mode & music-peak meter test harness, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_board.h`, `src/ui_board.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex right-spine redesign: face-down locked -> face-up unlock progression & irreversible `[NEXT]` month swing-in (25 October 2026)
 
 - Reworked the Atrium Plex right-hand 4-card spine progression in `src/ui_plexus.c` and updated `plexus/roadmap_plexus.md` per maintainer design directive (`SPEEDCOIN_UNLOCKED_FOR_TESTING` kept at `1`):

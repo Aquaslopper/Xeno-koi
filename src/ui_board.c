@@ -63,6 +63,10 @@ static int g_ash_initialized = 0;
 static int s_audio_action_triggers = 0;
 static float s_audio_peak_synergy = 0.0f;
 static float s_audio_full_hold_sec = 0.0f;
+static int s_action_card_mode = 0;
+static float s_action_music_level = 0.0f;
+static float s_action_peak_hold = 0.0f;
+static float s_action_peak_timer = 0.0f;
 
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
@@ -71,6 +75,11 @@ void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec) {
     s_audio_action_triggers = (triggers > 0) ? triggers : 0;
     s_audio_peak_synergy = (peak >= 0.0f) ? (peak > 1.0f ? 1.0f : peak) : 0.0f;
     s_audio_full_hold_sec = (full_hold_sec >= 0.0f) ? full_hold_sec : 0.0f;
+}
+void  board_set_action_card_mode(int active, float music_level) {
+    if (!active) { s_action_peak_hold = 0.0f; s_action_peak_timer = 0.0f; }
+    s_action_card_mode = active ? 1 : 0;
+    s_action_music_level = (music_level >= 0.0f) ? (music_level > 1.0f ? 1.0f : music_level) : 0.0f;
 }
 
 static void pick_dark_particle_dims(int roll, int *out_w, int *out_h) {
@@ -449,7 +458,7 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     if ((unsigned)card_id >= 48u) return;
     card_tooltip_record(card_id, dest);
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-    Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
+    Texture2D tex = (!s_action_card_mode && settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
@@ -547,6 +556,39 @@ static void draw_speedcoin_clock_panel(void) {
     }
     draw_centered_text(font_body, "-10s DRAIN / MISS   +10s / 10 MP",
                        r.x + r.width * 0.5f, r.y + 170.0f, 13.0f, 0.6f, COLOR_PHOSPHOR_DIM);
+}
+
+static void draw_action_music_bar(float dt) {
+    Rectangle bar = { 414.0f, 170.0f, 14.0f, 264.0f };
+    float lvl = s_action_music_level;
+    if (lvl >= s_action_peak_hold) {
+        s_action_peak_hold = lvl;
+        s_action_peak_timer = 0.35f;
+    } else if (s_action_peak_timer > 0.0f) {
+        s_action_peak_timer -= dt;
+    } else {
+        s_action_peak_hold = fmaxf(lvl, s_action_peak_hold - 0.48f * dt);
+    }
+    DrawRectangleRec(bar, COLOR_PANEL_BG);
+    int ix = (int)bar.x + 2, iw = (int)bar.width - 4, ih = (int)bar.height - 4, bot = (int)bar.y + 2 + ih;
+    int fh = (int)lroundf((float)ih * lvl);
+    if (fh > 0) {
+        Color top_c = COLOR_TEXT_INFO, bot_c = COLOR_PHOSPHOR;
+        top_c.a = (unsigned char)(195.0f + 60.0f * lvl);
+        bot_c.a = (unsigned char)(135.0f + 95.0f * lvl);
+        DrawRectangleGradientV(ix, bot - fh, iw, fh, top_c, bot_c);
+        DrawRectangle(ix, bot - fh, iw, (fh >= 2) ? 2 : 1, COLOR_TEXT_INFO);
+    }
+    for (int t = 1; t <= 3; t++) {
+        int ty = bot - (ih * t) / 4;
+        DrawLine(ix, ty, ix + iw, ty, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 120 });
+    }
+    if (s_action_peak_hold > 0.02f) {
+        int py = bot - (int)lroundf((float)ih * s_action_peak_hold);
+        DrawRectangle(ix, (py < (int)bar.y + 2) ? ((int)bar.y + 2) : py, iw, 2, COLOR_PHOSPHOR);
+    }
+    if (lvl > 0.05f) ui_theme_set_panel_flare_glow(bar, lvl);
+    ui_draw_panel_border(bar, (lvl > 0.65f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
 }
 
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
@@ -709,6 +751,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         ui_theme_draw_panel_flares(top_st);
     }
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    if (s_action_card_mode) draw_action_music_bar(frame_dt);
 
     /* 5. Field Cards (Insertion sort via board_field_sort_slots + month bitmask for O(1) Easy Mode glow) */
     int sf[48];

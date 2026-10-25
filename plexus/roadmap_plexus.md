@@ -57,17 +57,18 @@
   - Temporarily unlock the bottom-bar `SPEEDCOIN` button (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`) so the mode can be launched and tested directly from Atrium Plex.
 - [x] **3. Playtesting & Fine-Tuning:**
   - Verified and locked in gameplay pace, `+10s / -10s` clock balance, frozen between-Wave round score screen, pre-Wave `3 -> 2 -> 1 -> START` countdown with full-width `// WAVE x //` header & left-to-right hand flip at `1`, `30`-MP `Hand 2` deck-glow indicator, `3`-miss-hit Reverse Card Deck anti-farming (`1`-match reset), and `3s` `GAME OVER` -> fade-to-black -> Highscore Ranklist transition.
-- [ ] **4. Full Atrium Plex Spine Integration *(Step-by-Step — Keep `SPEEDCOIN` Button Open During Integration)*:**
+- [x] **4. Full Atrium Plex Spine Integration *(Completed — `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` Kept Open Per Maintainer Directive)*:**
   - [x] **4a. Speedcoin & Atrium Plex Stats Integration:** Wire per-run and career Speedcoin / Speedbar / Audio FX / Archive telemetry end-to-end across `SPEEDCOIN` briefing, `LOGFILE`, the Speedcoin Result Screen, and `plexsave.txt` (including restart/abandon/quit persistence) while keeping `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`.
   - [x] **4b. Speedcoin Tutorial Game on Month 01 Second Plain Card (`slot 2`, `01-P1 Plain`):** Build the interactive Speedcoin tutorial on the second plain card directly above the `slot 3` Koi-Koi tutorial card on Month 01's spine.
-  - [ ] **4c. Final Button & Spine Unlock Gating:** Once the `slot 2` tutorial and full spine flow are verified, set `SPEEDCOIN_UNLOCKED_FOR_TESTING = 0` and finalize unlock gating.
+  - [x] **4c. Spine Unlock Gating:** Sequential bottom-to-top face-up spine unlocks and Month 04 milestone gating wired (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` intentionally kept open during Phase 4).
 
 ---
 
 ## Phase 4 — Action Card Minigame & Remaining Hub Refinements
 
-- [ ] **1. Action Card Minigame (`plexus/action_card_rule.md` -> Test Open -> Fine-Tune -> Integrate):**
-  - Follow the same 4-step pipeline: write dedicated rule markdown (`plexus/action_card_rule.md`), build onto the real table & existing `reverb_synergy` envelope (`ui_board.c` / `ui_audio.c` untouched DSP) with `ACTION CARD` temporarily opened on the bottom bar for testing, fine-tune, and then integrate into spine progression.
+- [ ] **1. Action Card Minigame (Dedicated `KK-ADD-10` Table + Music Peak Bar -> Human-Ear Fine-Tune -> Gameplay Rules -> Spine Integration):**
+  - [x] **1a. Open `ACTION CARD` Button & Dedicated `KK-ADD-10` Table with Vertical Music-Peak Indicator:** Unlock `ACTION CARD` (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`), launch a dedicated non-campaign `RULESET_KK_ADD_10` Action Card table, and render a live theme-colored vertical music-peak bar (`{414, 170, 14, 264}`) between the Stock deck and Field driven by a read-only stream meter tap on match music (`src/ui_audio.c` untouched).
+  - [ ] **1b. Human-Ear Effect Fine-Tuning, Gameplay Rules & Spine Integration:** Tune thresholds/rules by ear and integrate into Month 01 `slot 1` + Month 08 milestone gating.
 - [x] **`TRAINING` Non-Campaign Match Mode:**
   - Launches a normal match from Option menu settings via `k_briefing_rect` + `k_start_rect` without Campaign awards.
 - [ ] **Plexus Telemetry & Highscore Ranklists (`plexsave.txt`):**

@@ -58,6 +58,7 @@ int   board_get_audio_action_triggers(void);
 float board_get_audio_peak_synergy(void);
 float board_get_audio_full_hold_seconds(void);
 void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec);
+void  board_set_action_card_mode(int active, float music_level);
 
 /* Global clean font for high-readability UI details */
 extern Font small_font;
