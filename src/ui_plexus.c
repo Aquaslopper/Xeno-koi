@@ -34,6 +34,14 @@ static int s_selected_slot  = 3; /* 0..3 within current month (starts at bottom 
 static int s_active_tab     = 0; /* 0: node briefing, 1: logfile window, 2..4: training 1..3 */
 static unsigned long long s_finished_cards_mask = 0ULL; /* 48-bit mask of completed cards */
 
+/* Spine unlock turn-around flip & irreversible [NEXT] month swing-in animation state */
+#define SPINE_FLIP_DUR  0.46f
+#define SPINE_SWING_DUR 0.54f
+static int   s_flip_active = 0, s_flip_month = -1, s_flip_slot = -1;
+static float s_flip_delay  = 0.0f, s_flip_elapsed = 0.0f;
+static int   s_swing_active = 0, s_swing_prev_month = 0;
+static float s_swing_elapsed = 0.0f;
+
 /* Scripted Month 1 Tutorial state machine */
 typedef enum {
     TUT1_NONE = 0,
@@ -161,8 +169,7 @@ static const char * const k_month_names[12] = {
 };
 
 /* Geometry matching plexus/plexus_mockup.png and expanded vertically for un-squished 18px-22px text */
-static const Rectangle k_arrow_up_rect   = { 1096.0f,  60.0f,  48.0f,  30.0f };
-static const Rectangle k_arrow_down_rect = { 1096.0f, 610.0f,  48.0f,  30.0f };
+static const Rectangle k_next_month_rect = { 1072.0f,  54.0f,  96.0f,  34.0f };
 static const Rectangle k_card_rects[4] = {
     { 1092.0f, 102.0f, 56.0f, 88.0f },
     { 1092.0f, 228.0f, 56.0f, 88.0f },
@@ -235,8 +242,8 @@ static void ensure_log_seeded(void) {
                     "Conditioning across all 12 Months (48 cards) is required.");
     plexus_log_push("DIRECTIVE // MONTHLY PROGRESSION",
                     "MONTH 01 // JANUARY // PINE -- ACTIVE",
-                    "Complete all 4 cards of the current month in any order to",
-                    "unlock the next month and continue the non-linear story.",
+                    "Complete each face-up card from bottom to top to turn the",
+                    "next card face up; finish all 4 to reveal [NEXT] on top.",
                     "Finished cards illuminate inside the bottom-right Atlas map.");
 }
 
@@ -262,11 +269,27 @@ static int is_month_unlocked(int m) {
     return 1;
 }
 
-static int is_card_locked_by_completion(int cid) {
-    if (cid < 0 || cid >= 48) return 0;
-    /* Exemption: Month 1 Card 4 (cid == 3, Koi-Koi tutorial) can be replayed any time */
-    if (cid == 3) return 0;
-    return (int)((s_finished_cards_mask >> cid) & 1ULL);
+static int is_slot_unlocked_in_month(int m, int slot) {
+    if (m < 0 || m >= 12 || slot < 0 || slot >= 4) return 0;
+    for (int prev = 3; prev > slot; prev--) {
+        if (!((s_finished_cards_mask >> (m * 4 + prev)) & 1ULL)) return 0;
+    }
+    return 1;
+}
+
+static int highest_unlocked_slot(int m) {
+    for (int sl = 0; sl < 3; sl++) {
+        if (is_slot_unlocked_in_month(m, sl)) return sl;
+    }
+    return 3;
+}
+
+static void stage_spine_flip(int m, int slot, float delay) {
+    s_flip_active  = 1;
+    s_flip_month   = m;
+    s_flip_slot    = slot;
+    s_flip_delay   = delay;
+    s_flip_elapsed = 0.0f;
 }
 
 static int is_speedcoin_bottom_unlocked(void) {
@@ -317,6 +340,8 @@ void plexus_load(void) {
     s_selected_month = 0;
     s_selected_slot = 3;
     s_active_tab = 0;
+    s_flip_active = 0;
+    s_swing_active = 0;
     s_tut_telemetry_saved = 0;
     s_training_active = 0;
     s_speedcoin_active = 0;
@@ -435,6 +460,9 @@ void plexus_load(void) {
         }
     }
     if (drops == 0) { t_sum = 0.0f; c_sum = 0.0f; }
+    while (s_selected_month > 0 && !is_month_unlocked(s_selected_month)) s_selected_month--;
+    if (!is_slot_unlocked_in_month(s_selected_month, s_selected_slot))
+        s_selected_slot = highest_unlocked_slot(s_selected_month);
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
     ensure_log_seeded();
@@ -735,6 +763,23 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     ensure_log_seeded();
     if (!is_bottom_btn_unlocked(s_active_tab)) s_active_tab = 0;
 
+    float dt = GetFrameTime();
+    if (dt < 0.0f) dt = 0.0f;
+    if (dt > 0.05f) dt = 0.05f;
+    if (s_flip_active) {
+        if (s_flip_delay > 0.0f) {
+            s_flip_delay -= dt;
+            if (s_flip_delay < 0.0f) { s_flip_elapsed = -s_flip_delay; s_flip_delay = 0.0f; }
+        } else {
+            s_flip_elapsed += dt;
+        }
+        if (s_flip_elapsed >= SPINE_FLIP_DUR) s_flip_active = 0;
+    }
+    if (s_swing_active) {
+        s_swing_elapsed += dt;
+        if (s_swing_elapsed >= SPINE_SWING_DUR) s_swing_active = 0;
+    }
+
     /* Mouse wheel scroll inside Logfile top section when Logfile is open */
     if (s_active_tab == 1 && CheckCollisionPointRec(vm, k_log_top_area_rect)) {
         float wheel = GetMouseWheelMove();
@@ -764,39 +809,73 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     }
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 45 });
 
-    /* 2. Right Spine: Month ▲ / ▼ triangles + 4 Month Cards */
-    draw_triangle_btn(k_arrow_up_rect,   1, vm, 1);
-    draw_triangle_btn(k_arrow_down_rect, 0, vm, 1);
-
-    int month_unlocked = is_month_unlocked(s_selected_month);
+    /* 2. Right Spine: [NEXT] button (when all 4 cards of month completed) + 4 Month Cards */
     float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 3.8f);
+    int month_done = is_month_completed(s_selected_month);
+    if (month_done && s_selected_month + 1 < 12 && !s_swing_active) {
+        ui_theme_set_panel_flare_glow(k_next_month_rect, 0.55f + 0.45f * pulse);
+        draw_plexus_btn(k_next_month_rect, "[NEXT]", 15, vm, 0);
+        ui_theme_draw_panel_flares(k_next_month_rect);
+    }
+
+    if (s_swing_active && s_swing_elapsed < 0.24f && ba) {
+        for (int i = 0; i < 4; i++) {
+            float uo = (s_swing_elapsed - (float)i * 0.02f) / 0.18f;
+            if (uo < 0.0f) uo = 0.0f;
+            if (uo >= 1.0f) continue;
+            Rectangle or_r = k_card_rects[i];
+            or_r.x += 215.0f * uo * uo;
+            if (or_r.x >= 1280.0f) continue;
+            board_draw_card_shadow(or_r, 0.30f);
+            board_draw_card(ba, s_swing_prev_month * 4 + i, or_r);
+            DrawRectangleLinesEx((Rectangle){ or_r.x - 1.0f, or_r.y - 1.0f, or_r.width + 2.0f, or_r.height + 2.0f },
+                                 1.0f, COLOR_PHOSPHOR_DIM);
+        }
+    }
+
     for (int i = 0; i < 4; i++) {
         Rectangle cr = k_card_rects[i];
+        if (s_swing_active) {
+            float ui = (s_swing_elapsed - (0.10f + (float)(3 - i) * 0.045f)) / 0.30f;
+            if (ui <= 0.0f) continue;
+            if (ui > 1.0f) ui = 1.0f;
+            float inv = 1.0f - ui;
+            cr.x += 215.0f * inv * inv * inv;
+        }
         int card_id = s_selected_month * 4 + i;
-        int hov = CheckCollisionPointRec(vm, cr);
-        int sel = (s_active_tab == 0 && i == s_selected_slot);
-        int done = (int)((s_finished_cards_mask >> card_id) & 1ULL);
-        board_draw_card_shadow(cr, (month_unlocked && (sel || hov)) ? 0.85f : 0.30f);
-        if (month_unlocked && sel) board_draw_card_glow(cr, pulse);
-        else if (month_unlocked && hov) board_draw_card_glow(cr, 0.45f);
-        if (ba) {
-            if (month_unlocked && done && card_id != 3) {
-                board_draw_card_back(ba, cr);
-            } else {
-                board_draw_card(ba, card_id, cr);
-                if (!month_unlocked) {
-                    DrawRectangleRec(cr, (Color){ 0, 0, 0, 185 });
-                }
-            }
+        int unlocked = is_slot_unlocked_in_month(s_selected_month, i);
+        int is_flip = (s_flip_active && s_selected_month == s_flip_month && i == s_flip_slot);
+        Rectangle draw_r = cr;
+        int show_front = unlocked;
+        if (is_flip) {
+            float fu = (s_flip_delay > 0.0f) ? 0.0f : (s_flip_elapsed / SPINE_FLIP_DUR);
+            if (fu < 0.0f) fu = 0.0f;
+            if (fu > 1.0f) fu = 1.0f;
+            float su = fu * fu * (3.0f - 2.0f * fu);
+            float cv = cosf(su * 3.14159265f);
+            float w = cr.width * fmaxf(0.06f, fabsf(cv));
+            draw_r = (Rectangle){ cr.x + (cr.width - w) * 0.5f, cr.y - 5.0f * sinf(su * 3.14159265f), w, cr.height };
+            show_front = (cv <= 0.0f);
         }
-        Color bcol = !month_unlocked ? (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 95 }
-                                     : ((sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-        Rectangle border_r = { cr.x - 1.0f, cr.y - 1.0f, cr.width + 2.0f, cr.height + 2.0f };
-        DrawRectangleLinesEx(border_r, sel ? 2.0f : 1.0f, bcol);
-        if (sel) {
-            ui_theme_set_panel_flare_glow(border_r, 0.78f + 0.22f * pulse);
+        if (unlocked && show_front) {
+            int hov = !s_swing_active && CheckCollisionPointRec(vm, cr);
+            int sel = (s_active_tab == 0 && i == s_selected_slot);
+            board_draw_card_shadow(draw_r, (sel || hov) ? 0.85f : 0.35f);
+            if (sel) board_draw_card_glow(draw_r, pulse);
+            else if (hov) board_draw_card_glow(draw_r, 0.45f);
+            if (ba) board_draw_card(ba, card_id, draw_r);
+            Color bcol = (sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
+            Rectangle border_r = { draw_r.x - 1.0f, draw_r.y - 1.0f, draw_r.width + 2.0f, draw_r.height + 2.0f };
+            DrawRectangleLinesEx(border_r, sel ? 2.0f : 1.0f, bcol);
+            if (sel) ui_theme_set_panel_flare_glow(border_r, 0.78f + 0.22f * pulse);
+            ui_theme_draw_panel_flares(border_r);
+        } else {
+            board_draw_card_shadow(draw_r, 0.28f);
+            if (ba) board_draw_card_back(ba, draw_r);
+            Color dim_b = { COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 105 };
+            DrawRectangleLinesEx((Rectangle){ draw_r.x - 1.0f, draw_r.y - 1.0f, draw_r.width + 2.0f, draw_r.height + 2.0f },
+                                 1.0f, dim_b);
         }
-        ui_theme_draw_panel_flares(border_r);
     }
 
     /* 3. Middle Screen: either Logfile Window (tab 1) or Task / Training Briefing + START button */
@@ -811,17 +890,11 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         const char *line2 = "";
         const char *line3 = "";
         int card_id = s_selected_month * 4 + s_selected_slot;
-        int card_locked_done = (s_active_tab == 0) && is_card_locked_by_completion(card_id);
+        int slot_unlocked = is_slot_unlocked_in_month(s_selected_month, s_selected_slot);
         char sc_line2[96];
         char sc_line3[96];
         if (s_active_tab == 0) {
-            if (!month_unlocked) {
-                snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s   [LOCKED]", s_selected_month + 1, k_month_names[s_selected_month]);
-                snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]   [DIMMED]", s_selected_slot + 1, CARDS[card_id].name);
-                line1 = "MONTH LOCKED -- PREVIOUS MONTH INCOMPLETE";
-                line2 = "All 4 cards of the current unlocked month must be finished";
-                line3 = "before this month activates on the conditioning spine.";
-            } else if (s_selected_month == 0) {
+            if (s_selected_month == 0) {
                 static const char * const k_tut_titles[4] = {
                     "TUTORIAL 04 // FINAL VERIFICATION MATCH",
                     "SPECIAL GAME // KK-ADD-10 ACTION CARD AUDIO EFFECT",
@@ -829,24 +902,22 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                     "TUTORIAL 01 // STANDARD RULES OF KOI-KOI"
                 };
                 static const char * const k_tut_desc1[4] = {
-                    "Top card: play a short match to prove everything was understood.",
-                    "Third card: special game for the Action Card Audio Effect.",
-                    "Second card: 180s Speedcoin saturation tutorial.",
-                    "Bottom card: learn floral matching, deck draw, yaku & Koi-Koi."
+                    "Short match to verify everything learned.",
+                    "Special game for the Action Card Audio Effect.",
+                    "180s Speedcoin saturation tutorial.",
+                    "Learn floral matching, deck draw, yaku & Koi-Koi."
                 };
                 snprintf(hdr, sizeof(hdr), "MONTH 01  //  %s   [TUTORIAL]", k_month_names[0]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
-                line3 = (s_selected_slot == 3)
-                        ? "Koi-Koi tutorial exemption: can be replayed at any time."
-                        : "Complete all 4 tutorial cards (bottom to top) to unlock Month 02.";
+                line3 = "";
             } else {
                 snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s", s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
-                line2 = "Complete all 4 cards of this month in any order to turn";
-                line3 = "each card face down and unlock the next month.";
+                line2 = "";
+                line3 = "";
             }
         } else if (s_active_tab == 2) {
             int drops = speed_bar_graded_drops();
@@ -897,9 +968,6 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         bh = hash_briefing_line(bh, line1);
         bh = hash_briefing_line(bh, line2);
         bh = hash_briefing_line(bh, line3);
-        float dt = GetFrameTime();
-        if (dt < 0.0f) dt = 0.0f;
-        if (dt > 0.05f) dt = 0.05f;
         if (!s_briefing_hash_ready) {
             s_last_briefing_hash = bh;
             s_briefing_hash_ready = 1;
@@ -939,7 +1007,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 142.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
 
-        int start_locked = (s_active_tab == 0 && (!month_unlocked || card_locked_done)) ||
+        int start_locked = (s_active_tab == 0 && !slot_unlocked) ||
                            (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) ||
                            (s_active_tab == 3 && !is_action_card_bottom_unlocked());
         if (start_locked) {
@@ -984,24 +1052,35 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
     }
 
-    if (CheckCollisionPointRec(vm, k_arrow_up_rect)) {
-        s_selected_month = (s_selected_month + 1) % 12;
-        s_active_tab = 0;
+    if (!s_swing_active && is_month_completed(s_selected_month) && s_selected_month + 1 < 12 &&
+        CheckCollisionPointRec(vm, k_next_month_rect)) {
+        s_swing_active     = 1;
+        s_swing_prev_month = s_selected_month;
+        s_swing_elapsed    = 0.0f;
+        s_flip_active      = 0;
+        s_selected_month++;
+        s_selected_slot    = 3;
+        s_active_tab       = 0;
+        char hdr[80];
+        snprintf(hdr, sizeof(hdr), "MONTH %02d // %s -- ACTIVE",
+                 s_selected_month + 1, k_month_names[s_selected_month]);
+        plexus_log_push("DIRECTIVE // MONTHLY PROGRESSION", hdr,
+                        "Next month swung onto the conditioning spine.",
+                        "Previous month sealed -- complete each face-up card from",
+                        "bottom to top to unlock the next card and reveal [NEXT].");
+        plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
-    if (CheckCollisionPointRec(vm, k_arrow_down_rect)) {
-        s_selected_month = (s_selected_month + 11) % 12;
-        s_active_tab = 0;
-        if (out_clicked) *out_clicked = 1;
-        return ACT_NONE;
-    }
-    for (int i = 0; i < 4; i++) {
-        if (CheckCollisionPointRec(vm, k_card_rects[i])) {
-            s_selected_slot = i;
-            s_active_tab = 0;
-            if (out_clicked) *out_clicked = 1;
-            return ACT_NONE;
+    if (!s_swing_active) {
+        for (int i = 0; i < 4; i++) {
+            if (CheckCollisionPointRec(vm, k_card_rects[i])) {
+                if (!is_slot_unlocked_in_month(s_selected_month, i)) return ACT_NONE;
+                s_selected_slot = i;
+                s_active_tab = 0;
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
         }
     }
     if (s_active_tab != 1 && CheckCollisionPointRec(vm, k_start_rect)) {
@@ -1033,7 +1112,8 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             return ACT_NONE;
         }
         int cid = s_selected_month * 4 + s_selected_slot;
-        if (s_active_tab == 0 && (!is_month_unlocked(s_selected_month) || is_card_locked_by_completion(cid))) {
+        if (s_active_tab == 0 && (s_swing_active || !is_month_unlocked(s_selected_month) ||
+                                  !is_slot_unlocked_in_month(s_selected_month, s_selected_slot))) {
             return ACT_NONE;
         }
         /* Month 1 Card 3 (second plain card, slot == 2, cid == 2): unscripted Speedcoin tutorial */
@@ -1049,11 +1129,11 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                             "CARD 3 OF 4 : [01-P1 Plain] -- SPEEDCOIN SATURATION PROTOCOL",
                             "Objective: System Saturation before System Collapse (180s).",
                             "Follow the Construct prompts across Wave 1, then survive",
-                            "to the end of the run to complete and lock Card 3.");
+                            "to the end of the run to unlock Card 2 on the spine.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
-        /* Month 1 Card 4 (bottom card, slot == 3, cid == 3): Koi-Koi tutorial (replayable any time) */
+        /* Month 1 Card 4 (bottom card, slot == 3, cid == 3): Koi-Koi tutorial */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 3) {
             s_training_active = 0;
             plexus_speedcoin_abort();
@@ -1065,39 +1145,53 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                             "CARD 4 OF 4 : [01-P2 Plain] -- STANDARD RULES OF KOI-KOI",
                             "Informational upgrade started for Entity 001.",
                             "Follow the tutorial prompts to capture the Moon and Sake Cup,",
-                            "form Moon Viewing (Tsukimi-zake), and complete Card 4.");
+                            "form Moon Viewing (Tsukimi-zake), and unlock Card 3.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
+        int was_done = (int)((s_finished_cards_mask >> cid) & 1ULL);
         s_finished_cards_mask |= (1ULL << cid);
-        int month_done = is_month_completed(s_selected_month);
-        char title[80];
-        if (month_done && s_selected_month == 3) {
-            snprintf(title, sizeof(title), "MONTH 04 COMPLETE -- SPEEDCOIN UNLOCKED!");
-            plexus_log_push("STORY // SPEEDCOIN MODULE UNLOCKED", title,
-                            "All 4 cards of Month 04 are finished and locked.",
-                            "SPEEDCOIN is now unlocked in the bottom bar, and",
-                            "Month 05 is now active on the conditioning spine.");
-        } else if (month_done && s_selected_month == 7) {
-            snprintf(title, sizeof(title), "MONTH 08 COMPLETE -- ACTION CARD UNLOCKED!");
-            plexus_log_push("STORY // ACTION CARD MODULE UNLOCKED", title,
-                            "All 4 cards of Month 08 are finished and locked.",
-                            "ACTION CARD is now unlocked in the bottom bar, and",
-                            "Month 09 is now active on the conditioning spine.");
-        } else if (month_done && s_selected_month + 1 < 12) {
-            snprintf(title, sizeof(title), "MONTH %02d COMPLETE -- MONTH %02d UNLOCKED!",
-                     s_selected_month + 1, s_selected_month + 2);
-            plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED", title,
-                            "All 4 cards of this month are finished and locked.",
-                            "The next month on the conditioning spine is now active.",
-                            "Use the up/down arrows to advance to the newly unlocked month.");
-        } else {
-            snprintf(title, sizeof(title), "[%s] -- FINISHED & LOCKED", CARDS[cid].name);
-            plexus_log_push("LAST EVENT // CARD COMPLETED", title,
-                            "Card turned face down on the spine and locked.",
-                            "Complete all 4 cards of the current month in any order to",
-                            "unlock the next month on the spine.");
+        if (!was_done && s_selected_slot > 0 && is_slot_unlocked_in_month(s_selected_month, s_selected_slot - 1)) {
+            s_selected_slot--;
+            stage_spine_flip(s_selected_month, s_selected_slot, 0.0f);
         }
+        int month_done = is_month_completed(s_selected_month);
+        if (!was_done) {
+            char title[80];
+            if (month_done && s_selected_month == 3) {
+                snprintf(title, sizeof(title), "MONTH 04 COMPLETE -- SPEEDCOIN & [NEXT] UNLOCKED!");
+                plexus_log_push("STORY // SPEEDCOIN MODULE UNLOCKED", title,
+                                "All 4 cards of Month 04 are completed.",
+                                "SPEEDCOIN is now unlocked in the bottom bar, and",
+                                "[NEXT] is ready above the top card for Month 05.");
+            } else if (month_done && s_selected_month == 7) {
+                snprintf(title, sizeof(title), "MONTH 08 COMPLETE -- ACTION CARD & [NEXT] UNLOCKED!");
+                plexus_log_push("STORY // ACTION CARD MODULE UNLOCKED", title,
+                                "All 4 cards of Month 08 are completed.",
+                                "ACTION CARD is now unlocked in the bottom bar, and",
+                                "[NEXT] is ready above the top card for Month 09.");
+            } else if (month_done && s_selected_month + 1 < 12) {
+                snprintf(title, sizeof(title), "MONTH %02d COMPLETE -- [NEXT] READY!",
+                         s_selected_month + 1);
+                plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED", title,
+                                "All 4 cards of this month are completed.",
+                                "[NEXT] has appeared above the top spine card.",
+                                "Press [NEXT] to swing in the next month irreversibly.");
+            } else if (month_done) {
+                plexus_log_push("STORY // SPINE CONDITIONING COMPLETE",
+                                "MONTH 12 COMPLETE -- ALL 48 CARDS CONDITIONED!",
+                                "Every card across all 12 Months has been completed",
+                                "and illuminated in the bottom-right 48-card Atlas.",
+                                "All Atrium Plex modules remain open on the bottom bar.");
+            } else {
+                snprintf(title, sizeof(title), "[%s] -- COMPLETED // NEXT CARD UNLOCKED", CARDS[cid].name);
+                plexus_log_push("LAST EVENT // CARD COMPLETED", title,
+                                "Completed card illuminated in the Atlas; the next card",
+                                "above turned face up and unlocked on the spine.",
+                                "Complete all 4 cards of this month to reveal [NEXT].");
+            }
+        }
+        plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
@@ -1111,7 +1205,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             if (!is_bottom_btn_unlocked(i)) {
                 return ACT_NONE;
             }
-            s_active_tab = i;
+            s_active_tab = (i == 1 && s_active_tab == 1) ? 0 : i;
             if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
         }
@@ -1579,17 +1673,26 @@ void plexus_tutorial_finish_match(void) {
     if (!s_tut_active) return;
     tut_restore_telemetry(1);
     int cid = (s_tut_card_id >= 0 && s_tut_card_id < 48) ? s_tut_card_id : 3;
+    int was_done = (int)((s_finished_cards_mask >> cid) & 1ULL);
     s_finished_cards_mask |= (1ULL << cid);
+    int m = cid / 4, sl = cid % 4;
+    if (!was_done && sl > 0 && s_selected_month == m && is_slot_unlocked_in_month(m, sl - 1)) {
+        s_selected_slot = sl - 1;
+        s_active_tab = 0;
+        stage_spine_flip(m, sl - 1, 0.35f);
+    }
     s_tut_active  = 0;
     s_tut_card_id = -1;
     s_tut_step    = TUT1_NONE;
 
-    char title[80];
-    snprintf(title, sizeof(title), "[%s] -- TUTORIAL 01 COMPLETED", CARDS[cid].name);
-    plexus_log_push("STORY // TUTORIAL CARD 1 COMPLETED", title,
-                    "Entity 001 completed Standard Rules of Koi-Koi conditioning.",
-                    "Card 4 of Month 01 is finished (and remains replayable).",
-                    "Select the next card above it on the spine to continue.");
+    if (!was_done) {
+        char title[80];
+        snprintf(title, sizeof(title), "[%s] -- TUTORIAL 01 COMPLETED", CARDS[cid].name);
+        plexus_log_push("STORY // TUTORIAL CARD 1 COMPLETED", title,
+                        "Entity 001 completed Standard Rules of Koi-Koi conditioning.",
+                        "Card 4 of Month 01 is complete; Card 3 turned face up",
+                        "and unlocked above it on the conditioning spine.");
+    }
     plexus_save();
 }
 
@@ -1811,18 +1914,23 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
         if (s_tut_step == TUT2_FREE_PLAY) {
             int was_done = (int)((s_finished_cards_mask >> 2) & 1ULL);
             s_finished_cards_mask |= (1ULL << 2);
+            if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 1)) {
+                s_selected_slot = 1;
+                s_active_tab = 0;
+                stage_spine_flip(0, 1, 0.35f);
+            }
             if (!was_done && is_month_completed(0)) {
                 plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED",
-                                "MONTH 01 COMPLETE -- MONTH 02 UNLOCKED!",
-                                "All 4 cards of this month are finished and locked.",
-                                "The next month on the conditioning spine is now active.",
-                                "Use the up/down arrows to advance to the newly unlocked month.");
+                                "MONTH 01 COMPLETE -- [NEXT] READY!",
+                                "All 4 cards of Month 01 are completed.",
+                                "[NEXT] is now active above the top spine card.",
+                                "Press [NEXT] to swing in Month 02 irreversibly.");
             } else if (!was_done) {
                 plexus_log_push("STORY // TUTORIAL CARD 2 COMPLETED",
                                 "[01-P1 Plain] -- SPEEDCOIN PROTOCOL COMPLETED",
                                 "Entity 001 completed Speedcoin saturation conditioning.",
-                                "Card 3 of Month 01 is finished and locked on the spine.",
-                                "Select another unfinished card on the spine to continue.");
+                                "Card 3 of Month 01 is complete; Card 2 turned face up",
+                                "and unlocked above it on the conditioning spine.");
             }
         }
         s_tut_active  = 0;

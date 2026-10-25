@@ -13,11 +13,12 @@
    - Never clone or rewrite a second board, input loop, or scoring system inside `ui_plexus.c`.
    - Core game behavior and protected mechanics (`src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*`, `src/ai.*`, `src/storage.*`, `src/ui_screens.c`) stay untouched unless explicitly approved.
 2. **48-Card Spine Only (`12 Months × 4 Cards`):**
-   - Progression follows the 48 Hanafuda cards (`0..47`), 4 cards stacked per Month switched via `▲` / `▼`. No extra capstone nodes or parallel trees.
-3. **Completion & Face-Down Lock Rule:**
-   - Completing a card turns it **face down** (`assets/back.png`) on the spine, lights it up in the `LOGFILE` 48-card Atlas grid, and **locks** it.
-   - **Tutorial Exemption:** Month 01 Card 4 (`cid == 3`, bottom slot — Standard Rules of Koi-Koi) stays unlocked after completion so the player can replay the tutorial anytime.
-   - **Beta Placeholder Behavior:** Cards that do not have a game built yet lock and flip face down immediately when `START` is clicked so monthly gating (`all 4 cards -> next Month`) works during beta testing.
+   - Progression follows the 48 Hanafuda cards (`0..47`), 4 cards stacked per Month on the right-hand spine (`slot 3` bottom -> `slot 0` top). No `▲` / `▼` month browsing arrows and no going backward.
+3. **Face-Down Lock, Sequential Face-Up Unlock & Irreversible `[NEXT]` Swing-In:**
+   - Each month starts with the bottom card (`slot 3`) **face up** (unlocked) and the upper 3 cards (`slots 2..0`) **face down** (`assets/back.png`, locked).
+   - Completing a face-up card illuminates it in the `LOGFILE` 48-card Atlas and **turns the next card above it face up** (unlocking it with a turn-around flip animation); unlocked cards in the active month remain face up without individual re-locking.
+   - Once **all 4 cards of the current month are completed** (including the top card `slot 0`), a **`[NEXT]`** button appears above the top card (`{1072, 54, 96, 34}`); clicking **`[NEXT]`** swings in the next Month irreversibly (`slot 3` face up, `slots 2..0` face down), sealing prior months so special minigames cannot be endlessly replayed before their bottom-bar milestones (`Month 04` / `Month 08`).
+   - **Beta Placeholder Behavior:** Cards that do not have a game built yet complete immediately when `START` is clicked so bottom-to-top card flips and `[NEXT]` month progression work during beta testing.
 
 ---
 
