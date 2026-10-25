@@ -225,6 +225,11 @@ static void play_card_slam_sfx(void) {
     PlaySound(sfx_card_slam);
 }
 
+static void play_match_capture_sfx(void) {
+    play_card_slam_sfx();
+    audio_play_capture(&audio);
+}
+
 static int pick_match_track(int next) {
     int n = (audio.game_track_count > 0) ? audio.game_track_count : 1;
     if (next && n > 1 && audio.current_game_track >= 0)
@@ -695,7 +700,9 @@ static void update_draw_frame(void) {
                 /* 2. Nothing in the air: take the next step. A round deal is covered
                       by the round-start cinematic, which outlasts the deal itself. */
                 if (!anim.active && !cinematic_is_active()) {
+                    int prev_caps = g.captured_count[0] + g.captured_count[1];
                     int pb_state = replay_pb_tick(&g, dt);
+                    if (g.captured_count[0] + g.captured_count[1] > prev_caps) play_match_capture_sfx();
                     if (pb_state == -1) ui_replay_set_status(replay_pb_error());
                     if (pb_state != 0) { replay_pb_stop(); anim_init(&anim); start_transition(SCREEN_STATS, 2, 0); }
                 }
@@ -854,7 +861,7 @@ static void update_draw_frame(void) {
                             motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
                             engine_play_hand(&g, card, target);
                             replay_rec_play(1, card, target);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            if (g.last_captured_count > 0) play_match_capture_sfx();
                         } else if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
                             anim.active = 0; int card, target;
                             ai_choose_hand(&g, active_diff, &ai_rng, &card, &target);
@@ -877,7 +884,7 @@ static void update_draw_frame(void) {
                                 plexus_speedcoin_reverse_draw_finish(&g);
                             } else {
                                 engine_reveal_stock(&g);
-                                if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                if (g.last_captured_count > 0) play_match_capture_sfx();
                             }
                         } else if (!anim.active) {
                             if (plexus_speedcoin_is_active() && speed_mode_reverse_deck()) {
@@ -910,7 +917,7 @@ static void update_draw_frame(void) {
                         int target = ai_choose_stock_target(&g, active_diff, &ai_rng);
                         engine_pick_draw_choice(&g, target);
                         replay_rec_pick(1, target);
-                        if (g.last_captured_count > 0) audio_play_capture(&audio);
+                        if (g.last_captured_count > 0) play_match_capture_sfx();
                     }
 
                     if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
@@ -953,7 +960,7 @@ static void update_draw_frame(void) {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);
                                         replay_rec_timeout(0);
-                                        if (g.last_captured_count > 0) audio_play_capture(&audio); else audio_play_drop(&audio);
+                                        if (g.last_captured_count > 0) play_match_capture_sfx(); else audio_play_drop(&audio);
                                         anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
                                     }
                                 }
@@ -985,7 +992,7 @@ static void update_draw_frame(void) {
                                     if (drag.selected > 0 && g.hand[0][drag.selected - 1] != allowed_cid) drag.selected = 0;
                                 }
                                 if (g.hand_count[0] < hand_before) {
-                                    if (g.last_captured_count > 0) { play_card_slam_sfx(); audio_play_capture(&audio); }
+                                    if (g.last_captured_count > 0) play_match_capture_sfx();
                                     else audio_play_drop(&audio);
                                 } else if (g.phase == PHASE_HAND_CHOICE) {
                                     audio_play_drop(&audio);
@@ -997,7 +1004,7 @@ static void update_draw_frame(void) {
                             if (res == 1) {
                                 Vector2 hp = board_get_card_field_pos(&g, tid);
                                 audio_play_drop(&audio); engine_pick_hand_choice(&g, tid); replay_rec_pick(0, tid);
-                                if (g.last_captured_count > 0) { play_card_slam_sfx(); audio_play_capture(&audio); speed_hit_popup_commit(hp.x + 38.0f, hp.y); }
+                                if (g.last_captured_count > 0) { play_match_capture_sfx(); speed_hit_popup_commit(hp.x + 38.0f, hp.y); }
                             } else if (res == 2) {
                                 audio_play_click(&audio);
                                 if (g.ruleset == RULESET_KK_ADD_10) speed_bar_consume(); else speed_bar_consume_visual();
@@ -1005,7 +1012,7 @@ static void update_draw_frame(void) {
                             }
                         } else if (g.phase == PHASE_DRAW_CHOICE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; if (screens_check_choice_click(&g, vm, 0, &tid) == 1) {
-                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) audio_play_capture(&audio);
+                                audio_play_drop(&audio); engine_pick_draw_choice(&g, tid); replay_rec_pick(0, tid); if (g.last_captured_count > 0) play_match_capture_sfx();
                             }
                         } else if (g.phase == PHASE_DECIDE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             DecisionType dec;

@@ -5,8 +5,10 @@
 
 extern Font font_body;
 
-#define HIT_POPUP_MAX 4
-#define HIT_POPUP_DUR 0.78f
+#define HIT_POPUP_MAX  4
+#define HIT_POPUP_HOLD 0.50f
+#define HIT_POPUP_FLY  0.65f
+#define HIT_POPUP_DUR  (HIT_POPUP_HOLD + HIT_POPUP_FLY)
 
 typedef struct {
     int   active;
@@ -478,33 +480,38 @@ static void draw_hit_num(const char *txt, float cx, float cy, float fsz, Color c
         DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 1.6f, pos.y + oy[i] * 1.6f }, fsz, sp, outl);
     BeginBlendMode(BLEND_ADDITIVE);
     Color gcol = glow;
-    gcol.a = (unsigned char)fminf(255.0f, (46.0f + 62.0f * flash) * alpha);
+    gcol.a = (unsigned char)fminf(255.0f, (58.0f + 70.0f * flash) * alpha);
     for (int i = 0; i < 8; i++)
         DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 2.1f, pos.y + oy[i] * 2.1f }, fsz, sp, gcol);
     EndBlendMode();
     Color fill = mix_color(core, hi, flash);
     fill.a = (unsigned char)(255.0f * alpha);
     DrawTextEx(font_body, txt, pos, fsz, sp, fill);
+    BeginBlendMode(BLEND_ADDITIVE);
+    Color boost = glow;
+    boost.a = (unsigned char)fminf(255.0f, (78.0f + 92.0f * flash) * alpha);
+    DrawTextEx(font_body, txt, pos, fsz, sp, boost);
+    EndBlendMode();
 }
 
 void speed_hit_popups_draw(void) {
     for (int i = 0; i < HIT_POPUP_MAX; i++) {
         if (!s_popups[i].active) continue;
-        float t = s_popups[i].elapsed, u = t / HIT_POPUP_DUR;
-        if (u < 0.0f || u >= 1.0f) continue;
-        float inv = 1.0f - u;
-        float rise = 62.0f * (1.0f - inv * inv * inv);
+        float t = s_popups[i].elapsed;
+        if (t < 0.0f || t >= HIT_POPUP_DUR) continue;
+        float fu = (t > HIT_POPUP_HOLD) ? ((t - HIT_POPUP_HOLD) / HIT_POPUP_FLY) : 0.0f;
+        float rise = 64.0f * fu * fu * (3.0f - 2.0f * fu);
         float pop = (t < 0.11f) ? (1.0f + 0.34f * (1.0f - t / 0.11f) * (1.0f - t / 0.11f)) : 1.0f;
-        float flash = (t < 0.14f) ? (1.0f - t / 0.14f) : 0.0f;
-        float alpha = (u < 0.05f) ? (u / 0.05f) : ((u > 0.55f) ? ((1.0f - u) / 0.45f) : 1.0f);
+        float flash = (t < 0.18f) ? (1.0f - t / 0.18f) : 0.0f;
+        float alpha = (t < 0.03f) ? (t / 0.03f) : ((fu > 0.35f) ? ((1.0f - fu) / 0.65f) : 1.0f);
         alpha = alpha * (2.0f - alpha);
         float cy = s_popups[i].y - 10.0f - rise;
         float mp_sz = ((s_popups[i].mp >= 20) ? 28.0f : 25.0f) * pop;
         draw_hit_num(TextFormat("+%d", s_popups[i].mp), s_popups[i].x, cy - 13.0f, mp_sz,
-                     (Color){ 255, 206, 40, 255 }, (Color){ 255, 250, 205, 255 },
-                     (Color){ 255, 168, 16, 255 }, (Color){ 18, 10, 0, 232 }, flash, alpha);
+                     (Color){ 255, 224, 78, 255 }, (Color){ 255, 252, 220, 255 },
+                     (Color){ 255, 192, 36, 255 }, (Color){ 18, 10, 0, 236 }, flash, alpha);
         draw_hit_num(TextFormat("%d%%", s_popups[i].acc), s_popups[i].x, cy + 12.0f, 19.5f * pop,
-                     (Color){ 255, 58, 214, 255 }, (Color){ 255, 212, 248, 255 },
-                     (Color){ 255, 24, 186, 255 }, (Color){ 20, 0, 18, 232 }, flash, alpha);
+                     (Color){ 255, 96, 232, 255 }, (Color){ 255, 228, 252, 255 },
+                     (Color){ 255, 58, 212, 255 }, (Color){ 20, 0, 18, 236 }, flash, alpha);
     }
 }
