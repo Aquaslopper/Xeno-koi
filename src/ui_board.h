@@ -54,6 +54,15 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
 int board_check_dealer_select_click(const GameState *g, Vector2 vm);
 
 /* Action-card audio effect telemetry getters and persistence hook for Atrium Plex Logfile */
+typedef enum {
+    ACTION_SYM_SKULL = 0,
+    ACTION_SYM_HAND,
+    ACTION_SYM_REV_ARROW,
+    ACTION_SYM_ONE_EYE,
+    ACTION_SYM_GOLD_COIN,
+    ACTION_SYM_COUNT
+} ActionCardSymbol;
+
 int   board_get_audio_action_triggers(void);
 float board_get_audio_peak_synergy(void);
 float board_get_audio_full_hold_seconds(void);
@@ -61,6 +70,12 @@ void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec);
 void  board_set_action_card_mode(int active, float music_level);
 void  board_reset_action_card_match(void);
 int   board_get_action_ceiling_count(void);
+int   board_consume_action_ceiling_count(void);
+int   board_get_action_symbol(int *out_armed);
+int   board_take_pending_action_symbol(void);
+void  board_trigger_action_blind_cards(const GameState *g, uint32_t *rng_state, int count);
+int   board_is_blind_field_card(int card_id);
+int   board_is_action_distraction_high(void);
 
 /* Global clean font for high-readability UI details */
 extern Font small_font;

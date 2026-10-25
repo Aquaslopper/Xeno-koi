@@ -272,6 +272,79 @@ static void sync_music_meter_tap(int attach) {
     if (!attach) s_music_meter_vis = 0.0f;
 }
 
+static void shuffle_stock_zone(GameState *gs) {
+    for (int i = gs->stock_count - 1; i > 0; i--) {
+        int j = (int)(engine_rand(&gs->rng_state) % (uint32_t)(i + 1));
+        int tmp = gs->stock[i]; gs->stock[i] = gs->stock[j]; gs->stock[j] = tmp;
+    }
+}
+
+static void apply_action_card_symbol(int sym) {
+    switch (sym) {
+        case ACTION_SYM_SKULL: {
+            int ret = g.field_count / 2;
+            for (int k = 0; k < ret && g.field_count > 0 && g.stock_count < 48; k++) {
+                int pick = (int)(engine_rand(&g.rng_state) % (uint32_t)g.field_count);
+                int cid = g.field[pick];
+                for (int j = pick; j < g.field_count - 1; j++) g.field[j] = g.field[j + 1];
+                g.field_count--;
+                g.stock[g.stock_count++] = cid;
+                motion_set_target(cid, (Vector2){ 330.0f, 262.0f }, (Vector2){ FIELD_CARD_W, FIELD_CARD_H }, 0.38f);
+            }
+            if (ret > 0) { shuffle_stock_zone(&g); drag.selected = 0; audio_play_flip(&audio); }
+            break;
+        }
+        case ACTION_SYM_HAND: {
+            drag.on = 0; drag.idx = -1; drag.moved = 0; drag.selected = 0;
+            hovered_idx = -1; human_turn_started = 0;
+            if (anim.active && anim.type == ANIM_CPU_THINK) anim.active = 0;
+            int tmp_hand[48], tmp_cnt = g.hand_count[0];
+            memcpy(tmp_hand, g.hand[0], sizeof(tmp_hand));
+            memcpy(g.hand[0], g.hand[1], sizeof(tmp_hand));
+            memcpy(g.hand[1], tmp_hand, sizeof(tmp_hand));
+            g.hand_count[0] = g.hand_count[1];
+            g.hand_count[1] = tmp_cnt;
+            if (g.hand_count[g.current_player] == 0 && g.hand_count[1 - g.current_player] > 0)
+                g.current_player = 1 - g.current_player;
+            audio_play_flip(&audio);
+            break;
+        }
+        case ACTION_SYM_REV_ARROW: {
+            int moved = 0;
+            for (int p = 0; p < 2; p++) {
+                int ret = g.captured_count[p] / 2;
+                for (int k = 0; k < ret && g.captured_count[p] > 0 && g.stock_count < 48; k++) {
+                    int pick = (int)(engine_rand(&g.rng_state) % (uint32_t)g.captured_count[p]);
+                    int cid = g.captured[p][pick];
+                    for (int j = pick; j < g.captured_count[p] - 1; j++) g.captured[p][j] = g.captured[p][j + 1];
+                    g.captured_count[p]--;
+                    g.stock[g.stock_count++] = cid;
+                    motion_set_target(cid, (Vector2){ 330.0f, 262.0f }, (Vector2){ FIELD_CARD_W, FIELD_CARD_H }, 0.38f);
+                    moved++;
+                }
+                yaku_snapshot(g.ruleset, g.captured[p], g.captured_count[p], g.last_yaku_points[p]);
+                g.last_base[p] = score_captures_base(g.ruleset, g.captured[p], g.captured_count[p]);
+            }
+            if (moved > 0) { shuffle_stock_zone(&g); audio_play_flip(&audio); }
+            break;
+        }
+        case ACTION_SYM_ONE_EYE:
+            board_trigger_action_blind_cards(&g, &g.rng_state, 2);
+            drag.selected = 0;
+            audio_play_flip(&audio);
+            break;
+        case ACTION_SYM_GOLD_COIN: {
+            int cnt = board_consume_action_ceiling_count();
+            int pts = (cnt + 5) / 10;
+            int who = (g.current_player == 1) ? 1 : 0;
+            if (pts > 0) { g.total_score[who] += pts; audio_play_capture(&audio); }
+            else audio_play_click(&audio);
+            break;
+        }
+        default: break;
+    }
+}
+
 static int pick_match_track(int next) {
     int n = (audio.game_track_count > 0) ? audio.game_track_count : 1;
     if (next && n > 1 && audio.current_game_track >= 0)
@@ -921,6 +994,16 @@ static void update_draw_frame(void) {
                         }
                     }
 
+                    if (ac_table && !replay_pb_active() && g.phase == PHASE_TURN_HAND && !g.has_pending &&
+                        (!anim.active || anim.type == ANIM_CPU_THINK || anim.type == ANIM_BANNER) &&
+                        !cinematic_is_active()) {
+                        int sym = board_take_pending_action_symbol();
+                        if (sym >= 0) {
+                            apply_action_card_symbol(sym);
+                            input_unlocked = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
+                        }
+                    }
+
                     if (g.current_player == 1 && g.phase == PHASE_TURN_HAND && !cinematic_is_active() && !motion_is_reflowing(&g)) {
                         if (anim.active && anim.type == ANIM_CPU_FLY && anim.elapsed >= anim.duration) {
                             int card = anim.cpu_card, target = anim.cpu_target;
@@ -1210,6 +1293,7 @@ static void update_draw_frame(void) {
 
     card_tooltip_begin(!plexus_tutorial_panel_open() && screen == SCREEN_GAME && !replay_pb_active() &&
                        (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY) &&
+                       !board_is_action_distraction_high() &&
                        !is_paused && !drag.on && !cinematic_is_active() &&
                        transition_dir == 0 && transition_alpha <= 0.0f && round_banner_timer <= 0.0f &&
                        !(anim.active && anim.type == ANIM_BANNER) &&

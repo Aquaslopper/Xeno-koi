@@ -10,6 +10,7 @@
 #include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 extern Font font_title;
@@ -74,6 +75,15 @@ static float s_action_full_boost = 0.0f;
 static float s_action_ceil_accum = 0.0f;
 static int s_action_ceil_started = 0;
 static int s_action_match_reset_req = 0;
+static int s_action_symbol_idx = 0;
+static int s_action_symbol_armed = 0;
+static int s_action_pending_sym = -1;
+static int s_action_above_90 = 0;
+static float s_action_beat_cd = 0.0f;
+static float s_action_symbol_flash = 0.0f;
+static float s_action_last_synergy = 0.0f;
+static uint64_t s_blind_field_mask = 0ULL;
+static float s_blind_flip[48];
 
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
@@ -88,10 +98,56 @@ void  board_reset_action_card_match(void) {
     s_action_added_hold = s_action_added_timer = s_action_full_boost = 0.0f;
     s_action_ceil_accum = 0.0f;
     s_action_ceil_started = 0;
+    s_action_symbol_idx = 0;
+    s_action_symbol_armed = 0;
+    s_action_pending_sym = -1;
+    s_action_above_90 = 0;
+    s_action_beat_cd = 0.0f;
+    s_action_symbol_flash = 0.0f;
+    s_action_last_synergy = 0.0f;
+    s_blind_field_mask = 0ULL;
+    memset(s_blind_flip, 0, sizeof(s_blind_flip));
     s_action_match_reset_req = 1;
 }
 int   board_get_action_ceiling_count(void) {
     return s_action_ceil_started ? (1 + (int)floorf(s_action_ceil_accum)) : 0;
+}
+int   board_consume_action_ceiling_count(void) {
+    int c = board_get_action_ceiling_count();
+    s_action_ceil_accum = 0.0f;
+    s_action_ceil_started = 0;
+    return c;
+}
+int   board_get_action_symbol(int *out_armed) {
+    if (out_armed) *out_armed = s_action_symbol_armed;
+    return s_action_symbol_idx;
+}
+int   board_take_pending_action_symbol(void) {
+    int sym = s_action_pending_sym;
+    s_action_pending_sym = -1;
+    return sym;
+}
+void  board_trigger_action_blind_cards(const GameState *g, uint32_t *rng_state, int count) {
+    if (!g || count <= 0) return;
+    int cand[48], cn = 0;
+    for (int i = 0; i < g->field_count; i++) {
+        int cid = g->field[i];
+        if ((unsigned)cid < 48u && !((s_blind_field_mask >> cid) & 1ULL)) cand[cn++] = cid;
+    }
+    for (int k = 0; k < count && cn > 0; k++) {
+        int pick = rng_state ? (int)(engine_rand(rng_state) % (uint32_t)cn) : (rand() % cn);
+        int cid = cand[pick];
+        cand[pick] = cand[--cn];
+        s_blind_field_mask |= (1ULL << cid);
+        s_blind_flip[cid] = 0.001f;
+    }
+}
+int   board_is_blind_field_card(int card_id) {
+    if (!s_action_card_mode || (unsigned)card_id >= 48u) return 0;
+    return (int)((s_blind_field_mask >> card_id) & 1ULL);
+}
+int   board_is_action_distraction_high(void) {
+    return (s_action_card_mode && s_action_last_synergy >= 0.75f) ? 1 : 0;
 }
 void  board_set_action_card_mode(int active, float music_level) {
     if (!active) {
@@ -477,6 +533,10 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
 
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     if ((unsigned)card_id >= 48u) return;
+    if (s_action_card_mode && ((s_blind_field_mask >> card_id) & 1ULL)) {
+        board_draw_card_back(ba, dest);
+        return;
+    }
     card_tooltip_record(card_id, dest);
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     Texture2D tex = (!s_action_card_mode && settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
@@ -579,6 +639,116 @@ static void draw_speedcoin_clock_panel(void) {
                        r.x + r.width * 0.5f, r.y + 170.0f, 13.0f, 0.6f, COLOR_PHOSPHOR_DIM);
 }
 
+static void draw_action_card_distraction(Rectangle dr, int slot_key, float added_lvl, float cur_time) {
+    if (!s_action_card_mode || added_lvl < 0.25f || dr.width <= 0.0f || dr.height <= 0.0f) return;
+    if (added_lvl < 0.50f) {
+        board_draw_card_glow(dr, 0.38f);
+        if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
+        return;
+    }
+    float p = 0.5f + 0.5f * sinf(cur_time * ((added_lvl >= 0.75f) ? 10.5f : 6.2f) + (float)slot_key * 0.73f);
+    Color base = COLOR_PHOSPHOR, info = COLOR_TEXT_INFO;
+    if (added_lvl < 0.75f) {
+        board_draw_card_glow(dr, 0.78f);
+        DrawRectangleLinesEx((Rectangle){ dr.x - 2.0f, dr.y - 2.0f, dr.width + 4.0f, dr.height + 4.0f },
+                             1.2f, (Color){ base.r, base.g, base.b, 115 });
+        if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
+        BeginBlendMode(BLEND_ADDITIVE);
+        DrawRectangleRec(dr, (Color){ base.r, base.g, base.b, (unsigned char)(52.0f + 36.0f * p) });
+        EndBlendMode();
+        return;
+    }
+    float hi = fminf(1.0f, (added_lvl - 0.75f) / 0.23f);
+    board_draw_card_glow(dr, 1.0f);
+    DrawRectangleLinesEx((Rectangle){ dr.x - 2.0f, dr.y - 2.0f, dr.width + 4.0f, dr.height + 4.0f },
+                         1.8f, (Color){ base.r, base.g, base.b, 215 });
+    DrawRectangleLinesEx((Rectangle){ dr.x - 4.0f, dr.y - 4.0f, dr.width + 8.0f, dr.height + 8.0f },
+                         1.4f, (Color){ info.r, info.g, info.b, (unsigned char)(95.0f + 95.0f * hi) });
+    if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
+    BeginBlendMode(BLEND_ADDITIVE);
+    float wash_a = 140.0f + 78.0f * hi + 27.0f * p;
+    if (wash_a > 245.0f) wash_a = 245.0f;
+    DrawRectangleRec(dr, (Color){ base.r, base.g, base.b, (unsigned char)wash_a });
+    if (dr.width > 8.0f && dr.height > 8.0f) {
+        float core_a = 72.0f + 130.0f * hi * (0.65f + 0.35f * p);
+        if (core_a > 235.0f) core_a = 235.0f;
+        DrawRectangleRec((Rectangle){ dr.x + 3.0f, dr.y + 3.0f, dr.width - 6.0f, dr.height - 6.0f },
+                         (Color){ info.r, info.g, info.b, (unsigned char)core_a });
+    }
+    EndBlendMode();
+}
+
+static void draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash) {
+    Rectangle box = { cx - 12.0f, cy - 12.0f, 24.0f, 24.0f };
+    DrawRectangleRec(box, COLOR_PANEL_BG);
+    if (armed) ui_theme_set_panel_flare_glow(box, fminf(1.0f, 0.72f + 0.28f * flash));
+    ui_draw_panel_border(box, armed ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    if (flash > 0.01f) {
+        BeginBlendMode(BLEND_ADDITIVE);
+        Color fc = COLOR_PHOSPHOR;
+        fc.a = (unsigned char)(140.0f * flash);
+        DrawRectangleRec(box, fc);
+        EndBlendMode();
+    }
+    Color fg = armed ? COLOR_TEXT_INFO : COLOR_PHOSPHOR_DIM;
+    if (!armed) fg.a = 115;
+    Color cut = { 8, 10, 10, 245 };
+    int ix = (int)lroundf(cx), iy = (int)lroundf(cy);
+    switch (sym % ACTION_SYM_COUNT) {
+        case ACTION_SYM_SKULL:
+            DrawCircle(ix, iy - 2, 6.2f, fg);
+            DrawRectangle(ix - 5, iy - 2, 10, 5, fg);
+            DrawRectangle(ix - 4, iy + 3, 8, 4, fg);
+            DrawRectangle(ix - 4, iy - 3, 3, 3, cut);
+            DrawRectangle(ix + 1, iy - 3, 3, 3, cut);
+            DrawRectangle(ix - 1, iy, 2, 2, cut);
+            DrawRectangle(ix - 2, iy + 4, 1, 3, cut);
+            DrawRectangle(ix + 1, iy + 4, 1, 3, cut);
+            break;
+        case ACTION_SYM_HAND:
+            DrawRectangle(ix - 4, iy, 8, 6, fg);
+            DrawRectangle(ix - 3, iy + 5, 6, 2, fg);
+            DrawLineEx((Vector2){ cx - 3.3f, cy + 1.0f }, (Vector2){ cx - 3.3f, cy - 6.0f }, 1.7f, fg);
+            DrawLineEx((Vector2){ cx - 1.1f, cy + 1.0f }, (Vector2){ cx - 1.1f, cy - 7.2f }, 1.7f, fg);
+            DrawLineEx((Vector2){ cx + 1.1f, cy + 1.0f }, (Vector2){ cx + 1.1f, cy - 6.2f }, 1.7f, fg);
+            DrawLineEx((Vector2){ cx + 3.3f, cy + 1.0f }, (Vector2){ cx + 3.3f, cy - 4.5f }, 1.7f, fg);
+            DrawLineEx((Vector2){ cx - 3.5f, cy + 4.0f }, (Vector2){ cx - 7.0f, cy - 0.5f }, 1.9f, fg);
+            break;
+        case ACTION_SYM_REV_ARROW:
+            DrawLineEx((Vector2){ cx + 3.0f, cy - 4.0f }, (Vector2){ cx - 5.5f, cy - 4.0f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx + 3.0f, cy - 4.0f }, (Vector2){ cx + 6.2f, cy - 1.5f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx + 6.2f, cy - 1.5f }, (Vector2){ cx + 6.2f, cy + 1.5f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx + 6.2f, cy + 1.5f }, (Vector2){ cx + 3.0f, cy + 4.2f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx - 3.5f, cy + 4.2f }, (Vector2){ cx + 3.0f, cy + 4.2f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx - 6.5f, cy - 4.0f }, (Vector2){ cx - 2.0f, cy - 7.5f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx - 6.5f, cy - 4.0f }, (Vector2){ cx - 2.0f, cy - 0.5f }, 2.0f, fg);
+            break;
+        case ACTION_SYM_ONE_EYE:
+            DrawLineEx((Vector2){ cx - 8.0f, cy }, (Vector2){ cx - 3.0f, cy - 4.5f }, 1.8f, fg);
+            DrawLineEx((Vector2){ cx - 3.0f, cy - 4.5f }, (Vector2){ cx + 3.0f, cy - 4.5f }, 1.8f, fg);
+            DrawLineEx((Vector2){ cx + 3.0f, cy - 4.5f }, (Vector2){ cx + 8.0f, cy }, 1.8f, fg);
+            DrawLineEx((Vector2){ cx - 8.0f, cy }, (Vector2){ cx - 3.0f, cy + 4.5f }, 1.8f, fg);
+            DrawLineEx((Vector2){ cx - 3.0f, cy + 4.5f }, (Vector2){ cx + 3.0f, cy + 4.5f }, 1.8f, fg);
+            DrawLineEx((Vector2){ cx + 3.0f, cy + 4.5f }, (Vector2){ cx + 8.0f, cy }, 1.8f, fg);
+            DrawCircle(ix, iy, 3.5f, fg);
+            DrawRectangle(ix - 1, iy - 3, 2, 6, cut);
+            DrawRectangle(ix + 1, iy - 2, 1, 1, fg);
+            break;
+        default: {
+            Color gcol = armed ? (Color){ 255, 224, 118, 255 } : (Color){ 156, 132, 72, 130 };
+            if (ba && ba->coin_gold.id > 0) {
+                DrawTexturePro(ba->coin_gold, (Rectangle){ 0, 0, (float)ba->coin_gold.width, (float)ba->coin_gold.height },
+                               (Rectangle){ cx - 9.0f, cy - 9.0f, 18.0f, 18.0f }, (Vector2){ 0, 0 }, 0.0f, gcol);
+            } else {
+                DrawCircle(ix, iy, 7.0f, gcol);
+                DrawCircle(ix, iy, 4.8f, cut);
+                DrawRectangle(ix - 2, iy - 2, 4, 4, gcol);
+            }
+            break;
+        }
+    }
+}
+
 static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt, int wine_right) {
     if (lvl >= *hold) {
         *hold = lvl;
@@ -645,17 +815,34 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_field = g ? g->field_count : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
-    if (s_action_match_reset_req || cur_round != prev_round || cur_captured < prev_captured ||
-        (g && g->phase == PHASE_DEALER_SELECT)) {
+    int round_reset = (s_action_match_reset_req || cur_round != prev_round ||
+                       (g && g->phase == PHASE_DEALER_SELECT));
+    if (round_reset || cur_captured < prev_captured) {
         s_action_match_reset_req = 0;
         prev_round = cur_round;
         prev_captured = cur_captured;
         prev_field = cur_field;
         prev_koi = cur_koi;
         capture_streak = 0;
-        reverb_hold = reverb_energy = reverb_mid = reverb_curve = 0.0f;
-        s_action_peak_hold = s_action_peak_timer = 0.0f;
-        s_action_added_hold = s_action_added_timer = s_action_full_boost = 0.0f;
+        if (round_reset || !s_action_card_mode) {
+            reverb_hold = reverb_energy = reverb_mid = reverb_curve = 0.0f;
+            s_action_peak_hold = s_action_peak_timer = 0.0f;
+            s_action_added_hold = s_action_added_timer = s_action_full_boost = 0.0f;
+            s_action_symbol_armed = 0;
+            s_action_pending_sym = -1;
+            s_action_above_90 = 0;
+            s_action_beat_cd = 0.0f;
+            s_blind_field_mask = 0ULL;
+            memset(s_blind_flip, 0, sizeof(s_blind_flip));
+        }
+    }
+    if (s_action_card_mode && g) {
+        uint64_t fmask = 0ULL;
+        for (int i = 0; i < g->field_count; i++) {
+            int fcid = g->field[i];
+            if ((unsigned)fcid < 48u) fmask |= (1ULL << fcid);
+        }
+        s_blind_field_mask &= fmask;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
@@ -713,14 +900,17 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += env_dt;
     }
     if (s_action_card_mode && !s_action_card_paused) {
+        s_action_last_synergy = reverb_synergy;
         float g_glow = 0.0f, g_spd = 1.0f;
         if (reverb_synergy >= 0.75f)      { g_glow = 1.00f; g_spd = 2.15f; }
         else if (reverb_synergy >= 0.50f) { g_glow = 0.62f; g_spd = 1.70f; }
         else if (reverb_synergy >= 0.25f) { g_glow = 0.30f; g_spd = 1.00f; }
         ui_theme_set_global_flare_boost(g_glow, g_spd);
     } else {
+        if (!s_action_card_mode) s_action_last_synergy = 0.0f;
         ui_theme_set_global_flare_boost(0.0f, 1.0f);
     }
+    float ac_card_lvl = s_action_card_mode ? reverb_synergy : 0.0f;
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
@@ -786,17 +976,32 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card_back(ba, dr);
         } else board_draw_card_back(ba, dr);
+        draw_action_card_distraction(dr, cid + 1, ac_card_lvl, cur_time);
     }
 
     /* 4. Stock Pile */
     int st_off = g->stock_count >> 2;
-    for (int i = 0; i <= st_off; i++) board_draw_card_back(ba, (Rectangle){ 330.0f - i, 262.0f - i, FIELD_CARD_W, FIELD_CARD_H });
+    if (g->stock_count > 0) {
+        for (int i = 0; i <= st_off; i++) board_draw_card_back(ba, (Rectangle){ 330.0f - i, 262.0f - i, FIELD_CARD_W, FIELD_CARD_H });
+    }
+    Rectangle top_st = { 330.0f - (float)st_off, 262.0f - (float)st_off, FIELD_CARD_W, FIELD_CARD_H };
     if (sc_mode && speed_mode_deck_glow() && g->stock_count > 0) {
-        Rectangle top_st = { 330.0f - (float)st_off, 262.0f - (float)st_off, FIELD_CARD_W, FIELD_CARD_H };
         float sp = 0.72f + 0.28f * (0.5f + 0.5f * sinf(cur_time * 5.2f));
         board_draw_card_glow(top_st, sp);
         ui_theme_set_panel_flare_glow(top_st, 0.92f);
         ui_theme_draw_panel_flares(top_st);
+    }
+    if (s_action_card_mode && g->stock_count > 0) {
+        draw_action_card_distraction(top_st, 49, ac_card_lvl, cur_time);
+        for (int i = 0; i < g->stock_count; i++) {
+            int scid = g->stock[i];
+            if ((unsigned)scid < 48u && motion_is_card_moving(scid)) {
+                Rectangle sr = motion_get_rect(scid);
+                board_draw_card_shadow(sr, motion_get_card_lift(scid));
+                board_draw_card_back(ba, sr);
+                draw_action_card_distraction(sr, scid + 1, ac_card_lvl, cur_time);
+            }
+        }
     }
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
     if (s_action_card_mode) {
@@ -807,12 +1012,42 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         float base_music = 0.80f * s_action_music_level;
         float full_music = fminf(1.0f, 0.36f + 0.68f * s_action_music_level);
         float music_lvl = base_music + (full_music - base_music) * s_action_full_boost;
-        if (right_full && !s_action_card_paused && !replay_mode) {
-            s_action_ceil_started = 1;
-            s_action_ceil_accum += env_dt * 10.0f;
+        int live_round = g && g->phase != PHASE_DEALER_SELECT &&
+                         g->phase != PHASE_ROUND_END && g->phase != PHASE_MATCH_END;
+        if (s_action_beat_cd > 0.0f) {
+            s_action_beat_cd -= env_dt;
+            if (s_action_beat_cd < 0.0f) s_action_beat_cd = 0.0f;
+        }
+        if (s_action_symbol_flash > 0.0f) {
+            s_action_symbol_flash -= env_dt * 2.8f;
+            if (s_action_symbol_flash < 0.0f) s_action_symbol_flash = 0.0f;
+        }
+        if (live_round && !s_action_card_paused && !replay_mode) {
+            if (right_full) {
+                s_action_ceil_started = 1;
+                s_action_ceil_accum += env_dt * 10.0f;
+            }
+            if (!s_action_above_90 && music_lvl >= 0.90f && s_action_beat_cd <= 0.0f) {
+                s_action_above_90 = 1;
+                s_action_beat_cd = 0.12f;
+                s_action_symbol_idx = (s_action_symbol_idx + 1) % ACTION_SYM_COUNT;
+                s_action_symbol_armed = 1;
+                s_action_pending_sym = -1;
+                s_action_symbol_flash = 1.0f;
+            } else if (s_action_above_90 && music_lvl < 0.84f) {
+                s_action_above_90 = 0;
+            }
+            int right_fh = right_full ? 260 : (int)lroundf(260.0f * added_lvl);
+            if (s_action_symbol_armed && right_fh <= 0 && reverb_energy <= 0.0005f) {
+                s_action_pending_sym = s_action_symbol_idx;
+                s_action_symbol_armed = 0;
+                s_action_symbol_flash = 1.0f;
+                reverb_energy = reverb_mid = reverb_curve = 0.0f;
+            }
         }
         draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
                                  &s_action_peak_hold, &s_action_peak_timer, env_dt, 0);
+        draw_action_symbol_icon(ba, s_action_symbol_idx, 421.0f, 152.0f, s_action_symbol_armed, s_action_symbol_flash);
         draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
                                  &s_action_added_hold, &s_action_added_timer, env_dt, 1);
         if (s_action_ceil_started) {
@@ -832,7 +1067,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     int sf[48];
     board_field_sort_slots(g->field, g->field_count, sf);
     uint16_t field_month_mask = 0;
-    for (int i = 0; i < g->field_count; i++) field_month_mask |= (uint16_t)(1u << CARDS[g->field[i]].month);
+    for (int i = 0; i < g->field_count; i++) {
+        int fcid = g->field[i];
+        if (!board_is_blind_field_card(fcid)) field_month_mask |= (uint16_t)(1u << CARDS[fcid].month);
+    }
     int drag_m = (dragging_idx >= 0 && dragging_idx < g->hand_count[0]) ? CARDS[g->hand[0][dragging_idx]].month : -1;
     float pulse = 0.12f + 0.28f * (0.5f + 0.5f * sinf(cur_time * 4.0f));
 
@@ -841,13 +1079,32 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         Rectangle r = board_get_field_card_rect(i, g->field_count);
         motion_set_target(cid, (Vector2){ r.x, r.y }, (Vector2){ r.width, r.height }, 0.30f);
         Rectangle dr = motion_get_rect(cid);
-        if (motion_is_card_moving(cid)) {
-            board_draw_card_shadow(dr, motion_get_card_lift(cid));
+        int is_blind = board_is_blind_field_card(cid);
+        if (is_blind && s_blind_flip[cid] > 0.0f && s_blind_flip[cid] < 1.0f) {
+            s_blind_flip[cid] = fminf(1.0f, s_blind_flip[cid] + env_dt / 0.36f);
+            float fp = s_blind_flip[cid];
+            float hop = sinf(fp * 3.14159265f) * 10.0f;
+            float cv = cosf(fp * 3.14159265f);
+            float pw = dr.width * fmaxf(0.06f, fabsf(cv));
+            Rectangle pr = { dr.x + (dr.width - pw) * 0.5f, dr.y - hop, pw, dr.height };
+            board_draw_card_shadow(pr, fmaxf(motion_is_card_moving(cid) ? motion_get_card_lift(cid) : 0.0f, hop / 10.0f));
+            if (cv > 0.0f) {
+                card_tooltip_record(-1, pr);
+                Rectangle src = { (float)((cid >> 2) * ATLAS_CELL_W), (float)((cid & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
+                DrawTexturePro(ba->atlas, src, pr, (Vector2){ 0, 0 }, 0.0f, WHITE);
+                DrawRectangleLinesEx(pr, 1.0f, (Color){ 20, 40, 25, 200 });
+            } else {
+                board_draw_card_back(ba, pr);
+            }
+            draw_action_card_distraction(pr, cid + 1, ac_card_lvl, cur_time);
+        } else {
+            if (motion_is_card_moving(cid)) board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
-        } else board_draw_card(ba, cid, dr);
-        if (easy_mode && drag_m > 0 && CARDS[cid].month == drag_m) {
-            board_draw_card_glow(dr, pulse);
-            ui_theme_draw_panel_flares_keyed(dr, cid + 1);
+            if (!is_blind && ac_card_lvl < 0.75f && easy_mode && drag_m > 0 && CARDS[cid].month == drag_m) {
+                board_draw_card_glow(dr, pulse);
+                ui_theme_draw_panel_flares_keyed(dr, cid + 1);
+            }
+            draw_action_card_distraction(dr, cid + 1, ac_card_lvl, cur_time);
         }
     }
     ash_burst_draw_and_update(frame_dt);
@@ -856,15 +1113,19 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
            left the hand and is not on the field yet, so nothing else draws it. */
     if (g->phase == PHASE_HAND_CHOICE && g->played_hand_card >= 0) {
         Rectangle hr = motion_get_rect(g->played_hand_card);
-        if (hr.width > 0.0f) board_draw_card(ba, g->played_hand_card, hr);
+        if (hr.width > 0.0f) {
+            board_draw_card(ba, g->played_hand_card, hr);
+            draw_action_card_distraction(hr, g->played_hand_card + 1, ac_card_lvl, cur_time);
+        }
     }
 
     /* 6. Pending Stock Card */
     if (g->has_pending && g->pending_card >= 0 && (!anim->active || anim->type != ANIM_STOCK_FLY)) {
         Rectangle pr = motion_get_rect(g->pending_card);
-        if (pr.width > 0 && (pr.x != 330.0f || pr.y != 262.0f)) {
-            board_draw_card(ba, g->pending_card, pr);
-        } else board_draw_card(ba, g->pending_card, (Rectangle){ 330.0f, 262.0f, FIELD_CARD_W, FIELD_CARD_H });
+        Rectangle dp = (pr.width > 0 && (pr.x != 330.0f || pr.y != 262.0f))
+                     ? pr : (Rectangle){ 330.0f, 262.0f, FIELD_CARD_W, FIELD_CARD_H };
+        board_draw_card(ba, g->pending_card, dp);
+        draw_action_card_distraction(dp, g->pending_card + 1, ac_card_lvl, cur_time);
     }
 
     /* 7. Player Hand */
@@ -892,9 +1153,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         } else {
             if (motion_is_card_moving(cid)) board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
-            if (easy_mode && g->current_player == 0 && dragging_idx < 0) {
+            if (ac_card_lvl < 0.75f && easy_mode && g->current_player == 0 && dragging_idx < 0) {
                 if ((field_month_mask >> CARDS[cid].month) & 1u) board_draw_card_glow(dr, pulse);
             }
+            draw_action_card_distraction(dr, cid + 1, ac_card_lvl, cur_time);
         }
     }
 
@@ -909,6 +1171,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         board_draw_card_shimmer(dr, motion_get_card_shimmer(cid));
         board_draw_card_glow(dr, 1.0f);
         ui_theme_draw_panel_flares_keyed(dr, cid + 1);
+        draw_action_card_distraction(dr, cid + 1, ac_card_lvl, cur_time);
     }
 
     /* 9. Animated Cards */
