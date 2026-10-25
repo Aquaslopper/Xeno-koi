@@ -199,7 +199,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
 
         /* 1. Sidechain detector on dry music (3 ms attack = 0.00753, 80 ms release = 0.000283) */
         float dry_abs = 0.5f * ((dry_l < 0.0f ? -dry_l : dry_l) + (dry_r < 0.0f ? -dry_r : dry_r));
-        float sc_rate = (dry_abs > s_sc_env) ? 0.007530f : 0.000283f;
+        float sc_rate = (dry_abs > s_sc_env) ? 0.011274f : 0.000113f;
         s_sc_env += (dry_abs - s_sc_env) * sc_rate;
         float sc_over = (s_sc_env > 0.08f) ? (s_sc_env - 0.08f) : 0.0f;
         float sc_dim = 1.0f / (1.0f + 2.2f * sc_over);
@@ -297,7 +297,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         room_mid = room_mid_lp + (room_mid - room_mid_lp) * room;
         room_side = room_side_lp + (room_side - room_side_lp) * room;
         float wet_gain = room * rev * 2.20f * sc_dim * (1 - 0.10f * tail_releasing);
-        float dry_gain = 1 - 0.30f * room * rev;
+        float dry_gain = 1 - 0.15f * room * rev;
         float out_l = dry_l, out_r = dry_r;
         if (room * rev > 0.00001f) {
             out_l = dry_l*dry_gain + (room_mid + room_side)*wet_gain;
