@@ -33,6 +33,14 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
 
 #define ASH_COUNT 155
 #define ASH_BURST_MAX 420
+#define CEIL_VFX_MOTES 56
+#define CEIL_VFX_DUR   1.15f
+
+typedef struct {
+    Vector2 pos, vel;
+    float ox, oy, delay, phase, freq, swirl;
+    int spawned;
+} CeilVaporMote;
 
 typedef struct {
     Vector2 pos;
@@ -84,6 +92,38 @@ static float s_action_symbol_flash = 0.0f;
 static float s_action_last_synergy = 0.0f;
 static uint64_t s_blind_field_mask = 0ULL;
 static float s_blind_flip[48];
+static int s_action_round_time_num[2] = { 0, 0 };
+static int s_action_round_time_pts[2] = { 0, 0 };
+static int s_action_match_time_num[2] = { 0, 0 };
+static int s_action_match_time_pts[2] = { 0, 0 };
+static int s_ceil_vfx_active = 0;
+static int s_ceil_vfx_val = 0;
+static int s_ceil_vfx_who = 0;
+static float s_ceil_vfx_t = 0.0f;
+static CeilVaporMote s_ceil_motes[CEIL_VFX_MOTES];
+
+static void start_ceil_claim_vfx(int val, int who) {
+    if (val <= 0) return;
+    s_ceil_vfx_active = 1;
+    s_ceil_vfx_val = val;
+    s_ceil_vfx_who = (who == 1) ? 1 : 0;
+    s_ceil_vfx_t = 0.0f;
+    for (int i = 0; i < CEIL_VFX_MOTES; i++) {
+        unsigned int h = (unsigned int)(i * 747796405u + (unsigned int)val * 2891336453u + 1013904223u);
+        float rx = ((float)(h & 1023u) / 1023.0f) - 0.5f;
+        float ry = ((float)((h >> 10) & 1023u) / 1023.0f) - 0.5f;
+        float rd = (float)((h >> 20) & 255u) / 255.0f;
+        s_ceil_motes[i] = (CeilVaporMote){
+            .pos = { 1089.0f, 152.0f }, .vel = { 0.0f, 0.0f },
+            .ox = rx, .oy = ry,
+            .delay = 0.25f + 0.29f * rd,
+            .phase = 6.2831853f * (((float)((h >> 5) & 255u)) / 255.0f),
+            .freq = 9.0f + 8.0f * (((float)((h >> 13) & 255u)) / 255.0f),
+            .swirl = (rx >= 0.0f) ? (0.4f + rd) : -(0.4f + rd),
+            .spawned = 0
+        };
+    }
+}
 
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
@@ -92,6 +132,10 @@ void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec) {
     s_audio_action_triggers = (triggers > 0) ? triggers : 0;
     s_audio_peak_synergy = (peak >= 0.0f) ? (peak > 1.0f ? 1.0f : peak) : 0.0f;
     s_audio_full_hold_sec = (full_hold_sec >= 0.0f) ? full_hold_sec : 0.0f;
+}
+void  board_advance_action_card_round(void) {
+    s_action_round_time_num[0] = s_action_round_time_num[1] = 0;
+    s_action_round_time_pts[0] = s_action_round_time_pts[1] = 0;
 }
 void  board_reset_action_card_match(void) {
     s_action_peak_hold = s_action_peak_timer = 0.0f;
@@ -107,16 +151,54 @@ void  board_reset_action_card_match(void) {
     s_action_last_synergy = 0.0f;
     s_blind_field_mask = 0ULL;
     memset(s_blind_flip, 0, sizeof(s_blind_flip));
+    board_advance_action_card_round();
+    s_action_match_time_num[0] = s_action_match_time_num[1] = 0;
+    s_action_match_time_pts[0] = s_action_match_time_pts[1] = 0;
+    s_ceil_vfx_active = 0;
     s_action_match_reset_req = 1;
 }
 int   board_get_action_ceiling_count(void) {
     return s_action_ceil_started ? (1 + (int)floorf(s_action_ceil_accum)) : 0;
 }
-int   board_consume_action_ceiling_count(void) {
+int   board_claim_action_ceiling_count(int who) {
     int c = board_get_action_ceiling_count();
     s_action_ceil_accum = 0.0f;
     s_action_ceil_started = 0;
+    if (c > 0) {
+        int w = (who == 1) ? 1 : 0;
+        int pts = (c + 5) / 10;
+        s_action_round_time_num[w] += c;
+        s_action_round_time_pts[w] += pts;
+        s_action_match_time_num[w] += c;
+        s_action_match_time_pts[w] += pts;
+        start_ceil_claim_vfx(c, w);
+    }
     return c;
+}
+int   board_consume_action_ceiling_count(void) {
+    return board_claim_action_ceiling_count(0);
+}
+int   board_get_action_round_time_stats(int *out_you, int *out_you_pts, int *out_cpu, int *out_cpu_pts, int *out_meter) {
+    int y = s_action_round_time_num[0], yp = s_action_round_time_pts[0];
+    int c = s_action_round_time_num[1], cp = s_action_round_time_pts[1];
+    int m = board_get_action_ceiling_count();
+    if (out_you) *out_you = y;
+    if (out_you_pts) *out_you_pts = yp;
+    if (out_cpu) *out_cpu = c;
+    if (out_cpu_pts) *out_cpu_pts = cp;
+    if (out_meter) *out_meter = m;
+    return (y > 0 || c > 0 || m > 0) ? 1 : 0;
+}
+int   board_get_action_match_time_stats(int *out_you, int *out_you_pts, int *out_cpu, int *out_cpu_pts, int *out_meter) {
+    int y = s_action_match_time_num[0], yp = s_action_match_time_pts[0];
+    int c = s_action_match_time_num[1], cp = s_action_match_time_pts[1];
+    int m = board_get_action_ceiling_count();
+    if (out_you) *out_you = y;
+    if (out_you_pts) *out_you_pts = yp;
+    if (out_cpu) *out_cpu = c;
+    if (out_cpu_pts) *out_cpu_pts = cp;
+    if (out_meter) *out_meter = m;
+    return (y > 0 || c > 0 || m > 0) ? 1 : 0;
 }
 int   board_get_action_symbol(int *out_armed) {
     if (out_armed) *out_armed = s_action_symbol_armed;
@@ -151,7 +233,8 @@ int   board_is_action_distraction_high(void) {
 }
 void  board_set_action_card_mode(int active, float music_level) {
     if (!active) {
-        board_reset_action_card_match();
+        s_action_last_synergy = 0.0f;
+        s_blind_field_mask = 0ULL;
         ui_theme_set_global_flare_boost(0.0f, 1.0f);
     }
     s_action_card_mode = (active > 0) ? 1 : 0;
@@ -648,7 +731,7 @@ static void draw_action_card_distraction(Rectangle dr, int slot_key, float added
 }
 
 static void draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash) {
-    Rectangle box = { cx - 12.0f, cy - 12.0f, 24.0f, 24.0f };
+    Rectangle box = { cx - 16.0f, cy - 16.0f, 32.0f, 32.0f };
     DrawRectangleRec(box, COLOR_PANEL_BG);
     if (armed) ui_theme_set_panel_flare_glow(box, fminf(1.0f, 0.72f + 0.28f * flash));
     ui_draw_panel_border(box, armed ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
@@ -665,57 +748,126 @@ static void draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, fl
     int ix = (int)lroundf(cx), iy = (int)lroundf(cy);
     switch (sym % ACTION_SYM_COUNT) {
         case ACTION_SYM_SKULL:
-            DrawCircle(ix, iy - 2, 6.2f, fg);
-            DrawRectangle(ix - 5, iy - 2, 10, 5, fg);
-            DrawRectangle(ix - 4, iy + 3, 8, 4, fg);
-            DrawRectangle(ix - 4, iy - 3, 3, 3, cut);
-            DrawRectangle(ix + 1, iy - 3, 3, 3, cut);
-            DrawRectangle(ix - 1, iy, 2, 2, cut);
-            DrawRectangle(ix - 2, iy + 4, 1, 3, cut);
-            DrawRectangle(ix + 1, iy + 4, 1, 3, cut);
+            DrawCircle(ix, iy - 3, 8.2f, fg);
+            DrawRectangle(ix - 7, iy - 3, 14, 7, fg);
+            DrawRectangle(ix - 5, iy + 4, 10, 5, fg);
+            DrawRectangle(ix - 5, iy - 4, 4, 4, cut);
+            DrawRectangle(ix + 1, iy - 4, 4, 4, cut);
+            DrawRectangle(ix - 1, iy + 1, 2, 2, cut);
+            DrawRectangle(ix - 3, iy + 5, 1, 4, cut);
+            DrawRectangle(ix,     iy + 5, 1, 4, cut);
+            DrawRectangle(ix + 3, iy + 5, 1, 4, cut);
             break;
         case ACTION_SYM_HAND:
-            DrawRectangle(ix - 4, iy, 8, 6, fg);
-            DrawRectangle(ix - 3, iy + 5, 6, 2, fg);
-            DrawLineEx((Vector2){ cx - 3.3f, cy + 1.0f }, (Vector2){ cx - 3.3f, cy - 6.0f }, 1.7f, fg);
-            DrawLineEx((Vector2){ cx - 1.1f, cy + 1.0f }, (Vector2){ cx - 1.1f, cy - 7.2f }, 1.7f, fg);
-            DrawLineEx((Vector2){ cx + 1.1f, cy + 1.0f }, (Vector2){ cx + 1.1f, cy - 6.2f }, 1.7f, fg);
-            DrawLineEx((Vector2){ cx + 3.3f, cy + 1.0f }, (Vector2){ cx + 3.3f, cy - 4.5f }, 1.7f, fg);
-            DrawLineEx((Vector2){ cx - 3.5f, cy + 4.0f }, (Vector2){ cx - 7.0f, cy - 0.5f }, 1.9f, fg);
+            DrawRectangle(ix - 5, iy, 10, 8, fg);
+            DrawRectangle(ix - 4, iy + 7, 8, 3, fg);
+            DrawLineEx((Vector2){ cx - 4.4f, cy + 1.0f }, (Vector2){ cx - 4.4f, cy - 8.0f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx - 1.5f, cy + 1.0f }, (Vector2){ cx - 1.5f, cy - 9.6f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx + 1.5f, cy + 1.0f }, (Vector2){ cx + 1.5f, cy - 8.4f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx + 4.4f, cy + 1.0f }, (Vector2){ cx + 4.4f, cy - 6.2f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx - 4.6f, cy + 5.2f }, (Vector2){ cx - 9.2f, cy - 0.6f }, 2.4f, fg);
             break;
         case ACTION_SYM_REV_ARROW:
-            DrawLineEx((Vector2){ cx + 3.0f, cy - 4.0f }, (Vector2){ cx - 5.5f, cy - 4.0f }, 2.0f, fg);
-            DrawLineEx((Vector2){ cx + 3.0f, cy - 4.0f }, (Vector2){ cx + 6.2f, cy - 1.5f }, 2.0f, fg);
-            DrawLineEx((Vector2){ cx + 6.2f, cy - 1.5f }, (Vector2){ cx + 6.2f, cy + 1.5f }, 2.0f, fg);
-            DrawLineEx((Vector2){ cx + 6.2f, cy + 1.5f }, (Vector2){ cx + 3.0f, cy + 4.2f }, 2.0f, fg);
-            DrawLineEx((Vector2){ cx - 3.5f, cy + 4.2f }, (Vector2){ cx + 3.0f, cy + 4.2f }, 2.0f, fg);
-            DrawLineEx((Vector2){ cx - 6.5f, cy - 4.0f }, (Vector2){ cx - 2.0f, cy - 7.5f }, 2.0f, fg);
-            DrawLineEx((Vector2){ cx - 6.5f, cy - 4.0f }, (Vector2){ cx - 2.0f, cy - 0.5f }, 2.0f, fg);
+            DrawLineEx((Vector2){ cx + 4.0f, cy - 5.4f }, (Vector2){ cx - 7.5f, cy - 5.4f }, 2.4f, fg);
+            DrawLineEx((Vector2){ cx + 4.0f, cy - 5.4f }, (Vector2){ cx + 8.4f, cy - 2.0f }, 2.4f, fg);
+            DrawLineEx((Vector2){ cx + 8.4f, cy - 2.0f }, (Vector2){ cx + 8.4f, cy + 2.0f }, 2.4f, fg);
+            DrawLineEx((Vector2){ cx + 8.4f, cy + 2.0f }, (Vector2){ cx + 4.0f, cy + 5.6f }, 2.4f, fg);
+            DrawLineEx((Vector2){ cx - 4.8f, cy + 5.6f }, (Vector2){ cx + 4.0f, cy + 5.6f }, 2.4f, fg);
+            DrawLineEx((Vector2){ cx - 8.8f, cy - 5.4f }, (Vector2){ cx - 2.8f, cy - 10.0f }, 2.4f, fg);
+            DrawLineEx((Vector2){ cx - 8.8f, cy - 5.4f }, (Vector2){ cx - 2.8f, cy - 0.8f }, 2.4f, fg);
             break;
         case ACTION_SYM_ONE_EYE:
-            DrawLineEx((Vector2){ cx - 8.0f, cy }, (Vector2){ cx - 3.0f, cy - 4.5f }, 1.8f, fg);
-            DrawLineEx((Vector2){ cx - 3.0f, cy - 4.5f }, (Vector2){ cx + 3.0f, cy - 4.5f }, 1.8f, fg);
-            DrawLineEx((Vector2){ cx + 3.0f, cy - 4.5f }, (Vector2){ cx + 8.0f, cy }, 1.8f, fg);
-            DrawLineEx((Vector2){ cx - 8.0f, cy }, (Vector2){ cx - 3.0f, cy + 4.5f }, 1.8f, fg);
-            DrawLineEx((Vector2){ cx - 3.0f, cy + 4.5f }, (Vector2){ cx + 3.0f, cy + 4.5f }, 1.8f, fg);
-            DrawLineEx((Vector2){ cx + 3.0f, cy + 4.5f }, (Vector2){ cx + 8.0f, cy }, 1.8f, fg);
-            DrawCircle(ix, iy, 3.5f, fg);
-            DrawRectangle(ix - 1, iy - 3, 2, 6, cut);
-            DrawRectangle(ix + 1, iy - 2, 1, 1, fg);
+            DrawLineEx((Vector2){ cx - 10.8f, cy }, (Vector2){ cx - 4.0f, cy - 6.0f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx - 4.0f, cy - 6.0f }, (Vector2){ cx + 4.0f, cy - 6.0f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx + 4.0f, cy - 6.0f }, (Vector2){ cx + 10.8f, cy }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx - 10.8f, cy }, (Vector2){ cx - 4.0f, cy + 6.0f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx - 4.0f, cy + 6.0f }, (Vector2){ cx + 4.0f, cy + 6.0f }, 2.2f, fg);
+            DrawLineEx((Vector2){ cx + 4.0f, cy + 6.0f }, (Vector2){ cx + 10.8f, cy }, 2.2f, fg);
+            DrawCircle(ix, iy, 4.7f, fg);
+            DrawRectangle(ix - 1, iy - 4, 2, 8, cut);
+            DrawRectangle(ix + 1, iy - 3, 2, 2, fg);
             break;
         default: {
             Color gcol = armed ? (Color){ 255, 224, 118, 255 } : (Color){ 156, 132, 72, 130 };
             if (ba && ba->coin_gold.id > 0) {
                 DrawTexturePro(ba->coin_gold, (Rectangle){ 0, 0, (float)ba->coin_gold.width, (float)ba->coin_gold.height },
-                               (Rectangle){ cx - 9.0f, cy - 9.0f, 18.0f, 18.0f }, (Vector2){ 0, 0 }, 0.0f, gcol);
+                               (Rectangle){ cx - 12.0f, cy - 12.0f, 24.0f, 24.0f }, (Vector2){ 0, 0 }, 0.0f, gcol);
             } else {
-                DrawCircle(ix, iy, 7.0f, gcol);
-                DrawCircle(ix, iy, 4.8f, cut);
-                DrawRectangle(ix - 2, iy - 2, 4, 4, gcol);
+                DrawCircle(ix, iy, 9.4f, gcol);
+                DrawCircle(ix, iy, 6.4f, cut);
+                DrawRectangle(ix - 3, iy - 3, 6, 6, gcol);
             }
             break;
         }
     }
+}
+
+static void draw_and_update_ceil_claim_vfx(float dt) {
+    if (!s_ceil_vfx_active) return;
+    s_ceil_vfx_t += dt;
+    if (s_ceil_vfx_t >= CEIL_VFX_DUR) { s_ceil_vfx_active = 0; return; }
+
+    Vector2 orig = { 1089.0f, 152.0f };
+    Vector2 tgt = (s_ceil_vfx_who == 1) ? (Vector2){ 540.0f, 34.0f } : (Vector2){ 540.0f, 650.0f };
+    float dx = tgt.x - orig.x, dy = tgt.y - orig.y;
+    float dlen = sqrtf(dx * dx + dy * dy);
+    Vector2 dir = (dlen > 1e-3f) ? (Vector2){ dx / dlen, dy / dlen } : (Vector2){ -1.0f, 0.0f };
+    Vector2 perp = { -dir.y, dir.x };
+    const char *txt = TextFormat("%d", s_ceil_vfx_val);
+
+    float u_grow = fminf(1.0f, s_ceil_vfx_t / 0.26f);
+    float grow = u_grow * u_grow * (3.0f - 2.0f * u_grow);
+    float fsz = 24.0f + 16.0f * grow;
+    float u_diss = (s_ceil_vfx_t > 0.30f) ? fminf(1.0f, (s_ceil_vfx_t - 0.30f) / 0.34f) : 0.0f;
+    float d_alpha = 1.0f - u_diss * u_diss * (3.0f - 2.0f * u_diss);
+    float cx = orig.x + dir.x * 18.0f * u_diss, cy = orig.y + dir.y * 18.0f * u_diss;
+    Color accent = (s_ceil_vfx_who == 0) ? (Color){ 255, 208, 68, 255 } : (Color){ 244, 96, 114, 255 };
+
+    if (d_alpha > 0.01f) {
+        int flash_on = (((int)(s_ceil_vfx_t * 36.0f)) & 1);
+        float jx = sinf(s_ceil_vfx_t * 95.0f) * 2.4f * u_diss;
+        float jy = cosf(s_ceil_vfx_t * 83.0f) * 2.0f * u_diss;
+        Vector2 ts = MeasureTextEx(font_title, txt, fsz, 1.2f);
+        Vector2 tpos = { cx - ts.x * 0.5f + jx, cy - fsz * 0.5f + jy };
+        BeginBlendMode(BLEND_ADDITIVE);
+        DrawTextEx(font_title, txt, tpos, fsz, 1.2f,
+                   (Color){ accent.r, accent.g, accent.b, (unsigned char)((flash_on ? 210.0f : 110.0f) * d_alpha) });
+        EndBlendMode();
+        Color fg = flash_on ? (Color){ 255, 250, 226, (unsigned char)(255.0f * d_alpha) }
+                            : (Color){ accent.r, accent.g, accent.b, (unsigned char)(245.0f * d_alpha) };
+        DrawTextEx(font_title, txt, tpos, fsz, 1.2f, fg);
+    }
+
+    Vector2 bsz = MeasureTextEx(font_title, txt, 40.0f, 1.2f);
+    float bw = fmaxf(30.0f, bsz.x);
+    BeginBlendMode(BLEND_ADDITIVE);
+    for (int i = 0; i < CEIL_VFX_MOTES; i++) {
+        CeilVaporMote *m = &s_ceil_motes[i];
+        if (s_ceil_vfx_t < m->delay) continue;
+        if (!m->spawned) {
+            m->pos = (Vector2){ cx + m->ox * bw, cy + m->oy * 30.0f };
+            float sp0 = 135.0f + 95.0f * (0.5f + m->ox);
+            m->vel = (Vector2){ dir.x * sp0 + perp.x * m->swirl * 58.0f,
+                                dir.y * sp0 + perp.y * m->swirl * 58.0f };
+            m->spawned = 1;
+        }
+        float age = s_ceil_vfx_t - m->delay;
+        float max_age = fmaxf(0.15f, CEIL_VFX_DUR - m->delay);
+        float prog = fminf(1.0f, age / max_age);
+        float curl = sinf(age * m->freq + m->phase) * 240.0f;
+        m->vel.x += (dir.x * 1450.0f + perp.x * curl) * dt;
+        m->vel.y += (dir.y * 1450.0f + perp.y * curl) * dt;
+        m->pos.x += m->vel.x * dt;
+        m->pos.y += m->vel.y * dt;
+        float ma = sinf(prog * 3.14159265f) * (1.0f - 0.35f * prog);
+        if (ma <= 0.01f) continue;
+        Vector2 tail = { m->pos.x - m->vel.x * 0.022f, m->pos.y - m->vel.y * 0.022f };
+        DrawLineEx(tail, m->pos, 1.0f + 0.05f * ma,
+                   (Color){ accent.r, accent.g, accent.b, (unsigned char)(195.0f * ma) });
+        DrawRectangle((int)lroundf(m->pos.x), (int)lroundf(m->pos.y), 2, 2,
+                      (Color){ 255, 250, 232, (unsigned char)(245.0f * ma) });
+    }
+    EndBlendMode();
 }
 
 static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt, int wine_right) {
@@ -1007,16 +1159,15 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
                 s_action_above_90 = 0;
             }
             int right_fh = right_full ? 260 : (int)lroundf(260.0f * added_lvl);
-            if (s_action_symbol_armed && right_fh <= 0 && reverb_energy <= 0.0005f) {
+            if (s_action_symbol_armed && right_fh < (260 / 4)) {
                 s_action_pending_sym = s_action_symbol_idx;
                 s_action_symbol_armed = 0;
                 s_action_symbol_flash = 1.0f;
-                reverb_energy = reverb_mid = reverb_curve = 0.0f;
             }
         }
         draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
                                  &s_action_peak_hold, &s_action_peak_timer, env_dt, 0);
-        draw_action_symbol_icon(ba, s_action_symbol_idx, 421.0f, 152.0f, s_action_symbol_armed, s_action_symbol_flash);
+        draw_action_symbol_icon(ba, s_action_symbol_idx, 421.0f, 148.0f, s_action_symbol_armed, s_action_symbol_flash);
         draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
                                  &s_action_added_hold, &s_action_added_timer, env_dt, 1);
         if (s_action_ceil_started) {
@@ -1025,10 +1176,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             Color ccol = right_full ? (Color){ 238, 156, 166, 255 } : (Color){ 182, 70, 82, 225 };
             if (right_full) {
                 BeginBlendMode(BLEND_ADDITIVE);
-                draw_centered_text(font_title, cstr, 1089.0f, 146.0f, 18.0f, 1.0f, (Color){ 182, 70, 82, 120 });
+                draw_centered_text(font_title, cstr, 1089.0f, 140.0f, 24.0f, 1.0f, (Color){ 182, 70, 82, 120 });
                 EndBlendMode();
             }
-            draw_centered_text(font_title, cstr, 1089.0f, 146.0f, 18.0f, 1.0f, ccol);
+            draw_centered_text(font_title, cstr, 1089.0f, 140.0f, 24.0f, 1.0f, ccol);
         }
     }
 
@@ -1220,6 +1371,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
     if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
     if (!replay_mode) speed_hit_popups_draw();
+    if (!replay_mode && s_action_card_mode) draw_and_update_ceil_claim_vfx(env_dt);
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

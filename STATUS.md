@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex Phase 4 Step 3 fine-tuning: crisp `+0.05px` shiny perimeter pixels, larger symbol/number badges, `< 25%` first-line trigger, directional vaporize claim VFX & round/match-end Time + Speedcoin readouts (25 October 2026)
+
+- Fine-tuned Phase 4 Step 3 across `src/ui_theme.c`, `src/ui_board.h`, `src/ui_board.c`, `src/ui_main.c`, and `plexus/roadmap_plexus.md` while keeping `src/ui_screens.c`, `src/ui_audio.c`, and all protected paths untouched:
+  - **Crisp `+0.05px` Shiny Perimeter & Text Flare Pixels (`src/ui_theme.c`):** Capped flare streak thickness growth in `panel_flares_draw()` and `ui_theme_draw_text_flares()` at `1.0f + 0.05f * shine` (`<= 1.05 px`) while preserving full brightness ramp (`alpha -> 255`) for a sharp specular shimmer.
+  - **Larger Left-Meter Symbol Badge, Larger Right-Meter Ceiling Number & First-Line (`< 25%`) Symbol Trigger (`src/ui_board.c`):** Enlarged the left-meter symbol badge to `32x32` at `(421, 148)` with scaled `Skull` / `Hand` / `Reverse Arrow` / `One Eye` / `Gold Coin` geometry, enlarged the right-meter ceiling number to `24px` at `(1089, 140)`, and triggered the armed symbol once as soon as the right-side meter drops below the bottom horizontal line (`right_fh < 260 / 4`, `< 25%`).
+  - **Directional Vaporize Claim VFX & Per-Round / Match-End Time + Speedcoin Readouts (`src/ui_board.*`, `src/ui_main.c`):** Added `board_claim_action_ceiling_count(who)` + `draw_and_update_ceil_claim_vfx()` so a claimed ceiling number swells (`24 -> 40px`), strobe-flashes, and vaporizes into a 56-mote stream flying toward the recipient (`YOU` bottom `(540, 650)` vs `CPU` top `(540, 34)`), and added `draw_round_result_extras()` / `draw_match_result_extras()` + banner lines so both per-round screens and the match-over screen display Speedcoin numbers and Action Card time numbers whenever `> 0`.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./build.sh test` (`500` full matches + `test_koikoi_trigger`), `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, ASan+UBSan Action Card fine-tuning harness (`<= 1.05px` flare thickness cap, `< 25%` first-line fire vs `>= 25%` hold, directional vaporize trajectories for Player vs CPU, and round/match-end Time + Speedcoin stats), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_theme.c`, `src/ui_board.h`, `src/ui_board.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/ui_screens.c`, `src/ui_plexus.*` (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` & `ACTION_CARD_UNLOCKED_FOR_TESTING = 1` preserved), `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex Phase 4 Step 3: card/deck distraction glow, left-meter cycling beat symbols & full-depletion symbol effects (25 October 2026)
 
 - Implemented the Action Card distraction glow, cycling left-meter beat symbols, and one-shot full-depletion symbol effects (`src/ui_theme.c`, `src/ui_board.h`, `src/ui_board.c`, `src/ui_input.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`), preserving `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`, `ACTION_CARD_UNLOCKED_FOR_TESTING = 1`, and the maintainer's fine-tuned `reverb_synergy` envelope:

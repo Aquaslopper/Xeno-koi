@@ -98,6 +98,40 @@ static void start_hub_transition(ScreenState next_screen, int next_campaign,
     hub_trans_active = 1;
 }
 
+static void format_action_time_line(char *buf, size_t cap, int yt, int yp, int ct, int cp, int mt) {
+    if (yt > 0 && ct > 0) {
+        if (mt > 0) snprintf(buf, cap, "TIME NUMBERS:  YOU %d (+%d)  |  CPU %d (+%d)  |  METER %d", yt, yp, ct, cp, mt);
+        else snprintf(buf, cap, "TIME NUMBERS:  YOU %d (+%d PTS)  |  CPU %d (+%d PTS)", yt, yp, ct, cp);
+    } else if (yt > 0) {
+        if (mt > 0) snprintf(buf, cap, "TIME NUMBERS:  YOU %d (+%d PTS)  |  METER %d", yt, yp, mt);
+        else snprintf(buf, cap, "TIME NUMBERS:  YOU %d  =  +%d PTS", yt, yp);
+    } else if (ct > 0) {
+        if (mt > 0) snprintf(buf, cap, "TIME NUMBERS:  CPU %d (+%d PTS)  |  METER %d", ct, cp, mt);
+        else snprintf(buf, cap, "TIME NUMBERS:  CPU %d  =  +%d PTS", ct, cp);
+    } else {
+        snprintf(buf, cap, "TIME NUMBERS:  %d  (ON METER)", mt);
+    }
+}
+
+static void draw_match_result_extras(const GameState *gs) {
+    int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
+    if (!gs || gs->ruleset != RULESET_KK_ADD_10 || !board_get_action_match_time_stats(&yt, &yp, &ct, &cp, &mt)) return;
+    char tline[128];
+    format_action_time_line(tline, sizeof(tline), yt, yp, ct, cp, mt);
+    Vector2 ts = MeasureTextEx(font_body, tline, 19.0f, 1.2f);
+    float bw = fmaxf(480.0f, ceilf(ts.x + 44.0f));
+    float by = (speed_bar_total() > 0) ? 658.0f : 604.0f;
+    float bh = (speed_bar_total() > 0) ? 46.0f : 48.0f;
+    Rectangle tbox = { floorf((CANVAS_W - bw) * 0.5f), by, bw, bh };
+    DrawRectangleRec(tbox, COLOR_PANEL_BG);
+    ui_draw_panel_border(tbox, (Color){ 182, 70, 82, 255 });
+    float glint = 0.84f + 0.16f * sinf((float)GetTime() * 2.2f);
+    Color tcol = { 236, 150, 160, (unsigned char)(255.0f * glint) };
+    DrawTextEx(font_body, tline,
+               (Vector2){ floorf(640.0f - ts.x * 0.5f), floorf(tbox.y + (tbox.height - 19.0f) * 0.5f) },
+               19.0f, 1.2f, tcol);
+}
+
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
         screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
@@ -113,8 +147,10 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
     } else if (sc == SCREEN_MATCH_RESULT) {
         if (plexus_speedcoin_result_active())
             plexus_draw_speedcoin_result(&assets, &stats, mouse_pos);
-        else
+        else {
             screens_draw_match_result(&assets, &g, (plexus_training_is_active() || plexus_action_card_is_active()) ? NULL : &settings, mouse_pos);
+            draw_match_result_extras(&g);
+        }
     }
 }
 
@@ -334,9 +370,9 @@ static void apply_action_card_symbol(int sym) {
             audio_play_flip(&audio);
             break;
         case ACTION_SYM_GOLD_COIN: {
-            int cnt = board_consume_action_ceiling_count();
-            int pts = (cnt + 5) / 10;
             int who = (g.current_player == 1) ? 1 : 0;
+            int cnt = board_claim_action_ceiling_count(who);
+            int pts = (cnt + 5) / 10;
             if (pts > 0) { g.total_score[who] += pts; audio_play_capture(&audio); }
             else audio_play_click(&audio);
             break;
@@ -510,18 +546,26 @@ static void draw_round_end_banner(const GameState *gs, float timer) {
     const char *title = match_over ? ((w == 0) ? "MATCH WINNER: YOU" : (w == 1) ? "MATCH WINNER: CPU" : "MATCH DRAW")
                                    : ((w == 0) ? "ROUND WINNER: YOU" : (w == 1) ? "ROUND WINNER: CPU" : "ROUND DRAW");
     Color tcol = (w == 0) ? COLOR_PHOSPHOR : (w == 1) ? COLOR_RED : COLOR_PHOSPHOR_DIM;
-    char sub[80], gold[64] = "";
+    char sub[80], gold[64] = "", tline[128] = "";
     if (match_over || w < 0) snprintf(sub, sizeof(sub), "%sSCORE:  YOU %d  -  CPU %d", match_over ? "FINAL " : "", p0, p1);
     else snprintf(sub, sizeof(sub), "+%d PTS   //   SCORE: YOU %d - CPU %d", gs->current_round_record.award, p0, p1);
-    int show_gold = (gs->ruleset == RULESET_KK_ADD_10) && (match_over || speed_bar_total() > 0);
+    int show_gold = (gs->ruleset == RULESET_KK_ADD_10) && (speed_bar_total() > 0);
     if (show_gold) {
         int mp = speed_bar_total();
         if (match_over) snprintf(gold, sizeof(gold), "GOLD MINIPOINTS:  %d  =  +%d PTS", mp, mp / 10);
         else snprintf(gold, sizeof(gold), "GOLD MINIPOINTS:  %d", mp);
     }
+    int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
+    int show_time = plexus_action_card_is_active() &&
+                    (match_over ? board_get_action_match_time_stats(&yt, &yp, &ct, &cp, &mt)
+                                : board_get_action_round_time_stats(&yt, &yp, &ct, &cp, &mt));
+    if (show_time) format_action_time_line(tline, sizeof(tline), yt, yp, ct, cp, mt);
     Vector2 ts = MeasureTextEx(font_title, title, 34.0f, 1.5f), ss = MeasureTextEx(font_body, sub, 20.0f, 1.2f);
     Vector2 gs_sz = show_gold ? MeasureTextEx(font_body, gold, 20.0f, 1.2f) : (Vector2){ 0, 0 };
-    float bw = fmaxf(480.0f, fmaxf(ts.x, fmaxf(ss.x, gs_sz.x)) + 88.0f), bh = show_gold ? 138.0f : 104.0f;
+    Vector2 tm_sz = show_time ? MeasureTextEx(font_body, tline, 19.0f, 1.2f) : (Vector2){ 0, 0 };
+    float max_w = fmaxf(ts.x, fmaxf(ss.x, fmaxf(gs_sz.x, tm_sz.x)));
+    float bw = fmaxf(480.0f, max_w + 88.0f);
+    float bh = 104.0f + (show_gold ? 32.0f : 0.0f) + (show_time ? 30.0f : 0.0f);
     Rectangle br = { floorf((CANVAS_W - bw) * 0.5f), floorf(350.0f - bh * 0.5f), ceilf(bw), bh };
     DrawRectangleRec(br, (Color){ 0, 0, 0, (unsigned char)(232.0f * alpha) });
     DrawRectangleLinesEx(br, 2.0f, (Color){ tcol.r, tcol.g, tcol.b, (unsigned char)(255.0f * alpha) });
@@ -531,9 +575,39 @@ static void draw_round_end_banner(const GameState *gs, float timer) {
                (Color){ tcol.r, tcol.g, tcol.b, (unsigned char)(255.0f * alpha) });
     Color info = COLOR_TEXT_INFO; info.a = (unsigned char)(240.0f * alpha);
     DrawTextEx(font_body, sub, (Vector2){ floorf((CANVAS_W - ss.x) * 0.5f), br.y + 64.0f }, 20.0f, 1.2f, info);
+    float row_y = br.y + 96.0f;
     if (show_gold) {
         Color gc = COLOR_AMBER; gc.a = (unsigned char)(255.0f * alpha);
-        DrawTextEx(font_body, gold, (Vector2){ floorf((CANVAS_W - gs_sz.x) * 0.5f), br.y + 96.0f }, 20.0f, 1.2f, gc);
+        DrawTextEx(font_body, gold, (Vector2){ floorf((CANVAS_W - gs_sz.x) * 0.5f), row_y }, 20.0f, 1.2f, gc);
+        row_y += 30.0f;
+    }
+    if (show_time) {
+        Color tc = { 236, 150, 160, (unsigned char)(255.0f * alpha) };
+        DrawTextEx(font_body, tline, (Vector2){ floorf((CANVAS_W - tm_sz.x) * 0.5f), row_y }, 19.0f, 1.2f, tc);
+    }
+}
+
+static void draw_round_result_extras(const GameState *gs) {
+    if (!gs) return;
+    int match_over = (gs->current_round >= gs->total_rounds);
+    int mp = speed_bar_total();
+    int show_sc = (gs->ruleset == RULESET_KK_ADD_10) && (mp > 0);
+    int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
+    int show_tm = plexus_action_card_is_active() &&
+                  (match_over ? board_get_action_match_time_stats(&yt, &yp, &ct, &cp, &mt)
+                              : board_get_action_round_time_stats(&yt, &yp, &ct, &cp, &mt));
+    if (!show_sc && !show_tm) return;
+    float y = (show_sc && show_tm) ? 511.0f : 537.0f;
+    if (show_sc) {
+        const char *sc_txt = match_over ? TextFormat("SPEED MINIPOINTS:  %d  =  +%d PTS", mp, mp / 10)
+                                        : TextFormat("SPEED MINIPOINTS:  %d", mp);
+        DrawTextEx(font_body, sc_txt, (Vector2){ 230.0f, y }, 19.0f, 1.2f, COLOR_AMBER);
+        y += 26.0f;
+    }
+    if (show_tm) {
+        char tline[128];
+        format_action_time_line(tline, sizeof(tline), yt, yp, ct, cp, mt);
+        DrawTextEx(font_body, tline, (Vector2){ 230.0f, y }, 19.0f, 1.2f, (Color){ 236, 150, 160, 255 });
     }
 }
 
@@ -554,7 +628,10 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
     if (gs->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(ba, gs, vm);
     else if (gs->phase == PHASE_HAND_CHOICE || gs->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(ba, gs, vm, gs->phase == PHASE_HAND_CHOICE);
     else if (gs->phase == PHASE_DECIDE && gs->current_player == 0) screens_draw_decide_overlay(ba, gs, vm);
-    else if ((gs->phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || gs->phase == PHASE_MATCH_END) screens_draw_round_result(ba, gs, vm);
+    else if ((gs->phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || gs->phase == PHASE_MATCH_END) {
+        screens_draw_round_result(ba, gs, vm);
+        draw_round_result_extras(gs);
+    }
     if (paused) {
         card_tooltip_clear();
         screens_draw_pause(vm, c_restart, replay);
@@ -578,6 +655,7 @@ static void update_draw_frame(void) {
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
             if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
             if (screen != SCREEN_MATCH_RESULT) plexus_speedcoin_close_result();
+            if (screen != SCREEN_GAME && screen != SCREEN_MATCH_RESULT) board_reset_action_card_match();
             campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
             round_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; prev_round_phase = PHASE_NONE;
             if (transition_action == 1) {
@@ -1254,6 +1332,7 @@ static void update_draw_frame(void) {
                                 start_transition(SCREEN_MATCH_RESULT, 2, 0);
                             } else {
                                 anim_init(&anim); prev_round_phase = PHASE_NONE;
+                                board_advance_action_card_round();
                                 engine_next_round(&g); motion_deal_round(&g, 0.45f);
                                 cinematic_start(g.current_round);
                                 if (!plexus_training_is_active() && !plexus_action_card_is_active())
