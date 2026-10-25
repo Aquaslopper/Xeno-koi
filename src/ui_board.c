@@ -67,6 +67,9 @@ static int s_action_card_mode = 0;
 static float s_action_music_level = 0.0f;
 static float s_action_peak_hold = 0.0f;
 static float s_action_peak_timer = 0.0f;
+static float s_action_added_hold = 0.0f;
+static float s_action_added_timer = 0.0f;
+static float s_action_tank_env = 0.0f;
 
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
@@ -77,7 +80,10 @@ void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec) {
     s_audio_full_hold_sec = (full_hold_sec >= 0.0f) ? full_hold_sec : 0.0f;
 }
 void  board_set_action_card_mode(int active, float music_level) {
-    if (!active) { s_action_peak_hold = 0.0f; s_action_peak_timer = 0.0f; }
+    if (!active) {
+        s_action_peak_hold = s_action_peak_timer = 0.0f;
+        s_action_added_hold = s_action_added_timer = s_action_tank_env = 0.0f;
+    }
     s_action_card_mode = active ? 1 : 0;
     s_action_music_level = (music_level >= 0.0f) ? (music_level > 1.0f ? 1.0f : music_level) : 0.0f;
 }
@@ -558,16 +564,14 @@ static void draw_speedcoin_clock_panel(void) {
                        r.x + r.width * 0.5f, r.y + 170.0f, 13.0f, 0.6f, COLOR_PHOSPHOR_DIM);
 }
 
-static void draw_action_music_bar(float dt) {
-    Rectangle bar = { 414.0f, 170.0f, 14.0f, 264.0f };
-    float lvl = s_action_music_level;
-    if (lvl >= s_action_peak_hold) {
-        s_action_peak_hold = lvl;
-        s_action_peak_timer = 0.35f;
-    } else if (s_action_peak_timer > 0.0f) {
-        s_action_peak_timer -= dt;
+static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt) {
+    if (lvl >= *hold) {
+        *hold = lvl;
+        *timer = 0.35f;
+    } else if (*timer > 0.0f) {
+        *timer -= dt;
     } else {
-        s_action_peak_hold = fmaxf(lvl, s_action_peak_hold - 0.48f * dt);
+        *hold = fmaxf(lvl, *hold - 0.48f * dt);
     }
     DrawRectangleRec(bar, COLOR_PANEL_BG);
     int ix = (int)bar.x + 2, iw = (int)bar.width - 4, ih = (int)bar.height - 4, bot = (int)bar.y + 2 + ih;
@@ -583,8 +587,8 @@ static void draw_action_music_bar(float dt) {
         int ty = bot - (ih * t) / 4;
         DrawLine(ix, ty, ix + iw, ty, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 120 });
     }
-    if (s_action_peak_hold > 0.02f) {
-        int py = bot - (int)lroundf((float)ih * s_action_peak_hold);
+    if (*hold > 0.02f) {
+        int py = bot - (int)lroundf((float)ih * (*hold));
         DrawRectangle(ix, (py < (int)bar.y + 2) ? ((int)bar.y + 2) : py, iw, 2, COLOR_PHOSPHOR);
     }
     if (lvl > 0.05f) ui_theme_set_panel_flare_glow(bar, lvl);
@@ -618,6 +622,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         prev_koi = cur_koi;
         capture_streak = 0;
         reverb_hold = reverb_energy = reverb_mid = reverb_curve = 0.0f;
+        s_action_added_hold = s_action_added_timer = s_action_tank_env = 0.0f;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
@@ -751,7 +756,18 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         ui_theme_draw_panel_flares(top_st);
     }
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    if (s_action_card_mode) draw_action_music_bar(frame_dt);
+    if (s_action_card_mode) {
+        float tc = (s_action_music_level > s_action_tank_env) ? 0.06f : 0.24f;
+        s_action_tank_env += (s_action_music_level - s_action_tank_env) * (1.0f - expf(-frame_dt / tc));
+        float fx_sum = settings.effect_reverb + 0.75f * settings.effect_bass + 0.55f * settings.effect_chorus;
+        float fx_scale = (fx_sum > 0.001f) ? fminf(1.20f, 0.55f + 0.90f * fx_sum) : 0.0f;
+        float drive = (s_action_music_level > 0.001f) ? fminf(1.0f, 0.30f + 0.82f * s_action_tank_env) : 0.0f;
+        float added_lvl = fminf(1.0f, reverb_synergy * fx_scale * drive);
+        draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, s_action_music_level,
+                                 &s_action_peak_hold, &s_action_peak_timer, frame_dt);
+        draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
+                                 &s_action_added_hold, &s_action_added_timer, frame_dt);
+    }
 
     /* 5. Field Cards (Insertion sort via board_field_sort_slots + month bitmask for O(1) Easy Mode glow) */
     int sf[48];

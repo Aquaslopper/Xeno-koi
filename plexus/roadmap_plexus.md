@@ -66,8 +66,8 @@
 
 ## Phase 4 — Action Card Minigame & Remaining Hub Refinements
 
-- [ ] **1. Action Card Minigame (Dedicated `KK-ADD-10` Table + Music Peak Bar -> Human-Ear Fine-Tune -> Gameplay Rules -> Spine Integration):**
-  - [x] **1a. Open `ACTION CARD` Button & Dedicated `KK-ADD-10` Table with Vertical Music-Peak Indicator:** Unlock `ACTION CARD` (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`), launch a dedicated non-campaign `RULESET_KK_ADD_10` Action Card table, and render a live theme-colored vertical music-peak bar (`{414, 170, 14, 264}`) between the Stock deck and Field driven by a read-only stream meter tap on match music (`src/ui_audio.c` untouched).
+- [ ] **1. Action Card Minigame (Dedicated `KK-ADD-10` Table + Dual Audio Meters -> Human-Ear Fine-Tune -> Gameplay Rules -> Spine Integration):**
+  - [x] **1a. Open `ACTION CARD` Button & Dedicated `KK-ADD-10` Table with Dual Vertical Meters:** Unlock `ACTION CARD` (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`), launch a dedicated non-campaign `RULESET_KK_ADD_10` Action Card table, and render both the left music-peak bar (`{414, 170, 14, 264}`, between Stock deck and Field) and the right added-energy bar (`{1082, 170, 14, 264}`, right side of Field, showing only Action Card DSP energy added to the music track; `src/ui_audio.c` untouched).
   - [ ] **1b. Human-Ear Effect Fine-Tuning, Gameplay Rules & Spine Integration:** Tune thresholds/rules by ear and integrate into Month 01 `slot 1` + Month 08 milestone gating.
 - [x] **`TRAINING` Non-Campaign Match Mode:**
   - Launches a normal match from Option menu settings via `k_briefing_rect` + `k_start_rect` without Campaign awards.
