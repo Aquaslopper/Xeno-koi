@@ -72,6 +72,8 @@ static int g_ash_initialized = 0;
 static int s_audio_action_triggers = 0;
 static float s_audio_peak_synergy = 0.0f;
 static float s_audio_full_hold_sec = 0.0f;
+static int s_ac_symbols_fired = 0;
+static int s_ac_lifetime_time = 0;
 static int s_action_card_mode = 0;
 static int s_action_card_paused = 0;
 static float s_action_music_level = 0.0f;
@@ -133,6 +135,12 @@ void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec) {
     s_audio_peak_synergy = (peak >= 0.0f) ? (peak > 1.0f ? 1.0f : peak) : 0.0f;
     s_audio_full_hold_sec = (full_hold_sec >= 0.0f) ? full_hold_sec : 0.0f;
 }
+int   board_get_action_symbols_fired(void) { return s_ac_symbols_fired; }
+int   board_get_action_lifetime_time(void) { return s_ac_lifetime_time; }
+void  board_set_action_card_telemetry(int symbols_fired, int lifetime_time) {
+    s_ac_symbols_fired = (symbols_fired > 0) ? symbols_fired : 0;
+    s_ac_lifetime_time = (lifetime_time > 0) ? lifetime_time : 0;
+}
 void  board_advance_action_card_round(void) {
     s_action_round_time_num[0] = s_action_round_time_num[1] = 0;
     s_action_round_time_pts[0] = s_action_round_time_pts[1] = 0;
@@ -171,6 +179,7 @@ int   board_claim_action_ceiling_count(int who) {
         s_action_round_time_pts[w] += pts;
         s_action_match_time_num[w] += c;
         s_action_match_time_pts[w] += pts;
+        if (w == 0) s_ac_lifetime_time += c;
         start_ceil_claim_vfx(c, w);
     }
     return c;
@@ -622,7 +631,7 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     }
     card_tooltip_record(card_id, dest);
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-    Texture2D tex = (!s_action_card_mode && settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
+    Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
@@ -992,16 +1001,16 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
     float env_dt = (s_action_card_mode && s_action_card_paused) ? 0.0f : frame_dt;
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.16f;
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.21f;
     if (koi_edge)           reverb_energy += 0.21f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
     if (capture_edge || koi_edge) {
-        reverb_hold = 0.10f;
+        reverb_hold = 0.05f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.15f * env_dt;
+        reverb_energy -= 0.25f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.10f));
@@ -1163,6 +1172,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
                 s_action_pending_sym = s_action_symbol_idx;
                 s_action_symbol_armed = 0;
                 s_action_symbol_flash = 1.0f;
+                s_ac_symbols_fired++;
             }
         }
         draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
@@ -1211,7 +1221,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             if (cv > 0.0f) {
                 card_tooltip_record(-1, pr);
                 Rectangle src = { (float)((cid >> 2) * ATLAS_CELL_W), (float)((cid & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-                DrawTexturePro(ba->atlas, src, pr, (Vector2){ 0, 0 }, 0.0f, WHITE);
+                Texture2D ftex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
+                DrawTexturePro(ftex, src, pr, (Vector2){ 0, 0 }, 0.0f, WHITE);
                 DrawRectangleLinesEx(pr, 1.0f, (Color){ 20, 40, 25, 200 });
             } else {
                 board_draw_card_back(ba, pr);

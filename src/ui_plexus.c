@@ -79,8 +79,14 @@ static int s_saved_lifetime_mp = 0;
 static int s_saved_audio_triggers = 0;
 static float s_saved_audio_peak = 0.0f;
 static float s_saved_audio_hold = 0.0f;
+static int s_saved_ac_symbols = 0;
+static int s_saved_ac_time = 0;
 static int s_training_active = 0;
 static int s_action_card_active = 0;
+static int s_ac_runs = 0;
+static int s_ac_wins = 0;
+static int s_ac_losses = 0;
+static int s_ac_best_score = 0;
 
 /* Solo Speedcoin & Action Card modes (unlocked for testing; saved in plexsave.txt) */
 #define SPEEDCOIN_UNLOCKED_FOR_TESTING   1
@@ -116,6 +122,8 @@ static void tut_save_telemetry(void) {
     s_saved_audio_triggers = board_get_audio_action_triggers();
     s_saved_audio_peak     = board_get_audio_peak_synergy();
     s_saved_audio_hold     = board_get_audio_full_hold_seconds();
+    s_saved_ac_symbols     = board_get_action_symbols_fired();
+    s_saved_ac_time        = board_get_action_lifetime_time();
     s_tut_telemetry_saved  = 1;
 }
 
@@ -124,6 +132,7 @@ static void tut_restore_telemetry(int clear_saved) {
     speed_bar_set_telemetry(s_saved_drops, s_saved_time_sum, s_saved_cover_sum,
                             s_saved_best_streak, s_saved_lifetime_mp);
     board_set_audio_telemetry(s_saved_audio_triggers, s_saved_audio_peak, s_saved_audio_hold);
+    board_set_action_card_telemetry(s_saved_ac_symbols, s_saved_ac_time);
     if (clear_saved) s_tut_telemetry_saved = 0;
 }
 
@@ -347,6 +356,10 @@ void plexus_load(void) {
     s_tut_telemetry_saved = 0;
     s_training_active = 0;
     s_action_card_active = 0;
+    s_ac_runs = 0;
+    s_ac_wins = 0;
+    s_ac_losses = 0;
+    s_ac_best_score = 0;
     s_speedcoin_active = 0;
     s_speedcoin_result_view = 0;
     s_sc_rank_count = 0;
@@ -363,12 +376,13 @@ void plexus_load(void) {
     s_briefing_hash_ready = 0;
     s_briefing_glow = 0.0f;
 
-    int drops = 0, best_strk = 0, life_mp = 0, aud_trig = 0;
+    int drops = 0, best_strk = 0, life_mp = 0, aud_trig = 0, ac_sym = 0, ac_tm = 0;
     unsigned long log_read_mask = 0UL;
     int has_read_mask = 0;
     float t_sum = 0.0f, c_sum = 0.0f, aud_peak = 0.0f, aud_hold = 0.0f;
     speed_bar_set_telemetry(0, 0.0f, 0.0f, 0, 0);
     board_set_audio_telemetry(0, 0.0f, 0.0f);
+    board_set_action_card_telemetry(0, 0);
 
     FILE *f = fopen(resolve_asset_path("plexsave.txt"), "r");
     if (!f) { ensure_log_seeded(); return; }
@@ -448,10 +462,29 @@ void plexus_load(void) {
             } else if (strcmp(k, "sc_best_wave") == 0) {
                 int bw = atoi(v);
                 if (bw >= 0) s_sc_best_wave = bw;
+            } else if (strcmp(k, "ac_runs") == 0) {
+                int r = atoi(v);
+                if (r >= 0) s_ac_runs = r;
+            } else if (strcmp(k, "ac_wins") == 0) {
+                int w = atoi(v);
+                if (w >= 0) s_ac_wins = w;
+            } else if (strcmp(k, "ac_losses") == 0) {
+                int l = atoi(v);
+                if (l >= 0) s_ac_losses = l;
+            } else if (strcmp(k, "ac_best_score") == 0) {
+                int bs = atoi(v);
+                if (bs >= 0) s_ac_best_score = bs;
+            } else if (strcmp(k, "ac_symbols") == 0) {
+                int sy = atoi(v);
+                if (sy >= 0) ac_sym = sy;
+            } else if (strcmp(k, "ac_time_total") == 0) {
+                int tm = atoi(v);
+                if (tm >= 0) ac_tm = tm;
             }
         }
     }
     fclose(f);
+    if (s_ac_runs < s_ac_wins + s_ac_losses) s_ac_runs = s_ac_wins + s_ac_losses;
     if (s_sc_runs < s_sc_rank_count) s_sc_runs = s_sc_rank_count;
     for (int i = 0; i < s_sc_rank_count; i++) {
         if (s_sc_ranks[i].waves > s_sc_best_wave) s_sc_best_wave = s_sc_ranks[i].waves;
@@ -468,6 +501,7 @@ void plexus_load(void) {
         s_selected_slot = highest_unlocked_slot(s_selected_month);
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
+    board_set_action_card_telemetry(ac_sym, ac_tm);
     ensure_log_seeded();
 }
 
@@ -489,6 +523,8 @@ void plexus_save(void) {
     int aud_trig = board_get_audio_action_triggers();
     float aud_peak = board_get_audio_peak_synergy();
     float aud_hold = board_get_audio_full_hold_seconds();
+    int ac_sym = board_get_action_symbols_fired();
+    int ac_tm  = board_get_action_lifetime_time();
     if (s_tut_telemetry_saved) {
         drops = s_saved_drops;
         t_sum = s_saved_time_sum;
@@ -498,6 +534,8 @@ void plexus_save(void) {
         aud_trig = s_saved_audio_triggers;
         aud_peak = s_saved_audio_peak;
         aud_hold = s_saved_audio_hold;
+        ac_sym   = s_saved_ac_symbols;
+        ac_tm    = s_saved_ac_time;
     } else {
         speed_bar_get_telemetry(&drops, &t_sum, &c_sum, &best_strk, &life_mp);
     }
@@ -515,13 +553,20 @@ void plexus_save(void) {
             "audio_peak=%.4f\n"
             "audio_hold=%.4f\n"
             "sc_runs=%d\n"
-            "sc_best_wave=%d\n",
+            "sc_best_wave=%d\n"
+            "ac_runs=%d\n"
+            "ac_wins=%d\n"
+            "ac_losses=%d\n"
+            "ac_best_score=%d\n"
+            "ac_symbols=%d\n"
+            "ac_time_total=%d\n",
             s_finished_cards_mask & ((1ULL << 48) - 1ULL),
             s_selected_month, s_selected_slot,
             log_read_mask,
             drops, t_sum, c_sum, best_strk, life_mp,
             aud_trig, aud_peak, aud_hold,
-            s_sc_runs, s_sc_best_wave);
+            s_sc_runs, s_sc_best_wave,
+            s_ac_runs, s_ac_wins, s_ac_losses, s_ac_best_score, ac_sym, ac_tm);
     for (int i = 0; i < s_sc_rank_count && i < SPEEDCOIN_RANK_MAX; i++) {
         fprintf(f, "sc_rank=%d,%d,%d\n",
                 s_sc_ranks[i].score, s_sc_ranks[i].waves, s_sc_ranks[i].coins);
@@ -665,6 +710,7 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
     int aud_trig    = board_get_audio_action_triggers();
     float aud_peak  = board_get_audio_peak_synergy() * 100.0f;
     float aud_hold  = board_get_audio_full_hold_seconds();
+    int ac_sym      = board_get_action_symbols_fired();
     int done_cards  = count_finished_cards();
 
     char row1[96], row2[96], row3[96], row4[96], row5[96];
@@ -681,12 +727,18 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
     } else {
         snprintf(row3, sizeof(row3), "SPEEDCOIN   :  HI --  [%d MP / x%d]", life_mp, best_strk);
     }
-    snprintf(row4, sizeof(row4), "AUDIO FX    :  %.0f%% PEAK  [%.1fs / %d]", aud_peak, aud_hold, aud_trig);
-    if (st) {
-        snprintf(row5, sizeof(row5), "[%02d/48]  [%dW-%dL]  [KOI-%d]  [SC-%d]",
-                 done_cards, st->matches_won, st->matches_lost, st->koi_calls_you, s_sc_runs);
+    if (ac_sym > 0) {
+        snprintf(row4, sizeof(row4), "AUDIO FX    :  %.0f%% PK  [%.1fs / %d SYM]", aud_peak, aud_hold, ac_sym);
     } else {
-        snprintf(row5, sizeof(row5), "[%02d/48]  [0W-0L]  [KOI-0]  [SC-%d]", done_cards, s_sc_runs);
+        snprintf(row4, sizeof(row4), "AUDIO FX    :  %.0f%% PEAK  [%.1fs / %d]", aud_peak, aud_hold, aud_trig);
+    }
+    if (st) {
+        snprintf(row5, sizeof(row5), "[%02d/48] [%dW-%dL] [KOI-%d] [SC-%d] [AC-%d]",
+                 done_cards, st->matches_won + s_ac_wins, st->matches_lost + s_ac_losses,
+                 st->koi_calls_you, s_sc_runs, s_ac_runs);
+    } else {
+        snprintf(row5, sizeof(row5), "[%02d/48] [%dW-%dL] [KOI-0] [SC-%d] [AC-%d]",
+                 done_cards, s_ac_wins, s_ac_losses, s_sc_runs, s_ac_runs);
     }
 
     float lx = box.x + 14.0f;
@@ -894,6 +946,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         const char *line3 = "";
         int card_id = s_selected_month * 4 + s_selected_slot;
         int slot_unlocked = is_slot_unlocked_in_month(s_selected_month, s_selected_slot);
+        char sc_line1[96];
         char sc_line2[96];
         char sc_line3[96];
         if (s_active_tab == 0) {
@@ -952,11 +1005,42 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                 line3 = "Press START to launch a 180s highscore run.";
             }
         } else if (s_active_tab == 3) {
+            const char *d_name = (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" :
+                                 (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+                                 (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
+            int drops = speed_bar_graded_drops();
+            int aud_trig = board_get_audio_action_triggers();
+            int ac_sym = board_get_action_symbols_fired();
+            int ac_tm  = board_get_action_lifetime_time();
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
-            snprintf(sub, sizeof(sub), "SPECIAL GAME  //  KK-ADD-10 ACTION CARD AUDIO");
-            line1 = "KK-ADD-10 table with live vertical music-peak indicator.";
-            line2 = "Stereo reverb synergy and capture streak resonance.";
-            line3 = "Press START to launch the Action Card table.";
+            snprintf(sub, sizeof(sub), "KK-ADD-10  //  %s  //  %d ROUNDS   [%dW-%dL]",
+                     d_name, settings.rounds, s_ac_wins, s_ac_losses);
+            if (s_ac_runs > 0 || ac_sym > 0 || ac_tm > 0) {
+                snprintf(sc_line1, sizeof(sc_line1),
+                         "Best: %d PTS  //  Time Taken: %d  //  Symbols: %d",
+                         s_ac_best_score, ac_tm, ac_sym);
+                line1 = sc_line1;
+            } else {
+                line1 = "Dual audio meters, 5 beat symbols & distraction glow.";
+            }
+            if (aud_trig > 0) {
+                snprintf(sc_line2, sizeof(sc_line2),
+                         "Audio FX: %.0f%% Peak  //  %.1fs Full  //  %d Triggers",
+                         board_get_audio_peak_synergy() * 100.0f,
+                         board_get_audio_full_hold_seconds(), aud_trig);
+                line2 = sc_line2;
+            } else {
+                line2 = "Options Difficulty & Rounds apply (DEUS: Deus deck).";
+            }
+            if (drops > 0) {
+                snprintf(sc_line3, sizeof(sc_line3),
+                         "Speedbar: %.2fs avg  //  %.1f%% overlap  //  %d MP",
+                         speed_bar_avg_drop_seconds(), speed_bar_avg_cover_pct(),
+                         speed_bar_lifetime_minipoints());
+                line3 = sc_line3;
+            } else {
+                line3 = "Press START to launch a KK-ADD-10 Action Card match.";
+            }
         } else {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
             snprintf(sub, sizeof(sub), "TRAINING BRIEFING   [PLACEHOLDER]");
@@ -1117,11 +1201,16 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             plexus_speedcoin_abort();
             s_training_active = 0;
             s_action_card_active = 1;
-            plexus_log_push("ACTION CARD // AUDIO RESONANCE",
-                            "ACTION CARD MODE -- KK-ADD-10 TABLE",
-                            "Launching KK-ADD-10 Action Card table with live",
-                            "music-peak indicator between the deck and field.",
-                            "Non-campaign mode for audio synergy tuning.");
+            const char *d_name = (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" :
+                                 (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+                                 (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
+            char title[80], l1[96];
+            snprintf(title, sizeof(title), "ACTION CARD // KK-ADD-10 // %s (%d ROUNDS)", d_name, settings.rounds);
+            snprintf(l1, sizeof(l1), "Ruleset locked to KK-ADD-10; %s AI%s.",
+                     d_name, (settings.difficulty == DIFFICULTY_DEUS) ? " with Deus Atlas deck" : " & Option settings");
+            plexus_log_push("ACTION CARD // MATCH INITIATED", title, l1,
+                            "Dual audio meters, 5 beat-armed symbols & distraction glow.",
+                            "Telemetry & match results recorded in Atrium Plex.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -1260,6 +1349,34 @@ int plexus_action_card_is_active(void) {
 
 void plexus_action_card_abort(void) {
     s_action_card_active = 0;
+}
+
+void plexus_action_card_finish_match(const GameState *g) {
+    if (!g) return;
+    ensure_log_seeded();
+    int you = g->total_score[0], cpu = g->total_score[1];
+    s_ac_runs++;
+    if (you > cpu) s_ac_wins++;
+    else if (you < cpu) s_ac_losses++;
+    if (you > s_ac_best_score) s_ac_best_score = you;
+
+    const char *res = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
+    const char *d_name = (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" :
+                         (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+                         (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
+    int mp = speed_bar_total();
+    int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
+    board_get_action_match_time_stats(&yt, &yp, &ct, &cp, &mt);
+
+    char title[80], l1[96], l2[96], l3[96];
+    snprintf(title, sizeof(title), "ACTION CARD %s // YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
+    snprintf(l1, sizeof(l1), "KK-ADD-10 (%d Rounds)  //  Speedcoins: %d MP (+%d PTS).",
+             g->total_rounds, mp, mp / 10);
+    snprintf(l2, sizeof(l2), "Time Numbers: YOU %d (+%d PTS)  //  CPU %d (+%d PTS).",
+             yt, yp, ct, cp);
+    snprintf(l3, sizeof(l3), "Action Card Record: %dW-%dL (%d Runs)  //  Best: %d PTS.",
+             s_ac_wins, s_ac_losses, s_ac_runs, s_ac_best_score);
+    plexus_log_push("ACTION CARD // MATCH SUMMARY", title, l1, l2, l3);
 }
 
 void plexus_tutorial_setup_round(GameState *g) {

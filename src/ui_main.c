@@ -390,8 +390,10 @@ static int pick_match_track(int next) {
 
 static void begin_new_match(int trk) {
     if (frame_count > 0 && !plexus_tutorial_is_active()) plexus_save();
-    if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() && !plexus_action_card_is_active() &&
-        settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
+    if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() && settings.difficulty == DIFFICULTY_DEUS) {
+        if (!plexus_action_card_is_active()) settings.ruleset = RULESET_YAKUZA;
+        settings.background = 5; assets.current_bg = 5; theme_set(5);
+    }
     replay_rec_abort();
     anim_init(&anim); motion_init(); speed_bar_reset(); board_reset_action_card_match(); memset(&drag, 0, sizeof(drag));
     hovered_idx = -1; is_paused = 0; confirm_restart = 0; combo_player = -1; combo_page = 0;
@@ -1035,9 +1037,7 @@ static void update_draw_frame(void) {
                     }
 
                     int input_unlocked = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
-                    Difficulty active_diff = plexus_tutorial_is_active() ? DIFFICULTY_EASY
-                                           : (plexus_action_card_is_active() && settings.difficulty == DIFFICULTY_DEUS) ? DIFFICULTY_HARD
-                                           : settings.difficulty;
+                    Difficulty active_diff = plexus_tutorial_is_active() ? DIFFICULTY_EASY : settings.difficulty;
 
                     /* KK-ADD-10 speed minigame: the bottom-right timer bar */
                     speed_bar_update(&g, dt, input_unlocked);
@@ -1165,7 +1165,7 @@ static void update_draw_frame(void) {
 
                     if (g.current_player == 0 && input_unlocked) {
                         if (g.phase == PHASE_TURN_HAND) {
-                            if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() && !plexus_action_card_is_active() &&
+                            if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() &&
                                 (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS)) {
                                 if (!human_turn_started) {
                                     g.player_timer = (settings.difficulty == DIFFICULTY_DEUS || settings.master_timer == 15) ? 15.0f : 30.0f;
@@ -1179,8 +1179,10 @@ static void update_draw_frame(void) {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
                                         audio_play_lose(&audio);
                                         deus_banner_timer = TRANS_OUT_DUR;
-                                        if (plexus_training_is_active()) {
+                                        if (plexus_training_is_active() || plexus_action_card_is_active()) {
                                             plexus_training_stop();
+                                            plexus_action_card_abort();
+                                            plexus_save();
                                             start_transition(SCREEN_ATRIUM, 3, 0);
                                         } else {
                                             start_transition(SCREEN_START, 3, 0);
@@ -1304,7 +1306,9 @@ static void update_draw_frame(void) {
                                 anim_init(&anim);
                                 speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
                                 engine_next_round(&g);
-                                if (!plexus_action_card_is_active()) {
+                                if (plexus_action_card_is_active()) {
+                                    plexus_action_card_finish_match(&g);
+                                } else {
                                     storage_record_match(&g, &settings, &stats, &history);
 #ifndef __EMSCRIPTEN__
                                     ui_replay_commit_auto(&history);

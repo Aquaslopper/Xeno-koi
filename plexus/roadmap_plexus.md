@@ -69,11 +69,13 @@
 - [ ] **1. Action Card Minigame (Dedicated `KK-ADD-10` Table + Dual Audio Meters -> Human-Ear Fine-Tune -> Gameplay Rules -> Spine Integration):**
   - [x] **1a. Open `ACTION CARD` Button & Dedicated `KK-ADD-10` Table with Dual Vertical Meters:** Unlock `ACTION CARD` (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`), launch a dedicated non-campaign `RULESET_KK_ADD_10` Action Card vs-CPU table, and render both the left rhythm-reactive music bar (`{414, 170, 14, 264}`, active theme color, independent of Options FX sliders, shifting to swing across the `90%` threshold mark strictly when the right bar is full) and the right soft-wine-red added-energy bar (`{1082, 170, 14, 264}`, 3 horizontal lines at `25%`/`50%`/`75%` driving table-wide panel dot glow + dot speed, plus an upward-counting ceiling counter above the bar that ticks while pinned to the ceiling and pauses during drain; `src/ui_audio.c` untouched).
   - [x] **1b. Card/Deck Distraction Glow, Left-Meter Beat Symbols & First-Line (`< 25%`) Symbol Effects:** Extend the right-hand meter's 3-line perimeter border & flare-dot glow (`25%`/`50%`/`75%`, without washing out card faces; crisp `<= 1.05px` bright perimeter pixels) onto all field cards, both hands, and the stock deck as a deliberate visual distraction; display a `32x32` cycling symbol badge above the left-hand meter (`cx = 421, cy = 148`) and `24px` ceiling counter above the right-hand meter (`cx = 1089, y = 140`); activate the beat-chosen symbol once as soon as the right-hand meter drops below the bottom horizontal line (`< 25%`) (**Skull**, **Hand**, **Reverse Arrow**, **One Eye**, and **Gold Coin** with enlarging/flashing directional vaporize VFX toward the recipient); and display Speedcoin & Action Card time numbers on per-round and match-end screens whenever `> 0`.
-  - [ ] **1c. Action Card Fine-Tuning & Atrium Spine Integration:** Finalize Action Card balance/ranklist persistence and integrate into Month 01 `slot 1` + Month 08 milestone gating.
+  - [ ] **1c. Action Card Atrium Plex Integration (`ACTION_CARD_UNLOCKED_FOR_TESTING = 1` Kept Open Per Maintainer Directive):**
+    - [x] **Telemetry, `KK-ADD-10` Lock & Options / Deus Deck Integration:** Link Action Card matches, W-L, best score, symbols fired, and claimed time numbers alongside Speedbar & Audio FX telemetry across `ACTION CARD` briefing, `LOGFILE`, and `plexsave.txt`; always enforce `RULESET_KK_ADD_10` when launched from the bottom bar while honoring Options menu Rounds and Difficulty (`EASY`, `HARD`, `MASTER` 15s/30s timer, and `DEUS` AI + 15s sudden-death timer + `atlas_deus` deck); keep `ACTION_CARD_UNLOCKED_FOR_TESTING = 1`.
+    - [ ] **Month 01 `slot 1` Tutorial & Spine Gating:** Build the Month 01 `slot 1` Action Card tutorial card alongside Month 08 milestone gating.
 - [x] **`TRAINING` Non-Campaign Match Mode:**
   - Launches a normal match from Option menu settings via `k_briefing_rect` + `k_start_rect` without Campaign awards.
-- [ ] **Plexus Telemetry & Highscore Ranklists (`plexsave.txt`):**
-  - Persist Speedcoin / Action Card ranklists alongside Speedbar and Audio FX telemetry in `plexsave.txt`.
+- [x] **Plexus Telemetry & Highscore Ranklists (`plexsave.txt`):**
+  - Persist Speedcoin ranklist and Action Card match/symbol/time stats alongside Speedbar and Audio FX telemetry in `plexsave.txt`.
 
 ---
 
