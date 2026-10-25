@@ -910,7 +910,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
     if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
     if (!replay_mode) speed_hit_popups_draw();
-    if (!replay_mode) action_card_draw_vfx(env_dt);
+    if (!replay_mode) action_card_draw_vfx(ba, env_dt);
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {

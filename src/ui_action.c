@@ -16,6 +16,13 @@ extern GameSettings settings;
 #define CEIL_VFX_MOTES   56
 #define CEIL_VFX_DUR     1.15f
 
+#define BADGE_POP_DUR    0.20f
+#define BADGE_HOLD_DUR   0.32f
+#define BADGE_EFFECT_T   0.52f
+#define BADGE_VAPOR_DUR  0.50f
+#define BADGE_TOTAL_DUR  1.02f
+#define BADGE_VFX_MOTES  96
+
 typedef struct {
     Vector2 pos, vel;
     float ox, oy, delay, phase, freq, swirl;
@@ -59,6 +66,13 @@ static int s_ceil_vfx_val = 0;
 static int s_ceil_vfx_who = 0;
 static float s_ceil_vfx_t = 0.0f;
 static VaporMote s_ceil_motes[CEIL_VFX_MOTES];
+
+static int s_badge_evt_active = 0;
+static int s_badge_evt_sym = 0;
+static int s_badge_evt_who = 0;
+static int s_badge_evt_applied = 0;
+static float s_badge_evt_t = 0.0f;
+static VaporMote s_badge_motes[BADGE_VFX_MOTES];
 
 static float smooth01_ac(float x) {
     float t = fminf(1.0f, fmaxf(0.0f, x));
@@ -117,7 +131,7 @@ static void sync_music_meter_tap(AudioAssets *audio, int attach) {
 void action_card_sync_music(AudioAssets *audio, int in_action_table, int paused,
                             float transition_alpha, float dt) {
     sync_music_meter_tap(audio, in_action_table ? 1 : 0);
-    int freeze_music = paused;
+    int freeze_music = paused || s_badge_evt_active;
     if (in_action_table && !freeze_music && audio && dt > 0.0f) {
         float raw = __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f;
         float tgt = (audio->current_music == 2) ? raw * (1.0f - transition_alpha) : 0.0f;
@@ -154,15 +168,64 @@ static void start_ceil_claim_vfx(int val, int who) {
     }
 }
 
+void action_card_start_badge_event(int sym, int who, AudioAssets *audio) {
+    s_badge_evt_active = 1;
+    s_badge_evt_sym = ((sym % ACTION_SYM_COUNT) + ACTION_SYM_COUNT) % ACTION_SYM_COUNT;
+    s_badge_evt_who = (who == 1) ? 1 : 0;
+    s_badge_evt_applied = 0;
+    s_badge_evt_t = 0.0f;
+    for (int i = 0; i < BADGE_VFX_MOTES; i++) {
+        unsigned int h = (unsigned int)(i * 747796405u + (unsigned int)(s_badge_evt_sym + 3) * 2891336453u + 1013904223u);
+        float rx = ((float)(h & 1023u) / 1023.0f) - 0.5f;
+        float ry = ((float)((h >> 10) & 1023u) / 1023.0f) - 0.5f;
+        float rd = (float)((h >> 20) & 255u) / 255.0f;
+        s_badge_motes[i] = (VaporMote){
+            .pos = { (float)FIELD_X + (float)FIELD_W * 0.5f, (float)FIELD_Y + (float)FIELD_H * 0.5f },
+            .vel = { 0.0f, 0.0f },
+            .ox = rx, .oy = ry,
+            .delay = BADGE_EFFECT_T + 0.16f * rd,
+            .phase = 6.2831853f * (((float)((h >> 5) & 255u)) / 255.0f),
+            .freq = 8.0f + 9.0f * (((float)((h >> 13) & 255u)) / 255.0f),
+            .swirl = (rx >= 0.0f) ? (0.5f + rd) : -(0.5f + rd),
+            .spawned = 0
+        };
+    }
+    if (audio) audio_play_click(audio);
+}
+
+int action_card_is_event_freezing(void) {
+    return (s_action_card_mode && s_badge_evt_active) ? 1 : 0;
+}
+
+int action_card_update_badge_event(float dt, int *out_sym_to_apply) {
+    if (out_sym_to_apply) *out_sym_to_apply = -1;
+    if (!s_action_card_mode || !s_badge_evt_active) return 0;
+    if (s_action_card_paused) return 0;
+
+    s_badge_evt_t += dt;
+    int fire_now = 0;
+    if (!s_badge_evt_applied && s_badge_evt_t >= BADGE_EFFECT_T) {
+        s_badge_evt_applied = 1;
+        if (out_sym_to_apply) *out_sym_to_apply = s_badge_evt_sym;
+        fire_now = 1;
+    }
+    if (s_badge_evt_t >= BADGE_TOTAL_DUR) {
+        s_badge_evt_active = 0;
+    }
+    return fire_now;
+}
+
 int action_card_is_mode_active(void) { return s_action_card_mode; }
 int action_card_is_paused(void) {
-    return (s_action_card_mode && s_action_card_paused) ? 1 : 0;
+    return (s_action_card_mode && (s_action_card_paused || s_badge_evt_active)) ? 1 : 0;
 }
 
 void action_card_set_mode(int active, float music_level) {
     if (!active) {
         s_action_last_synergy = 0.0f;
         s_blind_field_mask = 0ULL;
+        s_badge_evt_active = 0;
+        s_badge_evt_applied = 0;
         ui_theme_set_global_flare_boost(0.0f, 1.0f);
     }
     s_action_card_mode = (active > 0) ? 1 : 0;
@@ -181,6 +244,9 @@ void action_card_set_telemetry(int symbols_fired, int lifetime_time) {
 void action_card_advance_round(void) {
     s_action_round_time_num[0] = s_action_round_time_num[1] = 0;
     s_action_round_time_pts[0] = s_action_round_time_pts[1] = 0;
+    s_badge_evt_active = 0;
+    s_badge_evt_applied = 0;
+    s_badge_evt_t = 0.0f;
 }
 
 void action_card_reset_match(void) {
@@ -434,6 +500,10 @@ float action_card_begin_table(const GameState *g, int round_reset, float reverb_
         s_action_beat_cd = 0.0f;
         s_blind_field_mask = 0ULL;
         memset(s_blind_flip, 0, sizeof(s_blind_flip));
+        if (!s_action_card_mode) {
+            s_badge_evt_active = 0;
+            s_badge_evt_applied = 0;
+        }
     }
     if (s_action_card_mode && g) {
         uint64_t fmask = 0ULL;
@@ -443,7 +513,7 @@ float action_card_begin_table(const GameState *g, int round_reset, float reverb_
         }
         s_blind_field_mask &= fmask;
     }
-    if (s_action_card_mode && !s_action_card_paused) {
+    if (s_action_card_mode && !s_action_card_paused && !s_badge_evt_active) {
         s_action_last_synergy = reverb_synergy;
         float g_glow = 0.0f, g_spd = 1.0f;
         if (reverb_synergy >= 0.75f)      { g_glow = 1.00f; g_spd = 2.15f; }
@@ -655,7 +725,7 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
         s_action_symbol_flash -= env_dt * 2.8f;
         if (s_action_symbol_flash < 0.0f) s_action_symbol_flash = 0.0f;
     }
-    if (live_round && !s_action_card_paused && !replay_mode) {
+    if (live_round && !s_action_card_paused && !s_badge_evt_active && !replay_mode) {
         if (right_full) {
             s_action_ceil_started = 1;
             s_action_ceil_accum += env_dt * 10.0f;
@@ -788,7 +858,136 @@ static void draw_ceil_claim_vfx(float dt) {
     EndBlendMode();
 }
 
-void action_card_draw_vfx(float env_dt) {
+static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
+    if (!s_badge_evt_active) return;
+
+    static const char * const k_titles[ACTION_SYM_COUNT] = {
+        "SKULL // FIELD PURGE",
+        "SEVERED HAND // HAND SWAP",
+        "REVERSE ARROW // CAPTURE RECALL",
+        "ONE EYE // FIELD BLINDNESS",
+        "GOLD COIN // CEILING CLAIM"
+    };
+    static const char * const k_subs[ACTION_SYM_COUNT] = {
+        "HALF OF FIELD CARDS RETURN TO STOCK",
+        "SWAPPING HANDS WITH OPPONENT",
+        "HALF OF CAPTURED CARDS RETURN TO STOCK",
+        "TWO FIELD CARDS TURNED FACE DOWN",
+        "CLAIMING ACCUMULATED TIME NUMBERS"
+    };
+
+    Rectangle orig_r  = { 405.0f, 132.0f, 32.0f, 32.0f };
+    Rectangle table_r = { (float)FIELD_X, (float)FIELD_Y, (float)FIELD_W, (float)FIELD_H };
+
+    float pop_u = fminf(1.0f, s_badge_evt_t / BADGE_POP_DUR);
+    float pop_e = smooth01_ac(pop_u);
+    float punch = (pop_u < 1.0f) ? (sinf(pop_u * 3.14159265f) * 0.035f) : 0.0f;
+
+    Rectangle cur = {
+        orig_r.x + (table_r.x - orig_r.x) * pop_e,
+        orig_r.y + (table_r.y - orig_r.y) * pop_e,
+        orig_r.width  + (table_r.width  - orig_r.width)  * (pop_e + punch),
+        orig_r.height + (table_r.height - orig_r.height) * (pop_e + punch)
+    };
+    cur.x -= (cur.width - (orig_r.width + (table_r.width - orig_r.width) * pop_e)) * 0.5f;
+    cur.y -= (cur.height - (orig_r.height + (table_r.height - orig_r.height) * pop_e)) * 0.5f;
+
+    float u_diss = (s_badge_evt_t > BADGE_EFFECT_T)
+                   ? fminf(1.0f, (s_badge_evt_t - BADGE_EFFECT_T) / 0.25f) : 0.0f;
+    float d_alpha = 1.0f - smooth01_ac(u_diss);
+    int is_coin = (s_badge_evt_sym == ACTION_SYM_GOLD_COIN);
+    Color accent = is_coin ? (Color){ 255, 214, 92, 255 } : (Color){ 224, 108, 122, 255 };
+    Color rim_c  = is_coin ? (Color){ 255, 224, 118, 255 } : COLOR_PHOSPHOR;
+
+    if (d_alpha > 0.01f) {
+        float jx = sinf(s_badge_evt_t * 96.0f) * 7.0f * u_diss;
+        float jy = cosf(s_badge_evt_t * 82.0f) * 4.0f * u_diss;
+        Rectangle box = { cur.x + jx, cur.y + jy, cur.width, cur.height };
+
+        DrawRectangleRec(box, (Color){ 6, 10, 10, (unsigned char)(218.0f * d_alpha) });
+        Rectangle inner = { box.x + 8.0f, box.y + 8.0f,
+                            fmaxf(4.0f, box.width - 16.0f), fmaxf(4.0f, box.height - 16.0f) };
+        DrawRectangleLinesEx(box, 2.0f, (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(245.0f * d_alpha) });
+        DrawRectangleLinesEx(inner, 1.5f, (Color){ accent.r, accent.g, accent.b, (unsigned char)(185.0f * d_alpha) });
+        if (pop_u >= 0.85f && u_diss < 0.35f) {
+            ui_theme_set_panel_flare_glow(box, 0.92f * d_alpha);
+            ui_theme_draw_panel_flares(box);
+        }
+
+        /* Subtle additive energy pulse at effect impact */
+        float impact = 1.0f - fminf(1.0f, fabsf(s_badge_evt_t - BADGE_EFFECT_T) / 0.16f);
+        if (impact > 0.01f) {
+            BeginBlendMode(BLEND_ADDITIVE);
+            DrawRectangleRec(box, (Color){ accent.r, accent.g, accent.b, (unsigned char)(70.0f * impact * d_alpha) });
+            EndBlendMode();
+        }
+
+        float sc = fminf(box.width / 76.0f, box.height / 58.0f);
+        float gcx = box.x + box.width * 0.5f;
+        float gcy = (box.width >= 320.0f) ? (box.y + box.height * 0.43f) : (box.y + box.height * 0.5f);
+        Color fg = is_coin ? (Color){ 255, 224, 118, 255 } : COLOR_TEXT_INFO;
+        Color cut = { 8, 12, 12, 245 };
+
+        BeginBlendMode(BLEND_ADDITIVE);
+        draw_symbol_glyph_scaled(ba, s_badge_evt_sym, gcx, gcy, sc * 1.05f,
+                                 (Color){ accent.r, accent.g, accent.b, 125 }, cut, d_alpha);
+        EndBlendMode();
+        draw_symbol_glyph_scaled(ba, s_badge_evt_sym, gcx, gcy, sc, fg, cut, d_alpha);
+
+        if (box.width >= 360.0f && pop_u >= 0.70f) {
+            float txt_a = fminf(1.0f, (pop_u - 0.70f) / 0.30f) * d_alpha;
+            const char *who_tag = (s_badge_evt_who == 1) ? "TARGET: CPU" : "TARGET: YOU";
+            draw_centered_snapped(font_body, who_tag, gcx, box.y + 22.0f, 18.0f, 1.4f,
+                                  (Color){ accent.r, accent.g, accent.b, (unsigned char)(235.0f * txt_a) });
+            draw_centered_snapped(font_title, k_titles[s_badge_evt_sym], gcx, box.y + box.height - 92.0f, 26.0f, 1.3f,
+                                  (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(255.0f * txt_a) });
+            draw_centered_snapped(font_body, k_subs[s_badge_evt_sym], gcx, box.y + box.height - 52.0f, 19.0f, 1.2f,
+                                  (Color){ COLOR_TEXT_INFO.r, COLOR_TEXT_INFO.g, COLOR_TEXT_INFO.b, (unsigned char)(240.0f * txt_a) });
+        }
+    }
+
+    if (s_badge_evt_t >= BADGE_EFFECT_T) {
+        float cx = table_r.x + table_r.width * 0.5f;
+        float cy = table_r.y + table_r.height * 0.5f;
+        BeginBlendMode(BLEND_ADDITIVE);
+        for (int i = 0; i < BADGE_VFX_MOTES; i++) {
+            VaporMote *m = &s_badge_motes[i];
+            if (s_badge_evt_t < m->delay) continue;
+            if (!m->spawned) {
+                m->pos = (Vector2){ cx + m->ox * table_r.width * 0.92f,
+                                    cy + m->oy * table_r.height * 0.88f };
+                float rdx = m->ox, rdy = m->oy - 0.18f;
+                float rlen = sqrtf(rdx * rdx + rdy * rdy);
+                Vector2 out = (rlen > 1e-3f) ? (Vector2){ rdx / rlen, rdy / rlen } : (Vector2){ 0.0f, -1.0f };
+                float sp0 = 140.0f + 220.0f * fabsf(m->swirl);
+                m->vel = (Vector2){ out.x * sp0 - out.y * m->swirl * 65.0f,
+                                    out.y * sp0 - 85.0f };
+                m->spawned = 1;
+            }
+            float age = s_badge_evt_t - m->delay;
+            float max_age = fmaxf(0.12f, BADGE_TOTAL_DUR - m->delay);
+            float prog = fminf(1.0f, age / max_age);
+            float curl = sinf(age * m->freq + m->phase) * 260.0f;
+            m->vel.x += curl * dt;
+            m->vel.y += (-420.0f + cosf(age * m->freq + m->phase) * 140.0f) * dt;
+            m->pos.x += m->vel.x * dt;
+            m->pos.y += m->vel.y * dt;
+            float ma = sinf(prog * 3.14159265f) * (1.0f - 0.30f * prog);
+            if (ma <= 0.01f) continue;
+            Vector2 tail = { m->pos.x - m->vel.x * 0.026f, m->pos.y - m->vel.y * 0.026f };
+            DrawLineEx(tail, m->pos, 1.5f + 0.8f * ma,
+                       (Color){ accent.r, accent.g, accent.b, (unsigned char)(205.0f * ma) });
+            DrawRectangle((int)lroundf(m->pos.x) - 1, (int)lroundf(m->pos.y) - 1, 3, 3,
+                          (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(245.0f * ma) });
+        }
+        EndBlendMode();
+    }
+}
+
+void action_card_draw_vfx(const BoardAssets *ba, float env_dt) {
+    (void)env_dt;
     if (!s_action_card_mode) return;
-    draw_ceil_claim_vfx(env_dt);
+    float vfx_dt = s_action_card_paused ? 0.0f : fminf(0.05f, GetFrameTime());
+    draw_ceil_claim_vfx(vfx_dt);
+    draw_badge_popup_vapor_vfx(ba, vfx_dt);
 }

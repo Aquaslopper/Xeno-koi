@@ -45,9 +45,12 @@ void  action_card_format_time_line(char *buf, size_t cap,
                                    int yt, int yp, int ct, int cp, int mt);
 void  action_card_draw_match_result_extras(const GameState *gs);
 
-/* Beat symbols & board effects */
+/* Beat symbols, table-sized center popup/vaporize sequence & board effects */
 int   action_card_get_symbol(int *out_armed);
 int   action_card_take_pending_symbol(void);
+void  action_card_start_badge_event(int sym, int who, AudioAssets *audio);
+int   action_card_is_event_freezing(void);
+int   action_card_update_badge_event(float dt, int *out_sym_to_apply);
 void  action_card_trigger_blind_cards(const GameState *g, uint32_t *rng_state, int count);
 void  action_card_apply_symbol(int sym, GameState *g, DragState *drag, AnimState *anim,
                                AudioAssets *audio, int *hovered_idx, int *human_turn_started);
@@ -60,7 +63,7 @@ void  action_card_draw_meters(const BoardAssets *ba, const GameState *g,
                               float reverb_synergy, float env_dt, int replay_mode);
 int   action_card_draw_blind_flip(const BoardAssets *ba, int cid, Rectangle dr,
                                   float env_dt, float ac_card_lvl);
-void  action_card_draw_vfx(float env_dt);
+void  action_card_draw_vfx(const BoardAssets *ba, float env_dt);
 void  action_card_draw_symbol_icon(const BoardAssets *ba, int sym,
                                    float cx, float cy, int armed, float flash);
 
