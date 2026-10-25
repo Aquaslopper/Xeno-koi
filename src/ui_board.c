@@ -64,12 +64,16 @@ static int s_audio_action_triggers = 0;
 static float s_audio_peak_synergy = 0.0f;
 static float s_audio_full_hold_sec = 0.0f;
 static int s_action_card_mode = 0;
+static int s_action_card_paused = 0;
 static float s_action_music_level = 0.0f;
 static float s_action_peak_hold = 0.0f;
 static float s_action_peak_timer = 0.0f;
 static float s_action_added_hold = 0.0f;
 static float s_action_added_timer = 0.0f;
-static float s_action_tank_env = 0.0f;
+static float s_action_full_boost = 0.0f;
+static float s_action_ceil_accum = 0.0f;
+static int s_action_ceil_started = 0;
+static int s_action_match_reset_req = 0;
 
 int   board_get_audio_action_triggers(void)   { return s_audio_action_triggers; }
 float board_get_audio_peak_synergy(void)      { return s_audio_peak_synergy; }
@@ -79,12 +83,23 @@ void  board_set_audio_telemetry(int triggers, float peak, float full_hold_sec) {
     s_audio_peak_synergy = (peak >= 0.0f) ? (peak > 1.0f ? 1.0f : peak) : 0.0f;
     s_audio_full_hold_sec = (full_hold_sec >= 0.0f) ? full_hold_sec : 0.0f;
 }
+void  board_reset_action_card_match(void) {
+    s_action_peak_hold = s_action_peak_timer = 0.0f;
+    s_action_added_hold = s_action_added_timer = s_action_full_boost = 0.0f;
+    s_action_ceil_accum = 0.0f;
+    s_action_ceil_started = 0;
+    s_action_match_reset_req = 1;
+}
+int   board_get_action_ceiling_count(void) {
+    return s_action_ceil_started ? (1 + (int)floorf(s_action_ceil_accum)) : 0;
+}
 void  board_set_action_card_mode(int active, float music_level) {
     if (!active) {
-        s_action_peak_hold = s_action_peak_timer = 0.0f;
-        s_action_added_hold = s_action_added_timer = s_action_tank_env = 0.0f;
+        board_reset_action_card_match();
+        ui_theme_set_global_flare_boost(0.0f, 1.0f);
     }
-    s_action_card_mode = active ? 1 : 0;
+    s_action_card_mode = (active > 0) ? 1 : 0;
+    s_action_card_paused = (active == 2) ? 1 : 0;
     s_action_music_level = (music_level >= 0.0f) ? (music_level > 1.0f ? 1.0f : music_level) : 0.0f;
 }
 
@@ -577,8 +592,9 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     Color base_c = wine_right ? (Color){ 182,  70,  82, 255 } : COLOR_PHOSPHOR;
     Color dim_c  = wine_right ? (Color){ 136,  48,  58, 255 } : COLOR_PHOSPHOR_DIM;
     DrawRectangleRec(bar, COLOR_PANEL_BG);
+    int is_full = (lvl >= 0.98f);
     int ix = (int)bar.x + 2, iw = (int)bar.width - 4, ih = (int)bar.height - 4, bot = (int)bar.y + 2 + ih;
-    int fh = (int)lroundf((float)ih * lvl);
+    int fh = is_full ? ih : (int)lroundf((float)ih * lvl);
     if (fh > 0) {
         Color top_c = hi_c, bot_c = base_c;
         top_c.a = (unsigned char)(195.0f + 60.0f * lvl);
@@ -605,7 +621,6 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
         int py = bot - (int)lroundf((float)ih * (*hold));
         DrawRectangle(ix, (py < (int)bar.y + 2) ? ((int)bar.y + 2) : py, iw, 2, base_c);
     }
-    int is_full = (lvl >= 0.98f);
     if (is_full) ui_theme_set_panel_flare_glow(bar, 1.0f);
     ui_draw_panel_border(bar, is_full ? base_c : dim_c);
 }
@@ -630,7 +645,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     int cur_captured = g ? (g->captured_count[0] + g->captured_count[1]) : 0;
     int cur_field = g ? g->field_count : 0;
     int cur_koi = g ? (g->koi_called[0] + g->koi_called[1]) : 0;
-    if (cur_round != prev_round || cur_captured < prev_captured || (g && g->phase == PHASE_DEALER_SELECT)) {
+    if (s_action_match_reset_req || cur_round != prev_round || cur_captured < prev_captured ||
+        (g && g->phase == PHASE_DEALER_SELECT)) {
+        s_action_match_reset_req = 0;
         prev_round = cur_round;
         prev_captured = cur_captured;
         prev_field = cur_field;
@@ -638,7 +655,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         capture_streak = 0;
         reverb_hold = reverb_energy = reverb_mid = reverb_curve = 0.0f;
         s_action_peak_hold = s_action_peak_timer = 0.0f;
-        s_action_added_hold = s_action_added_timer = s_action_tank_env = 0.0f;
+        s_action_added_hold = s_action_added_timer = s_action_full_boost = 0.0f;
     }
     int delta_captured = (prev_captured >= 0 && cur_captured > prev_captured) ? (cur_captured - prev_captured) : 0;
     int capture_edge = (delta_captured > 0);
@@ -666,20 +683,21 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* Audio reverb follows a smooth S-curve (never a spike):
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
+    float env_dt = (s_action_card_mode && s_action_card_paused) ? 0.0f : frame_dt;
     if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.14f;
     if (koi_edge)           reverb_energy += 0.21f;
     if (reverb_energy > 1.0f) reverb_energy = 1.0f;
     if (capture_edge || koi_edge) {
         reverb_hold = 0.10f;
     } else if (reverb_hold > 0.0f) {
-        reverb_hold -= frame_dt;
+        reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.15f * frame_dt;
+        reverb_energy -= 0.15f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-frame_dt / 0.10f));
-    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-frame_dt / 0.21f));
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.10f));
+    reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-env_dt / 0.21f));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
         reverb_energy = reverb_mid = reverb_curve = 0.0f;
@@ -692,7 +710,16 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (!replay_mode) {
         if (capture_edge || koi_edge) s_audio_action_triggers++;
         if (reverb_synergy > s_audio_peak_synergy) s_audio_peak_synergy = reverb_synergy;
-        if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += frame_dt;
+        if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += env_dt;
+    }
+    if (s_action_card_mode && !s_action_card_paused) {
+        float g_glow = 0.0f, g_spd = 1.0f;
+        if (reverb_synergy >= 0.75f)      { g_glow = 1.00f; g_spd = 2.15f; }
+        else if (reverb_synergy >= 0.50f) { g_glow = 0.62f; g_spd = 1.70f; }
+        else if (reverb_synergy >= 0.25f) { g_glow = 0.30f; g_spd = 1.00f; }
+        ui_theme_set_global_flare_boost(g_glow, g_spd);
+    } else {
+        ui_theme_set_global_flare_boost(0.0f, 1.0f);
     }
 
     /* 1. Background with depth fog and a localized normal-map light */
@@ -773,17 +800,32 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
     if (s_action_card_mode) {
-        float tc = (s_action_music_level > s_action_tank_env) ? 0.08f : 0.26f;
-        s_action_tank_env += (s_action_music_level - s_action_tank_env) * (1.0f - expf(-frame_dt / tc));
-        float fx_sum = settings.effect_reverb + 0.75f * settings.effect_bass + 0.55f * settings.effect_chorus;
-        float fx_scale = (fx_sum > 0.001f && settings.bgm_volume > 0.001f) ? fminf(1.05f, 0.70f + 0.60f * fx_sum) : 0.0f;
-        float drive = (s_action_music_level > 0.005f) ? fminf(1.0f, 0.35f + 2.50f * s_action_tank_env) : 0.0f;
-        float added_lvl = fminf(1.0f, reverb_synergy * fx_scale * drive);
-        float music_lvl = fminf(1.0f, s_action_music_level * (0.58f + 0.54f * reverb_synergy * reverb_synergy));
+        float added_lvl = reverb_synergy;
+        int right_full = (added_lvl >= 0.98f);
+        float b_tc = right_full ? 0.08f : 0.14f;
+        s_action_full_boost += ((right_full ? 1.0f : 0.0f) - s_action_full_boost) * (1.0f - expf(-env_dt / b_tc));
+        float base_music = 0.80f * s_action_music_level;
+        float full_music = fminf(1.0f, 0.36f + 0.68f * s_action_music_level);
+        float music_lvl = base_music + (full_music - base_music) * s_action_full_boost;
+        if (right_full && !s_action_card_paused && !replay_mode) {
+            s_action_ceil_started = 1;
+            s_action_ceil_accum += env_dt * 10.0f;
+        }
         draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
-                                 &s_action_peak_hold, &s_action_peak_timer, frame_dt, 0);
+                                 &s_action_peak_hold, &s_action_peak_timer, env_dt, 0);
         draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
-                                 &s_action_added_hold, &s_action_added_timer, frame_dt, 1);
+                                 &s_action_added_hold, &s_action_added_timer, env_dt, 1);
+        if (s_action_ceil_started) {
+            int ceil_num = board_get_action_ceiling_count();
+            const char *cstr = TextFormat("%d", ceil_num);
+            Color ccol = right_full ? (Color){ 238, 156, 166, 255 } : (Color){ 182, 70, 82, 225 };
+            if (right_full) {
+                BeginBlendMode(BLEND_ADDITIVE);
+                draw_centered_text(font_title, cstr, 1089.0f, 146.0f, 18.0f, 1.0f, (Color){ 182, 70, 82, 120 });
+                EndBlendMode();
+            }
+            draw_centered_text(font_title, cstr, 1089.0f, 146.0f, 18.0f, 1.0f, ccol);
+        }
     }
 
     /* 5. Field Cards (Insertion sort via board_field_sort_slots + month bitmask for O(1) Easy Mode glow) */
