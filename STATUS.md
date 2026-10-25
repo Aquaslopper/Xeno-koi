@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex right-spine redesign: face-down locked -> face-up unlock progression & irreversible `[NEXT]` month swing-in (25 October 2026)
+
+- Reworked the Atrium Plex right-hand 4-card spine progression in `src/ui_plexus.c` and updated `plexus/roadmap_plexus.md` per maintainer design directive (`SPEEDCOIN_UNLOCKED_FOR_TESTING` kept at `1`):
+  - **Face-Down = Locked, Sequential Bottom-to-Top Face-Up Unlock (`src/ui_plexus.c`):** Each month begins with `slot 3` (bottom card) face-up and playable while `slots 2..0` sit face-down (`board_draw_card_back`, non-selectable, dimmed border). Completing an active face-up card illuminates it in the `LOGFILE` 48-card Atlas, auto-selects the next card above (`slot - 1`), and plays a `0.46s` horizontal turn-around flip animation from face-down to face-up (staged across screen transitions on Tutorial 1 / Tutorial 2 completion so the flip is visible upon returning to `SCREEN_ATRIUM`). Unlocked cards in the current month remain face-up and playable without post-play re-locking.
+  - **Arrows Removed -> One-Way `[NEXT]` Month Swing-In (`src/ui_plexus.c`):** Removed both `▲` and `▼` month navigation arrows. Once all 4 cards of the current month are completed (`0xFULL`, after the 4th/top card is beaten), `[NEXT]` (`{1072, 54, 96, 34}`) appears above `k_card_rects[0]`; clicking `[NEXT]` swings the finished month's 4 cards off to the right and swings in `Month N + 1` (`slot 3` face-up, `slots 2..0` face-down) over `0.54s` with no backward navigation, preventing endless spine-mode replays prior to bottom-bar milestone unlocks (`Month 04` / `Month 08`).
+  - **Save Clamping (`plexus_load`):** Clamped loaded `selected_month` and `selected_slot` against `is_month_unlocked()` / `is_slot_unlocked_in_month()` so legacy `plexsave.txt` files snap cleanly into a valid unlocked month and face-up slot.
+
+#### Checked
+- `gcc -std=c99 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, dedicated Atrium spine progression & animation harness (verifying initial `slot 3` face-up + `slots 2..0` face-down, locked face-down click rejection, sequential `slot 3 -> 2 -> 1 -> 0` turn-around flip unlocks, `[NEXT]` hidden when `slot 0` merely flips face-up and revealed only after `slot 0` is completed, irreversible `[NEXT]` swing-in to Month 02 with `slot 3` face-up and `slots 2..0` face-down, Month 04/08 bottom-bar milestone unlocks, and Month 12 terminal state with no `[NEXT]`), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Global player hand-card match hitlag pop-up numbers (Gold Speedcoin + Magenta Accuracy) & card-slam SFX (25 October 2026)
 
 - Added action-RPG floating hit-number pop-ups and a dedicated card-slam SFX hook across all rulesets and game modes (`src/ui_speed.h`, `src/ui_speed.c`, `src/ui_input.c`, `src/ui_board.c`, `src/ui_main.c`):
