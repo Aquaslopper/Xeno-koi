@@ -29,6 +29,33 @@ static float s_stat_cover_sum;
 static int   s_stat_best_streak;
 static int   s_stat_lifetime_mp;
 
+/* Solo Speedcoin mode state (180s countdown + hidden per-wave coin math) */
+#define SPEEDCOIN_START_SECONDS 180.0f
+#define SPEEDCOIN_STEP_SECONDS  10.0f
+#define SPEEDCOIN_CLOCK_FLASH   1.15f
+
+static int   s_sc_active;
+static float s_sc_clock;
+static int   s_sc_clock_live;
+static int   s_sc_wave;
+static int   s_sc_wave_start_mp;
+static int   s_sc_wave_ten_steps;
+static int   s_sc_hand2_dealt;
+static int   s_sc_turn_drained;
+static int   s_sc_miss_hits;
+static int   s_sc_reverse_deck;
+static int   s_sc_run_best_streak;
+static float s_sc_clock_flash;
+static int   s_sc_last_delta;
+
+static void speed_mode_adjust_clock(float delta_sec) {
+    if (!s_sc_active) return;
+    s_sc_clock += delta_sec;
+    if (s_sc_clock < 0.0f) s_sc_clock = 0.0f;
+    s_sc_last_delta = (int)lroundf(delta_sec);
+    s_sc_clock_flash = SPEEDCOIN_CLOCK_FLASH;
+}
+
 void speed_bar_reset(void) {
     s_remaining = 0.0f; s_frac = 0.0f;
     s_armed = 0; s_started = 0;
@@ -36,6 +63,76 @@ void speed_bar_reset(void) {
     s_chain = 0.0f; s_chain_vis = 0.0f; s_time = 0.0f;
     s_total = 0; s_streak = 0;
     s_last_round = -1; s_bonus_applied = 0;
+    s_sc_turn_drained = 0;
+}
+
+void speed_mode_begin(void) {
+    speed_bar_reset();
+    s_sc_active = 1;
+    s_sc_clock = SPEEDCOIN_START_SECONDS;
+    s_sc_clock_live = 0;
+    s_sc_wave = 1;
+    s_sc_wave_start_mp = 0;
+    s_sc_wave_ten_steps = 0;
+    s_sc_hand2_dealt = 0;
+    s_sc_turn_drained = 0;
+    s_sc_miss_hits = 0;
+    s_sc_reverse_deck = 0;
+    s_sc_run_best_streak = 0;
+    s_sc_clock_flash = 0.0f;
+    s_sc_last_delta = 0;
+}
+
+void speed_mode_begin_wave(int wave_num) {
+    s_remaining = 0.0f; s_frac = 0.0f;
+    s_armed = 0; s_started = 0;
+    s_streak = 0; s_chain = 0.0f;
+    s_sc_clock_live = 0;
+    s_sc_wave = (wave_num > 0) ? wave_num : 1;
+    s_sc_wave_start_mp = s_total;
+    s_sc_wave_ten_steps = 0;
+    s_sc_hand2_dealt = 0;
+    s_sc_turn_drained = 0;
+    s_sc_miss_hits = 0;
+    s_sc_reverse_deck = 0;
+    s_last_round = s_sc_wave;
+}
+
+void speed_mode_stop(void) {
+    s_sc_active = 0;
+    s_sc_clock_live = 0;
+    s_sc_hand2_dealt = 0;
+    s_sc_turn_drained = 0;
+    s_sc_miss_hits = 0;
+    s_sc_reverse_deck = 0;
+    s_sc_clock_flash = 0.0f;
+    s_sc_last_delta = 0;
+}
+
+int   speed_mode_is_active(void) { return s_sc_active; }
+float speed_mode_clock(void) { return s_sc_clock; }
+int   speed_mode_wave(void) { return (s_sc_wave > 0) ? s_sc_wave : 1; }
+int   speed_mode_reverse_deck(void) { return s_sc_active ? s_sc_reverse_deck : 0; }
+int   speed_mode_run_best_streak(void) { return s_sc_run_best_streak; }
+
+int speed_mode_deck_glow(void) {
+    return (s_sc_active && !s_sc_hand2_dealt && (s_total - s_sc_wave_start_mp) >= SPEEDCOIN_HAND2_MP) ? 1 : 0;
+}
+
+int speed_mode_can_deal_hand2(void) {
+    return speed_mode_deck_glow();
+}
+
+void speed_mode_mark_hand2_dealt(void) {
+    s_sc_hand2_dealt = 1;
+    s_armed = 0;
+    s_started = 0;
+    s_sc_turn_drained = 0;
+}
+
+float speed_mode_clock_flash(int *out_last_delta) {
+    if (out_last_delta) *out_last_delta = s_sc_last_delta;
+    return (s_sc_clock_flash > 0.0f) ? (s_sc_clock_flash / SPEEDCOIN_CLOCK_FLASH) : 0.0f;
 }
 
 /* Award minipoints for one hand-card capture. A perfect catch (10) starts or
@@ -56,8 +153,18 @@ static void award(int mp) {
     if (s_total > before) {
         s_stat_lifetime_mp += (s_total - before);
         if (s_streak > s_stat_best_streak) s_stat_best_streak = s_streak;
+        if (s_sc_active && s_streak > s_sc_run_best_streak) s_sc_run_best_streak = s_streak;
         s_flash = SPEED_FLASH_TIME; s_pulse = SPEED_PULSE_TIME; s_ghost = SPEED_GHOST_TIME;
         s_chain = (s_chain < 1.0f) ? 1.0f : fminf(5.0f, s_chain + ((mp >= 10) ? 1.0f : 0.75f));
+        if (s_sc_active) {
+            int wave_coins = s_total - s_sc_wave_start_mp;
+            int steps = (wave_coins > 0) ? (wave_coins / 10) : 0;
+            if (steps > s_sc_wave_ten_steps) {
+                int gained = steps - s_sc_wave_ten_steps;
+                s_sc_wave_ten_steps = steps;
+                speed_mode_adjust_clock((float)gained * SPEEDCOIN_STEP_SECONDS);
+            }
+        }
     } else s_chain = 0.0f;
 }
 
@@ -69,18 +176,38 @@ void speed_bar_update(const GameState *g, float dt, int input_unlocked) {
     if (s_flash > 0.0f) { s_flash -= dt; if (s_flash < 0.0f) s_flash = 0.0f; }
     if (s_pulse > 0.0f) { s_pulse -= dt; if (s_pulse < 0.0f) s_pulse = 0.0f; }
     if (s_ghost > 0.0f) { s_ghost -= dt; if (s_ghost < 0.0f) s_ghost = 0.0f; }
+    if (s_sc_clock_flash > 0.0f) { s_sc_clock_flash -= dt; if (s_sc_clock_flash < 0.0f) s_sc_clock_flash = 0.0f; }
     s_chain_vis += (s_chain - s_chain_vis) * (1.0f - expf(-dt * 8.0f));
     if (s_chain == 0.0f && s_chain_vis < 0.01f) s_chain_vis = 0.0f;
 
     int turn_live = (g->current_player == 0 && g->phase == PHASE_TURN_HAND);
+    if (s_sc_active) {
+        if (g->phase == PHASE_ROUND_END || g->phase == PHASE_MATCH_END) {
+            s_sc_clock_live = 0;
+            s_armed = 0;
+            s_started = 0;
+        } else if (turn_live && input_unlocked) {
+            s_sc_clock_live = 1;
+        }
+        if (s_sc_clock_live) {
+            s_sc_clock -= dt;
+            if (s_sc_clock < 0.0f) s_sc_clock = 0.0f;
+        }
+    }
     if (turn_live && input_unlocked) {
         if (!s_started) {
-            s_started = 1; s_armed = 1;
+            s_started = 1; s_armed = 1; s_sc_turn_drained = 0;
             s_remaining = SPEED_BAR_SECONDS; s_frac = 1.0f;
         }
         if (s_armed) {
             s_remaining -= dt;
-            if (s_remaining < 0.0f) s_remaining = 0.0f;
+            if (s_remaining <= 0.0f) {
+                s_remaining = 0.0f;
+                if (s_sc_active && !s_sc_turn_drained) {
+                    s_sc_turn_drained = 1;
+                    speed_mode_adjust_clock(-SPEEDCOIN_STEP_SECONDS);
+                }
+            }
             s_frac = s_remaining / SPEED_BAR_SECONDS;
         }
     } else if (!turn_live && s_armed) {
@@ -92,9 +219,20 @@ void speed_bar_update(const GameState *g, float dt, int input_unlocked) {
 }
 
 void speed_bar_consume(void) {
-    s_frac = s_remaining / SPEED_BAR_SECONDS;
+    int was_armed = s_armed;
+    int was_started = s_started;
+    s_frac = s_sc_active ? 0.0f : (s_remaining / SPEED_BAR_SECONDS);
+    if (s_sc_active) s_remaining = 0.0f;
     s_armed = 0; s_started = 0;
     s_streak = 0; s_chain = 0.0f;
+    if (s_sc_active && was_started) {
+        s_sc_miss_hits++;
+        if (s_sc_miss_hits >= 3) s_sc_reverse_deck = 1;
+    }
+    if (s_sc_active && was_armed && !s_sc_turn_drained) {
+        s_sc_turn_drained = 1;
+        speed_mode_adjust_clock(-SPEEDCOIN_STEP_SECONDS);
+    }
 }
 
 void speed_bar_grade(float cover) {
@@ -102,6 +240,15 @@ void speed_bar_grade(float cover) {
     if (elapsed < 0.0f) elapsed = 0.0f;
     if (elapsed > SPEED_BAR_SECONDS) elapsed = SPEED_BAR_SECONDS;
     float clamped_cover = cover < 0.0f ? 0.0f : (cover > 1.0f ? 1.0f : cover);
+    if (s_sc_active) {
+        if (cover > 0.0f) {
+            s_sc_miss_hits = 0;
+            s_sc_reverse_deck = 0;
+        } else {
+            s_sc_miss_hits++;
+            if (s_sc_miss_hits >= 3) s_sc_reverse_deck = 1;
+        }
+    }
     s_stat_drops++;
     s_stat_time_sum += elapsed;
     s_stat_cover_sum += clamped_cover;

@@ -1,4 +1,5 @@
 #include "ui_combos.h"
+#include "ui_speed.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -30,27 +31,36 @@ Rectangle combos_panel_rect(int player) {
 }
 
 int combos_panel_hit(Vector2 mouse) {
-    for (int p = 0; p < 2; p++)
+    for (int p = 0; p < 2; p++) {
+        if (speed_mode_is_active() && p == 1) continue;
         if (CheckCollisionPointRec(mouse, combos_panel_rect(p))) return p;
+    }
     return -1;
 }
 
 void combos_draw_sidebar(const GameState *g) {
+    int sc_mode = speed_mode_is_active();
+    const char *mode_name = sc_mode ? "SPEEDCOIN" : ruleset_names[g->ruleset];
     Rectangle mode = { 1160, 12, 112, 66 };
     DrawRectangleRec(mode, COLOR_PANEL_BG);
     ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
-    label(TextFormat("RND %d/%d", g->current_round, g->total_rounds), 1168, 20, 96, 16, COLOR_PHOSPHOR);
+    label(sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
+                  : TextFormat("RND %d/%d", g->current_round, g->total_rounds),
+          1168, 20, 96, 16, COLOR_PHOSPHOR);
     float size = 16;
-    while (size > 12 && MeasureTextEx(font_body, ruleset_names[g->ruleset], size, 0.5f).x > 96) size--;
-    label(ruleset_names[g->ruleset], 1168, 47, 96, size, COLOR_TEXT_INFO);
+    while (size > 12 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 96) size--;
+    label(mode_name, 1168, 47, 96, size, COLOR_TEXT_INFO);
     for (int p = 1; p >= 0; p--) {
+        if (sc_mode && p == 1) continue;
         ScoreResult s = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         Rectangle r = combos_panel_rect(p);
         DrawRectangleRec(r, COLOR_PANEL_BG);
         ui_draw_panel_border(r, COLOR_PHOSPHOR);
         label(p ? "CPU COMBOS" : "YOUR COMBOS", r.x + 8, r.y + 8, 96, 13, COLOR_PHOSPHOR);
         label(TextFormat("Base: %d", s.base_points), r.x + 8, r.y + 29, 96, 16, COLOR_TEXT_INFO);
-        label(TextFormat("Koi: x%d", koi_caller_multiplier(g->koi_called[p])), r.x + 8, r.y + 49, 96, 14, COLOR_TEXT_INFO_DIM);
+        label(sc_mode ? TextFormat("Award: %d", calculate_award(s.base_points, 0, 0))
+                      : TextFormat("Koi: x%d", koi_caller_multiplier(g->koi_called[p])),
+              r.x + 8, r.y + 49, 96, 14, COLOR_TEXT_INFO_DIM);
         int count = s.yaku_count < 4 ? s.yaku_count : 4;
         for (int i = 0; i < count; i++) {
             float y = r.y + 73 + i * 29;
@@ -78,13 +88,21 @@ void combos_draw_details(const BoardAssets *assets, const GameState *g, int play
     DrawRectangleRec(panel, (Color){ 5, 12, 14, 255 });
     ui_draw_panel_border(panel, COLOR_PHOSPHOR);
     label(player ? "CPU COMBOS - PAUSED" : "YOUR COMBOS - PAUSED", 180, 75, 800, 26, COLOR_PHOSPHOR);
-    label(TextFormat("%s   /   Base: %d   /   Koi calls: %d (x%d)", ruleset_names[g->ruleset],
-          s.base_points, g->koi_called[player], koi_caller_multiplier(g->koi_called[player])),
-          180, 115, 900, 20, COLOR_TEXT_INFO);
-    label(TextFormat("Award if banked now: %d   /   7+ bonus: x%d   /   Opponent Koi: x%d",
-          calculate_award(s.base_points, g->koi_called[player], g->koi_called[1 - player]),
-          s.base_points >= 7 ? 2 : 1, g->koi_called[1 - player] ? 2 : 1),
-          180, 143, 900, 18, COLOR_TEXT_INFO_DIM);
+    if (speed_mode_is_active()) {
+        label(TextFormat("SPEEDCOIN   /   Wave %d   /   Base: %d", speed_mode_wave(), s.base_points),
+              180, 115, 900, 20, COLOR_TEXT_INFO);
+        label(TextFormat("Wave bank award: %d   /   7+ bonus: x%d",
+              calculate_award(s.base_points, 0, 0), s.base_points >= 7 ? 2 : 1),
+              180, 143, 900, 18, COLOR_TEXT_INFO_DIM);
+    } else {
+        label(TextFormat("%s   /   Base: %d   /   Koi calls: %d (x%d)", ruleset_names[g->ruleset],
+              s.base_points, g->koi_called[player], koi_caller_multiplier(g->koi_called[player])),
+              180, 115, 900, 20, COLOR_TEXT_INFO);
+        label(TextFormat("Award if banked now: %d   /   7+ bonus: x%d   /   Opponent Koi: x%d",
+              calculate_award(s.base_points, g->koi_called[player], g->koi_called[1 - player]),
+              s.base_points >= 7 ? 2 : 1, g->koi_called[1 - player] ? 2 : 1),
+              180, 143, 900, 18, COLOR_TEXT_INFO_DIM);
+    }
     if (!s.yaku_count) label("No completed combos yet. Capture matching months to build a set.", 180, 230, 900, 22, COLOR_TEXT_INFO);
     for (int row = 0; row < COMBOS_PER_PAGE; row++) {
         int i = page * COMBOS_PER_PAGE + row;

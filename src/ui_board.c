@@ -515,6 +515,40 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
     }
 }
 
+static void draw_speedcoin_clock_panel(void) {
+    Rectangle r = { 12.0f, 12.0f, CAPTURE_PANEL_W, 196.0f };
+    int last_delta = 0;
+    float flash = speed_mode_clock_flash(&last_delta);
+    float sec = speed_mode_clock();
+    int low = (sec <= 20.0f);
+    Color accent = low ? COLOR_RED : COLOR_PHOSPHOR;
+    if (flash > 0.01f) accent = (last_delta < 0) ? COLOR_RED : (Color){ 255, 224, 108, 255 };
+
+    DrawRectangleRec(r, COLOR_PANEL_BG);
+    if (flash > 0.01f || low) {
+        ui_theme_set_panel_flare_glow(r, fmaxf(flash, low ? 0.65f : 0.0f));
+    }
+    ui_draw_panel_border(r, accent);
+    DrawLine((int)(r.x + 12.0f), (int)(r.y + 44.0f), (int)(r.x + r.width - 12.0f), (int)(r.y + 44.0f), COLOR_PHOSPHOR_DIM);
+
+    draw_centered_text(font_title, "TIME REMAINING", r.x + r.width * 0.5f, r.y + 16.0f, 15.0f, 1.0f, COLOR_PHOSPHOR);
+    const char *t_str = TextFormat("%.1fs", (double)sec);
+    float t_size = (sec >= 1000.0f) ? 34.0f : 40.0f;
+    draw_centered_text(font_title, t_str, r.x + r.width * 0.5f, r.y + 72.0f, t_size, 1.2f,
+                       low ? COLOR_RED : COLOR_TEXT_INFO);
+
+    if (flash > 0.01f && last_delta != 0) {
+        Color dcol = (last_delta > 0) ? (Color){ 255, 224, 108, 255 } : COLOR_RED;
+        const char *d_str = (last_delta > 0) ? TextFormat("+%d SEC", last_delta) : TextFormat("%d SEC", last_delta);
+        draw_centered_text(font_title, d_str, r.x + r.width * 0.5f, r.y + 138.0f, 20.0f, 1.0f, dcol);
+    } else {
+        draw_centered_text(font_body, TextFormat("WAVE %d", speed_mode_wave()),
+                           r.x + r.width * 0.5f, r.y + 140.0f, 18.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    }
+    draw_centered_text(font_body, "-10s DRAIN / MISS   +10s / 10 MP",
+                       r.x + r.width * 0.5f, r.y + 170.0f, 13.0f, 0.6f, COLOR_PHOSPHOR_DIM);
+}
+
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
                       int easy_mode, int replay_mode, const char *status_msg) {
@@ -636,16 +670,21 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     Rectangle cpu_score_box = { 12, 12, CAPTURE_PANEL_W, 30 };
     Rectangle you_score_box = { 12, 678, CAPTURE_PANEL_W, 30 };
-    if (active_turn == 1 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(cpu_score_box, turn_flash_alpha);
-    board_draw_info_box(cpu_score_box, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
-    draw_capture_lanes(ba, g, 1, 46.0f, (active_turn == 1) ? turn_flash_alpha : 0.0f);
+    int sc_mode = speed_mode_is_active();
+    if (sc_mode) {
+        draw_speedcoin_clock_panel();
+    } else {
+        if (active_turn == 1 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(cpu_score_box, turn_flash_alpha);
+        board_draw_info_box(cpu_score_box, TextFormat("CPU   SCORE: %d%s", g->total_score[1], (g->dealer == 1) ? " [DEALER]" : ""), (active_turn == 1), turn_flash_alpha);
+        draw_capture_lanes(ba, g, 1, 46.0f, (active_turn == 1) ? turn_flash_alpha : 0.0f);
+    }
     draw_capture_lanes(ba, g, 0, 508.0f, (active_turn == 0) ? turn_flash_alpha : 0.0f);
     card_tooltip_clear();
     if (active_turn == 0 && turn_flash_alpha > 0.001f) ui_theme_set_panel_flare_glow(you_score_box, turn_flash_alpha);
-    board_draw_info_box(you_score_box, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
+    board_draw_info_box(you_score_box, TextFormat("YOU   SCORE: %d%s", g->total_score[0], (!sc_mode && g->dealer == 0) ? " [DEALER]" : ""), (active_turn == 0), turn_flash_alpha);
 
     /* 3. CPU Hand */
-    int cpu_count = g->hand_count[1];
+    int cpu_count = sc_mode ? 0 : g->hand_count[1];
     float cpu_step = 62.0f, cpu_w = (cpu_count > 0) ? ((cpu_count - 1) * cpu_step + CPU_CARD_W) : 0, cpu_x = 710.0f - cpu_w / 2.0f;
     for (int i = 0; i < cpu_count; i++) {
         int cid = g->hand[1][i];
@@ -662,6 +701,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     /* 4. Stock Pile */
     int st_off = g->stock_count >> 2;
     for (int i = 0; i <= st_off; i++) board_draw_card_back(ba, (Rectangle){ 330.0f - i, 262.0f - i, FIELD_CARD_W, FIELD_CARD_H });
+    if (sc_mode && speed_mode_deck_glow() && g->stock_count > 0) {
+        Rectangle top_st = { 330.0f - (float)st_off, 262.0f - (float)st_off, FIELD_CARD_W, FIELD_CARD_H };
+        float sp = 0.72f + 0.28f * (0.5f + 0.5f * sinf(cur_time * 5.2f));
+        board_draw_card_glow(top_st, sp);
+        ui_theme_set_panel_flare_glow(top_st, 0.92f);
+        ui_theme_draw_panel_flares(top_st);
+    }
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 
     /* 5. Field Cards (Insertion sort via board_field_sort_slots + month bitmask for O(1) Easy Mode glow) */
@@ -704,6 +750,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
 
     /* 7. Player Hand */
+    float cd_el = cinematic_countdown_elapsed();
     for (int i = 0; i < g->hand_count[0]; i++) {
         if (i == dragging_idx) continue;
         int cid = g->hand[0][i];
@@ -714,12 +761,22 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         Rectangle r = board_get_hand_card_rect(i, g->hand_count[0], i == hovered_hand_idx);
         motion_set_target(cid, (Vector2){ r.x, r.y }, (Vector2){ r.width, r.height }, (i == hovered_hand_idx ? 0.15f : 0.30f));
         Rectangle dr = motion_get_rect(cid);
-        if (motion_is_card_moving(cid)) {
-            board_draw_card_shadow(dr, motion_get_card_lift(cid));
+        float fp = (cd_el >= 0.0f) ? fminf(1.0f, fmaxf(0.0f, (cd_el - (2.0f + (float)i * 0.085f)) / 0.36f)) : 1.0f;
+        if (fp < 1.0f) {
+            float hop = sinf(fp * 3.14159265f) * 14.0f;
+            float cv = cosf(fp * 3.14159265f);
+            float pw = dr.width * fmaxf(0.06f, fabsf(cv));
+            Rectangle pr = { dr.x + (dr.width - pw) * 0.5f, dr.y - hop, pw, dr.height };
+            float lift = fmaxf(motion_is_card_moving(cid) ? motion_get_card_lift(cid) : 0.0f, hop / 14.0f);
+            if (lift > 0.001f) board_draw_card_shadow(pr, lift);
+            if (cv > 0.0f) board_draw_card_back(ba, pr);
+            else board_draw_card(ba, cid, pr);
+        } else {
+            if (motion_is_card_moving(cid)) board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
-        } else board_draw_card(ba, cid, dr);
-        if (easy_mode && g->current_player == 0 && dragging_idx < 0) {
-            if ((field_month_mask >> CARDS[cid].month) & 1u) board_draw_card_glow(dr, pulse);
+            if (easy_mode && g->current_player == 0 && dragging_idx < 0) {
+                if ((field_month_mask >> CARDS[cid].month) & 1u) board_draw_card_glow(dr, pulse);
+            }
         }
     }
 
@@ -770,7 +827,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         float lift = hop / 18.0f;
         Rectangle sr = { cur_x + 4.0f + lift * 8.0f, cur_y + 5.0f + lift * 10.0f + hop, cur_w, FIELD_CARD_H };
         DrawRectangleRec(sr, (Color){ 0, 0, 0, 102 });
-        if (cos_val > 0.0f) board_draw_card_back(ba, cr);
+        int to_deck = (anim->type == ANIM_STOCK_FLY && anim->target_pos.x == 330.0f && anim->target_pos.y == 262.0f);
+        if (to_deck ? (cos_val < 0.0f) : (cos_val > 0.0f)) board_draw_card_back(ba, cr);
         else board_draw_card(ba, anim->card_id, cr);
         board_draw_card_glow(cr, 1.0f);
         ui_theme_draw_panel_flares_keyed(cr, anim->card_id + 1);
@@ -793,6 +851,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     /* 11. Fixed-size, clickable combo summaries (perimeter dots glow brighter as more combos stack). */
     for (int p = 0; p < 2; p++) {
+        if (sc_mode && p == 1) continue;
         ScoreResult cs = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         if (cs.yaku_count > 0) {
             float cglow = fminf(1.0f, 0.28f * (float)cs.yaku_count);

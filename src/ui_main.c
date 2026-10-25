@@ -46,7 +46,7 @@ GameSettings settings;
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
-static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f;
+static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f, speedcoin_gameover_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, pending_result_sfx = 0, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
@@ -111,7 +111,10 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
     } else if (sc == SCREEN_CREDITS) {
         screens_draw_credits(&assets, mouse_pos);
     } else if (sc == SCREEN_MATCH_RESULT) {
-        screens_draw_match_result(&assets, &g, plexus_training_is_active() ? NULL : &settings, mouse_pos);
+        if (plexus_speedcoin_result_active())
+            plexus_draw_speedcoin_result(&assets, &stats, mouse_pos);
+        else
+            screens_draw_match_result(&assets, &g, plexus_training_is_active() ? NULL : &settings, mouse_pos);
     }
 }
 
@@ -198,11 +201,16 @@ static void begin_new_match(int trk) {
     replay_rec_abort();
     anim_init(&anim); motion_init(); speed_bar_reset(); memset(&drag, 0, sizeof(drag));
     hovered_idx = -1; is_paused = 0; confirm_restart = 0; combo_player = -1; combo_page = 0;
-    human_turn_started = 0; deus_banner_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
+    human_turn_started = 0; deus_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
     uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
     engine_init(&g, settings.ruleset, settings.rounds, match_seed);
-    if (plexus_tutorial_is_active()) {
+    if (plexus_speedcoin_is_active()) {
+        g.rng_state = match_seed ? match_seed : 1u;
+        plexus_speedcoin_setup_wave(&g, 1);
+        motion_deal_round(&g, 0.45f);
+        cinematic_start_countdown(1);
+    } else if (plexus_tutorial_is_active()) {
         plexus_tutorial_setup_round(&g);
         motion_deal_round(&g, 0.45f);
         cinematic_start(g.current_round);
@@ -215,7 +223,7 @@ static void begin_new_match(int trk) {
 #endif
     }
     ai_set_opponent(settings.current_opponent); taunt_init();
-    if (!plexus_tutorial_is_active() && !plexus_training_is_active())
+    if (!plexus_tutorial_is_active() && !plexus_training_is_active() && !plexus_speedcoin_is_active())
         taunt_trigger(campaign_get_opponent(settings.current_opponent)->taunt_text, 4.5f);
     if (trk > 0) audio_start_match_music(&audio, trk);
     else audio_set_reverb(0.0f);
@@ -373,6 +381,13 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
         combos_draw_details(ba, gs, combo_player, combo_page);
         return;
     }
+    if (speedcoin_gameover_timer > 0.0f || (screen == SCREEN_GAME && plexus_speedcoin_result_active())) {
+        if (paused) {
+            card_tooltip_clear();
+            screens_draw_pause(vm, c_restart, replay);
+        }
+        return;
+    }
     if (gs->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(ba, gs, vm);
     else if (gs->phase == PHASE_HAND_CHOICE || gs->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(ba, gs, vm, gs->phase == PHASE_HAND_CHOICE);
     else if (gs->phase == PHASE_DECIDE && gs->current_player == 0) screens_draw_decide_overlay(ba, gs, vm);
@@ -398,8 +413,10 @@ static void update_draw_frame(void) {
         transition_timer += dt;
         if (transition_timer >= TRANS_HOLD_DUR) {
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
+            if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
+            if (screen != SCREEN_MATCH_RESULT) plexus_speedcoin_close_result();
             campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
-            round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
+            round_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; prev_round_phase = PHASE_NONE;
             if (transition_action == 1) {
                 begin_new_match(transition_track);
             } else if (transition_action == 2 || transition_action == 3) {
@@ -477,6 +494,7 @@ static void update_draw_frame(void) {
                 } else if (cres == 1) {
                     plexus_tutorial_abort();
                     plexus_training_stop();
+                    plexus_speedcoin_abort();
                     audio_play_click(&audio); ai_set_opponent(settings.current_opponent); storage_save_settings(&settings);
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 } else if (cres == 2 || cres == 3) audio_play_click(&audio);
@@ -554,6 +572,17 @@ static void update_draw_frame(void) {
                 screen = SCREEN_GAME;
             }
 #endif
+        } else if (screen == SCREEN_MATCH_RESULT && plexus_speedcoin_result_active()) {
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                audio_play_click(&audio);
+                start_transition(SCREEN_ATRIUM, 3, 0);
+            } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                int sc_clicked = 0;
+                ScreenAction act = plexus_handle_speedcoin_result_click(vm, &sc_clicked);
+                if (sc_clicked) audio_play_click(&audio);
+                if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
+                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+            }
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
             if (act != ACT_NONE) audio_play_click(&audio);
@@ -568,7 +597,7 @@ static void update_draw_frame(void) {
             if (combos_handle_details(&g, combo_player, &combo_page, vm)) {
                 combo_player = -1; is_paused = 0; audio_play_click(&audio);
             }
-        } else if (screen == SCREEN_GAME && !is_paused && !drag.on &&
+        } else if (screen == SCREEN_GAME && !is_paused && !drag.on && speedcoin_gameover_timer <= 0.0f &&
                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && combos_panel_hit(vm) >= 0 &&
                    g.phase != PHASE_DEALER_SELECT) {
             combo_player = combos_panel_hit(vm); combo_page = 0;
@@ -683,6 +712,11 @@ static void update_draw_frame(void) {
                         if (plexus_tutorial_is_active()) {
                             plexus_tutorial_abort();
                             start_transition(SCREEN_ATRIUM, 3, 0);
+                        } else if (plexus_speedcoin_is_active()) {
+                            speedcoin_gameover_timer = 0.0f;
+                            plexus_speedcoin_abort();
+                            plexus_save();
+                            start_transition(SCREEN_ATRIUM, 3, 0);
                         } else if (plexus_training_is_active()) {
                             plexus_training_stop();
                             start_transition(SCREEN_ATRIUM, 3, 0);
@@ -701,6 +735,20 @@ static void update_draw_frame(void) {
 
                 if (tut_frozen) {
                     hovered_idx = -1;
+                } else if (speedcoin_gameover_timer > 0.0f) {
+                    hovered_idx = -1;
+                    speedcoin_gameover_timer -= dt;
+                    if (speedcoin_gameover_timer <= 0.0f) {
+                        speedcoin_gameover_timer = 0.0f;
+                        int run_waves = speed_mode_wave();
+                        int run_coins = speed_bar_total();
+                        int run_streak = speed_mode_run_best_streak();
+                        plexus_speedcoin_bank_wave(&g);
+                        int bonus_pts = speed_bar_apply_match_bonus(&g);
+                        plexus_speedcoin_finish_run(g.total_score[0], run_waves, run_coins, bonus_pts, run_streak);
+                        pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
+                        start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                    }
                 } else if (round_banner_timer > 0.0f) {
                     round_banner_timer -= dt;
                     if (round_banner_timer < 0.0f) round_banner_timer = 0.0f;
@@ -710,15 +758,31 @@ static void update_draw_frame(void) {
                 } else {
                     anim_update(&anim, dt);
                     motion_update(dt, (drag.on && drag.idx >= 0 && drag.idx < g.hand_count[0]) ? g.hand[0][drag.idx] : -1);
+                    float cd_prev = cinematic_countdown_elapsed();
                     cinematic_update(dt);
+                    float cd_now = cinematic_countdown_elapsed();
+                    if (cd_prev >= 0.0f && cd_now > cd_prev) {
+                        for (int fi = 0; fi < g.hand_count[0]; fi++) {
+                            float ft = 2.0f + (float)fi * 0.085f;
+                            if (cd_prev < ft && cd_now >= ft) { audio_play_flip(&audio); break; }
+                        }
+                    }
 
                     int input_unlocked = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
                     Difficulty active_diff = plexus_tutorial_is_active() ? DIFFICULTY_EASY : settings.difficulty;
 
                     /* KK-ADD-10 speed minigame: the bottom-right timer bar */
                     speed_bar_update(&g, dt, input_unlocked);
+                    if (plexus_speedcoin_is_active() && speed_mode_clock() <= 0.0f) {
+                        drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
+                        hovered_idx = -1; combo_player = -1; prev_round_phase = PHASE_NONE;
+                        g.phase = PHASE_MATCH_END;
+                        anim_init(&anim);
+                        play_banner_sfx();
+                        speedcoin_gameover_timer = 3.0f;
+                    }
 
-                    if (g.phase == PHASE_DEALER_SELECT) {
+                    if (speedcoin_gameover_timer <= 0.0f && g.phase == PHASE_DEALER_SELECT) {
                         if (g.oya_player_choice < 0) {
                             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                                 int pick = board_check_dealer_select_click(&g, vm);
@@ -764,22 +828,39 @@ static void update_draw_frame(void) {
                         if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
                             int drawn_cid = anim.card_id;
                             Vector2 landed = anim.target_pos;
+                            int rev_land = (plexus_speedcoin_is_active() && landed.x == 330.0f && landed.y == 262.0f);
                             anim.active = 0; audio_play_drop(&audio);
                             motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
-                            engine_reveal_stock(&g);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            if (rev_land) {
+                                plexus_speedcoin_reverse_draw_finish(&g);
+                            } else {
+                                engine_reveal_stock(&g);
+                                if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            }
                         } else if (!anim.active) {
-                            int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
-                            if (top_stock >= 0) {
-                                audio_play_flip(&audio); int match_target = -1;
-                                for (int i = 0; i < g.field_count; i++) {
-                                    if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
+                            if (plexus_speedcoin_is_active() && speed_mode_reverse_deck()) {
+                                int rev_cid = -1;
+                                Vector2 from_pos = { 710.0f, 240.0f };
+                                if (plexus_speedcoin_reverse_draw_start(&g, &rev_cid, &from_pos)) {
+                                    audio_play_flip(&audio);
+                                    anim_start_stock_fly(&anim, rev_cid, from_pos, (Vector2){ 330.0f, 262.0f },
+                                                         get_flight_duration(settings.anim_speed));
+                                } else {
+                                    plexus_speedcoin_reverse_draw_finish(&g);
                                 }
-                                Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
-                                                                     : board_get_field_card_rect_of(&g, top_stock);
-                                Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
-                                anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
-                            } else { engine_reveal_stock(&g); }
+                            } else {
+                                int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
+                                if (top_stock >= 0) {
+                                    audio_play_flip(&audio); int match_target = -1;
+                                    for (int i = 0; i < g.field_count; i++) {
+                                        if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
+                                    }
+                                    Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
+                                                                         : board_get_field_card_rect_of(&g, top_stock);
+                                    Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
+                                    anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
+                                } else { engine_reveal_stock(&g); }
+                            }
                         }
                     }
 
@@ -806,7 +887,7 @@ static void update_draw_frame(void) {
 
                     if (g.current_player == 0 && input_unlocked) {
                         if (g.phase == PHASE_TURN_HAND) {
-                            if (!plexus_tutorial_is_active() &&
+                            if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() &&
                                 (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS)) {
                                 if (!human_turn_started) {
                                     g.player_timer = (settings.difficulty == DIFFICULTY_DEUS || settings.master_timer == 15) ? 15.0f : 30.0f;
@@ -886,7 +967,29 @@ static void update_draw_frame(void) {
                         }
                     }
 
-                    if (g.phase == PHASE_ROUND_END && prev_round_phase != PHASE_ROUND_END && !cinematic_is_active()) {
+                    if (plexus_speedcoin_is_active()) {
+                        if (g.phase == PHASE_DECIDE) {
+                            engine_decide(&g, DECISION_KOI_KOI);
+                            g.koi_called[0] = 0;
+                            g.match_koi_calls[0] = 0;
+                        }
+                        if (g.phase == PHASE_ROUND_END && speed_mode_clock() > 0.0f &&
+                            !anim_is_blocking(&anim) && !motion_is_reflowing(&g)) {
+                            if (plexus_speedcoin_deal_hand2(&g)) {
+                                audio_play_flip(&audio);
+                                anim_start_banner(&anim, "30 MP // BONUS HAND DEALT", 1.10f);
+                                prev_round_phase = PHASE_NONE;
+                            } else if (prev_round_phase != PHASE_ROUND_END) {
+                                plexus_speedcoin_bank_wave(&g);
+                                prev_round_phase = PHASE_ROUND_END;
+                                round_banner_timer = 0.0f;
+                                play_banner_sfx();
+                                if (anim.active && anim.type == ANIM_BANNER) anim.active = 0;
+                            }
+                        } else if (g.phase != PHASE_ROUND_END) {
+                            prev_round_phase = g.phase;
+                        }
+                    } else if (g.phase == PHASE_ROUND_END && prev_round_phase != PHASE_ROUND_END && !cinematic_is_active()) {
                         prev_round_phase = PHASE_ROUND_END;
                         round_banner_timer = ROUND_BANNER_DUR;
                         play_banner_sfx();
@@ -900,7 +1003,14 @@ static void update_draw_frame(void) {
                         input_unlocked && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                         if (screens_check_round_result_click(vm)) {
                             audio_play_click(&audio);
-                            if (plexus_tutorial_is_active()) {
+                            if (plexus_speedcoin_is_active()) {
+                                int next_w = speed_mode_wave() + 1;
+                                anim_init(&anim); prev_round_phase = PHASE_NONE;
+                                plexus_speedcoin_setup_wave(&g, next_w);
+                                motion_deal_round(&g, 0.45f);
+                                audio_play_flip(&audio);
+                                cinematic_start_countdown(next_w);
+                            } else if (plexus_tutorial_is_active()) {
                                 anim_init(&anim);
                                 plexus_tutorial_finish_match();
                                 pending_result_sfx = 1;
@@ -949,9 +1059,13 @@ static void update_draw_frame(void) {
 
     if (g.phase != PHASE_TURN_HAND || g.current_player != 0) drag.selected = 0;
     int replay_running = replay_pb_active();
-    int round_panel_ready = (g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || g.phase == PHASE_MATCH_END;
+    int sc_ending = (speedcoin_gameover_timer > 0.0f) || (screen == SCREEN_GAME && plexus_speedcoin_result_active());
+    int round_panel_ready = !sc_ending && !plexus_speedcoin_result_active() &&
+                            (plexus_speedcoin_is_active()
+                             ? (g.phase == PHASE_ROUND_END && prev_round_phase == PHASE_ROUND_END)
+                             : ((g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || g.phase == PHASE_MATCH_END));
     int overlay_active = (screen == SCREEN_GAME) &&
-                         (replay_running ? is_paused :
+                         ((replay_running || sc_ending) ? is_paused :
                           (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE ||
                           (g.phase == PHASE_DECIDE && g.current_player == 0) || g.phase == PHASE_DEALER_SELECT ||
                           round_panel_ready || is_paused));
@@ -1027,7 +1141,11 @@ static void update_draw_frame(void) {
         }
         else if (cinematic_is_active()) status = "";
         else if (anim.active && anim.type == ANIM_STOCK_FLY) {
-            snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
+            if (plexus_speedcoin_is_active() && anim.target_pos.x == 330.0f && anim.target_pos.y == 262.0f) {
+                status = "REVERSE DECK - CARD RETURNED TO STOCK";
+            } else {
+                snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
+            }
         } else if (g.phase == PHASE_TURN_HAND) {
             status = (g.current_player == 0) ? (drag.selected ? "SELECTED - CLICK A MATCH OR EMPTY FIELD / ESC TO CANCEL" : "YOUR TURN - DRAG OR CLICK A CARD TO SELECT") :
                      (anim.active && anim.type == ANIM_CPU_FLY) ? "CPU PLAYS CARD" : "CPU IS THINKING...";
@@ -1055,7 +1173,8 @@ static void update_draw_frame(void) {
                 draw_hover_action_label(replay_running ? "STOP" : "RESTART", restart_btn);
             }
         }
-        if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
+        if (sc_ending) screens_draw_banner("GAME OVER");
+        else if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
         if (!replay_running && round_banner_timer > 0.0f) draw_round_end_banner(&g, round_banner_timer);
         cinematic_draw();   /* a replay shows the round deal too */
         if (overlay_active && overlay_alpha >= 0.999f) draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart, replay_pb_active());

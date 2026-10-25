@@ -47,22 +47,28 @@
 
 ---
 
-## Phase 3 — Speedcoin Minigame *(Month 02, `RULESET_KK_ADD_10`)*
+## Phase 3 — Speedcoin Minigame *(Atrium-Only Solo Ruleset on `RULESET_KK_ADD_10`)*
 
-- [ ] **Design & Scope Before Coding:**
-  - Built strictly on **`RULESET_KK_ADD_10`** and the existing `ui_speed.c` speedbar + minipoints system on the real table (`ui_board.c` / `ui_input.c`).
-  - Completing Month 02 unlocks the Speedcoin shortcut button on the bottom bar for free replay.
+- [x] **1. Groundwork Rule Specification (`plexus/speedcoin_rule.md`):**
+  - Solo highscore survival (`180s` countdown, uncapped `+10s` per `10` wave Speedcoins, `-10s` on bar drain or no-match table placement), `14`-card (`2×7`) field + `8`-card hand + `26`-card stock Waves, hidden `30`-Speedcoin per-Wave counter with continuous glowing/moving-dot Stock deck indicator for `Hand 2`, no CPU / no `KOI-KOI` screen, and a dedicated Speedcoin Ranklist + Logfile-stats final screen.
+- [x] **2. Build Groundwork & Open `SPEEDCOIN` Button for Testing:**
+  - Implement Speedcoin on the real `SCREEN_GAME` / `ui_speed.c` / `ui_board.c` / `ui_combos.c` / `ui_plexus.c` pipeline without touching protected core files.
+  - Temporarily unlock the bottom-bar `SPEEDCOIN` button (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`) so the mode can be launched and tested directly from Atrium Plex.
+- [ ] **3. Playtesting & Fine-Tuning:**
+  - Test gameplay pace, `+10s / -10s` clock balance, Wave transitions, `Hand 2` deck-glow clarity, and the Ranklist + Logfile-stats result screen; iterate rules and feel until locked in.
+- [ ] **4. Full Atrium Plex Spine Integration:**
+  - Once fine-tuning is complete and approved, disable the testing unlock (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 0`) and wire full spine card progression, briefings, and unlock gating.
 
 ---
 
-## Phase 4 — Remaining Minigames, Training Mode & PlexusStats Refinement
+## Phase 4 — Action Card Minigame & Remaining Hub Refinements
 
-- [ ] **Action Card Audio Minigame & Later Months:**
-  - Scope and wire onto the real table and existing `reverb_synergy` envelope (`ui_board.c` / `ui_audio.c`), unlocking the second bottom-bar minigame slot when cleared.
-- [ ] **`TRAINING` Mode:**
-  - Define and wire dedicated Plexus sparring/training behavior once minigame foundations are complete (isolated from Campaign progression).
-- [ ] **Plexus Telemetry (`LOGFILE` Stats Box):**
-  - Refine persistent Plexus-specific stats (`average speed`, `how close` overlap %, Speedcoin minipoints/streak, audio synergy) backed by `plexsave.txt`.
+- [ ] **1. Action Card Minigame (`plexus/action_card_rule.md` -> Test Open -> Fine-Tune -> Integrate):**
+  - Follow the same 4-step pipeline: write dedicated rule markdown (`plexus/action_card_rule.md`), build onto the real table & existing `reverb_synergy` envelope (`ui_board.c` / `ui_audio.c` untouched DSP) with `ACTION CARD` temporarily opened on the bottom bar for testing, fine-tune, and then integrate into spine progression.
+- [x] **`TRAINING` Non-Campaign Match Mode:**
+  - Launches a normal match from Option menu settings via `k_briefing_rect` + `k_start_rect` without Campaign awards.
+- [ ] **Plexus Telemetry & Highscore Ranklists (`plexsave.txt`):**
+  - Persist Speedcoin / Action Card ranklists alongside Speedbar and Audio FX telemetry in `plexsave.txt`.
 
 ---
 
