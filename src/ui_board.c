@@ -640,42 +640,11 @@ static void draw_speedcoin_clock_panel(void) {
 }
 
 static void draw_action_card_distraction(Rectangle dr, int slot_key, float added_lvl, float cur_time) {
+    (void)cur_time;
     if (!s_action_card_mode || added_lvl < 0.25f || dr.width <= 0.0f || dr.height <= 0.0f) return;
-    if (added_lvl < 0.50f) {
-        board_draw_card_glow(dr, 0.38f);
-        if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
-        return;
-    }
-    float p = 0.5f + 0.5f * sinf(cur_time * ((added_lvl >= 0.75f) ? 10.5f : 6.2f) + (float)slot_key * 0.73f);
-    Color base = COLOR_PHOSPHOR, info = COLOR_TEXT_INFO;
-    if (added_lvl < 0.75f) {
-        board_draw_card_glow(dr, 0.78f);
-        DrawRectangleLinesEx((Rectangle){ dr.x - 2.0f, dr.y - 2.0f, dr.width + 4.0f, dr.height + 4.0f },
-                             1.2f, (Color){ base.r, base.g, base.b, 115 });
-        if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
-        BeginBlendMode(BLEND_ADDITIVE);
-        DrawRectangleRec(dr, (Color){ base.r, base.g, base.b, (unsigned char)(52.0f + 36.0f * p) });
-        EndBlendMode();
-        return;
-    }
-    float hi = fminf(1.0f, (added_lvl - 0.75f) / 0.23f);
-    board_draw_card_glow(dr, 1.0f);
-    DrawRectangleLinesEx((Rectangle){ dr.x - 2.0f, dr.y - 2.0f, dr.width + 4.0f, dr.height + 4.0f },
-                         1.8f, (Color){ base.r, base.g, base.b, 215 });
-    DrawRectangleLinesEx((Rectangle){ dr.x - 4.0f, dr.y - 4.0f, dr.width + 8.0f, dr.height + 8.0f },
-                         1.4f, (Color){ info.r, info.g, info.b, (unsigned char)(95.0f + 95.0f * hi) });
+    float glow = (added_lvl >= 0.75f) ? 1.0f : (added_lvl >= 0.50f) ? 0.65f : 0.32f;
+    board_draw_card_glow(dr, glow);
     if (slot_key > 0) ui_theme_draw_panel_flares_keyed(dr, -slot_key);
-    BeginBlendMode(BLEND_ADDITIVE);
-    float wash_a = 140.0f + 78.0f * hi + 27.0f * p;
-    if (wash_a > 245.0f) wash_a = 245.0f;
-    DrawRectangleRec(dr, (Color){ base.r, base.g, base.b, (unsigned char)wash_a });
-    if (dr.width > 8.0f && dr.height > 8.0f) {
-        float core_a = 72.0f + 130.0f * hi * (0.65f + 0.35f * p);
-        if (core_a > 235.0f) core_a = 235.0f;
-        DrawRectangleRec((Rectangle){ dr.x + 3.0f, dr.y + 3.0f, dr.width - 6.0f, dr.height - 6.0f },
-                         (Color){ info.r, info.g, info.b, (unsigned char)core_a });
-    }
-    EndBlendMode();
 }
 
 static void draw_action_symbol_icon(const BoardAssets *ba, int sym, float cx, float cy, int armed, float flash) {
