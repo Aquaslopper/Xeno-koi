@@ -58,7 +58,7 @@
   - Verified and locked in gameplay pace, `+10s / -10s` clock balance, frozen between-Wave round score screen, pre-Wave `3 -> 2 -> 1 -> START` countdown with full-width `// WAVE x //` header & left-to-right hand flip at `1`, `30`-MP `Hand 2` deck-glow indicator, `3`-miss-hit Reverse Card Deck anti-farming (`1`-match reset), and `3s` `GAME OVER` -> fade-to-black -> Highscore Ranklist transition.
 - [ ] **4. Full Atrium Plex Spine Integration *(Step-by-Step — Keep `SPEEDCOIN` Button Open During Integration)*:**
   - [x] **4a. Speedcoin & Atrium Plex Stats Integration:** Wire per-run and career Speedcoin / Speedbar / Audio FX / Archive telemetry end-to-end across `SPEEDCOIN` briefing, `LOGFILE`, the Speedcoin Result Screen, and `plexsave.txt` (including restart/abandon/quit persistence) while keeping `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`.
-  - [ ] **4b. Speedcoin Tutorial Game on Month 01 Second Plain Card (`slot 2`, `01-P1 Plain`):** Build the interactive Speedcoin tutorial on the second plain card directly above the `slot 3` Koi-Koi tutorial card on Month 01's spine.
+  - [x] **4b. Speedcoin Tutorial Game on Month 01 Second Plain Card (`slot 2`, `01-P1 Plain`):** Build the interactive Speedcoin tutorial on the second plain card directly above the `slot 3` Koi-Koi tutorial card on Month 01's spine.
   - [ ] **4c. Final Button & Spine Unlock Gating:** Once the `slot 2` tutorial and full spine flow are verified, set `SPEEDCOIN_UNLOCKED_FOR_TESTING = 0` and finalize unlock gating.
 
 ---

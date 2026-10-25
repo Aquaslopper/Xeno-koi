@@ -46,7 +46,17 @@ typedef enum {
     TUT1_PANEL_TRY_COMBO,
     TUT1_PLAY_SAKE,
     TUT1_PANEL_KOI_DECIDE,
-    TUT1_FREE_PLAY
+    TUT1_FREE_PLAY,
+    TUT2_WAIT_START,
+    TUT2_PANEL_CORE,
+    TUT2_WAIT_MOVE4,
+    TUT2_PANEL_SYNC,
+    TUT2_PANEL_PARASITE,
+    TUT2_PLAY_TO_WAVE_END,
+    TUT2_PANEL_HAND2,
+    TUT2_WAIT_SCORE_SCREEN,
+    TUT2_PANEL_NO_HESITATION,
+    TUT2_FREE_PLAY
 } TutorialStep;
 
 static int s_tut_active  = 0;
@@ -815,13 +825,13 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                 static const char * const k_tut_titles[4] = {
                     "TUTORIAL 04 // FINAL VERIFICATION MATCH",
                     "SPECIAL GAME // KK-ADD-10 ACTION CARD AUDIO EFFECT",
-                    "SPECIAL GAME // KK-ADD-10 SPECIAL SPEEDCOIN",
+                    "TUTORIAL 02 // SPEEDCOIN SATURATION PROTOCOL",
                     "TUTORIAL 01 // STANDARD RULES OF KOI-KOI"
                 };
                 static const char * const k_tut_desc1[4] = {
                     "Top card: play a short match to prove everything was understood.",
                     "Third card: special game for the Action Card Audio Effect.",
-                    "Second card: special game for the KK-ADD-10 Speedcoin bar.",
+                    "Second card: 180s Speedcoin saturation tutorial.",
                     "Bottom card: learn floral matching, deck draw, yaku & Koi-Koi."
                 };
                 snprintf(hdr, sizeof(hdr), "MONTH 01  //  %s   [TUTORIAL]", k_month_names[0]);
@@ -1026,6 +1036,23 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (s_active_tab == 0 && (!is_month_unlocked(s_selected_month) || is_card_locked_by_completion(cid))) {
             return ACT_NONE;
         }
+        /* Month 1 Card 3 (second plain card, slot == 2, cid == 2): unscripted Speedcoin tutorial */
+        if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 2) {
+            s_training_active = 0;
+            s_speedcoin_result_view = 0;
+            tut_save_telemetry();
+            s_tut_active       = 1;
+            s_tut_card_id      = cid;
+            s_tut_step         = TUT2_WAIT_START;
+            s_speedcoin_active = 1;
+            plexus_log_push("TUTORIAL // PROTOCOL 02 INITIATED",
+                            "CARD 3 OF 4 : [01-P1 Plain] -- SPEEDCOIN SATURATION PROTOCOL",
+                            "Objective: System Saturation before System Collapse (180s).",
+                            "Follow the Construct prompts across Wave 1, then survive",
+                            "to the end of the run to complete and lock Card 3.");
+            if (out_clicked) *out_clicked = 1;
+            return ACT_START_GAME;
+        }
         /* Month 1 Card 4 (bottom card, slot == 3, cid == 3): Koi-Koi tutorial (replayable any time) */
         if (s_active_tab == 0 && s_selected_month == 0 && s_selected_slot == 3) {
             s_training_active = 0;
@@ -1101,10 +1128,12 @@ int plexus_tutorial_is_active(void) {
 }
 
 void plexus_tutorial_abort(void) {
+    int was_sc_tut = (s_tut_active && s_tut_card_id == 2);
     tut_restore_telemetry(1);
     s_tut_active  = 0;
     s_tut_card_id = -1;
     s_tut_step    = TUT1_NONE;
+    if (was_sc_tut) plexus_speedcoin_abort();
 }
 
 int plexus_training_is_active(void) {
@@ -1181,14 +1210,23 @@ static int tut_step_is_frozen(TutorialStep st) {
             st == TUT1_PANEL_DECK_DRAW ||
             st == TUT1_PANEL_LEFT_AREA ||
             st == TUT1_PANEL_TRY_COMBO ||
-            st == TUT1_PANEL_KOI_DECIDE) ? 1 : 0;
+            st == TUT1_PANEL_KOI_DECIDE ||
+            st == TUT2_PANEL_CORE ||
+            st == TUT2_PANEL_SYNC ||
+            st == TUT2_PANEL_PARASITE ||
+            st == TUT2_PANEL_HAND2 ||
+            st == TUT2_PANEL_NO_HESITATION) ? 1 : 0;
 }
 
 static Rectangle tut_panel_rect_for_step(TutorialStep st) {
-    if (st == TUT1_PANEL_KOI_DECIDE) {
-        return (Rectangle){ 260.0f, 26.0f, 760.0f, 178.0f };
-    }
+    if (st == TUT1_PANEL_KOI_DECIDE) return (Rectangle){ 260.0f, 26.0f, 760.0f, 178.0f };
+    if (st == TUT2_PANEL_NO_HESITATION) return (Rectangle){ 266.0f, 175.0f, 748.0f, 340.0f };
+    if (st >= TUT2_PANEL_CORE && st <= TUT2_PANEL_HAND2) return (Rectangle){ 410.0f, 145.0f, 748.0f, 360.0f };
     return (Rectangle){ 280.0f, 150.0f, 720.0f, 380.0f };
+}
+
+int plexus_tutorial_panel_open(void) {
+    return (s_tut_active && tut_step_is_frozen(s_tut_step)) ? 1 : 0;
 }
 
 static Rectangle tut_continue_rect_for_panel(Rectangle pr) {
@@ -1207,6 +1245,31 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
                                      Vector2 vm, int mouse_pressed, int *out_clicked) {
     if (out_clicked) *out_clicked = 0;
     if (!s_tut_active || !g) return 0;
+
+    if (s_tut_card_id == 2) {
+        if (speed_mode_clock() <= 0.0f) return 0;
+        if (s_tut_step == TUT2_WAIT_START && board_settled && g->phase == PHASE_TURN_HAND && g->current_player == 0)
+            s_tut_step = TUT2_PANEL_CORE;
+        else if (s_tut_step == TUT2_WAIT_MOVE4 && board_settled && g->phase == PHASE_TURN_HAND && g->current_player == 0 && g->hand_count[0] <= 4)
+            s_tut_step = TUT2_PANEL_SYNC;
+        else if (s_tut_step == TUT2_PLAY_TO_WAVE_END && board_settled && g->phase == PHASE_ROUND_END && !speed_mode_can_deal_hand2())
+            s_tut_step = TUT2_PANEL_HAND2;
+        else if (s_tut_step == TUT2_WAIT_SCORE_SCREEN && g->phase == PHASE_ROUND_END && overlay_alpha >= 0.85f)
+            s_tut_step = TUT2_PANEL_NO_HESITATION;
+        if (!tut_step_is_frozen(s_tut_step)) return 0;
+        if (mouse_pressed) {
+            Rectangle pr = tut_panel_rect_for_step(s_tut_step), cr = tut_continue_rect_for_panel(pr);
+            if (CheckCollisionPointRec(vm, pr) || CheckCollisionPointRec(vm, cr)) {
+                if (out_clicked) *out_clicked = 1;
+                if (s_tut_step == TUT2_PANEL_CORE)               s_tut_step = TUT2_WAIT_MOVE4;
+                else if (s_tut_step == TUT2_PANEL_SYNC)          s_tut_step = TUT2_PANEL_PARASITE;
+                else if (s_tut_step == TUT2_PANEL_PARASITE)      s_tut_step = TUT2_PLAY_TO_WAVE_END;
+                else if (s_tut_step == TUT2_PANEL_HAND2)         s_tut_step = TUT2_WAIT_SCORE_SCREEN;
+                else if (s_tut_step == TUT2_PANEL_NO_HESITATION) s_tut_step = TUT2_FREE_PLAY;
+            }
+        }
+        return 1;
+    }
 
     /* Advance non-frozen trigger states */
     if (s_tut_step == TUT1_WAIT_DEAL) {
@@ -1300,7 +1363,26 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     if (!s_tut_active || !tut_step_is_frozen(s_tut_step)) return;
 
     if (s_tut_step != TUT1_PANEL_KOI_DECIDE) {
-        DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 145 });
+        DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, (s_tut_step == TUT2_PANEL_NO_HESITATION) ? 110 : 145 });
+    }
+    if (s_tut_card_id == 2 && s_tut_step != TUT2_PANEL_NO_HESITATION) {
+        float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
+        if (s_tut_step == TUT2_PANEL_CORE || s_tut_step == TUT2_PANEL_SYNC || s_tut_step == TUT2_PANEL_PARASITE) {
+            Rectangle hl = (s_tut_step == TUT2_PANEL_CORE) ? (Rectangle){ 9.0f, 9.0f, 261.0f, 205.0f } :
+                           (s_tut_step == TUT2_PANEL_SYNC) ? (Rectangle){ 1157.0f, 659.0f, 118.0f, 46.0f } :
+                                                             (Rectangle){ 326.0f, 258.0f, 84.0f, 132.0f };
+            Color hc = (s_tut_step == TUT2_PANEL_PARASITE) ? COLOR_RED : COLOR_PHOSPHOR;
+            DrawRectangleLinesEx(hl, 3.0f, hc);
+            hc.a = (unsigned char)(58.0f * pulse);
+            DrawRectangleRec(hl, hc);
+        } else if (s_tut_step == TUT2_PANEL_HAND2) {
+            Rectangle sr = { 330.0f, 262.0f, 76.0f, 124.0f }, fb = { 326.0f, 258.0f, 84.0f, 132.0f };
+            board_draw_card_glow(sr, 0.72f + 0.28f * pulse);
+            if (ba) board_draw_card_back(ba, sr);
+            DrawRectangleLinesEx(fb, 2.0f, COLOR_PHOSPHOR);
+            ui_theme_set_panel_flare_glow(fb, 1.0f);
+            ui_theme_draw_panel_flares(fb);
+        }
     }
 
     Rectangle pr = tut_panel_rect_for_step(s_tut_step);
@@ -1308,7 +1390,8 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     DrawRectangleRec(pr, PLEXUS_PANEL_BG);
     ui_draw_panel_border(pr, COLOR_PHOSPHOR);
 
-    float x = pr.x + 26.0f;
+    float pad = (s_tut_card_id == 2) ? 20.0f : 26.0f;
+    float x = pr.x + pad;
     float y = pr.y + 18.0f;
 
     if (s_tut_step == TUT1_PANEL_INTRO) {
@@ -1441,7 +1524,51 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                           x, y + 46.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
                           "select \"SHOBU (BANK & END)\" to bank your points and win the round.",
-                          x, y + 74.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                          x, y + 74.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    } else if (s_tut_step == TUT2_PANEL_CORE) {
+        draw_text_snapped(font_body, "> Objective: System Saturation before System Collapse.", x, y, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - pad), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_title, "// THE CORE PRINCIPLE //", x, y + 52.0f, 20.0f, 1.3f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "You are playing against the death of the machine. 180 seconds remain.", x, y + 96.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "No opponent. Just the Construct and your synapses.", x, y + 128.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    } else if (s_tut_card_id == 2) {
+        static const struct { TutorialStep st; const char *hdr; int hi; const char *ln[8]; } k_p2[4] = {
+            { TUT2_PANEL_SYNC, "// SYNCHRONIZATION //", 2, {
+                "Every single move demands absolute neural precision.", "",
+                "- The SPEEDBAR extracts your reaction speed (1.00s limit).",
+                "- If you MISPLACE a card or hesitate too long:",
+                "  -> SHOCK: -10 seconds drained from your remaining lifetime (timer).",
+                "  -> FRACTURE: Your \"Perfect Serie\" breaks instantly.", NULL, NULL } },
+            { TUT2_PANEL_PARASITE, "// ANTI-PARASITE PROTOCOL //", 7, {
+                "The Construct detects blind firing and reckless harvesting.", "",
+                "- Three consecutive FAILURES (Miss Hits) activate INVERSION.",
+                "- The Atrium constricts:",
+                "  Instead of dispensing new fragments, the STOCK pile ({330, 262})",
+                "  CONSUMES an already captured field card back into its maw.", "",
+                "- Land ONE precise match to calm the system and restore normal stock flow." } },
+            { TUT2_PANEL_HAND2, "// THE SECOND MATURATION (HAND 2) //", 2, {
+                "A standard cycle (Wave) expires after 8 moves. Unless you feed the core.", "",
+                "- 30 SPEEDCOINS within a single Wave.",
+                "- Upon hitting this threshold, the STOCK PILE begins to GLOW.",
+                "- Rotating phosphor dots crawl around the pasteboard matrix.", NULL, NULL, NULL } },
+            { TUT2_PANEL_NO_HESITATION, "// NO HESITATION //", 4, {
+                "In this mode, there is no \"KOI-KOI\" and no \"SHOBU\".", "",
+                "- The Construct does not deliberate. It only eats time.",
+                "- Your Yaku (combinations) form organically in the background.",
+                "- They are harvested and turned into points only when the Wave dies.", NULL, NULL, NULL } }
+        };
+        for (int p = 0; p < 4; p++) {
+            if (k_p2[p].st != s_tut_step) continue;
+            draw_text_snapped(font_title, k_p2[p].hdr, x, y, 20.0f, 1.3f, COLOR_PHOSPHOR);
+            DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - pad), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
+            float ly = y + 48.0f;
+            for (int l = 0; l < 8 && k_p2[p].ln[l]; l++) {
+                if (k_p2[p].ln[l][0] == '\0') { ly += 12.0f; continue; }
+                draw_text_snapped(font_body, k_p2[p].ln[l], x, ly, 18.0f, 1.2f,
+                                  (l == k_p2[p].hi) ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
+                ly += 29.0f;
+            }
+        }
     }
 
     draw_plexus_btn(cr, "[CONTINUE]", 16, vm, CheckCollisionPointRec(vm, pr));
@@ -1541,8 +1668,16 @@ void plexus_speedcoin_setup_wave(GameState *g, int wave_num) {
     memcpy(g->stock, &deck[22], 26 * sizeof(int));
     g->phase = PHASE_TURN_HAND;
 
-    if (w <= 1) speed_mode_begin();
-    else speed_mode_begin_wave(w);
+    if (w <= 1) {
+        if (s_tut_active && s_tut_card_id == 2) {
+            tut_save_telemetry();
+            tut_restore_telemetry(0);
+            s_tut_step = TUT2_WAIT_START;
+        }
+        speed_mode_begin();
+    } else {
+        speed_mode_begin_wave(w);
+    }
 }
 
 int plexus_speedcoin_deal_hand2(GameState *g) {
@@ -1669,6 +1804,30 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
     }
     plexus_log_push("SPEEDCOIN // RUN SUMMARY", title, l1, l2,
                     "Review Speedbar telemetry below or launch another 180s run.");
+
+    if (s_tut_active && s_tut_card_id == 2) {
+        s_tut_telemetry_saved = 0;
+        if (s_tut_step == TUT2_FREE_PLAY) {
+            int was_done = (int)((s_finished_cards_mask >> 2) & 1ULL);
+            s_finished_cards_mask |= (1ULL << 2);
+            if (!was_done && is_month_completed(0)) {
+                plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED",
+                                "MONTH 01 COMPLETE -- MONTH 02 UNLOCKED!",
+                                "All 4 cards of this month are finished and locked.",
+                                "The next month on the conditioning spine is now active.",
+                                "Use the up/down arrows to advance to the newly unlocked month.");
+            } else if (!was_done) {
+                plexus_log_push("STORY // TUTORIAL CARD 2 COMPLETED",
+                                "[01-P1 Plain] -- SPEEDCOIN PROTOCOL COMPLETED",
+                                "Entity 001 completed Speedcoin saturation conditioning.",
+                                "Card 3 of Month 01 is finished and locked on the spine.",
+                                "Select another unfinished card on the spine to continue.");
+            }
+        }
+        s_tut_active  = 0;
+        s_tut_card_id = -1;
+        s_tut_step    = TUT1_NONE;
+    }
 
     s_speedcoin_active = 0;
     s_speedcoin_result_view = 1;

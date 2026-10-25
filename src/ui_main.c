@@ -599,6 +599,7 @@ static void update_draw_frame(void) {
                 combo_player = -1; is_paused = 0; audio_play_click(&audio);
             }
         } else if (screen == SCREEN_GAME && !is_paused && !drag.on && speedcoin_gameover_timer <= 0.0f &&
+                   !plexus_tutorial_panel_open() &&
                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && combos_panel_hit(vm) >= 0 &&
                    g.phase != PHASE_DEALER_SELECT) {
             combo_player = combos_panel_hit(vm); combo_page = 0;
@@ -711,6 +712,7 @@ static void update_draw_frame(void) {
                     else if (act == ACT_ABANDON_MATCH) {
                         replay_rec_abort(); confirm_restart = 0;
                         if (plexus_tutorial_is_active()) {
+                            speedcoin_gameover_timer = 0.0f;
                             plexus_tutorial_abort();
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else if (plexus_speedcoin_is_active()) {
@@ -1085,13 +1087,13 @@ static void update_draw_frame(void) {
 
     if (screen == SCREEN_GAME && !replay_pb_active() && !is_paused) taunt_update(dt);
 
-    card_tooltip_begin(screen == SCREEN_GAME && !replay_pb_active() &&
+    card_tooltip_begin(!plexus_tutorial_panel_open() && screen == SCREEN_GAME && !replay_pb_active() &&
                        (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY) &&
                        !is_paused && !drag.on && !cinematic_is_active() &&
                        transition_dir == 0 && transition_alpha <= 0.0f && round_banner_timer <= 0.0f &&
                        !(anim.active && anim.type == ANIM_BANNER) &&
                        IsCursorOnScreen() && IsWindowFocused(), vm);
-    capture_info_begin(screen == SCREEN_GAME && !overlay_active && !drag.on &&
+    capture_info_begin(!plexus_tutorial_panel_open() && screen == SCREEN_GAME && !overlay_active && !drag.on &&
                        !cinematic_is_active() && transition_dir == 0 && transition_alpha <= 0.0f &&
                        round_banner_timer <= 0.0f && !(anim.active && anim.type == ANIM_BANNER) &&
                        IsCursorOnScreen() && IsWindowFocused(), vm);
@@ -1193,7 +1195,7 @@ static void update_draw_frame(void) {
         DrawTextureRec(overlay_canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H }, (Vector2){ 0, 0 }, (Color){ 255, 255, 255, (unsigned char)(oa * 255.0f) });
         EndTextureMode();
     }
-    if (screen == SCREEN_GAME && plexus_tutorial_is_active()) {
+    if (!is_paused && screen == SCREEN_GAME && plexus_tutorial_is_active()) {
         BeginTextureMode(canvas);
         plexus_tutorial_draw_panel(&assets, vm);
         EndTextureMode();
