@@ -197,6 +197,7 @@ static int pick_match_track(int next) {
 }
 
 static void begin_new_match(int trk) {
+    if (frame_count > 0 && !plexus_tutorial_is_active()) plexus_save();
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
     replay_rec_abort();
     anim_init(&anim); motion_init(); speed_bar_reset(); memset(&drag, 0, sizeof(drag));
@@ -507,7 +508,7 @@ static void update_draw_frame(void) {
                 else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
                 else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
                 else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); plexus_save(); saved_timer = 2.0f; }
-                else if (act == ACT_QUIT) { quit_requested = 1; return; }
+                else if (act == ACT_QUIT) { plexus_save(); quit_requested = 1; return; }
             }
         } else if (screen == SCREEN_ATRIUM) {
             if (IsKeyPressed(KEY_ESCAPE)) {
@@ -556,7 +557,7 @@ static void update_draw_frame(void) {
                     if (act != ACT_NONE) audio_play_click(&audio);
                     if (act == ACT_GOTO_MENU) start_hub_transition(SCREEN_START, 0, (Rectangle){ 860, 610, 200, 44 }, "BACK", 20);
                     else if (act == ACT_SAVE_LOG) { storage_write_report(&stats, &history); log_timer = 2.0f; }
-                    else if (act == ACT_RESET_STATS) storage_reset_stats(&stats);
+                    else if (act == ACT_RESET_STATS) { storage_reset_stats(&stats); memset(&history, 0, sizeof(history)); }
                 }
             }
 #ifndef __EMSCRIPTEN__
@@ -719,8 +720,10 @@ static void update_draw_frame(void) {
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else if (plexus_training_is_active()) {
                             plexus_training_stop();
+                            plexus_save();
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else {
+                            plexus_save();
                             start_transition(SCREEN_START, 3, 0);
                         }
                     }
@@ -1316,6 +1319,7 @@ int main(int argc, char **argv) {
     while (!WindowShouldClose() && !quit_requested) update_draw_frame();
 #endif
 
+    plexus_save();
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);

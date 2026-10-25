@@ -30,9 +30,9 @@
 - [x] **2. Bottom Bar Controls (`SAVE & BACK` | `LOGFILE` | `SPEEDCOIN` | `ACTION CARD` | `TRAINING`):**
   - **Locked Minigame Buttons (`SPEEDCOIN`, `ACTION CARD`):** Rendered in a smooth, non-flashy dark-wine / muted crimson locked state (`draw_plexus_locked_btn()`) until unlocked.
   - **`TRAINING` Normal Non-Campaign Match:** Clicking `TRAINING` displays the top briefing panel with placeholder info and the `START` button underneath, which starts a normal match using Option menu settings with no campaign awards (no clearance coins, sector unlocks, or campaign banners).
-- [ ] **3. Spine Briefings & Month 02 Alignment:**
-  - Month 01 (`January // Pine`): Tutorial spine (Card 4 playable & replayable; Cards 1–3 beta lock-on-start until built).
-  - Month 02 (`February // Plum`): Assign as the upcoming **Speedcoin** minigame month (`KK-ADD-10`), replacing outdated Month 04 gating assumptions once built.
+- [ ] **3. Spine Briefings & Month 01 Tutorial Spine:**
+  - Month 01 (`January // Pine`): 4-card tutorial spine (`slot 3` bottom `01-P2 Plain` Standard Rules of Koi-Koi playable & replayable; `slot 2` second plain `01-P1 Plain` Speedcoin tutorial; `slot 1` Action Card Audio tutorial; `slot 0` Final Verification Match).
+  - Month 02–12 remain `[PLACEHOLDER]` beta lock-on-start cards until built.
 
 ---
 
@@ -54,10 +54,12 @@
 - [x] **2. Build Groundwork & Open `SPEEDCOIN` Button for Testing:**
   - Implement Speedcoin on the real `SCREEN_GAME` / `ui_speed.c` / `ui_board.c` / `ui_combos.c` / `ui_plexus.c` pipeline without touching protected core files.
   - Temporarily unlock the bottom-bar `SPEEDCOIN` button (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`) so the mode can be launched and tested directly from Atrium Plex.
-- [ ] **3. Playtesting & Fine-Tuning:**
-  - Test gameplay pace, `+10s / -10s` clock balance, Wave transitions, `Hand 2` deck-glow clarity, and the Ranklist + Logfile-stats result screen; iterate rules and feel until locked in.
-- [ ] **4. Full Atrium Plex Spine Integration:**
-  - Once fine-tuning is complete and approved, disable the testing unlock (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 0`) and wire full spine card progression, briefings, and unlock gating.
+- [x] **3. Playtesting & Fine-Tuning:**
+  - Verified and locked in gameplay pace, `+10s / -10s` clock balance, frozen between-Wave round score screen, pre-Wave `3 -> 2 -> 1 -> START` countdown with full-width `// WAVE x //` header & left-to-right hand flip at `1`, `30`-MP `Hand 2` deck-glow indicator, `3`-miss-hit Reverse Card Deck anti-farming (`1`-match reset), and `3s` `GAME OVER` -> fade-to-black -> Highscore Ranklist transition.
+- [ ] **4. Full Atrium Plex Spine Integration *(Step-by-Step — Keep `SPEEDCOIN` Button Open During Integration)*:**
+  - [x] **4a. Speedcoin & Atrium Plex Stats Integration:** Wire per-run and career Speedcoin / Speedbar / Audio FX / Archive telemetry end-to-end across `SPEEDCOIN` briefing, `LOGFILE`, the Speedcoin Result Screen, and `plexsave.txt` (including restart/abandon/quit persistence) while keeping `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`.
+  - [ ] **4b. Speedcoin Tutorial Game on Month 01 Second Plain Card (`slot 2`, `01-P1 Plain`):** Build the interactive Speedcoin tutorial on the second plain card directly above the `slot 3` Koi-Koi tutorial card on Month 01's spine.
+  - [ ] **4c. Final Button & Spine Unlock Gating:** Once the `slot 2` tutorial and full spine flow are verified, set `SPEEDCOIN_UNLOCKED_FOR_TESTING = 0` and finalize unlock gating.
 
 ---
 

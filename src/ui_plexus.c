@@ -77,12 +77,17 @@ static int s_speedcoin_active = 0;
 static int s_speedcoin_result_view = 0;
 static SpeedcoinRankEntry s_sc_ranks[SPEEDCOIN_RANK_MAX];
 static int s_sc_rank_count = 0;
+static int s_sc_runs = 0;
+static int s_sc_best_wave = 0;
 static int s_sc_last_rank_idx = -1;
 static int s_sc_last_score = 0;
 static int s_sc_last_waves = 1;
 static int s_sc_last_coins = 0;
 static int s_sc_last_bonus = 0;
 static int s_sc_last_streak = 0;
+static int s_sc_last_drops = 0;
+static float s_sc_last_avg_sec = 0.0f;
+static float s_sc_last_avg_cov = 0.0f;
 
 static void tut_save_telemetry(void) {
     if (s_tut_telemetry_saved) return;
@@ -307,7 +312,12 @@ void plexus_load(void) {
     s_speedcoin_active = 0;
     s_speedcoin_result_view = 0;
     s_sc_rank_count = 0;
+    s_sc_runs = 0;
+    s_sc_best_wave = 0;
     s_sc_last_rank_idx = -1;
+    s_sc_last_drops = 0;
+    s_sc_last_avg_sec = 0.0f;
+    s_sc_last_avg_cov = 0.0f;
     speed_mode_stop();
     s_log_count = 0;
     s_log_cursor = 0;
@@ -394,10 +404,20 @@ void plexus_load(void) {
             } else if (strcmp(k, "audio_hold") == 0) {
                 float x = strtof(v, NULL);
                 if (x >= 0.0f && x < 1e30f) aud_hold = x;
+            } else if (strcmp(k, "sc_runs") == 0) {
+                int r = atoi(v);
+                if (r >= 0) s_sc_runs = r;
+            } else if (strcmp(k, "sc_best_wave") == 0) {
+                int bw = atoi(v);
+                if (bw >= 0) s_sc_best_wave = bw;
             }
         }
     }
     fclose(f);
+    if (s_sc_runs < s_sc_rank_count) s_sc_runs = s_sc_rank_count;
+    for (int i = 0; i < s_sc_rank_count; i++) {
+        if (s_sc_ranks[i].waves > s_sc_best_wave) s_sc_best_wave = s_sc_ranks[i].waves;
+    }
     if (has_read_mask) {
         for (int i = 0; i < s_log_count && i < 32; i++) {
             s_log_entries[i].read = (int)((log_read_mask >> i) & 1UL);
@@ -452,12 +472,15 @@ void plexus_save(void) {
             "speed_lifetime_mp=%d\n"
             "audio_triggers=%d\n"
             "audio_peak=%.4f\n"
-            "audio_hold=%.4f\n",
+            "audio_hold=%.4f\n"
+            "sc_runs=%d\n"
+            "sc_best_wave=%d\n",
             s_finished_cards_mask & ((1ULL << 48) - 1ULL),
             s_selected_month, s_selected_slot,
             log_read_mask,
             drops, t_sum, c_sum, best_strk, life_mp,
-            aud_trig, aud_peak, aud_hold);
+            aud_trig, aud_peak, aud_hold,
+            s_sc_runs, s_sc_best_wave);
     for (int i = 0; i < s_sc_rank_count && i < SPEEDCOIN_RANK_MAX; i++) {
         fprintf(f, "sc_rank=%d,%d,%d\n",
                 s_sc_ranks[i].score, s_sc_ranks[i].waves, s_sc_ranks[i].coins);
@@ -611,13 +634,18 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
         snprintf(row1, sizeof(row1), "AVG SPEED   :  --.--s  [0 DROPS]");
         snprintf(row2, sizeof(row2), "HOW CLOSE   :  --.-%% MATCH OVERLAP");
     }
-    snprintf(row3, sizeof(row3), "SPEEDCOIN   :  %d MP  [BEST x%d]", life_mp, best_strk);
+    if (s_sc_rank_count > 0) {
+        snprintf(row3, sizeof(row3), "SPEEDCOIN   :  HI %d  [%d MP / x%d]",
+                 s_sc_ranks[0].score, life_mp, best_strk);
+    } else {
+        snprintf(row3, sizeof(row3), "SPEEDCOIN   :  HI --  [%d MP / x%d]", life_mp, best_strk);
+    }
     snprintf(row4, sizeof(row4), "AUDIO FX    :  %.0f%% PEAK  [%.1fs / %d]", aud_peak, aud_hold, aud_trig);
     if (st) {
-        snprintf(row5, sizeof(row5), "[%02d/48 CARDS]  [%dW-%dL]  [KOI-%d]",
-                 done_cards, st->matches_won, st->matches_lost, st->koi_calls_you);
+        snprintf(row5, sizeof(row5), "[%02d/48]  [%dW-%dL]  [KOI-%d]  [SC-%d]",
+                 done_cards, st->matches_won, st->matches_lost, st->koi_calls_you, s_sc_runs);
     } else {
-        snprintf(row5, sizeof(row5), "[%02d/48 CARDS]  [0W-0L]  [KOI-0]", done_cards);
+        snprintf(row5, sizeof(row5), "[%02d/48]  [0W-0L]  [KOI-0]  [SC-%d]", done_cards, s_sc_runs);
     }
 
     float lx = box.x + 14.0f;
@@ -774,7 +802,8 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         const char *line3 = "";
         int card_id = s_selected_month * 4 + s_selected_slot;
         int card_locked_done = (s_active_tab == 0) && is_card_locked_by_completion(card_id);
-        char sc_best_line[96];
+        char sc_line2[96];
+        char sc_line3[96];
         if (s_active_tab == 0) {
             if (!month_unlocked) {
                 snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s   [LOCKED]", s_selected_month + 1, k_month_names[s_selected_month]);
@@ -810,15 +839,31 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                 line3 = "each card face down and unlock the next month.";
             }
         } else if (s_active_tab == 2) {
+            int drops = speed_bar_graded_drops();
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
-            snprintf(sub, sizeof(sub), "SOLO HIGHSCORE  //  180s CLOCK");
-            line1 = "14 field (2x7) + 8 hand cards. No CPU / Koi-Koi.";
-            line2 = "-10s drain/miss; +10s per 10 MP; 30 MP lights deck.";
-            if (s_sc_rank_count > 0) {
-                snprintf(sc_best_line, sizeof(sc_best_line),
-                         "Best #01: %d PTS [W-%02d // %d MP] -- START.",
-                         s_sc_ranks[0].score, s_sc_ranks[0].waves, s_sc_ranks[0].coins);
-                line3 = sc_best_line;
+            snprintf(sub, sizeof(sub), "SOLO HIGHSCORE  //  180s CLOCK   [RUNS: %d]", s_sc_runs);
+            line1 = "14 field (2x7) + 8 hand. +10s/10 MP, -10s miss.";
+            if (s_sc_rank_count >= 2) {
+                snprintf(sc_line2, sizeof(sc_line2),
+                         "#01: %d PTS [W-%02d]   #02: %d PTS [W-%02d]",
+                         s_sc_ranks[0].score, s_sc_ranks[0].waves,
+                         s_sc_ranks[1].score, s_sc_ranks[1].waves);
+                line2 = sc_line2;
+            } else if (s_sc_rank_count == 1) {
+                snprintf(sc_line2, sizeof(sc_line2),
+                         "Best #01: %d PTS [W-%02d / %d MP]  [Best W-%02d]",
+                         s_sc_ranks[0].score, s_sc_ranks[0].waves,
+                         s_sc_ranks[0].coins, s_sc_best_wave);
+                line2 = sc_line2;
+            } else {
+                line2 = "-10s drain/miss; 30 MP Hand 2; 3 misses = Reverse Deck.";
+            }
+            if (drops > 0) {
+                snprintf(sc_line3, sizeof(sc_line3),
+                         "Avg %.2fs  //  %.1f%% overlap  //  %d MP [x%d]",
+                         speed_bar_avg_drop_seconds(), speed_bar_avg_cover_pct(),
+                         speed_bar_lifetime_minipoints(), speed_bar_best_streak());
+                line3 = sc_line3;
             } else {
                 line3 = "Press START to launch a 180s highscore run.";
             }
@@ -1584,6 +1629,9 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
     s_sc_last_coins = (run_coins > 0) ? run_coins : 0;
     s_sc_last_bonus = (run_bonus_pts > 0) ? run_bonus_pts : 0;
     s_sc_last_streak = (run_best_streak > 0) ? run_best_streak : 0;
+    speed_mode_get_run_stats(&s_sc_last_drops, &s_sc_last_avg_sec, &s_sc_last_avg_cov);
+    s_sc_runs++;
+    if (s_sc_last_waves > s_sc_best_wave) s_sc_best_wave = s_sc_last_waves;
     s_sc_last_rank_idx = -1;
 
     int ins = s_sc_rank_count;
@@ -1697,14 +1745,22 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
              (int)(run_box.x + run_box.width - 16.0f), (int)run_box.y + 42, COLOR_PHOSPHOR_DIM);
     int combo_pts = s_sc_last_score - s_sc_last_bonus;
     if (combo_pts < 0) combo_pts = 0;
+    int bw = (s_sc_best_wave > s_sc_last_waves) ? s_sc_best_wave : s_sc_last_waves;
     draw_text_snapped(font_body, TextFormat("COMBO POINTS   :  %d PTS  (KK-ADD-10)", combo_pts),
-                      run_box.x + 18.0f, run_box.y + 56.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                      run_box.x + 18.0f, run_box.y +  50.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     draw_text_snapped(font_body, TextFormat("SPEEDCOINS     :  %d MP  (+%d BONUS PTS)", s_sc_last_coins, s_sc_last_bonus),
-                      run_box.x + 18.0f, run_box.y + 92.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_text_snapped(font_body, TextFormat("WAVES REACHED  :  WAVE %d", s_sc_last_waves),
-                      run_box.x + 18.0f, run_box.y + 128.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, TextFormat("RUN BEST SERIE :  x%d PERFECT DROPS", s_sc_last_streak),
-                      run_box.x + 18.0f, run_box.y + 164.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                      run_box.x + 18.0f, run_box.y +  82.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("WAVES REACHED  :  WAVE %d  [BEST W-%02d]", s_sc_last_waves, bw),
+                      run_box.x + 18.0f, run_box.y + 114.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("RUN BEST SERIE :  x%d PERFECT  [%d DROPS]", s_sc_last_streak, s_sc_last_drops),
+                      run_box.x + 18.0f, run_box.y + 146.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    if (s_sc_last_drops > 0) {
+        draw_text_snapped(font_body, TextFormat("RUN SPEED/ACC  :  %.2fs  //  %.1f%% OVERLAP", s_sc_last_avg_sec, s_sc_last_avg_cov),
+                          run_box.x + 18.0f, run_box.y + 178.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    } else {
+        draw_text_snapped(font_body, "RUN SPEED/ACC  :  --.--s  //  --.-% OVERLAP",
+                          run_box.x + 18.0f, run_box.y + 178.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+    }
 
     /* Right Bottom Sub-Box: Exact Logfile Stats Box */
     Rectangle log_stats_r = { 656.0f, 394.0f, 464.0f, 208.0f };

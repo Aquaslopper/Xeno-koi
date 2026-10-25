@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex roadmap update & Phase 3 Step 4a: full Speedcoin & Atrium Plex stats integration (25 October 2026)
+
+- Updated `plexus/roadmap_plexus.md` to mark Phase 3 Step 3 (`Playtesting & Fine-Tuning`) complete and split Phase 3 Step 4 (`Full Atrium Plex Spine Integration`) into ordered steps (`4a` Stats integration with `SPEEDCOIN` button kept open, `4b` Speedcoin tutorial game on Month 01's second plain card `slot 2` / `01-P1 Plain` above the `slot 3` Koi-Koi tutorial, `4c` final button unlock gating).
+- Integrated end-to-end Speedcoin and Atrium Plex stats across `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_plexus.c`, and `src/ui_main.c` (`SPEEDCOIN_UNLOCKED_FOR_TESTING` kept at `1` per maintainer directive):
+  - **Per-Run Speedbar Telemetry (`src/ui_speed.*`):** Added `s_sc_run_drops`, `s_sc_run_time_sum`, `s_sc_run_cover_sum`, and `speed_mode_get_run_stats()` so each Speedcoin run records its own drop count, average reaction speed, and match overlap percentage alongside lifetime telemetry.
+  - **Persistent Career Speedcoin Stats (`src/ui_plexus.c` / `plexsave.txt`):** Added `sc_runs` and `sc_best_wave` to `plexsave.txt` (with backwards-compatible self-healing from existing `sc_rank=` entries), wired `HI` score and `[SC-%d]` run count into `draw_logfile_stats_box()` (`LOGFILE` & Speedcoin Result Screen), added per-run speed/overlap + best wave to `THIS RUN // SCORE BREAKDOWN`, and surfaced live `#01`/`#02` ranklist, run count, and Speedbar averages on the Atrium Plex `SPEEDCOIN` briefing panel.
+  - **Telemetry Persistence & Reset Hygiene (`src/ui_main.c`):** Added `plexus_save()` flushes on match restart (`R` / `RESTART MATCH`, excluding Tutorial), `ABANDON MATCH`, `QUIT`, and clean window shutdown so live Speedbar and Audio FX telemetry is never lost, and cleared in-memory `history` on `RESET STATS`.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` and `gcc -std=c11 -O2 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./build.sh test` (`500` full matches), `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, `ASan + UBSan` stats persistence & isolation harness (per-run vs lifetime speed/overlap/MP/streak, `sc_runs`/`sc_best_wave`/`sc_rank` round-trip in `plexsave.txt`, backwards-compatible legacy `plexsave.txt` load, Tutorial telemetry isolation), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `plexus/roadmap_plexus.md`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_plexus.c`, `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `src/ui_input.c`, `DEUS` mode, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex & Speedcoin playtest fine-tuning step 3: mutually exclusive button/card glow, face-down hand reveal at countdown `1`, and anti-farming Reverse Card Deck (25 October 2026)
 
 - Applied 3 playtest fine-tuning updates across `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_motion.h`, `src/ui_motion.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_board.c`, and `src/ui_main.c` with zero shared-signature changes:
