@@ -107,7 +107,7 @@ int   speed_mode_wave(void) { return (s_sc_wave > 0) ? s_sc_wave : 1; }
 int   speed_mode_run_best_streak(void) { return s_sc_run_best_streak; }
 
 int speed_mode_deck_glow(void) {
-    return (s_sc_active && !s_sc_hand2_dealt && (s_total - s_sc_wave_start_mp) >= 50) ? 1 : 0;
+    return (s_sc_active && !s_sc_hand2_dealt && (s_total - s_sc_wave_start_mp) >= SPEEDCOIN_HAND2_MP) ? 1 : 0;
 }
 
 int speed_mode_can_deal_hand2(void) {

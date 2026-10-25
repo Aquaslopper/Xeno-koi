@@ -301,28 +301,34 @@ void cinematic_draw(void) {
     if (alpha <= 0.001f) return;
 
     const char *title;
+    const char *sub;
     char buf[64];
     char sub_buf[48];
     if (s_cinematic_countdown) {
         float elapsed = s_cinematic_duration - s_cinematic_timer;
         title = (elapsed < 1.0f) ? "3" : (elapsed < 2.0f) ? "2" : (elapsed < 3.0f) ? "1" : "START";
+        snprintf(sub_buf, sizeof(sub_buf), "// WAVE %d //", s_cinematic_round);
+        sub = sub_buf;
     } else if (s_cinematic_round <= 1) {
         title = "MATCH START";
+        sub = "// NEURAL LINK ESTABLISHED //";
     } else {
         snprintf(buf, sizeof(buf), "ROUND %d START", s_cinematic_round);
         title = buf;
+        sub = "// DECK SHUFFLED & DEALT //";
     }
 
     const float font_size = 42.0f;
     const float spacing = 1.8f;
     Vector2 title_size = MeasureTextEx(font_title, title, font_size, spacing);
+    Vector2 cd_sub_size = s_cinematic_countdown ? MeasureTextEx(font_title, sub, font_size, spacing) : (Vector2){ 0, 0 };
     int tw = (int)ceilf(title_size.x);
     int pad_x = 54;
     int pad_y = 24;
-    int box_w = s_cinematic_countdown ? 280 : (tw + pad_x * 2);
+    int box_w = s_cinematic_countdown ? (int)ceilf(cd_sub_size.x) : (tw + pad_x * 2);
     int box_h = (int)font_size + pad_y * 2;
     int box_x = (CANVAS_W - box_w) / 2;
-    int box_y = (CANVAS_H - box_h) / 2 - 20;
+    int box_y = s_cinematic_countdown ? ((CANVAS_H - (box_h + 14 + (int)font_size)) / 2) : ((CANVAS_H - box_h) / 2 - 20);
 
     Rectangle box = { (float)box_x, (float)box_y, (float)box_w, (float)box_h };
 
@@ -359,19 +365,20 @@ void cinematic_draw(void) {
     DrawTextEx(font_title, title, (Vector2){ tx, (float)(box_y + pad_y) },
                font_size, spacing, text_col);
 
-    const char *sub;
     if (s_cinematic_countdown) {
-        snprintf(sub_buf, sizeof(sub_buf), "// WAVE %d //", s_cinematic_round);
-        sub = sub_buf;
+        Color sub_col = col_base;
+        sub_col.a = (unsigned char)(235 * alpha);
+        DrawTextEx(font_title, sub,
+                   (Vector2){ floorf((CANVAS_W - cd_sub_size.x) / 2.0f), floorf((float)(box_y + box_h + 14)) },
+                   font_size, spacing, sub_col);
     } else {
-        sub = (s_cinematic_round <= 1) ? "// NEURAL LINK ESTABLISHED //" : "// DECK SHUFFLED & DEALT //";
+        const float sub_size = 14.0f;
+        const float sub_spacing = 1.2f;
+        Vector2 sub_measure = MeasureTextEx(font_body, sub, sub_size, sub_spacing);
+        Color sub_col = col_dim;
+        sub_col.a = (unsigned char)(210 * alpha);
+        DrawTextEx(font_body, sub,
+                   (Vector2){ floorf((CANVAS_W - sub_measure.x) / 2.0f), floorf((float)(box_y + box_h + 10)) },
+                   sub_size, sub_spacing, sub_col);
     }
-    const float sub_size = 14.0f;
-    const float sub_spacing = 1.2f;
-    Vector2 sub_measure = MeasureTextEx(font_body, sub, sub_size, sub_spacing);
-    Color sub_col = col_dim;
-    sub_col.a = (unsigned char)(210 * alpha);
-    DrawTextEx(font_body, sub,
-               (Vector2){ floorf((CANVAS_W - sub_measure.x) / 2.0f), floorf((float)(box_y + box_h + 10)) },
-               sub_size, sub_spacing, sub_col);
 }

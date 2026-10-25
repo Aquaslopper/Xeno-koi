@@ -7,6 +7,18 @@
 ## Status Summary
 ## Latest completed work
 
+### Speedcoin playtest fine-tuning step 2: full-width `// WAVE x //` header, `3s` `GAME OVER` banner -> fade-to-black -> highscore transition, scoreboard exit flash fix, and `30`-MP `Hand 2` threshold (25 October 2026)
+
+- Applied 4 playtest fine-tuning updates across `src/ui_motion.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_plexus.c`, and `src/ui_main.c` with zero shared-signature changes:
+  1. **`// WAVE x //` Matched to Countdown Box Size (`src/ui_motion.c`):** Rendered `// WAVE %d //` in `font_title` at `42px` (`1.8` spacing) and sized the countdown frame width directly to `MeasureTextEx(font_title, sub, 42.0f, 1.8f).x` so `// WAVE x //` and the countdown box share the exact same width and title scale.
+  2. **`3.0s` `GAME OVER` Banner -> Fade to Black -> Highscore List (`src/ui_main.c`, `src/ui_plexus.c`):** Added `speedcoin_gameover_timer = 3.0f` when `speed_mode_clock()` reaches `0.0f`, holding the centered `GAME OVER` banner (`screens_draw_banner("GAME OVER")`) over the frozen Speedcoin table for `3.0s` before banking the run and fading to black into `plexus_draw_speedcoin_result`.
+  3. **Eliminated `"VICTORY!"` Flash After Scoreboard (`src/ui_plexus.c`, `src/ui_main.c`):** Kept `s_speedcoin_result_view` (`plexus_speedcoin_result_active()`) and `s_sc_active` alive throughout `TRANS_OUT_DUR` fade-to-black and cleared them behind full black at `transition_dir == 2`, preventing `draw_hub_screen_state` from falling back to `screens_draw_match_result` (`"VICTORY!"`) when leaving the scoreboard.
+  4. **Lowered Second-Hand Threshold from `50` to `30` Speedcoins (`src/ui_speed.h`, `src/ui_speed.c`, `src/ui_plexus.c`, `src/ui_main.c`):** Set `SPEEDCOIN_HAND2_MP = 30` so earning `30` Speedcoins within a Wave illuminates the Stock deck and deals `Hand 2`.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` and `gcc -std=c11 -O2 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./build.sh test` (`500` full matches), `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, `ASan + UBSan` Step 2 verification harness (`30`-MP `Hand 2` gate, `// WAVE x //` exact box-width match, scoreboard exit persistence), TTF glyph-width check, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_motion.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_plexus.c`, `src/ui_main.c`, `plexus/speedcoin_rule.md`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `src/ui_input.c`, `DEUS` mode, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Speedcoin playtest fine-tuning step 1: between-wave round score screen, timer freeze, and pre-wave `3 -> 2 -> 1 -> START` countdown (25 October 2026)
 
 - Implemented Step 1 of Speedcoin playtest fine-tuning across `src/ui_motion.h`, `src/ui_motion.c`, `src/ui_speed.c`, `src/ui_plexus.c`, and `src/ui_main.c` with zero shared-signature changes:

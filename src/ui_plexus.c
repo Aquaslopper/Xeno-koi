@@ -813,7 +813,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
             snprintf(sub, sizeof(sub), "SOLO HIGHSCORE  //  180s CLOCK");
             line1 = "14 field (2x7) + 8 hand cards. No CPU / Koi-Koi.";
-            line2 = "-10s drain/miss; +10s per 10 MP; 50 MP lights deck.";
+            line2 = "-10s drain/miss; +10s per 10 MP; 30 MP lights deck.";
             if (s_sc_rank_count > 0) {
                 snprintf(sc_best_line, sizeof(sc_best_line),
                          "Best #01: %d PTS [W-%02d // %d MP] -- START.",
@@ -1594,7 +1594,6 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
 
     s_speedcoin_active = 0;
     s_speedcoin_result_view = 1;
-    speed_mode_stop();
     plexus_save();
 }
 
@@ -1690,13 +1689,11 @@ ScreenAction plexus_handle_speedcoin_result_click(Vector2 vm, int *out_clicked) 
     if (out_clicked) *out_clicked = 0;
     if (!s_speedcoin_result_view) return ACT_NONE;
     if (CheckCollisionPointRec(vm, k_sc_play_again_rect)) {
-        s_speedcoin_result_view = 0;
         s_speedcoin_active = 1;
         if (out_clicked) *out_clicked = 1;
         return ACT_START_GAME;
     }
     if (CheckCollisionPointRec(vm, k_sc_back_plex_rect)) {
-        s_speedcoin_result_view = 0;
         s_speedcoin_active = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_ATRIUM;

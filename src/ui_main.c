@@ -46,7 +46,7 @@ GameSettings settings;
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
-static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f;
+static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f, speedcoin_gameover_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, pending_result_sfx = 0, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
@@ -201,7 +201,7 @@ static void begin_new_match(int trk) {
     replay_rec_abort();
     anim_init(&anim); motion_init(); speed_bar_reset(); memset(&drag, 0, sizeof(drag));
     hovered_idx = -1; is_paused = 0; confirm_restart = 0; combo_player = -1; combo_page = 0;
-    human_turn_started = 0; deus_banner_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
+    human_turn_started = 0; deus_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
     uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
     engine_init(&g, settings.ruleset, settings.rounds, match_seed);
@@ -381,6 +381,13 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
         combos_draw_details(ba, gs, combo_player, combo_page);
         return;
     }
+    if (speedcoin_gameover_timer > 0.0f || (screen == SCREEN_GAME && plexus_speedcoin_result_active())) {
+        if (paused) {
+            card_tooltip_clear();
+            screens_draw_pause(vm, c_restart, replay);
+        }
+        return;
+    }
     if (gs->phase == PHASE_DEALER_SELECT) board_draw_dealer_select(ba, gs, vm);
     else if (gs->phase == PHASE_HAND_CHOICE || gs->phase == PHASE_DRAW_CHOICE) screens_draw_choice_overlay(ba, gs, vm, gs->phase == PHASE_HAND_CHOICE);
     else if (gs->phase == PHASE_DECIDE && gs->current_player == 0) screens_draw_decide_overlay(ba, gs, vm);
@@ -406,8 +413,10 @@ static void update_draw_frame(void) {
         transition_timer += dt;
         if (transition_timer >= TRANS_HOLD_DUR) {
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
+            if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
+            if (screen != SCREEN_MATCH_RESULT) plexus_speedcoin_close_result();
             campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
-            round_banner_timer = 0.0f; prev_round_phase = PHASE_NONE;
+            round_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; prev_round_phase = PHASE_NONE;
             if (transition_action == 1) {
                 begin_new_match(transition_track);
             } else if (transition_action == 2 || transition_action == 3) {
@@ -566,7 +575,6 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_MATCH_RESULT && plexus_speedcoin_result_active()) {
             if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
-                plexus_speedcoin_close_result();
                 start_transition(SCREEN_ATRIUM, 3, 0);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int sc_clicked = 0;
@@ -589,7 +597,7 @@ static void update_draw_frame(void) {
             if (combos_handle_details(&g, combo_player, &combo_page, vm)) {
                 combo_player = -1; is_paused = 0; audio_play_click(&audio);
             }
-        } else if (screen == SCREEN_GAME && !is_paused && !drag.on &&
+        } else if (screen == SCREEN_GAME && !is_paused && !drag.on && speedcoin_gameover_timer <= 0.0f &&
                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && combos_panel_hit(vm) >= 0 &&
                    g.phase != PHASE_DEALER_SELECT) {
             combo_player = combos_panel_hit(vm); combo_page = 0;
@@ -705,6 +713,7 @@ static void update_draw_frame(void) {
                             plexus_tutorial_abort();
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else if (plexus_speedcoin_is_active()) {
+                            speedcoin_gameover_timer = 0.0f;
                             plexus_speedcoin_abort();
                             plexus_save();
                             start_transition(SCREEN_ATRIUM, 3, 0);
@@ -726,6 +735,20 @@ static void update_draw_frame(void) {
 
                 if (tut_frozen) {
                     hovered_idx = -1;
+                } else if (speedcoin_gameover_timer > 0.0f) {
+                    hovered_idx = -1;
+                    speedcoin_gameover_timer -= dt;
+                    if (speedcoin_gameover_timer <= 0.0f) {
+                        speedcoin_gameover_timer = 0.0f;
+                        int run_waves = speed_mode_wave();
+                        int run_coins = speed_bar_total();
+                        int run_streak = speed_mode_run_best_streak();
+                        plexus_speedcoin_bank_wave(&g);
+                        int bonus_pts = speed_bar_apply_match_bonus(&g);
+                        plexus_speedcoin_finish_run(g.total_score[0], run_waves, run_coins, bonus_pts, run_streak);
+                        pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
+                        start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                    }
                 } else if (round_banner_timer > 0.0f) {
                     round_banner_timer -= dt;
                     if (round_banner_timer < 0.0f) round_banner_timer = 0.0f;
@@ -743,19 +766,15 @@ static void update_draw_frame(void) {
                     /* KK-ADD-10 speed minigame: the bottom-right timer bar */
                     speed_bar_update(&g, dt, input_unlocked);
                     if (plexus_speedcoin_is_active() && speed_mode_clock() <= 0.0f) {
-                        int run_waves = speed_mode_wave();
-                        int run_coins = speed_bar_total();
-                        int run_streak = speed_mode_run_best_streak();
                         drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
+                        hovered_idx = -1; combo_player = -1; prev_round_phase = PHASE_NONE;
+                        g.phase = PHASE_MATCH_END;
                         anim_init(&anim);
-                        plexus_speedcoin_bank_wave(&g);
-                        int bonus_pts = speed_bar_apply_match_bonus(&g);
-                        plexus_speedcoin_finish_run(g.total_score[0], run_waves, run_coins, bonus_pts, run_streak);
-                        pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
-                        start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                        play_banner_sfx();
+                        speedcoin_gameover_timer = 3.0f;
                     }
 
-                    if (g.phase == PHASE_DEALER_SELECT) {
+                    if (speedcoin_gameover_timer <= 0.0f && g.phase == PHASE_DEALER_SELECT) {
                         if (g.oya_player_choice < 0) {
                             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                                 int pick = board_check_dealer_select_click(&g, vm);
@@ -933,7 +952,7 @@ static void update_draw_frame(void) {
                             !anim_is_blocking(&anim) && !motion_is_reflowing(&g)) {
                             if (plexus_speedcoin_deal_hand2(&g)) {
                                 audio_play_flip(&audio);
-                                anim_start_banner(&anim, "50 MP // BONUS HAND DEALT", 1.10f);
+                                anim_start_banner(&anim, "30 MP // BONUS HAND DEALT", 1.10f);
                                 prev_round_phase = PHASE_NONE;
                             } else if (prev_round_phase != PHASE_ROUND_END) {
                                 plexus_speedcoin_bank_wave(&g);
@@ -1015,12 +1034,13 @@ static void update_draw_frame(void) {
 
     if (g.phase != PHASE_TURN_HAND || g.current_player != 0) drag.selected = 0;
     int replay_running = replay_pb_active();
-    int round_panel_ready = !plexus_speedcoin_result_active() &&
+    int sc_ending = (speedcoin_gameover_timer > 0.0f) || (screen == SCREEN_GAME && plexus_speedcoin_result_active());
+    int round_panel_ready = !sc_ending && !plexus_speedcoin_result_active() &&
                             (plexus_speedcoin_is_active()
                              ? (g.phase == PHASE_ROUND_END && prev_round_phase == PHASE_ROUND_END)
                              : ((g.phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) || g.phase == PHASE_MATCH_END));
     int overlay_active = (screen == SCREEN_GAME) &&
-                         (replay_running ? is_paused :
+                         ((replay_running || sc_ending) ? is_paused :
                           (g.phase == PHASE_HAND_CHOICE || g.phase == PHASE_DRAW_CHOICE ||
                           (g.phase == PHASE_DECIDE && g.current_player == 0) || g.phase == PHASE_DEALER_SELECT ||
                           round_panel_ready || is_paused));
@@ -1124,7 +1144,8 @@ static void update_draw_frame(void) {
                 draw_hover_action_label(replay_running ? "STOP" : "RESTART", restart_btn);
             }
         }
-        if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
+        if (sc_ending) screens_draw_banner("GAME OVER");
+        else if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
         if (!replay_running && round_banner_timer > 0.0f) draw_round_end_banner(&g, round_banner_timer);
         cinematic_draw();   /* a replay shows the round deal too */
         if (overlay_active && overlay_alpha >= 0.999f) draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart, replay_pb_active());

@@ -29,7 +29,8 @@ int   speed_bar_lifetime_minipoints(void);
 void  speed_bar_get_telemetry(int *drops, float *time_sum, float *cover_sum, int *best_streak, int *lifetime_mp);
 void  speed_bar_set_telemetry(int drops, float time_sum, float cover_sum, int best_streak, int lifetime_mp);
 
-/* Solo Atrium-Plex Speedcoin mode (180s countdown, per-wave hidden 50-MP & 10-MP math) */
+/* Solo Atrium-Plex Speedcoin mode (180s countdown, per-wave hidden 30-MP & 10-MP math) */
+#define SPEEDCOIN_HAND2_MP 30
 void  speed_mode_begin(void);
 void  speed_mode_begin_wave(int wave_num);
 void  speed_mode_stop(void);

@@ -50,7 +50,7 @@
 ## Phase 3 — Speedcoin Minigame *(Atrium-Only Solo Ruleset on `RULESET_KK_ADD_10`)*
 
 - [x] **1. Groundwork Rule Specification (`plexus/speedcoin_rule.md`):**
-  - Solo highscore survival (`180s` countdown, uncapped `+10s` per `10` wave Speedcoins, `-10s` on bar drain or no-match table placement), `14`-card (`2×7`) field + `8`-card hand + `26`-card stock Waves, hidden `50`-Speedcoin per-Wave counter with continuous glowing/moving-dot Stock deck indicator for `Hand 2`, no CPU / no `KOI-KOI` screen, and a dedicated Speedcoin Ranklist + Logfile-stats final screen.
+  - Solo highscore survival (`180s` countdown, uncapped `+10s` per `10` wave Speedcoins, `-10s` on bar drain or no-match table placement), `14`-card (`2×7`) field + `8`-card hand + `26`-card stock Waves, hidden `30`-Speedcoin per-Wave counter with continuous glowing/moving-dot Stock deck indicator for `Hand 2`, no CPU / no `KOI-KOI` screen, and a dedicated Speedcoin Ranklist + Logfile-stats final screen.
 - [x] **2. Build Groundwork & Open `SPEEDCOIN` Button for Testing:**
   - Implement Speedcoin on the real `SCREEN_GAME` / `ui_speed.c` / `ui_board.c` / `ui_combos.c` / `ui_plexus.c` pipeline without touching protected core files.
   - Temporarily unlock the bottom-bar `SPEEDCOIN` button (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` in `src/ui_plexus.c`) so the mode can be launched and tested directly from Atrium Plex.
