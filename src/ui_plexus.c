@@ -902,31 +902,22 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                     "TUTORIAL 01 // STANDARD RULES OF KOI-KOI"
                 };
                 static const char * const k_tut_desc1[4] = {
-                    "Top card: play a short match to prove everything was understood.",
-                    "Third card: special game for the Action Card Audio Effect.",
-                    "Second card: 180s Speedcoin saturation tutorial.",
-                    "Bottom card: learn floral matching, deck draw, yaku & Koi-Koi."
+                    "Short match to verify everything learned.",
+                    "Special game for the Action Card Audio Effect.",
+                    "180s Speedcoin saturation tutorial.",
+                    "Learn floral matching, deck draw, yaku & Koi-Koi."
                 };
                 snprintf(hdr, sizeof(hdr), "MONTH 01  //  %s   [TUTORIAL]", k_month_names[0]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
-                line3 = month_done
-                        ? "Month 01 complete! Press [NEXT] above the top card for Month 02."
-                        : "Complete each face-up card (bottom to top) to turn the next face up.";
+                line3 = "";
             } else {
                 snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s", s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
-                if (month_done) {
-                    line2 = "All 4 cards of this month are completed.";
-                    line3 = (s_selected_month + 1 < 12)
-                            ? "Press [NEXT] above the top spine card to swing in the next month."
-                            : "Final month complete -- all 48 spine cards conditioned.";
-                } else {
-                    line2 = "Complete the face-up card to turn the next locked card face up.";
-                    line3 = "Finish all 4 cards to reveal [NEXT] and swing in the next month.";
-                }
+                line2 = "";
+                line3 = "";
             }
         } else if (s_active_tab == 2) {
             int drops = speed_bar_graded_drops();
@@ -1214,7 +1205,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             if (!is_bottom_btn_unlocked(i)) {
                 return ACT_NONE;
             }
-            s_active_tab = i;
+            s_active_tab = (i == 1 && s_active_tab == 1) ? 0 : i;
             if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
         }
