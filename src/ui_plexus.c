@@ -736,11 +736,11 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         Rectangle cr = k_card_rects[i];
         int card_id = s_selected_month * 4 + i;
         int hov = CheckCollisionPointRec(vm, cr);
-        int sel = (i == s_selected_slot);
+        int sel = (s_active_tab == 0 && i == s_selected_slot);
         int done = (int)((s_finished_cards_mask >> card_id) & 1ULL);
         board_draw_card_shadow(cr, (month_unlocked && (sel || hov)) ? 0.85f : 0.30f);
         if (month_unlocked && sel) board_draw_card_glow(cr, pulse);
-        else if (month_unlocked && (hov || done)) board_draw_card_glow(cr, 0.45f);
+        else if (month_unlocked && hov) board_draw_card_glow(cr, 0.45f);
         if (ba) {
             if (month_unlocked && done && card_id != 3) {
                 board_draw_card_back(ba, cr);
@@ -752,7 +752,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             }
         }
         Color bcol = !month_unlocked ? (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 95 }
-                                     : ((sel || hov || done) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+                                     : ((sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         Rectangle border_r = { cr.x - 1.0f, cr.y - 1.0f, cr.width + 2.0f, cr.height + 2.0f };
         DrawRectangleLinesEx(border_r, sel ? 2.0f : 1.0f, bcol);
         if (sel) {
@@ -1545,6 +1545,36 @@ int plexus_speedcoin_bank_wave(GameState *g) {
         g->current_round_record.score_result = sr;
     }
     return award;
+}
+
+int plexus_speedcoin_reverse_draw_start(GameState *g, int *out_cid, Vector2 *out_from) {
+    if (!g || g->phase != PHASE_TURN_DRAW || g->field_count <= 0 || g->stock_count >= 48) return 0;
+    int cid = g->field[0];
+    Rectangle r = board_get_field_card_rect_of(g, cid);
+    if (out_cid) *out_cid = cid;
+    if (out_from) *out_from = (r.width > 0.0f) ? (Vector2){ r.x, r.y } : (Vector2){ 710.0f, 240.0f };
+    for (int i = 0; i < g->field_count - 1; i++) g->field[i] = g->field[i + 1];
+    g->field_count--;
+    memmove(&g->stock[1], &g->stock[0], (size_t)g->stock_count * sizeof(int));
+    g->stock[0] = cid;
+    g->stock_count++;
+    return 1;
+}
+
+void plexus_speedcoin_reverse_draw_finish(GameState *g) {
+    if (!g || g->phase != PHASE_TURN_DRAW) return;
+    g->has_pending = 0;
+    g->last_captured_count = 0;
+    yaku_snapshot(g->ruleset, g->captured[0], g->captured_count[0], g->last_yaku_points[0]);
+    g->last_base[0] = score_captures_base(g->ruleset, g->captured[0], g->captured_count[0]);
+    if (g->hand_count[0] <= 0) {
+        g->current_round_record.winner = -1;
+        g->current_round_record.draw_reason = 1;
+        g->phase = PHASE_ROUND_END;
+    } else {
+        g->current_player = 0;
+        g->phase = PHASE_TURN_HAND;
+    }
 }
 
 void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int run_bonus_pts, int run_best_streak) {

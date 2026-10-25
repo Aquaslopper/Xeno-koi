@@ -758,7 +758,15 @@ static void update_draw_frame(void) {
                 } else {
                     anim_update(&anim, dt);
                     motion_update(dt, (drag.on && drag.idx >= 0 && drag.idx < g.hand_count[0]) ? g.hand[0][drag.idx] : -1);
+                    float cd_prev = cinematic_countdown_elapsed();
                     cinematic_update(dt);
+                    float cd_now = cinematic_countdown_elapsed();
+                    if (cd_prev >= 0.0f && cd_now > cd_prev) {
+                        for (int fi = 0; fi < g.hand_count[0]; fi++) {
+                            float ft = 2.0f + (float)fi * 0.085f;
+                            if (cd_prev < ft && cd_now >= ft) { audio_play_flip(&audio); break; }
+                        }
+                    }
 
                     int input_unlocked = !anim_is_blocking(&anim) && !cinematic_is_active() && !motion_is_reflowing(&g);
                     Difficulty active_diff = plexus_tutorial_is_active() ? DIFFICULTY_EASY : settings.difficulty;
@@ -820,22 +828,39 @@ static void update_draw_frame(void) {
                         if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
                             int drawn_cid = anim.card_id;
                             Vector2 landed = anim.target_pos;
+                            int rev_land = (plexus_speedcoin_is_active() && landed.x == 330.0f && landed.y == 262.0f);
                             anim.active = 0; audio_play_drop(&audio);
                             motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
-                            engine_reveal_stock(&g);
-                            if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            if (rev_land) {
+                                plexus_speedcoin_reverse_draw_finish(&g);
+                            } else {
+                                engine_reveal_stock(&g);
+                                if (g.last_captured_count > 0) audio_play_capture(&audio);
+                            }
                         } else if (!anim.active) {
-                            int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
-                            if (top_stock >= 0) {
-                                audio_play_flip(&audio); int match_target = -1;
-                                for (int i = 0; i < g.field_count; i++) {
-                                    if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
+                            if (plexus_speedcoin_is_active() && speed_mode_reverse_deck()) {
+                                int rev_cid = -1;
+                                Vector2 from_pos = { 710.0f, 240.0f };
+                                if (plexus_speedcoin_reverse_draw_start(&g, &rev_cid, &from_pos)) {
+                                    audio_play_flip(&audio);
+                                    anim_start_stock_fly(&anim, rev_cid, from_pos, (Vector2){ 330.0f, 262.0f },
+                                                         get_flight_duration(settings.anim_speed));
+                                } else {
+                                    plexus_speedcoin_reverse_draw_finish(&g);
                                 }
-                                Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
-                                                                     : board_get_field_card_rect_of(&g, top_stock);
-                                Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
-                                anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
-                            } else { engine_reveal_stock(&g); }
+                            } else {
+                                int top_stock = (g.stock_count > 0) ? g.stock[g.stock_count - 1] : -1;
+                                if (top_stock >= 0) {
+                                    audio_play_flip(&audio); int match_target = -1;
+                                    for (int i = 0; i < g.field_count; i++) {
+                                        if (CARDS[g.field[i]].month == CARDS[top_stock].month) { match_target = g.field[i]; break; }
+                                    }
+                                    Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
+                                                                         : board_get_field_card_rect_of(&g, top_stock);
+                                    Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
+                                    anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
+                                } else { engine_reveal_stock(&g); }
+                            }
                         }
                     }
 
@@ -1116,7 +1141,11 @@ static void update_draw_frame(void) {
         }
         else if (cinematic_is_active()) status = "";
         else if (anim.active && anim.type == ANIM_STOCK_FLY) {
-            snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
+            if (plexus_speedcoin_is_active() && anim.target_pos.x == 330.0f && anim.target_pos.y == 262.0f) {
+                status = "REVERSE DECK - CARD RETURNED TO STOCK";
+            } else {
+                snprintf(cpu_status, sizeof(cpu_status), "DRAW STOCK: %s", CARDS[anim.card_id].name); status = cpu_status;
+            }
         } else if (g.phase == PHASE_TURN_HAND) {
             status = (g.current_player == 0) ? (drag.selected ? "SELECTED - CLICK A MATCH OR EMPTY FIELD / ESC TO CANCEL" : "YOUR TURN - DRAG OR CLICK A CARD TO SELECT") :
                      (anim.active && anim.type == ANIM_CPU_FLY) ? "CPU PLAYS CARD" : "CPU IS THINKING...";

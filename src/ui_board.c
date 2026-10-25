@@ -750,6 +750,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
 
     /* 7. Player Hand */
+    float cd_el = cinematic_countdown_elapsed();
     for (int i = 0; i < g->hand_count[0]; i++) {
         if (i == dragging_idx) continue;
         int cid = g->hand[0][i];
@@ -760,12 +761,22 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         Rectangle r = board_get_hand_card_rect(i, g->hand_count[0], i == hovered_hand_idx);
         motion_set_target(cid, (Vector2){ r.x, r.y }, (Vector2){ r.width, r.height }, (i == hovered_hand_idx ? 0.15f : 0.30f));
         Rectangle dr = motion_get_rect(cid);
-        if (motion_is_card_moving(cid)) {
-            board_draw_card_shadow(dr, motion_get_card_lift(cid));
+        float fp = (cd_el >= 0.0f) ? fminf(1.0f, fmaxf(0.0f, (cd_el - (2.0f + (float)i * 0.085f)) / 0.36f)) : 1.0f;
+        if (fp < 1.0f) {
+            float hop = sinf(fp * 3.14159265f) * 14.0f;
+            float cv = cosf(fp * 3.14159265f);
+            float pw = dr.width * fmaxf(0.06f, fabsf(cv));
+            Rectangle pr = { dr.x + (dr.width - pw) * 0.5f, dr.y - hop, pw, dr.height };
+            float lift = fmaxf(motion_is_card_moving(cid) ? motion_get_card_lift(cid) : 0.0f, hop / 14.0f);
+            if (lift > 0.001f) board_draw_card_shadow(pr, lift);
+            if (cv > 0.0f) board_draw_card_back(ba, pr);
+            else board_draw_card(ba, cid, pr);
+        } else {
+            if (motion_is_card_moving(cid)) board_draw_card_shadow(dr, motion_get_card_lift(cid));
             board_draw_card(ba, cid, dr);
-        } else board_draw_card(ba, cid, dr);
-        if (easy_mode && g->current_player == 0 && dragging_idx < 0) {
-            if ((field_month_mask >> CARDS[cid].month) & 1u) board_draw_card_glow(dr, pulse);
+            if (easy_mode && g->current_player == 0 && dragging_idx < 0) {
+                if ((field_month_mask >> CARDS[cid].month) & 1u) board_draw_card_glow(dr, pulse);
+            }
         }
     }
 
@@ -816,7 +827,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         float lift = hop / 18.0f;
         Rectangle sr = { cur_x + 4.0f + lift * 8.0f, cur_y + 5.0f + lift * 10.0f + hop, cur_w, FIELD_CARD_H };
         DrawRectangleRec(sr, (Color){ 0, 0, 0, 102 });
-        if (cos_val > 0.0f) board_draw_card_back(ba, cr);
+        int to_deck = (anim->type == ANIM_STOCK_FLY && anim->target_pos.x == 330.0f && anim->target_pos.y == 262.0f);
+        if (to_deck ? (cos_val < 0.0f) : (cos_val > 0.0f)) board_draw_card_back(ba, cr);
         else board_draw_card(ba, anim->card_id, cr);
         board_draw_card_glow(cr, 1.0f);
         ui_theme_draw_panel_flares_keyed(cr, anim->card_id + 1);

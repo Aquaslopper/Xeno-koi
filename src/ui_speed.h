@@ -40,6 +40,7 @@ int   speed_mode_wave(void);
 int   speed_mode_deck_glow(void);
 int   speed_mode_can_deal_hand2(void);
 void  speed_mode_mark_hand2_dealt(void);
+int   speed_mode_reverse_deck(void);
 int   speed_mode_run_best_streak(void);
 float speed_mode_clock_flash(int *out_last_delta);
 

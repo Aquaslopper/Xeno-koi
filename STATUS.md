@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex & Speedcoin playtest fine-tuning step 3: mutually exclusive button/card glow, face-down hand reveal at countdown `1`, and anti-farming Reverse Card Deck (25 October 2026)
+
+- Applied 3 playtest fine-tuning updates across `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_motion.h`, `src/ui_motion.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_board.c`, and `src/ui_main.c` with zero shared-signature changes:
+  1. **Mutually Exclusive Atrium Plex Button & Spine Card Glow (`src/ui_plexus.c`):** Scoped spine-card active selection (`sel`) strictly to `s_active_tab == 0` (and removed idle `done`-card glow/border highlight) so selecting any bottom-bar button (`LOGFILE`, `SPEEDCOIN`, `ACTION CARD`, `TRAINING`) extinguishes the spine card's active glow, and clicking the active button a second time toggles `s_active_tab` back to `0` to restore the chosen card's briefing and glow.
+  2. **Face-Down Hand Cards During Countdown + Left-to-Right Turn-Around at `1` (`src/ui_motion.*`, `src/ui_board.c`, `src/ui_main.c`):** Added `cinematic_countdown_elapsed()` so all `8` player hand cards stay face-down (`board_draw_card_back`) throughout `3` and `2`, then turn around left-to-right (`i = 0 .. 7`) with the hop + `cos(pi * t)` flip animation and flip SFX when the countdown reaches `1`.
+  3. **Anti-Point-Farming Reverse Card Deck (`src/ui_speed.*`, `src/ui_plexus.*`, `src/ui_board.c`, `src/ui_main.c`):** Tracked consecutive miss hits (`speed_bar_consume()` unmatched drops and `speed_bar_grade(cover <= 0.0f)` zero-overlap blind drops); reaching `3` miss hits activates `speed_mode_reverse_deck()`, pulling `1` card per turn from the table back into Stock (`{330, 262}`, flipping face-up -> face-down) until any near match or accuracy match (`cover > 0.0f`) immediately restores normal Stock-to-table draws.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` and `gcc -std=c11 -O2 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./build.sh test` (`500` full matches), `tools/test_koikoi_trigger.c`, `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, `ASan + UBSan` Step 3 verification harness (Atrium button/card exclusivity & 2nd-click toggle, left-to-right hand flip at `1`, `3`-miss Reverse Deck activation + `48`-card conservation + `1` near/accuracy match recovery), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_motion.h`, `src/ui_motion.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_board.c`, `src/ui_main.c`, `plexus/speedcoin_rule.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_screens.c`, `src/ui_board_status.c`, `src/board_layout.*`, `src/ui_input.c`, `DEUS` mode, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Speedcoin playtest fine-tuning step 2: full-width `// WAVE x //` header, `3s` `GAME OVER` banner -> fade-to-black -> highscore transition, scoreboard exit flash fix, and `30`-MP `Hand 2` threshold (25 October 2026)
 
 - Applied 4 playtest fine-tuning updates across `src/ui_motion.c`, `src/ui_speed.h`, `src/ui_speed.c`, `src/ui_plexus.c`, and `src/ui_main.c` with zero shared-signature changes:

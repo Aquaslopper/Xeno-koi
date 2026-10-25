@@ -29,6 +29,8 @@ void         plexus_speedcoin_abort(void);
 void         plexus_speedcoin_setup_wave(GameState *g, int wave_num);
 int          plexus_speedcoin_deal_hand2(GameState *g);
 int          plexus_speedcoin_bank_wave(GameState *g);
+int          plexus_speedcoin_reverse_draw_start(GameState *g, int *out_cid, Vector2 *out_from);
+void         plexus_speedcoin_reverse_draw_finish(GameState *g);
 void         plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int run_bonus_pts, int run_best_streak);
 int          plexus_speedcoin_result_active(void);
 void         plexus_speedcoin_close_result(void);

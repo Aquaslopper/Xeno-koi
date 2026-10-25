@@ -277,6 +277,11 @@ int cinematic_is_active(void) {
     return (s_cinematic_timer > 0.0f);
 }
 
+float cinematic_countdown_elapsed(void) {
+    if (!s_cinematic_countdown || s_cinematic_timer <= 0.0f) return -1.0f;
+    return s_cinematic_duration - s_cinematic_timer;
+}
+
 float cinematic_get_alpha(void) {
     if (s_cinematic_timer <= 0.0f) return 0.0f;
     float elapsed = s_cinematic_duration - s_cinematic_timer;

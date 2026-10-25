@@ -47,15 +47,16 @@ Each **Wave** behaves like a round in a match, repeating Wave after Wave (`Wave 
   - **Table (Field):** **`14` cards** (`2` rows of `7` cards; redeal if all `4` cards of a single month land on the initial field).
   - **Player Hand (`Hand 1`):** **`8` cards** (`hand_count[0] = 8`, `hand_count[1] = 0`).
   - **Deck (`Stock`):** **`26` cards** (`stock_count = 26`).
-- **Pre-Wave Center Countdown (`3 -> 2 -> 1 -> START`):** Before every Wave begins (`Wave 1`, `Wave 2`, ...), a centered HUD countdown runs **`3` -> `2` -> `1` -> `START`** (`0 = START`) with **`// WAVE x //`** underneath sized to the exact width of the countdown box, while `input_unlocked == 0` and both the `180s` clock and `1.00s` Speedbar remain frozen until `START` finishes.
+- **Pre-Wave Center Countdown (`3 -> 2 -> 1 -> START`) & Face-Down Hand Reveal:** Before every Wave begins (`Wave 1`, `Wave 2`, ...), a centered HUD countdown runs **`3` -> `2` -> `1` -> `START`** (`0 = START`) with **`// WAVE x //`** underneath sized to the exact width of the countdown box, while `input_unlocked == 0` and both the `180s` clock and `1.00s` Speedbar remain frozen until `START` finishes. The player's `8` hand cards remain **face-down** during `3` and `2`, and at `1` they **flip face-up from left to right** (`i = 0 .. 7`) with the card turn-around animation.
 
-### 3.2 Turn Loop (Repeat per Card)
+### 3.2 Turn Loop & Anti-Point-Farming Reverse Card Deck
 1. **Player Turn (`PHASE_TURN_HAND`):** Once animations and the pre-Wave countdown settle (`input_unlocked`), the `1.00 s` Speedbar starts draining.
 2. **Player Plays 1 Card from Hand:**
    - Standard `ui_input.c` + `engine.c` + `ui_speed.c` resolution runs unchanged (including `PHASE_HAND_CHOICE` if the player drops inaccurately when `2` matches exist).
    - If the player places an unmatched card on the table (`0` matches), the card stays on the table and the Speedbar runs empty -> **`-10 seconds`** penalty (see §4).
-3. **Deck Flips 1 Card to Table (`PHASE_TURN_DRAW`):**
-   - `engine_reveal_stock()` flips `1` card from Stock onto the table, resolving `0 / 1 / 2 / 3` matches normally (not graded by Speedbar, never breaks Perfect Serie).
+3. **Deck Phase (`PHASE_TURN_DRAW`) & Reverse Card Deck Effect (`3` Miss Hits):**
+   - **Normal Deck Mode:** `engine_reveal_stock()` flips `1` card from Stock onto the table, resolving `0 / 1 / 2 / 3` matches normally (not graded by Speedbar, never breaks Perfect Serie).
+   - **Reverse Card Deck Mode (Anti-Point-Farming):** `3` consecutive **miss hits** (playing an unmatched card onto the table, or blindly dropping a card with `0` overlap on any matching table card) activate the **Reverse Card Deck** effect: on `PHASE_TURN_DRAW`, instead of drawing from Stock onto the table, `1` card is **taken from the table back into the Stock deck** (flipping face-down onto `{330, 262}`). Landing **one accuracy match or near match** (`cover > 0.0`) immediately resets the miss counter and restores normal Stock-to-table draws.
 4. **Next Player Turn:** `current_player` stays `0`, `PHASE_TURN_HAND` resumes, and the Speedbar arms fresh (`1.00 s`).
 
 ### 3.3 Hidden Per-Wave `30`-Speedcoin Counter & Glowing Deck Indicator (`Hand 2`)
