@@ -22,6 +22,19 @@ void plexus_tutorial_abort(void);
 /* Non-campaign Atrium Plex Training match state */
 int  plexus_training_is_active(void);
 void plexus_training_stop(void);
+
+/* Atrium Plex Speedcoin solo highscore mode & dedicated result screen */
+int          plexus_speedcoin_is_active(void);
+void         plexus_speedcoin_abort(void);
+void         plexus_speedcoin_setup_wave(GameState *g, int wave_num);
+int          plexus_speedcoin_deal_hand2(GameState *g);
+int          plexus_speedcoin_bank_wave(GameState *g);
+void         plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int run_bonus_pts, int run_best_streak);
+int          plexus_speedcoin_result_active(void);
+void         plexus_speedcoin_close_result(void);
+void         plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Vector2 vm);
+ScreenAction plexus_handle_speedcoin_result_click(Vector2 vm, int *out_clicked);
+
 void plexus_tutorial_setup_round(GameState *g);
 int  plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
                                       int board_settled, float overlay_alpha,
