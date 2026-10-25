@@ -42,6 +42,7 @@ int   speed_mode_can_deal_hand2(void);
 void  speed_mode_mark_hand2_dealt(void);
 int   speed_mode_reverse_deck(void);
 int   speed_mode_run_best_streak(void);
+void  speed_mode_get_run_stats(int *out_drops, float *out_avg_sec, float *out_avg_cov_pct);
 float speed_mode_clock_flash(int *out_last_delta);
 
 #endif /* UI_SPEED_H */

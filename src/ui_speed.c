@@ -45,6 +45,9 @@ static int   s_sc_turn_drained;
 static int   s_sc_miss_hits;
 static int   s_sc_reverse_deck;
 static int   s_sc_run_best_streak;
+static int   s_sc_run_drops;
+static float s_sc_run_time_sum;
+static float s_sc_run_cover_sum;
 static float s_sc_clock_flash;
 static int   s_sc_last_delta;
 
@@ -79,6 +82,9 @@ void speed_mode_begin(void) {
     s_sc_miss_hits = 0;
     s_sc_reverse_deck = 0;
     s_sc_run_best_streak = 0;
+    s_sc_run_drops = 0;
+    s_sc_run_time_sum = 0.0f;
+    s_sc_run_cover_sum = 0.0f;
     s_sc_clock_flash = 0.0f;
     s_sc_last_delta = 0;
 }
@@ -114,6 +120,12 @@ float speed_mode_clock(void) { return s_sc_clock; }
 int   speed_mode_wave(void) { return (s_sc_wave > 0) ? s_sc_wave : 1; }
 int   speed_mode_reverse_deck(void) { return s_sc_active ? s_sc_reverse_deck : 0; }
 int   speed_mode_run_best_streak(void) { return s_sc_run_best_streak; }
+
+void speed_mode_get_run_stats(int *out_drops, float *out_avg_sec, float *out_avg_cov_pct) {
+    if (out_drops) *out_drops = s_sc_run_drops;
+    if (out_avg_sec) *out_avg_sec = (s_sc_run_drops > 0) ? (s_sc_run_time_sum / (float)s_sc_run_drops) : 0.0f;
+    if (out_avg_cov_pct) *out_avg_cov_pct = (s_sc_run_drops > 0) ? ((s_sc_run_cover_sum / (float)s_sc_run_drops) * 100.0f) : 0.0f;
+}
 
 int speed_mode_deck_glow(void) {
     return (s_sc_active && !s_sc_hand2_dealt && (s_total - s_sc_wave_start_mp) >= SPEEDCOIN_HAND2_MP) ? 1 : 0;
@@ -248,6 +260,9 @@ void speed_bar_grade(float cover) {
             s_sc_miss_hits++;
             if (s_sc_miss_hits >= 3) s_sc_reverse_deck = 1;
         }
+        s_sc_run_drops++;
+        s_sc_run_time_sum += elapsed;
+        s_sc_run_cover_sum += clamped_cover;
     }
     s_stat_drops++;
     s_stat_time_sum += elapsed;
