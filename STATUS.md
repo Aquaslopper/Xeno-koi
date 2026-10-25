@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex Phase 4 dual-meter threshold fine-tuning: 3rd-line (`> 75%`) left-meter peak boost, ceiling-only time counter & enlarged middle-line (`< 50%`) symbol trigger (25 October 2026)
+
+- Fine-tuned the Action Card dual-meter thresholds in `src/ui_board.c` while keeping `src/ui_audio.c` and the maintainer's `reverb_energy` / `reverb_synergy` envelope completely untouched:
+  - **Left Music Meter Boost Above 3rd Line (`right_fh > 260 * 3 / 4`, `> 75%`) vs Ceiling-Only Counter (`>= 98%`):** Shifted `s_action_full_boost` (`0.04s` attack / `0.14s` release, `0.40 + 0.68 * music_level`) to engage as soon as the right-side wine-red meter rises above its 3rd horizontal line (`> 75%`) so the left-side rhythm meter immediately peaks across its `90%` mark, while keeping the ceiling time-number counter (`s_action_ceil_started` / `s_action_ceil_accum`) ticking strictly when the right-side meter is pinned at the ceiling (`added_lvl >= 0.98f`).
+  - **Enlarged Middle (`50%`) Marker & `< 50%` Armed-Symbol Trigger:** Enlarged the middle horizontal line (`t == 2`, `50%`) on the right-side wine-red meter (`3px` thick with `3px` outer side ticks across the bar frame) and updated armed beat-symbol activation to fire once as soon as the right-side meter drops below that middle line (`right_fh < 260 / 2`).
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` across all 24 `src/*.c` modules, `./build.sh test` (`500` full matches + `test_koikoi_trigger`), `./tests/test_table_ui.sh`, `./tests/test_music_folder.sh`, ASan+UBSan Action Card meter-threshold harness (`> 75%` left-meter peak without ceiling counter tick, `>= 98%` ceiling counter tick, enlarged `50%` middle-line draw geometry, and `< 50%` armed-symbol fire vs `>= 50%` hold), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_board.c`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_audio.c`, `tools/audio_guard.sha256`, `reverb_energy` / `reverb_synergy` parameters in `src/ui_board.c`, `src/ui_plexus.*` (`SPEEDCOIN_UNLOCKED_FOR_TESTING = 1` & `ACTION_CARD_UNLOCKED_FOR_TESTING = 1` preserved), `src/ui_screens.c`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/storage.*`, `src/ai.*`, `src/ui_board_status.c`, `src/board_layout.*`, `tests/`, `docs/`, `plexus/plexus_normal.png`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex Phase 4 Step 4a: Action Card Atrium Plex telemetry, `KK-ADD-10` lock & Options / Deus deck integration (25 October 2026)
 
 - Integrated the bottom-bar `ACTION CARD` gamemode end-to-end into Atrium Plex (`src/ui_board.h`, `src/ui_board.c`, `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, `plexus/roadmap_plexus.md`), keeping `ACTION_CARD_UNLOCKED_FOR_TESTING = 1`, `SPEEDCOIN_UNLOCKED_FOR_TESTING = 1`, `DEUS_UNLOCKED_FOR_TESTING = 1`, and the maintainer's `reverb_synergy` envelope untouched:
