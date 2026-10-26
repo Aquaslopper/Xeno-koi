@@ -54,7 +54,8 @@ static int transition_dir = 0, transition_action = 0, transition_track = 1, pend
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
 static float hub_trans_timer = 0.0f;
-static ScreenState hub_from_screen = SCREEN_START, options_return_screen = SCREEN_START, stats_return_screen = SCREEN_START;
+static ScreenState hub_from_screen = SCREEN_START, options_return_screen = SCREEN_START;
+static ScreenState stats_return_screen = SCREEN_START, atrium_return_screen = SCREEN_START, match_origin = SCREEN_START;
 static Rectangle hub_btn_rect = { 0, 0, 0, 0 };
 static const char *hub_btn_label = "";
 static int combo_player = -1, combo_page = 0;
@@ -154,7 +155,9 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
 }
 
 static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int flash_on) {
-    int use_title = hub_from_campaign || (hub_from_screen == SCREEN_ATRIUM) ||
+    int from_plex_res = (hub_from_screen == SCREEN_MATCH_RESULT) &&
+                        (plexus_speedcoin_result_active() || plexus_training_result_active() || plexus_action_card_result_active());
+    int use_title = hub_from_campaign || (hub_from_screen == SCREEN_ATRIUM) || from_plex_res ||
                     (hub_from_screen == SCREEN_HUB_MAIN) || (hub_from_screen == SCREEN_HUB_CAMPAIGN);
     Font fnt = use_title ? font_title : font_body;
     float sp = use_title ? 1.2f : 1.0f;
@@ -487,9 +490,21 @@ static void draw_round_end_banner(const GameState *gs, float timer) {
     }
 }
 
-static void draw_round_result_extras(const GameState *gs) {
+static void draw_round_result_extras(const GameState *gs, Vector2 vm) {
     if (!gs) return;
     int match_over = (gs->current_round >= gs->total_rounds);
+    if (plexus_tutorial_is_active() && !plexus_speedcoin_is_active() &&
+        (!plexus_action_card_is_active() || match_over)) {
+        Rectangle btn = { 520.0f, 610.0f, 240.0f, 48.0f };
+        int hov = CheckCollisionPointRec(vm, btn);
+        DrawRectangleRec(btn, (Color){ 0, 0, 0, 252 });
+        if (hov) DrawRectangleRec(btn, COLOR_BTN_HOVER_BG);
+        ui_draw_panel_border(btn, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+        Vector2 ts = MeasureTextEx(font_title, "ATRIUM PLEX", 20.0f, 1.2f);
+        Vector2 pos = { floorf(btn.x + (btn.width - ts.x) * 0.5f), floorf(btn.y + (btn.height - 20.0f) * 0.5f) };
+        DrawTextEx(font_title, "ATRIUM PLEX", pos, 20.0f, 1.2f, COLOR_PHOSPHOR);
+        if (hov) ui_theme_draw_text_flares(font_title, "ATRIUM PLEX", pos, 20.0f, 1.2f, COLOR_PHOSPHOR);
+    }
     int mp = speed_bar_total();
     int show_sc = (gs->ruleset == RULESET_KK_ADD_10) && (mp > 0);
     int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
@@ -536,7 +551,7 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
     else if ((gs->phase == PHASE_ROUND_END && prev_round_phase == PHASE_ROUND_END && round_banner_timer <= 0.0f) ||
              gs->phase == PHASE_MATCH_END) {
         screens_draw_round_result(ba, gs, vm);
-        draw_round_result_extras(gs);
+        draw_round_result_extras(gs, vm);
     }
     if (paused) {
         card_tooltip_clear();
@@ -557,6 +572,7 @@ static void handle_campaign_overlay_click(Vector2 vm) {
         plexus_training_stop();
         plexus_speedcoin_abort();
         plexus_action_card_abort();
+        match_origin = screen;
         audio_play_click(&audio);
         ai_set_opponent(settings.current_opponent);
         storage_save_settings(&settings);
@@ -657,6 +673,15 @@ static void update_draw_frame(void) {
             hub_trans_active = 0;
             hub_trans_timer = 0.0f;
             if (hub_reset_opt_page) { screens_set_options_page(0); hub_reset_opt_page = 0; }
+            if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
+            if (screen != SCREEN_MATCH_RESULT) {
+                plexus_speedcoin_close_result();
+                plexus_training_close_result();
+                plexus_action_card_close_result();
+            }
+            if (screen != SCREEN_GAME && screen != SCREEN_MATCH_RESULT) {
+                action_card_reset_match();
+            }
         }
     }
 
@@ -668,7 +693,10 @@ static void update_draw_frame(void) {
                 ScreenAction act = screens_handle_start_click(vm);
                 if (act != ACT_NONE) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_hub_transition(SCREEN_HUB_MAIN, 0, (Rectangle){ 490, 320, 300, 40 }, "START MATCH", 18);
-                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+                else if (act == ACT_GOTO_ATRIUM) {
+                    atrium_return_screen = SCREEN_START;
+                    start_transition(SCREEN_ATRIUM, 3, 0);
+                }
                 else if (act == ACT_GOTO_OPTIONS) {
                     options_return_screen = SCREEN_START;
                     start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
@@ -689,6 +717,7 @@ static void update_draw_frame(void) {
                 if (hact == HUB_ACT_GOTO_CAMPAIGN_HUB) {
                     start_hub_transition(SCREEN_HUB_CAMPAIGN, 0, hit.rect, hit.label, hit.font_size);
                 } else if (hact == HUB_ACT_GOTO_ATRIUM) {
+                    atrium_return_screen = SCREEN_HUB_MAIN;
                     start_transition(SCREEN_ATRIUM, 3, 0);
                 } else if (hact == HUB_ACT_BACK_TO_TITLE) {
                     start_hub_transition(SCREEN_START, 0, hit.rect, hit.label, hit.font_size);
@@ -724,7 +753,7 @@ static void update_draw_frame(void) {
                 if (!plexus_close_subpanel()) {
                     plexus_save();
                     storage_save_all(&settings, &stats, &history);
-                    start_transition(SCREEN_START, 3, 0);
+                    start_transition(atrium_return_screen, 3, 0);
                 }
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int p_clicked = 0;
@@ -733,7 +762,7 @@ static void update_draw_frame(void) {
                 if (act == ACT_GOTO_MENU) {
                     plexus_save();
                     storage_save_all(&settings, &stats, &history);
-                    start_transition(SCREEN_START, 3, 0);
+                    start_transition(atrium_return_screen, 3, 0);
                 } else if (act == ACT_GOTO_OPTIONS) {
                     options_return_screen = SCREEN_ATRIUM;
                     start_hub_transition(SCREEN_OPTIONS, 0, plexus_get_option_btn_rect(), "OPTION", 16);
@@ -789,31 +818,46 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_MATCH_RESULT && plexus_speedcoin_result_active()) {
             if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
-                start_transition(SCREEN_ATRIUM, 3, 0);
+                start_hub_transition(SCREEN_ATRIUM, 0, (Rectangle){ 660.0f, 628.0f, 260.0f, 50.0f }, "ATRIUM PLEX", 18);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int sc_clicked = 0;
                 ScreenAction act = plexus_handle_speedcoin_result_click(vm, &sc_clicked);
                 if (sc_clicked) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
-                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+                else if (act == ACT_GOTO_ATRIUM) {
+                    Rectangle sc_btn = CheckCollisionPointRec(vm, (Rectangle){ 360.0f, 628.0f, 260.0f, 50.0f })
+                                       ? (Rectangle){ 360.0f, 628.0f, 260.0f, 50.0f }
+                                       : (Rectangle){ 660.0f, 628.0f, 260.0f, 50.0f };
+                    const char *sc_lbl = (sc_btn.x < 500.0f) ? "PLAY AGAIN" : "ATRIUM PLEX";
+                    start_hub_transition(SCREEN_ATRIUM, 0, sc_btn, sc_lbl, 18);
+                }
             }
         } else if (screen == SCREEN_MATCH_RESULT && plexus_training_result_active()) {
-            if (IsKeyPressed(KEY_ESCAPE)) { audio_play_click(&audio); start_transition(SCREEN_ATRIUM, 3, 0); }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                audio_play_click(&audio);
+                start_hub_transition(SCREEN_ATRIUM, 0, (Rectangle){ 510.0f, 632.0f, 260.0f, 50.0f }, "ATRIUM PLEX", 18);
+            } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int tr_clicked = 0;
-                if (plexus_handle_training_result_click(vm, &tr_clicked) == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+                if (plexus_handle_training_result_click(vm, &tr_clicked) == ACT_GOTO_ATRIUM)
+                    start_hub_transition(SCREEN_ATRIUM, 0, (Rectangle){ 510.0f, 632.0f, 260.0f, 50.0f }, "ATRIUM PLEX", 18);
                 if (tr_clicked) audio_play_click(&audio);
             }
         } else if (screen == SCREEN_MATCH_RESULT && plexus_action_card_result_active()) {
             if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
-                start_transition(SCREEN_ATRIUM, 3, 0);
+                start_hub_transition(SCREEN_ATRIUM, 0, (Rectangle){ 660.0f, 632.0f, 260.0f, 50.0f }, "ATRIUM PLEX", 18);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int ac_clicked = 0;
                 ScreenAction act = plexus_handle_action_card_result_click(vm, &ac_clicked);
                 if (ac_clicked) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
-                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
+                else if (act == ACT_GOTO_ATRIUM) {
+                    Rectangle ac_btn = CheckCollisionPointRec(vm, (Rectangle){ 360.0f, 632.0f, 260.0f, 50.0f })
+                                       ? (Rectangle){ 360.0f, 632.0f, 260.0f, 50.0f }
+                                       : (Rectangle){ 660.0f, 632.0f, 260.0f, 50.0f };
+                    const char *ac_lbl = (ac_btn.x < 500.0f) ? "PLAY AGAIN" : "ATRIUM PLEX";
+                    start_hub_transition(SCREEN_ATRIUM, 0, ac_btn, ac_lbl, 18);
+                }
             }
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
@@ -822,10 +866,10 @@ static void update_draw_frame(void) {
             else if (act == ACT_GOTO_MENU) {
                 if (plexus_action_card_is_active()) {
                     plexus_action_card_abort();
-                    start_transition(SCREEN_ATRIUM, 3, 0);
+                    start_hub_transition(SCREEN_ATRIUM, 0, (Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20);
                 } else {
                     plexus_training_stop();
-                    start_hub_transition(SCREEN_START, 0, (Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20);
+                    start_hub_transition(match_origin, 0, (Rectangle){ 490, 526, 300, 46 }, "MAIN MENU", 20);
                 }
             }
         } else if (screen == SCREEN_GAME && combo_player >= 0) {
@@ -968,7 +1012,7 @@ static void update_draw_frame(void) {
                             start_transition(SCREEN_ATRIUM, 3, 0);
                         } else {
                             plexus_save();
-                            start_transition(SCREEN_START, 3, 0);
+                            start_transition(match_origin, 3, 0);
                         }
                     }
                     else if (!CheckCollisionPointRec(vm, (Rectangle){ 440, 180, 400, 360 })) { is_paused = 0; confirm_restart = 0; }
@@ -1201,11 +1245,14 @@ static void update_draw_frame(void) {
                                 if (g.player_timer <= 0.0f) {
                                     if (settings.difficulty == DIFFICULTY_DEUS) {
                                         /* DEUS SUPREMUS only: timer 0 = GAME OVER. No points, no win,
-                                           no stats, no record - straight back to the start screen. */
+                                           no stats, no record - straight back to the origin screen. */
+                                        int plex_match = plexus_action_card_is_active() || plexus_training_is_active();
+                                        if (plexus_action_card_is_active()) plexus_action_card_abort();
+                                        if (plexus_training_is_active()) plexus_training_stop();
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
                                         audio_play_lose(&audio);
                                         deus_banner_timer = TRANS_OUT_DUR;
-                                        start_transition(SCREEN_START, 3, 0);
+                                        start_transition(plex_match ? SCREEN_ATRIUM : match_origin, 3, 0);
                                     } else {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);

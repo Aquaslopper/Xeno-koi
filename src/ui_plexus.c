@@ -3324,18 +3324,15 @@ ScreenAction plexus_handle_action_card_result_click(Vector2 vm, int *out_clicked
     if (CheckCollisionPointRec(vm, k_ac_play_again_rect)) {
         if (!is_action_card_bottom_unlocked()) {
             s_action_card_active = 0;
-            s_action_card_result_view = 0;
             if (out_clicked) *out_clicked = 1;
             return ACT_GOTO_ATRIUM;
         }
         s_action_card_active = 1;
-        s_action_card_result_view = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_START_GAME;
     }
     if (CheckCollisionPointRec(vm, k_ac_back_plex_rect)) {
         s_action_card_active = 0;
-        s_action_card_result_view = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_ATRIUM;
     }
