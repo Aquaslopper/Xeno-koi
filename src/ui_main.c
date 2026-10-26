@@ -102,6 +102,24 @@ static void start_hub_transition(ScreenState next_screen, int next_campaign,
     hub_trans_active = 1;
 }
 
+static void draw_credits_slogan(void) {
+    const char *lhs = "[to_be \xCE\xA8(n)]";
+    const char *rhs = "[not_to_be \xCE\xA6(n)]";
+    float fsz = 20.0f, sp = 1.4f, r = 6.2f, pad = 9.0f;
+    Vector2 ls = MeasureTextEx(font_body, lhs, fsz, sp);
+    Vector2 rs = MeasureTextEx(font_body, rhs, fsz, sp);
+    float sym_w = (r + pad) * 2.0f;
+    float x0 = floorf(640.0f - (ls.x + sym_w + rs.x) * 0.5f);
+    float y0 = 488.0f;
+    DrawTextEx(font_body, lhs, (Vector2){ x0, y0 }, fsz, sp, COLOR_PHOSPHOR);
+    Vector2 oc = { x0 + ls.x + pad + r, y0 + 10.2f };
+    float d = (r - 0.8f) * 0.70710678f;
+    DrawRing(oc, r - 1.55f, r, 0.0f, 360.0f, 32, COLOR_PHOSPHOR);
+    DrawLineEx((Vector2){ oc.x - d, oc.y - d }, (Vector2){ oc.x + d, oc.y + d }, 1.55f, COLOR_PHOSPHOR);
+    DrawLineEx((Vector2){ oc.x - d, oc.y + d }, (Vector2){ oc.x + d, oc.y - d }, 1.55f, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, rhs, (Vector2){ floorf(x0 + ls.x + sym_w), y0 }, fsz, sp, COLOR_PHOSPHOR);
+}
+
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
         screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
@@ -114,6 +132,7 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
         screens_draw_stats(&assets, &stats, &settings, &history, mouse_pos, confirm_reset, log_timer);
     } else if (sc == SCREEN_CREDITS) {
         screens_draw_credits(&assets, mouse_pos);
+        draw_credits_slogan();
     } else if (sc == SCREEN_MATCH_RESULT) {
         if (plexus_speedcoin_result_active())
             plexus_draw_speedcoin_result(&assets, &stats, mouse_pos);
@@ -299,6 +318,13 @@ static void trigger_event_beat(float base_s) {
     if (plexus_speedcoin_is_active()) mul *= 0.55f;
     float d = base_s * mul;
     if (d > event_beat_timer) event_beat_timer = d;
+}
+
+/* Minimal CPU inter-animation beat (~90-120 ms, skipped on captures where
+   g.hitlag_timer = 150 ms already runs) so CPU steps never collapse into a
+   single frame while keeping Action Card reverb_energy decay negligible. */
+static void trigger_cpu_step_beat(float sec) {
+    if (!plexus_speedcoin_is_active() && sec > event_beat_timer) event_beat_timer = sec;
 }
 
 /* --- replay pacing -------------------------------------------------------
@@ -898,11 +924,17 @@ static void update_draw_frame(void) {
                         int run_waves = speed_mode_wave();
                         int run_coins = speed_bar_total();
                         int run_streak = speed_mode_run_best_streak();
+                        int was_sc_tut = plexus_tutorial_is_active();
                         plexus_speedcoin_bank_wave(&g);
                         int bonus_pts = speed_bar_apply_match_bonus(&g);
                         plexus_speedcoin_finish_run(g.total_score[0], run_waves, run_coins, bonus_pts, run_streak);
-                        pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
-                        start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                        if (was_sc_tut) {
+                            pending_result_sfx = 1;
+                            start_transition(SCREEN_ATRIUM, 2, 0);
+                        } else {
+                            pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
+                            start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                        }
                     }
                 } else if (round_banner_timer > 0.0f) {
                     round_banner_timer -= dt;
@@ -1000,6 +1032,7 @@ static void update_draw_frame(void) {
                             engine_play_hand(&g, card, target);
                             replay_rec_play(1, card, target);
                             if (g.last_captured_count > 0) play_match_capture_sfx();
+                            else trigger_cpu_step_beat(0.09f);
                             trigger_event_beat((g.last_captured_count > 0) ? 0.36f : 0.30f);
                         } else if (!badge_freezing && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f) {
                             if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
@@ -1019,6 +1052,7 @@ static void update_draw_frame(void) {
                     if (g.phase == PHASE_TURN_DRAW && !cinematic_is_active()) {
                         if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
                             int drawn_cid = anim.card_id;
+                            int prev_player = g.current_player;
                             Vector2 landed = anim.target_pos;
                             int rev_land = (plexus_speedcoin_is_active() && landed.x == 330.0f && landed.y == 262.0f);
                             anim.active = 0; audio_play_drop(&audio);
@@ -1029,6 +1063,7 @@ static void update_draw_frame(void) {
                             } else {
                                 engine_reveal_stock(&g);
                                 if (g.last_captured_count > 0) play_match_capture_sfx();
+                                else if (prev_player == 1 || g.current_player == 1) trigger_cpu_step_beat(0.09f);
                                 trigger_event_beat((g.last_captured_count > 0) ? 0.38f : 0.30f);
                             }
                         } else if (!anim.active && !board_busy) {
@@ -1067,10 +1102,9 @@ static void update_draw_frame(void) {
                         engine_pick_draw_choice(&g, target);
                         replay_rec_pick(1, target);
                         if (g.last_captured_count > 0) play_match_capture_sfx();
+                        else trigger_cpu_step_beat(0.09f);
                         trigger_event_beat(0.36f);
-                    }
-
-                    if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
+                    } else if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
                         DecisionType dec = ai_choose_decision(&g, active_diff, &ai_rng);
                         if (dec == DECISION_KOI_KOI) {
                             int cpu_streak = koi_caller_multiplier(g.koi_called[1] + 1); /* streak after this call */
@@ -1080,6 +1114,7 @@ static void update_draw_frame(void) {
                         }
                         engine_decide(&g, dec);
                         replay_rec_koi(1, dec == DECISION_KOI_KOI);
+                        trigger_cpu_step_beat(0.11f);
                         trigger_event_beat((dec == DECISION_KOI_KOI) ? 0.55f : 0.36f);
                     }
 
@@ -1103,19 +1138,13 @@ static void update_draw_frame(void) {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
                                         audio_play_lose(&audio);
                                         deus_banner_timer = TRANS_OUT_DUR;
-                                        if (plexus_training_is_active() || plexus_action_card_is_active()) {
-                                            plexus_training_stop();
-                                            plexus_action_card_abort();
-                                            plexus_save();
-                                            start_transition(SCREEN_ATRIUM, 3, 0);
-                                        } else {
-                                            start_transition(SCREEN_START, 3, 0);
-                                        }
+                                        start_transition(SCREEN_START, 3, 0);
                                     } else {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);
                                         replay_rec_timeout(0);
-                                        if (g.last_captured_count > 0) play_match_capture_sfx(); else audio_play_drop(&audio);
+                                        if (g.last_captured_count > 0) play_match_capture_sfx();
+                                        else { audio_play_drop(&audio); trigger_cpu_step_beat(0.12f); }
                                         anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
                                         trigger_event_beat(0.36f);
                                     }
@@ -1243,6 +1272,7 @@ static void update_draw_frame(void) {
                                 pending_result_sfx = 1;
                                 start_transition(SCREEN_ATRIUM, 2, 0);
                             } else if (g.current_round >= g.total_rounds) {
+                                int was_ac_tut = plexus_tutorial_is_active() && plexus_action_card_is_active();
                                 anim_init(&anim);
                                 speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
                                 engine_next_round(&g);
@@ -1257,25 +1287,30 @@ static void update_draw_frame(void) {
 #endif
                                 }
                                 plexus_save();
-                                if (!plexus_training_result_active() && g.total_score[0] > g.total_score[1]) {
+                                if (was_ac_tut) {
                                     pending_result_sfx = 1;
-                                    if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
-                                        bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
-                                                               (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
-                                                               (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
-                                        /* Award clearance coin for this opponent on the difficulty played (sticky, no cascade) */
-                                        if (meets_clearance) {
-                                            int bit = settings.current_opponent * 3;
-                                            if (settings.difficulty == DIFFICULTY_HARD) bit += 1;
-                                            else if (settings.difficulty == DIFFICULTY_MASTER) bit += 2;
-                                            /* EASY -> +0 */
-                                            settings.cleared_mask |= (1ULL << bit);
+                                    start_transition(SCREEN_ATRIUM, 2, 0);
+                                } else {
+                                    if (!plexus_training_result_active() && g.total_score[0] > g.total_score[1]) {
+                                        pending_result_sfx = 1;
+                                        if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
+                                            bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
+                                                                   (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
+                                                                   (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
+                                            /* Award clearance coin for this opponent on the difficulty played (sticky, no cascade) */
+                                            if (meets_clearance) {
+                                                int bit = settings.current_opponent * 3;
+                                                if (settings.difficulty == DIFFICULTY_HARD) bit += 1;
+                                                else if (settings.difficulty == DIFFICULTY_MASTER) bit += 2;
+                                                /* EASY -> +0 */
+                                                settings.cleared_mask |= (1ULL << bit);
+                                            }
+                                            campaign_update_unlocks(&settings);
+                                            storage_save_settings(&settings);
                                         }
-                                        campaign_update_unlocks(&settings);
-                                        storage_save_settings(&settings);
-                                    }
-                                } else if (!plexus_training_result_active() && g.total_score[0] < g.total_score[1]) pending_result_sfx = -1;
-                                start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                                    } else if (!plexus_training_result_active() && g.total_score[0] < g.total_score[1]) pending_result_sfx = -1;
+                                    start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                                }
                             } else {
                                 anim_init(&anim); prev_round_phase = PHASE_NONE;
                                 action_card_advance_round();
@@ -1547,8 +1582,12 @@ int main(int argc, char **argv) {
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
     else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
 
-    font_body = LoadFontEx("assets/play.ttf", 36, NULL, 0);
-    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
+    int body_cps[97];
+    for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
+    body_cps[95] = 0x03A6; /* U+03A6 Greek Capital Letter Phi */
+    body_cps[96] = 0x03A8; /* U+03A8 Greek Capital Letter Psi */
+    font_body = LoadFontEx("assets/play.ttf", 36, body_cps, 97);
+    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, body_cps, 97);
     if (!IsFontReady(font_body)) font_body = GetFontDefault();
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
