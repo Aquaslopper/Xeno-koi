@@ -349,7 +349,7 @@ static void panel_flares_draw(Rectangle r, int key) {
         unsigned char alpha = (unsigned char)(22.0f + 233.0f * shine);
         Color flare = (Color){ 255, 255, 255, alpha };
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
-                          0.5f + 0.5f * shine, flare);
+                          0.9f + 0.5f * shine, flare);
     }
 }
 
@@ -551,7 +551,7 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                             }
 
                             float flen = fminf(12.0f + 0.05f * font_size, s_perim * 0.16f);
-                            float thick = 0.5f + 0.5f * shine;
+                            float thick = 0.8f + 0.4f * shine;
                             int segs = 4;
                             for (int s = 0; s < segs; s++) {
                                 float t0 = (float)s / (float)segs;
