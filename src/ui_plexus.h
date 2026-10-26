@@ -48,6 +48,17 @@ void         plexus_speedcoin_close_result(void);
 void         plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Vector2 vm);
 ScreenAction plexus_handle_speedcoin_result_click(Vector2 vm, int *out_clicked);
 
+int          plexus_action_card_result_active(void);
+void         plexus_action_card_close_result(void);
+void         plexus_draw_action_card_result(const BoardAssets *ba, const GameState *g, const GameStats *st, Vector2 vm);
+ScreenAction plexus_handle_action_card_result_click(Vector2 vm, int *out_clicked);
+
+int          plexus_intro_blocking(void);
+int          plexus_intro_accept_key(void);
+int          plexus_intro_revealing(void);
+void         plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 vm);
+void         plexus_set_intro_ui_texture(Texture2D ui_tex);
+
 void plexus_tutorial_setup_round(GameState *g);
 int  plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
                                       int board_settled, float overlay_alpha,
