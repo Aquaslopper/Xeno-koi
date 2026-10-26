@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Credits screen slogan `[to_be Ψ(n)] ⊗ [not_to_be Φ(n)]` between `[]` and `BACK` (26 October 2026)
+
+- Added the creator's slogan `[to_be Ψ(n)] ⊗ [not_to_be Φ(n)]` (matching `Credits.md`) to the Credits screen via `src/ui_main.c` (`draw_credits_slogan()` inside `draw_hub_screen_state` for `SCREEN_CREDITS`, centered at `x = 640`, `y = 488` directly underneath `[]` at `y = 445` and above `BACK` at `y = 530`), without touching protected `src/ui_screens.c`:
+  - **Native `Ψ` (`U+03A8`) & `Φ` (`U+03A6`) Glyph Rasterization (`assets/play.ttf`):** Passed an explicit `97`-codepoint table (`ASCII 32..126` + `0x03A6` + `0x03A8`) to `LoadFontEx("assets/play.ttf", 36, body_cps, 97)` so Raylib rasterizes both Greek capitals directly from `play.ttf` instead of defaulting to `ASCII`-only `?` placeholders.
+  - **Crisp Vector `⊗` (`U+2297` Tensor Product):** Since `assets/play.ttf`'s `cmap` does not include `U+2297`, rendered `⊗` at exact cap-center `(y0 + 10.2, r = 6.2)` with `DrawRing` + `45°` inscribed diagonal `DrawLineEx` strokes matching `font_body` stroke weight in `COLOR_PHOSPHOR`, eliminating missing-glyph `?` boxes on all platforms.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` on `src/ui_main.c`, `./build.sh test`, ASan+UBSan UTF-8 codepoint & Credits-panel bounds verification (`320..960`, `469 < y < 530`), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_screens.c`, `Credits.md`, `src/storage.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/ai.*`, `src/board_layout.*`, `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `tests/`, `docs/`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Atrium Plex 4-Tab Full-Panel `LOGFILE` overhaul (`[ STORY ] [ TRAINING ] [ MATCHES ] [ ATLAS ]` + Hardcore 2nd-Pass `DEUS ATLAS`) (26 October 2026)
 
 - Rebuilt the Atrium Plex `LOGFILE` window (`{236, 22, 756, 602}`) in `src/ui_plexus.c` so each of the 4 top sub-tabs uses the full `720 × 484` workspace beneath a pinned live Spine Directive strip, eliminating match-start log spam and preserving `draw_logfile_stats_box()` for the standalone Training and Speedcoin result screens:

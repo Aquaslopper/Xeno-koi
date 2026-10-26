@@ -102,6 +102,24 @@ static void start_hub_transition(ScreenState next_screen, int next_campaign,
     hub_trans_active = 1;
 }
 
+static void draw_credits_slogan(void) {
+    const char *lhs = "[to_be \xCE\xA8(n)]";
+    const char *rhs = "[not_to_be \xCE\xA6(n)]";
+    float fsz = 20.0f, sp = 1.4f, r = 6.2f, pad = 9.0f;
+    Vector2 ls = MeasureTextEx(font_body, lhs, fsz, sp);
+    Vector2 rs = MeasureTextEx(font_body, rhs, fsz, sp);
+    float sym_w = (r + pad) * 2.0f;
+    float x0 = floorf(640.0f - (ls.x + sym_w + rs.x) * 0.5f);
+    float y0 = 488.0f;
+    DrawTextEx(font_body, lhs, (Vector2){ x0, y0 }, fsz, sp, COLOR_PHOSPHOR);
+    Vector2 oc = { x0 + ls.x + pad + r, y0 + 10.2f };
+    float d = (r - 0.8f) * 0.70710678f;
+    DrawRing(oc, r - 1.55f, r, 0.0f, 360.0f, 32, COLOR_PHOSPHOR);
+    DrawLineEx((Vector2){ oc.x - d, oc.y - d }, (Vector2){ oc.x + d, oc.y + d }, 1.55f, COLOR_PHOSPHOR);
+    DrawLineEx((Vector2){ oc.x - d, oc.y + d }, (Vector2){ oc.x + d, oc.y - d }, 1.55f, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, rhs, (Vector2){ floorf(x0 + ls.x + sym_w), y0 }, fsz, sp, COLOR_PHOSPHOR);
+}
+
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
         screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
@@ -114,6 +132,7 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
         screens_draw_stats(&assets, &stats, &settings, &history, mouse_pos, confirm_reset, log_timer);
     } else if (sc == SCREEN_CREDITS) {
         screens_draw_credits(&assets, mouse_pos);
+        draw_credits_slogan();
     } else if (sc == SCREEN_MATCH_RESULT) {
         if (plexus_speedcoin_result_active())
             plexus_draw_speedcoin_result(&assets, &stats, mouse_pos);
@@ -1547,8 +1566,12 @@ int main(int argc, char **argv) {
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
     else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
 
-    font_body = LoadFontEx("assets/play.ttf", 36, NULL, 0);
-    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, NULL, 0);
+    int body_cps[97];
+    for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
+    body_cps[95] = 0x03A6; /* U+03A6 Greek Capital Letter Phi */
+    body_cps[96] = 0x03A8; /* U+03A8 Greek Capital Letter Psi */
+    font_body = LoadFontEx("assets/play.ttf", 36, body_cps, 97);
+    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, body_cps, 97);
     if (!IsFontReady(font_body)) font_body = GetFontDefault();
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
