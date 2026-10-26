@@ -1,8 +1,8 @@
-# FRONT-END & HUB RESTRUCTURE — Roadmap (`roadmap_menu_hub.md`)
+# FRONT-END & HUB RESTRUCTURE — Roadmap (`ROADMAP_MENU_HUB.md`)
 
 > **Status:** Planned — Pre-Implementation Blueprint
 > **Scope:** Title Screen, 3-Slot Profile System, Main Game Hub (`CAMPAIGN` vs. `ATRIUM PLEX`), Campaign Hub (`CAMPAIGN` / `RECORDS & STATS` / `[DEUS MODE]`)
-> **Architecture Reference:** [`LEARN_THE_CODE.md`](../LEARN_THE_CODE.md) · [`AGENTS.md`](../AGENTS.md)
+> **Architecture Reference:** [`LEARN_THE_CODE.md`](LEARN_THE_CODE.md) · [`AGENTS.md`](AGENTS.md)
 
 ---
 
