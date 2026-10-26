@@ -595,7 +595,7 @@ void plexus_load(void) {
     board_set_audio_telemetry(0, 0.0f, 0.0f);
     action_card_set_telemetry(0, 0);
 
-    FILE *f = fopen(resolve_asset_path("plexsave.txt"), "r");
+    FILE *f = fopen(resolve_asset_path("profiles/plexsave.txt"), "r");
     if (!f) return;
 
     char line[600];
@@ -820,7 +820,7 @@ void plexus_save(void) {
         s_std_saved_slot  = s_selected_slot;
     }
     char target[512], tmp[520];
-    snprintf(target, sizeof(target), "%s", resolve_asset_path("plexsave.txt"));
+    snprintf(target, sizeof(target), "%s", resolve_asset_path("profiles/plexsave.txt"));
     snprintf(tmp, sizeof(tmp), "%s.tmp", target);
     FILE *f = fopen(tmp, "w");
     if (!f) return;

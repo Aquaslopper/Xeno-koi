@@ -293,8 +293,13 @@
         var Module = {
             preRun: [function() {
                 try {
+                    /* The retired root-level save keys are intentionally discarded. */
+                    ['settings.txt', 'stats.txt', 'history.txt', 'plexsave.txt'].forEach(function(fn) {
+                        window.localStorage.removeItem('xenokoi_' + fn);
+                    });
                     var files = [
-                        'settings.txt', 'stats.txt', 'history.txt', 'stats_report.txt', 'plexsave.txt', 'profiles.txt',
+                        'stats_report.txt', 'profiles.txt',
+                        'profiles/settings.txt', 'profiles/stats.txt', 'profiles/history.txt', 'profiles/plexsave.txt',
                         'profiles/slot01/settings.txt', 'profiles/slot01/stats.txt', 'profiles/slot01/history.txt', 'profiles/slot01/plexsave.txt',
                         'profiles/slot02/settings.txt', 'profiles/slot02/stats.txt', 'profiles/slot02/history.txt', 'profiles/slot02/plexsave.txt',
                         'profiles/slot03/settings.txt', 'profiles/slot03/stats.txt', 'profiles/slot03/history.txt', 'profiles/slot03/plexsave.txt'
