@@ -1800,9 +1800,9 @@ that is neither hovered nor held, and that still has room, starts one more strea
 when `rand() % 100 == 0`. A streak's alpha
 is `22 + 233 * shine`, where `shine` decays from 1 over `PANEL_SHINE_DURATION`
 (0.4 s) after a flash and is replaced by the box's glow floor when that is higher.
-The drawn thickness is `1 + 2 * shine`.
-
-`ui_theme_draw_text_flares()` builds streak masks from glyph contours: it
+Panel streaks draw at `0.5 + 0.5 * shine` px (0.5 px at rest, growing to a 1 px
+maximum). `ui_theme_draw_text_flares()` uses the same 0.5–1 px thickness range and
+builds streak masks from glyph contours: it
 resamples the glyph outline every few pixels with a weighted average
 (`0.25 * previous + 0.50 * current + 0.25 * next`) before walking the perimeter.
 
