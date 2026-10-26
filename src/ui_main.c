@@ -44,7 +44,7 @@ GameSettings settings;
 #define TRANS_IN_DUR     1.20f
 #define ROUND_BANNER_DUR 4.00f
 #define HUB_BLINK_DUR    0.20f
-#define HUB_BLUR_DUR     0.90f
+#define HUB_BLUR_DUR     0.40f
 #define HUB_BLUR_W       480
 #define HUB_BLUR_H       270
 
@@ -314,9 +314,9 @@ static void draw_hub_blur_transition(float u) {
     float from_scale = 1.0f - 0.01f * out_u;
     float to_scale = 0.99f + 0.01f * in_u;
     float black_u = 0.0f;
-    if (u >= 0.21f && u < 0.54f) black_u = smooth01((u - 0.21f) / 0.33f);
-    else if (u >= 0.54f && u < 0.61f) black_u = 1.0f;
-    else if (u >= 0.61f && u < 0.82f) black_u = 1.0f - smooth01((u - 0.61f) / 0.21f);
+    if (u >= 0.21f && u < 0.535f) black_u = smooth01((u - 0.21f) / 0.325f);
+    else if (u >= 0.535f && u < 0.66f) black_u = 1.0f;
+    else if (u >= 0.66f && u < 0.985f) black_u = 1.0f - smooth01((u - 0.66f) / 0.325f);
     BeginTextureMode(canvas);
     ClearBackground(BLACK);
     draw_hub_transition_layer(overlay_canvas.texture, from_scale, 1.0f - out_u);
