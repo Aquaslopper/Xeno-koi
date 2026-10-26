@@ -114,7 +114,7 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
         return;
     }
 
-    const char *picker_title = "//APEX PANCRATIUM CIRCUIT//";
+    const char *picker_title = " APEX  PANCRATIUM  CIRCUIT ";
     Vector2 picker_title_size = MeasureTextEx(font_title, picker_title, 24.0f, 1.2f);
     DrawTextEx(font_title, picker_title,
                (Vector2){ floorf(p.x + (p.width - picker_title_size.x) * 0.5f), 52.0f },
