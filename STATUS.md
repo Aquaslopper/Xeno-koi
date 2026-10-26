@@ -7,6 +7,12 @@
 ## Status Summary
 ## Latest completed work
 
+### Reduce perimeter and text flare thickness (26 October 2026)
+
+- Reduced moving flare streaks from 1 px base / 1.05 px glowing to 0.5 px base / 1.0 px maximum, for both panel perimeters and text contours. Streak lengths and glow behavior are unchanged.
+- **Verified:** `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check`. A Werror compile of `src/ui_theme.c` could not run because Raylib headers are not installed in this workspace.
+- **Touched:** `src/ui_theme.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** flare counts, streak lengths/speeds, glow levels, gameplay, `tests/`, or `tools/tests_guard.*`.
+
 ### Replace hub scan wipe with soft inward/outward blur transition (26 October 2026)
 
 - Kept the clicked-button strobe and 0.20 s lead-in unchanged. The blur phase is now 0.40 s, with a 1% zoom and 60% of the prior blur blend strength. The black veil starts fading in when the outgoing blur reaches half progress, uses 130 ms fades around a 50 ms full-black hold, and overlaps the blur animation. Total navigation transition is 0.60 s including the strobe.
