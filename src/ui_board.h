@@ -36,6 +36,8 @@ Rectangle board_get_field_card_rect_of(const GameState *g, int card_id);
 Rectangle board_get_field_rect(void);
 Rectangle board_get_stock_rect(void);
 Vector2 board_get_card_field_pos(const GameState *g, int card_id);
+void board_reset_field_slots(const GameState *g);
+void board_hint_field_drop(int card_id, Vector2 drop_center);
 
 /* Drawing primitives */
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest);

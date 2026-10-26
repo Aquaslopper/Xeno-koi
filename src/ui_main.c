@@ -981,7 +981,7 @@ static void update_draw_frame(void) {
                             int card = anim.cpu_card, target = anim.cpu_target;
                             Vector2 landed = anim.target_pos;
                             anim.active = 0; audio_play_drop(&audio);
-                            motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
+                            motion_set_instant(card, landed, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
                             engine_play_hand(&g, card, target);
                             replay_rec_play(1, card, target);
                             if (g.last_captured_count > 0) play_match_capture_sfx();
@@ -991,7 +991,9 @@ static void update_draw_frame(void) {
                                 anim.active = 0; int card, target;
                                 ai_choose_hand(&g, active_diff, &ai_rng, &card, &target);
                                 Vector2 from = { 710.0f, 12.0f };
-                                Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target) : (Vector2){ 710.0f, 240.0f };
+                                Rectangle land = (target < 0) ? board_get_field_card_rect_of(&g, card) : (Rectangle){ 0, 0, 0, 0 };
+                                Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target)
+                                           : (land.width > 0.0f ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f });
                                 anim_start_cpu_fly(&anim, card, target, from, to, get_flight_duration(settings.anim_speed));
                             } else if (!anim.active) {
                                 anim_start_cpu_think(&anim, get_think_duration(settings.anim_speed));
@@ -1005,7 +1007,7 @@ static void update_draw_frame(void) {
                             Vector2 landed = anim.target_pos;
                             int rev_land = (plexus_speedcoin_is_active() && landed.x == 330.0f && landed.y == 262.0f);
                             anim.active = 0; audio_play_drop(&audio);
-                            motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
+                            motion_set_instant(drawn_cid, landed, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
                             if (rev_land) {
                                 plexus_speedcoin_reverse_draw_finish(&g);
                                 trigger_event_beat(0.24f);

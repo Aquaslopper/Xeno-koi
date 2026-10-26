@@ -229,21 +229,11 @@ void motion_deal_round(const GameState *g, float duration) {
         m->initialized = 1;
     }
 
-    /* 3. Field cards deal out smoothly (sorted by month then slot index) */
-    int sorted_field[48];
+    /* 3. Field cards deal into two month-sorted centered rows and lock in place */
+    board_reset_field_slots(g);
     for (int i = 0; i < g->field_count; i++) {
-        int m_cur = CARDS[g->field[i]].month;
-        int j = i - 1;
-        while (j >= 0 && CARDS[g->field[sorted_field[j]]].month > m_cur) {
-            sorted_field[j + 1] = sorted_field[j];
-            j--;
-        }
-        sorted_field[j + 1] = i;
-    }
-
-    for (int i = 0; i < g->field_count; i++) {
-        int cid = g->field[sorted_field[i]];
-        Rectangle r = board_get_field_card_rect(i, g->field_count);
+        int cid = g->field[i];
+        Rectangle r = board_get_field_card_rect_of(g, cid);
         CardMotion *m = &g_cards[cid];
         m->start_pos = stock_pos;
         m->current_pos = stock_pos;
