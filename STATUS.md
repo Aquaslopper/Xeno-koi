@@ -7,6 +7,13 @@
 ## Status Summary
 ## Latest completed work
 
+### Replace hub scan wipe with soft inward/outward blur transition (26 October 2026)
+
+- Kept the clicked-button strobe and 0.20 s lead-in unchanged. Replaced the 0.16 s top-to-bottom scan-line/scissor wipe with a centered blur cross-zoom: the outgoing screen contracts and blurs away, a smooth black veil fades in and out at the midpoint, then the incoming screen expands and sharpens.
+- Uses two 320×180 bilinear snapshots plus a full-resolution incoming snapshot; no new shader or external asset. `SCREEN_GAME` loading transitions are untouched.
+- **Verified:** Werror compile of `src/ui_main.c`; `./build.sh test`; `./tools/tests_guard.sh`; `python3 tools/gen_wiki_tables.py --check`; `git diff --check`.
+- **Touched:** `src/ui_main.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** button strobe timing/style, match loading transitions, assets/shaders, `tests/`, or `tools/tests_guard.*`.
+
 ### Campaign presets and expanded system Options layout (26 October 2026)
 
 - Re-spaced the nine system controls on Options page 1 from the lower half into a regular vertical rhythm across the panel; the separate audio-effects page is unchanged.
