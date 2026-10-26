@@ -865,10 +865,10 @@ static Vector2 badge_mote_point(const VaporMote *m, Rectangle tr, float tau) {
     float rlen = sqrtf(rdx * rdx + rdy * rdy);
     Vector2 out = (rlen > 1e-3f) ? (Vector2){ rdx / rlen, rdy / rlen } : (Vector2){ 0.0f, -1.0f };
     Vector2 perp = { -out.y, out.x };
-    float dist = (95.0f + 135.0f * fabsf(m->swirl)) * (0.35f * tau + 0.65f * tau * tau);
-    float curl = sinf(tau * m->freq * 0.65f + m->phase) * 28.0f * tau * m->swirl;
+    float dist = (68.0f + 96.0f * fabsf(m->swirl)) * (0.35f * tau + 0.65f * tau * tau);
+    float curl = sinf(tau * m->freq * 0.65f + m->phase) * 20.0f * tau * m->swirl;
     return (Vector2){ sx + out.x * dist + perp.x * curl,
-                      sy + out.y * dist + perp.y * curl - 96.0f * tau * tau };
+                      sy + out.y * dist + perp.y * curl - 68.0f * tau * tau };
 }
 
 static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
@@ -890,7 +890,13 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
         "CLAIMING ACCUMULATED TIME NUMBERS"
     };
 
-    Rectangle table_r = { (float)FIELD_X, (float)FIELD_Y, (float)FIELD_W, (float)FIELD_H };
+    float bw = floorf((float)FIELD_W * 0.70f);
+    float bh = floorf((float)FIELD_H * 0.70f);
+    Rectangle badge_r = {
+        floorf((float)FIELD_X + ((float)FIELD_W - bw) * 0.5f),
+        floorf((float)FIELD_Y + ((float)FIELD_H - bh) * 0.5f),
+        bw, bh
+    };
     int forming  = (s_badge_evt_t < BADGE_FORM_DUR);
     int vaporing = (s_badge_evt_t >= BADGE_EFFECT_T);
 
@@ -904,9 +910,9 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
     Color rim_c  = is_coin ? (Color){ 255, 224, 118, 255 } : COLOR_PHOSPHOR;
 
     if (d_alpha > 0.01f) {
-        float jx = sinf(s_badge_evt_t * 96.0f) * 7.0f * u_diss;
-        float jy = cosf(s_badge_evt_t * 82.0f) * 4.0f * u_diss;
-        Rectangle box = { table_r.x + jx, table_r.y + jy, table_r.width, table_r.height };
+        float jx = sinf(s_badge_evt_t * 96.0f) * 5.0f * u_diss;
+        float jy = cosf(s_badge_evt_t * 82.0f) * 3.0f * u_diss;
+        Rectangle box = { badge_r.x + jx, badge_r.y + jy, badge_r.width, badge_r.height };
 
         DrawRectangleRec(box, (Color){ 6, 10, 10, (unsigned char)(218.0f * d_alpha) });
         Rectangle inner = { box.x + 8.0f, box.y + 8.0f, box.width - 16.0f, box.height - 16.0f };
@@ -927,9 +933,9 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
             EndBlendMode();
         }
 
-        float sc = fminf(box.width / 76.0f, box.height / 58.0f);
+        float sc = fminf(box.width / 82.0f, box.height / 64.0f);
         float gcx = box.x + box.width * 0.5f;
-        float gcy = box.y + box.height * 0.43f;
+        float gcy = box.y + box.height * 0.42f;
         Color fg = is_coin ? (Color){ 255, 224, 118, 255 } : COLOR_TEXT_INFO;
         Color cut = { 8, 12, 12, 245 };
 
@@ -939,12 +945,20 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
         EndBlendMode();
         draw_symbol_glyph_scaled(ba, s_badge_evt_sym, gcx, gcy, sc, fg, cut, d_alpha);
 
+        float max_tw = box.width - 36.0f;
+        float t_fsz = 21.0f;
+        Vector2 tts = MeasureTextEx(font_title, k_titles[s_badge_evt_sym], t_fsz, 1.1f);
+        if (tts.x > max_tw && tts.x > 1.0f) t_fsz = floorf(t_fsz * (max_tw / tts.x));
+        float s_fsz = 16.0f;
+        Vector2 sts = MeasureTextEx(font_body, k_subs[s_badge_evt_sym], s_fsz, 1.0f);
+        if (sts.x > max_tw && sts.x > 1.0f) s_fsz = floorf(s_fsz * (max_tw / sts.x));
+
         const char *who_tag = (s_badge_evt_who == 1) ? "TARGET: CPU" : "TARGET: YOU";
-        draw_centered_snapped(font_body, who_tag, gcx, box.y + 22.0f, 18.0f, 1.4f,
+        draw_centered_snapped(font_body, who_tag, gcx, box.y + 16.0f, 16.0f, 1.2f,
                               (Color){ accent.r, accent.g, accent.b, (unsigned char)(235.0f * d_alpha) });
-        draw_centered_snapped(font_title, k_titles[s_badge_evt_sym], gcx, box.y + box.height - 92.0f, 26.0f, 1.3f,
+        draw_centered_snapped(font_title, k_titles[s_badge_evt_sym], gcx, box.y + box.height - 68.0f, t_fsz, 1.1f,
                               (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(255.0f * d_alpha) });
-        draw_centered_snapped(font_body, k_subs[s_badge_evt_sym], gcx, box.y + box.height - 52.0f, 19.0f, 1.2f,
+        draw_centered_snapped(font_body, k_subs[s_badge_evt_sym], gcx, box.y + box.height - 36.0f, s_fsz, 1.0f,
                               (Color){ COLOR_TEXT_INFO.r, COLOR_TEXT_INFO.g, COLOR_TEXT_INFO.b, (unsigned char)(240.0f * d_alpha) });
     }
 
@@ -959,8 +973,8 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
             float ma = sinf(tau * 3.14159265f) * (1.0f - 0.28f * tau);
             if (ma <= 0.01f) continue;
             float tau_tail = fminf(1.0f, fmaxf(0.0f, tau + (forming ? 0.085f : -0.085f)));
-            Vector2 p0 = badge_mote_point(m, table_r, tau);
-            Vector2 pt = badge_mote_point(m, table_r, tau_tail);
+            Vector2 p0 = badge_mote_point(m, badge_r, tau);
+            Vector2 pt = badge_mote_point(m, badge_r, tau_tail);
             DrawLineEx(pt, p0, 1.5f + 0.8f * ma,
                        (Color){ accent.r, accent.g, accent.b, (unsigned char)(205.0f * ma) });
             DrawRectangle((int)lroundf(p0.x) - 1, (int)lroundf(p0.y) - 1, 3, 3,
