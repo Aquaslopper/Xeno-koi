@@ -7,6 +7,15 @@
 ## Status Summary
 ## Latest completed work
 
+### Menu Hub roadmap rewritten so following it cannot break the game (26 October 2026)
+
+- Rewrote `ROADMAP_MENU_HUB.md` after auditing the previous draft against `src/`. The draft's destination is kept, but it is now a staged, separately-committed plan (Stage 0 baseline → hub screens behind the existing Title → return routing → optional Title cutover), with Profiles deferred to a separately-gated Stage 5 and the `[DEUS MODE]` toggle blocked in Stage 4 on an explicit owner decision. Nine verified conflicts in the old draft are documented in the roadmap's §0, including: the Title Screen living in protected `src/ui_screens.c` while the draft forbade editing it; profile copying needing `static` helpers in protected `src/storage.c` and leaking progress between slots on missing files; `web/shell.html`'s single filename list covering preload, rename-sync and unlink-removal; hard-coded `SCREEN_START` returns for Stats/Atrium; the loader vs. CRT-wipe transition distinction and `draw_hub_screen_state()` coverage; Deus being forced in four places (`storage` load, `main()` startup, `begin_new_match()`, Options selector) with a quit path that never saves settings, an omitted `current_opponent` in the proposed snapshot, and the existing Plexus settings snapshot it would have stacked on; the Spine mask having no public getter in `src/ui_plexus.h`; the campaign overlay being anchored to `SCREEN_START`; and `./build.sh test` not compiling `src/ui_main.c`, so every stage gate now includes a full `src/*.c` compile.
+- No game code was changed. The roadmap now requires append-only `ScreenState` values, derived (never duplicated) Deus state, `match_origin` / `*_return_screen` statics modelled on the existing `options_return_screen`, readouts computed only from legally readable data, and per-stage verification gates with `STATUS.md` updates.
+
+#### Checked
+- `./build.sh test` (engine & ruleset tests, 500 full matches, Koi-Koi trigger suite, custom music folder/settings checks; music-dialog UI checks skipped — no raylib headers in this sandbox), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`. `./tools/audio_guard.sh` exits `1` on a pre-existing stale recorded baseline: `src/ui_audio.c` is git-clean and identical to `origin/main`, and was not touched or re-recorded by this change.
+- **Touched:** `ROADMAP_MENU_HUB.md`, `STATUS.md`. **Deliberately did not touch:** any file in `src/`, `tests/`, `docs/`, `assets/`, `web/`, `tools/`, `build.sh`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Dedicated Action Card end-match screen + One-time Atrium Plex Story Introduction & Story Font (26 October 2026)
 
 - Added a dedicated **Action Card** end-match screen, restored 2-card `Oya-ken` dealer selection for real Action Card matches, and implemented the one-time **Atrium Plex Story Introduction** screen with its own dedicated SIL-OFL condensed Story Font and permanent `LOGFILE -> [ STORY ]` reread archive (`src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, `assets/saira_condensed.ttf`, `assets/OFL-saira-condensed.txt`):
