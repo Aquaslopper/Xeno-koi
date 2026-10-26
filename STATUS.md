@@ -7,6 +7,15 @@
 ## Status Summary
 ## Latest completed work
 
+### Campaign presets and expanded system Options layout (26 October 2026)
+
+- Re-spaced the nine system controls on Options page 1 from the lower half into a regular vertical rhythm across the panel; the separate audio-effects page is unchanged.
+- Normal Campaign Start Match now requires clicking Easy, Hard, or Master; until then the Start button reads `SELECT A PRESET`. Choosing Master sets its timer to 30 seconds. No Campaign ruleset override is introduced, and Deus remains on its existing separate dossier/settings path.
+- The actual shared Options route now uses a system-only view: match length, ruleset, difficulty, and timer controls are not drawn or interactive there; audio/visual controls remain. The main-menu and Plex Option entry points share this system-only view. Plex Training and Action Card settings are unchanged.
+- The old shared Options match controls and their click actions are removed from the application screen; the existing Options/audio checks remain unchanged.
+- **Verified:** Werror compile of `src/ui_main.c` and `src/ui_screens.c`; `./build.sh test`; `./tools/tests_guard.sh`; `python3 tools/gen_wiki_tables.py --check`; `git diff --check`.
+- **Touched:** `src/ui_main.c`, `src/ui_screens.c`, `src/ui_screens.h`, `STATUS.md`. **Deliberately did not touch:** `LEARN_THE_CODE.md`, Plex settings code, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `tests/`, or `tools/tests_guard.*`.
+
 ### Menu Hub Stage 5: Three isolated profiles and profile-first start flow (26 October 2026)
 
 - Implemented the owner-approved Stage 5 profile flow from `ROADMAP_MENU_HUB.md`:
