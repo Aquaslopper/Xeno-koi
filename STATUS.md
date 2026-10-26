@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Rename opponent-selection title to Apex Pancratium Circuit (26 October 2026)
+
+- Changed the standard campaign opponent-picker heading to `//APEX PANCRATIUM CIRCUIT//`. The Deus dossier's distinct title, campaign behavior, save state, and selection controls remain unchanged.
+- **Touched:** `src/campaign.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** campaign progression/unlocks, rulesets, opponent data, `tests/`, or `tools/tests_guard.*`.
+
+### Rename campaign hub branding to Pancratium Campaign (26 October 2026)
+
+- Replaced the “SECTOR GAUNTLET” mode-card heading and the campaign-hub “CAMPAIGN // SECTOR COMMAND” heading with `//PANCRATIUM CAMPAIGN//`. Preserved campaign controls and internal campaign identifiers.
+- **Verified:** `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check`.
+- **Touched:** `src/ui_hub.c`, `STATUS.md`. **Deliberately did not touch:** campaign progression/unlocks, scoring rulesets (including `RULESET_TOURNAMENT`), save data, `tests/`, or `tools/tests_guard.*`.
+
 ### Reduce perimeter and text flare thickness (26 October 2026)
 
 - Reduced moving flare streaks from 1 px base / 1.05 px glowing to 0.5 px base / 1.0 px maximum, for both panel perimeters and text contours. Streak lengths and glow behavior are unchanged.

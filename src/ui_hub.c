@@ -323,7 +323,7 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_co
     /* Left Card: CAMPAIGN */
     DrawRectangleRec(k_main_left_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_left_panel, COLOR_PHOSPHOR_DIM);
-    hub_draw_centered(font_title, "SECTOR GAUNTLET", 370.0f, 170.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_title, "//PANCRATIUM CAMPAIGN//", 370.0f, 170.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
     DrawLine(148, 204, 592, 204, COLOR_PHOSPHOR_DIM);
 
     Rectangle camp_stat_box = { 148.0f, 220.0f, 444.0f, 60.0f };
@@ -410,7 +410,7 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
     DrawRectangleRec(k_camp_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_camp_panel, COLOR_PHOSPHOR_DIM);
 
-    hub_draw_centered(font_title, "CAMPAIGN  //  SECTOR COMMAND", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_title, "//PANCRATIUM CAMPAIGN//", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
     DrawLine(320, 160, 960, 160, COLOR_PHOSPHOR_DIM);
 
     Rectangle info_box = { 320.0f, 176.0f, 640.0f, 62.0f };
