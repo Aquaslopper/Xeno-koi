@@ -311,19 +311,19 @@ static void draw_hub_transition_layer(Texture2D texture, float scale, float alph
 static void draw_hub_blur_transition(float u) {
     float out_u = smooth01(fminf(1.0f, u / 0.42f));
     float in_u = smooth01(fmaxf(0.0f, (u - 0.65f) / 0.35f));
-    float from_scale = 1.0f - 0.06f * out_u;
-    float to_scale = 0.94f + 0.06f * in_u;
+    float from_scale = 1.0f - 0.03f * out_u;
+    float to_scale = 0.97f + 0.03f * in_u;
     float black_u = 0.0f;
-    if (u >= 0.38f && u < 0.54f) black_u = smooth01((u - 0.38f) / 0.16f);
-    else if (u >= 0.54f && u < 0.65f) black_u = 1.0f;
-    else if (u >= 0.65f && u < 0.82f) black_u = 1.0f - smooth01((u - 0.65f) / 0.17f);
+    if (u >= 0.21f && u < 0.54f) black_u = smooth01((u - 0.21f) / 0.33f);
+    else if (u >= 0.54f && u < 0.61f) black_u = 1.0f;
+    else if (u >= 0.61f && u < 0.82f) black_u = 1.0f - smooth01((u - 0.61f) / 0.21f);
     BeginTextureMode(canvas);
     ClearBackground(BLACK);
     draw_hub_transition_layer(overlay_canvas.texture, from_scale, 1.0f - out_u);
     draw_hub_transition_layer(hub_blur_from.texture, from_scale,
-                              0.20f * sinf(3.14159265f * out_u));
+                              0.12f * sinf(3.14159265f * out_u));
     draw_hub_transition_layer(hub_blur_to.texture, to_scale,
-                              0.24f * in_u * (1.0f - in_u));
+                              0.144f * in_u * (1.0f - in_u));
     draw_hub_transition_layer(hub_sharp_to.texture, to_scale, in_u);
     DrawRectangle(0, 0, CANVAS_W, CANVAS_H,
                   (Color){ 0, 0, 0, (unsigned char)(255.0f * black_u) });

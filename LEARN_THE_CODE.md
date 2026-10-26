@@ -1029,9 +1029,10 @@ screen and the pressed button rectangle, and starts the 1.10 s timer. The first
 0.20 s only strobes the clicked button over the outgoing screen. During the final
 0.90 s, the outgoing image in `overlay_canvas` and incoming image in `canvas` are
 captured into 480×270 bilinear render textures. The outgoing screen gently
-contracts to 94% scale and blurs away. A smooth black veil fades in, holds briefly,
-and fades back out; then the new screen gently expands from 94% scale and sharpens
-from its low-resolution copy to the full-resolution copy. `hub_sharp_to` preserves
+contracts to 97% scale and blurs away. As the blur reaches half progress, a smooth
+black veil begins fading in; it holds at full black for about 0.06 s, then fades
+back out as the new screen gently expands from 97% scale and sharpens from its
+low-resolution copy to the full-resolution copy. `hub_sharp_to` preserves
 the incoming full-resolution frame while `canvas` is composited; no scan beam or
 scissor wipe is used.
 
