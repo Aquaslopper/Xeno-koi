@@ -704,18 +704,26 @@ passes.
 
 ### 5.4 Files
 
-`get_app_path()` builds `<GetApplicationDirectory()><name>` and uses it **only if
-that file exists**; otherwise it returns `./<name>`. `main()` calls
-`ChangeDirectory(GetApplicationDirectory())` when that directory is non-empty, so
-`./` resolves to the executable's directory in a normal run. `ui_replay.c` builds
-its own `<dir>/replays` path with the same rule and does not fall back.
+`main()` calls `ChangeDirectory(GetApplicationDirectory())` when that directory is
+non-empty, so relative paths resolve from the executable directory in a normal run.
+`get_app_path()` normally builds `<GetApplicationDirectory()><name>` and uses it only
+when the path exists; otherwise it returns `./<name>`. After
+`storage_profiles_init()`, the four canonical live files resolve under `profiles/`:
+`profiles/settings.txt`, `profiles/stats.txt`, `profiles/history.txt`, and
+`profiles/plexsave.txt`. The active slot is mirrored there; its saved copy is under
+`profiles/slot01..03/`. `profiles.txt` (the versioned active-slot manifest) and the
+derived `stats_report.txt` remain at the app root. The shared `replays/` directory is
+not profile-specific.
 
-Writes go through `safe_write_text()`: `fopen` the `<target>.tmp`, `fputs`,
-`fclose`, then `remove(target); rename(tmp, target);`. There is no directory
-creation for the data files; `ui_replay.c` calls `MakeDirectory()` for `replays`
-before listing or saving.
+The game creates `profiles/` at startup. Profile saves use the storage-owned
+transactional writer to update the active slot and nested live copy; no-active-slot
+saves update only the nested working copy. `stats_report.txt` is regenerated, not
+copied into slots. Root-level canonical saves from the retired layout are discarded;
+there is no legacy-save migration. The web shell mirrors the nested live and slot
+paths and deletes retired root-level LocalStorage save keys. `ui_replay.c` builds its
+own `<dir>/replays` path and creates the shared directory before listing or saving.
 
-Keys read and written in `settings.txt`:
+Keys read and written in `profiles/settings.txt`:
 
 ```
 music_folder, rounds, difficulty, master_timer, ruleset, background,

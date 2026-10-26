@@ -12,19 +12,6 @@
 
 static const StorageDeusSessionSnapshot *s_deus_session_snapshot;
 
-void storage_set_deus_session_snapshot(const StorageDeusSessionSnapshot *snapshot) {
-    s_deus_session_snapshot = snapshot;
-}
-
-static void get_app_path(const char *filename, char *out_path, size_t max_len) {
-    const char *base = GetApplicationDirectory();
-    if (base && base[0] != '\0') {
-        snprintf(out_path, max_len, "%s%s", base, filename);
-        if (FileExists(out_path)) return;
-    }
-    snprintf(out_path, max_len, "./%s", filename);
-}
-
 #define PROFILE_SLOT_COUNT 3
 #define PROFILE_FILE_COUNT 4
 #define PROFILE_PATH_CAP 640
@@ -35,6 +22,37 @@ static const char *const s_profile_files[PROFILE_FILE_COUNT] = {
 static StorageProfileMode s_profile_mode = STORAGE_PROFILES_LEGACY;
 static int s_profile_active_slot = 0;
 static unsigned int s_profile_slot_mask = 0;
+static int s_profiles_initialized = 0;
+
+void storage_set_deus_session_snapshot(const StorageDeusSessionSnapshot *snapshot) {
+    s_deus_session_snapshot = snapshot;
+}
+
+static int profile_is_slot_file(const char *filename) {
+    if (!filename) return 0;
+    for (int i = 0; i < PROFILE_FILE_COUNT; i++)
+        if (strcmp(filename, s_profile_files[i]) == 0) return 1;
+    return 0;
+}
+
+static void get_app_path_raw(const char *filename, char *out_path, size_t max_len) {
+    const char *base = GetApplicationDirectory();
+    if (base && base[0] != '\0') {
+        snprintf(out_path, max_len, "%s%s", base, filename);
+        if (FileExists(out_path)) return;
+    }
+    snprintf(out_path, max_len, "./%s", filename);
+}
+
+static void get_app_path(const char *filename, char *out_path, size_t max_len) {
+    if (s_profiles_initialized && profile_is_slot_file(filename)) {
+        char rel[160];
+        snprintf(rel, sizeof(rel), "profiles/%s", filename);
+        get_app_path_raw(rel, out_path, max_len);
+        return;
+    }
+    get_app_path_raw(filename, out_path, max_len);
+}
 
 typedef struct {
     char path[PROFILE_PATH_CAP];
@@ -65,15 +83,17 @@ static int profile_sidecar_path(const char *path, const char *suffix, char *out,
     return 1;
 }
 
-static int profile_is_slot_file(const char *filename) {
-    for (int i = 0; i < PROFILE_FILE_COUNT; i++)
-        if (strcmp(filename, s_profile_files[i]) == 0) return 1;
-    return 0;
-}
-
 static int profile_file_exists(const char *path) {
     struct stat st;
     return stat(path, &st) == 0;
+}
+
+static void profile_remove_legacy_root_files(void) {
+    for (int i = 0; i < PROFILE_FILE_COUNT; i++) {
+        char path[512];
+        get_app_path_raw(s_profile_files[i], path, sizeof(path));
+        remove(path);
+    }
 }
 
 static int profile_make_directory(const char *path) {
@@ -318,15 +338,6 @@ static int profile_build_paths(int slot, char src[][PROFILE_PATH_CAP], char dst[
     return 1;
 }
 
-static int profile_root_files_exist(void) {
-    for (int i = 0; i < PROFILE_FILE_COUNT; i++) {
-        char path[512];
-        get_app_path(s_profile_files[i], path, sizeof(path));
-        if (profile_file_exists(path)) return 1;
-    }
-    return 0;
-}
-
 static int profile_copy_slot(int slot, int to_live) {
     char src[PROFILE_FILE_COUNT][PROFILE_PATH_CAP], dst[PROFILE_FILE_COUNT][PROFILE_PATH_CAP];
     const char *srcp[PROFILE_FILE_COUNT], *dstp[PROFILE_FILE_COUNT];
@@ -403,26 +414,30 @@ StorageProfileMode storage_profiles_init(void) {
     s_profile_mode = STORAGE_PROFILES_LEGACY;
     s_profile_active_slot = 0;
     s_profile_slot_mask = 0;
+    s_profiles_initialized = 1;
+    if (!profile_ensure_directory(0)) return s_profile_mode;
     get_app_path("profiles.txt", manifest, sizeof(manifest));
 
     if (profile_file_exists(manifest)) {
-        if (!profile_read_manifest(&active, &mask)) return s_profile_mode;
-        if (!profile_copy_slot(active, 1)) return s_profile_mode;
+        if (!profile_read_manifest(&active, &mask)) {
+            profile_remove_legacy_root_files();
+            return s_profile_mode;
+        }
         s_profile_active_slot = active;
         s_profile_slot_mask = mask;
         s_profile_mode = STORAGE_PROFILES_READY;
+        if (!profile_copy_slot(active, 1)) {
+            s_profile_mode = STORAGE_PROFILES_LEGACY;
+            s_profile_active_slot = 0;
+            s_profile_slot_mask = 0;
+            return s_profile_mode;
+        }
+        profile_remove_legacy_root_files();
         return s_profile_mode;
     }
 
-    if (profile_root_files_exist()) {
-        if (!profile_ensure_directory(1)) return s_profile_mode;
-        if (!profile_copy_slot(1, 0) || !profile_write_manifest(1, 1u)) return s_profile_mode;
-        s_profile_active_slot = 1;
-        s_profile_slot_mask = 1u;
-        s_profile_mode = STORAGE_PROFILES_READY;
-        return s_profile_mode;
-    }
-
+    /* Root-level saves belong to the retired single-profile layout. Do not import them. */
+    profile_remove_legacy_root_files();
     s_profile_mode = STORAGE_PROFILES_NEW;
     return s_profile_mode;
 }
@@ -460,12 +475,8 @@ int storage_profiles_switch(int slot) {
 int storage_profiles_create(int slot) {
     if (!profile_valid_slot(slot)) return 0;
     if (s_profile_mode == STORAGE_PROFILES_NEW) {
-        if (profile_root_files_exist()) {
-            if (storage_profiles_init() != STORAGE_PROFILES_READY) return 0;
-            if (slot == 1) return 1;
-            return storage_profiles_create(slot);
-        }
-        if (!profile_ensure_directory(slot) || !profile_clear_unregistered_slot(slot)) return 0;
+        if (!profile_ensure_directory(slot) || !profile_clear_unregistered_slot(slot) ||
+            !profile_copy_slot(slot, 0)) return 0;
         unsigned int mask = 1u << (slot - 1);
         if (!profile_write_manifest(slot, mask)) return 0;
         s_profile_active_slot = slot;
