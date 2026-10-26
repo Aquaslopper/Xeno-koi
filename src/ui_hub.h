@@ -17,7 +17,9 @@ typedef enum {
     HUB_ACT_TITLE_OPTIONS,
     HUB_ACT_TITLE_SAVE,
     HUB_ACT_TITLE_CREDITS,
-    HUB_ACT_TITLE_QUIT
+    HUB_ACT_TITLE_QUIT,
+    HUB_ACT_DEUS_ACTIVATE,
+    HUB_ACT_DEUS_DEACTIVATE
 } HubAction;
 
 typedef struct {
@@ -29,6 +31,12 @@ typedef struct {
 /* Pure readout helpers over GameSettings (sectors 1..12, coins over bits 0..35) */
 int ui_hub_unlocked_sectors(const GameSettings *s);
 int ui_hub_count_coins(const GameSettings *s);
+
+/* Stage 4.1: Deus ON remains derived from settings; snapshot pre-activation fields. */
+void ui_hub_deus_snapshot_capture(const GameSettings *s);
+void ui_hub_deus_snapshot_invalidate(void);
+int  ui_hub_deus_snapshot_is_valid(void);
+const StorageDeusSessionSnapshot *ui_hub_deus_snapshot(void);
 
 /* Title Screen (SCREEN_START -- 5-button cutover; saved_timer > 0 shows save notice) */
 void      ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer);
@@ -43,6 +51,6 @@ HubAction ui_hub_handle_main_click(Vector2 vm, HubButtonHit *out_hit);
 /* Campaign Hub (SCREEN_HUB_CAMPAIGN):
    Deus row is read-only and derived strictly from s->difficulty == DIFFICULTY_DEUS. */
 void      ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 vm);
-HubAction ui_hub_handle_campaign_click(Vector2 vm, HubButtonHit *out_hit);
+HubAction ui_hub_handle_campaign_click(const GameSettings *s, Vector2 vm, HubButtonHit *out_hit);
 
 #endif /* UI_HUB_H */

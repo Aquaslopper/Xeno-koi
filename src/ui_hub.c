@@ -6,6 +6,35 @@
 extern Font font_title;
 extern Font font_body;
 
+/* Deus ON state is derived from settings; only pre-activation values are cached. */
+static StorageDeusSessionSnapshot s_deus_snapshot;
+
+void ui_hub_deus_snapshot_capture(const GameSettings *s) {
+    if (!s || s->difficulty == DIFFICULTY_DEUS) {
+        s_deus_snapshot.valid = 0;
+        return;
+    }
+    s_deus_snapshot.difficulty = s->difficulty;
+    s_deus_snapshot.ruleset = s->ruleset;
+    s_deus_snapshot.master_timer = s->master_timer;
+    s_deus_snapshot.terminal_color = s->terminal_color;
+    s_deus_snapshot.background = s->background;
+    s_deus_snapshot.current_opponent = s->current_opponent;
+    s_deus_snapshot.valid = 1;
+}
+
+void ui_hub_deus_snapshot_invalidate(void) {
+    s_deus_snapshot.valid = 0;
+}
+
+int ui_hub_deus_snapshot_is_valid(void) {
+    return s_deus_snapshot.valid;
+}
+
+const StorageDeusSessionSnapshot *ui_hub_deus_snapshot(void) {
+    return &s_deus_snapshot;
+}
+
 /* --- Geometry (1280 x 720 virtual canvas) -------------------------------- */
 
 static const Rectangle k_title_btns[5] = {
@@ -287,18 +316,27 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
     hub_draw_button(k_camp_select_btn, "CAMPAIGN", 20, vm);
     hub_draw_button(k_camp_stats_btn, "RECORDS & STATS", 20, vm);
 
-    /* Display-only Deus indicator (derived from settings.difficulty; inert until Stage 4) */
     DrawRectangleRec(k_camp_deus_box, (Color){ 4, 8, 10, 210 });
     ui_draw_panel_border(k_camp_deus_box, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     hub_draw_centered(font_title, is_deus ? "DEUS MODE: ON" : "DEUS MODE: OFF",
                       640.0f, 427.0f, 17.0f, 1.3f, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
-    hub_draw_centered(font_body, "CONFIGURE IN OPTION -> AI DIFFICULTY",
-                      640.0f, 454.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    const char *deus_hint = !is_deus ? "CLICK TO ACTIVATE // SESSION ONLY" :
+                            ui_hub_deus_snapshot_is_valid() ? "CLICK TO DEACTIVATE" : "OFF DISABLED // USE OPTIONS";
+    hub_draw_centered(font_body, deus_hint, 640.0f, 454.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
 
     hub_draw_button(k_camp_back_btn, "BACK", 20, vm);
 }
 
-HubAction ui_hub_handle_campaign_click(Vector2 vm, HubButtonHit *out_hit) {
+HubAction ui_hub_handle_campaign_click(const GameSettings *s, Vector2 vm, HubButtonHit *out_hit) {
+    if (CheckCollisionPointRec(vm, k_camp_deus_box)) {
+        if (s && s->difficulty == DIFFICULTY_DEUS) {
+            if (!ui_hub_deus_snapshot_is_valid()) return HUB_ACT_NONE;
+            hub_record_hit(out_hit, k_camp_deus_box, "DEUS MODE", 17);
+            return HUB_ACT_DEUS_DEACTIVATE;
+        }
+        hub_record_hit(out_hit, k_camp_deus_box, "DEUS MODE", 17);
+        return HUB_ACT_DEUS_ACTIVATE;
+    }
     if (CheckCollisionPointRec(vm, k_camp_select_btn)) {
         hub_record_hit(out_hit, k_camp_select_btn, "CAMPAIGN", 20);
         return HUB_ACT_OPEN_CAMPAIGN_OVERLAY;

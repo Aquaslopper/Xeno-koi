@@ -730,9 +730,34 @@ static void update_draw_frame(void) {
                 handle_campaign_overlay_click(vm);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 HubButtonHit hit = { { 0, 0, 0, 0 }, "", 20 };
-                HubAction hact = ui_hub_handle_campaign_click(vm, &hit);
+                HubAction hact = ui_hub_handle_campaign_click(&settings, vm, &hit);
                 if (hact != HUB_ACT_NONE) audio_play_click(&audio);
-                if (hact == HUB_ACT_OPEN_CAMPAIGN_OVERLAY) {
+                if (hact == HUB_ACT_DEUS_ACTIVATE && settings.difficulty != DIFFICULTY_DEUS) {
+                    ui_hub_deus_snapshot_capture(&settings);
+                    storage_set_deus_session_snapshot(ui_hub_deus_snapshot());
+                    settings.difficulty = DIFFICULTY_DEUS;
+                    settings.ruleset = RULESET_YAKUZA;
+                    settings.master_timer = 15;
+                    settings.terminal_color = 5;
+                    settings.background = 5;
+                    assets.current_bg = 5;
+                    theme_set(5);
+                    storage_save_settings(&settings);
+                } else if (hact == HUB_ACT_DEUS_DEACTIVATE && settings.difficulty == DIFFICULTY_DEUS &&
+                           ui_hub_deus_snapshot_is_valid()) {
+                    const StorageDeusSessionSnapshot *snapshot = ui_hub_deus_snapshot();
+                    settings.difficulty = snapshot->difficulty;
+                    settings.ruleset = snapshot->ruleset;
+                    settings.master_timer = snapshot->master_timer;
+                    settings.terminal_color = snapshot->terminal_color;
+                    settings.background = snapshot->background;
+                    settings.current_opponent = snapshot->current_opponent;
+                    theme_set(settings.terminal_color);
+                    assets.current_bg = settings.background;
+                    storage_set_deus_session_snapshot(NULL);
+                    ui_hub_deus_snapshot_invalidate();
+                    storage_save_settings(&settings);
+                } else if (hact == HUB_ACT_OPEN_CAMPAIGN_OVERLAY) {
                     start_hub_transition(SCREEN_HUB_CAMPAIGN, 1, hit.rect, hit.label, hit.font_size);
                 } else if (hact == HUB_ACT_GOTO_STATS) {
                     stats_return_screen = SCREEN_HUB_CAMPAIGN;
@@ -780,6 +805,11 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_OPTIONS) {
             int prev_opt_page = screens_get_options_page();
             if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) {
+                if (ui_hub_deus_snapshot_is_valid()) ui_hub_deus_snapshot_invalidate();
+                if (settings.difficulty != DIFFICULTY_DEUS) {
+                    storage_set_deus_session_snapshot(NULL);
+                    storage_save_settings(&settings);
+                }
                 screens_set_options_page(prev_opt_page);
                 hub_reset_opt_page = 1;
                 start_hub_transition(options_return_screen, 0, (Rectangle){ 300, 656, 260, 38 }, "BACK (SAVE)", 20);

@@ -5,6 +5,12 @@
 #include <string.h>
 #include <time.h>
 
+static const StorageDeusSessionSnapshot *s_deus_session_snapshot;
+
+void storage_set_deus_session_snapshot(const StorageDeusSessionSnapshot *snapshot) {
+    s_deus_session_snapshot = snapshot;
+}
+
 static void get_app_path(const char *filename, char *out_path, size_t max_len) {
     const char *base = GetApplicationDirectory();
     if (base && base[0] != '\0') {
@@ -147,6 +153,16 @@ void storage_load_settings(GameSettings *s) {
 
 void storage_save_settings(const GameSettings *s) {
     char buf[MUSIC_FOLDER_CAP + 1024];
+    GameSettings save_settings = *s;
+    if (s_deus_session_snapshot) {
+        save_settings.difficulty = s_deus_session_snapshot->difficulty;
+        save_settings.ruleset = s_deus_session_snapshot->ruleset;
+        save_settings.master_timer = s_deus_session_snapshot->master_timer;
+        save_settings.terminal_color = s_deus_session_snapshot->terminal_color;
+        save_settings.background = s_deus_session_snapshot->background;
+        save_settings.current_opponent = s_deus_session_snapshot->current_opponent;
+        s = &save_settings;
+    }
     const char *diff_str = (s->difficulty == DIFFICULTY_DEUS) ? "deus" :
                            (s->difficulty == DIFFICULTY_MASTER) ? "master" :
                            (s->difficulty == DIFFICULTY_HARD) ? "hard" : "easy";

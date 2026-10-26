@@ -30,6 +30,16 @@ typedef struct {
 } GameSettings;
 
 typedef struct {
+    int valid;
+    Difficulty difficulty;
+    Ruleset ruleset;
+    int master_timer;
+    int terminal_color;
+    int background;
+    int current_opponent;
+} StorageDeusSessionSnapshot;
+
+typedef struct {
     int matches_played;
     int matches_won;
     int matches_lost;
@@ -60,6 +70,7 @@ const char *storage_get_favorite_combo(const GameStats *st);
 /* Load settings / stats / history with safe fallbacks */
 void storage_load_settings(GameSettings *s);
 void storage_save_settings(const GameSettings *s);
+void storage_set_deus_session_snapshot(const StorageDeusSessionSnapshot *snapshot);
 
 void storage_load_stats(GameStats *st);
 void storage_save_stats(const GameStats *st);
