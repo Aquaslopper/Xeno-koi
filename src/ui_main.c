@@ -124,7 +124,7 @@ static void draw_credits_slogan(void) {
 
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
-        screens_draw_start(&assets, &stats, mouse_pos, saved_timer);
+        ui_hub_draw_title(&assets, mouse_pos, saved_timer);
         if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
     } else if (sc == SCREEN_ATRIUM) {
         plexus_draw(&assets, &stats, mouse_pos);
@@ -157,7 +157,8 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
 static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int flash_on) {
     int from_plex_res = (hub_from_screen == SCREEN_MATCH_RESULT) &&
                         (plexus_speedcoin_result_active() || plexus_training_result_active() || plexus_action_card_result_active());
-    int use_title = hub_from_campaign || (hub_from_screen == SCREEN_ATRIUM) || from_plex_res ||
+    int use_title = hub_from_campaign || (hub_from_screen == SCREEN_START) ||
+                    (hub_from_screen == SCREEN_ATRIUM) || from_plex_res ||
                     (hub_from_screen == SCREEN_HUB_MAIN) || (hub_from_screen == SCREEN_HUB_CAMPAIGN);
     Font fnt = use_title ? font_title : font_body;
     float sp = use_title ? 1.2f : 1.0f;
@@ -690,24 +691,25 @@ static void update_draw_frame(void) {
             if (campaign_overlay_open) {
                 handle_campaign_overlay_click(vm);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                ScreenAction act = screens_handle_start_click(vm);
-                if (act != ACT_NONE) audio_play_click(&audio);
-                if (act == ACT_START_GAME) start_hub_transition(SCREEN_HUB_MAIN, 0, (Rectangle){ 490, 320, 300, 40 }, "START MATCH", 18);
-                else if (act == ACT_GOTO_ATRIUM) {
-                    atrium_return_screen = SCREEN_START;
-                    start_transition(SCREEN_ATRIUM, 3, 0);
-                }
-                else if (act == ACT_GOTO_OPTIONS) {
+                HubButtonHit hit = { { 0, 0, 0, 0 }, "", 18 };
+                HubAction hact = ui_hub_handle_title_click(vm, &hit);
+                if (hact != HUB_ACT_NONE) audio_play_click(&audio);
+                if (hact == HUB_ACT_TITLE_START_GAME) {
+                    start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
+                } else if (hact == HUB_ACT_TITLE_OPTIONS) {
                     options_return_screen = SCREEN_START;
-                    start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
+                    start_hub_transition(SCREEN_OPTIONS, 0, hit.rect, hit.label, hit.font_size);
+                } else if (hact == HUB_ACT_TITLE_SAVE) {
+                    storage_save_all(&settings, &stats, &history);
+                    plexus_save();
+                    saved_timer = 2.0f;
+                } else if (hact == HUB_ACT_TITLE_CREDITS) {
+                    start_hub_transition(SCREEN_CREDITS, 0, hit.rect, hit.label, hit.font_size);
+                } else if (hact == HUB_ACT_TITLE_QUIT) {
+                    plexus_save();
+                    quit_requested = 1;
+                    return;
                 }
-                else if (act == ACT_GOTO_STATS) {
-                    stats_return_screen = SCREEN_START;
-                    start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
-                }
-                else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
-                else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); plexus_save(); saved_timer = 2.0f; }
-                else if (act == ACT_QUIT) { plexus_save(); quit_requested = 1; return; }
             }
         } else if (screen == SCREEN_HUB_MAIN) {
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {

@@ -8,6 +8,24 @@ extern Font font_body;
 
 /* --- Geometry (1280 x 720 virtual canvas) -------------------------------- */
 
+static const Rectangle k_title_btns[5] = {
+    { 490.0f, 344.0f, 300.0f, 44.0f },
+    { 490.0f, 400.0f, 300.0f, 44.0f },
+    { 490.0f, 456.0f, 300.0f, 44.0f },
+    { 490.0f, 512.0f, 300.0f, 44.0f },
+    { 490.0f, 568.0f, 300.0f, 44.0f }
+};
+static const char *const k_title_labels[5] = {
+    "START GAME", "OPTION", "SAVE", "CREDITS", "QUIT"
+};
+static const HubAction k_title_actions[5] = {
+    HUB_ACT_TITLE_START_GAME,
+    HUB_ACT_TITLE_OPTIONS,
+    HUB_ACT_TITLE_SAVE,
+    HUB_ACT_TITLE_CREDITS,
+    HUB_ACT_TITLE_QUIT
+};
+
 static const Rectangle k_main_left_panel    = { 120.0f, 148.0f, 500.0f, 390.0f };
 static const Rectangle k_main_right_panel   = { 660.0f, 148.0f, 500.0f, 390.0f };
 static const Rectangle k_main_campaign_btn  = { 210.0f, 456.0f, 320.0f,  52.0f };
@@ -73,7 +91,7 @@ static void hub_draw_centered(Font font, const char *text, float cx, float y, fl
         ui_theme_draw_text_flares(font, text, pos, fsz, sp, col);
 }
 
-static void hub_draw_backdrop(const BoardAssets *ba) {
+static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha) {
     if (ba && ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0) {
         int bg = ba->current_bg;
         if (ba->has_fog_shader) {
@@ -98,7 +116,11 @@ static void hub_draw_backdrop(const BoardAssets *ba) {
     } else {
         ClearBackground(BLACK);
     }
-    DrawRectangle(0, 0, CANVAS_W, CANVAS_H, (Color){ 0, 0, 0, 168 });
+    DrawRectangle(0, 0, CANVAS_W, CANVAS_H, (Color){ 0, 0, 0, alpha });
+}
+
+static void hub_draw_backdrop(const BoardAssets *ba) {
+    hub_draw_backdrop_alpha(ba, 168);
 }
 
 static void hub_draw_button(Rectangle r, const char *label, int fsz, Vector2 vm) {
@@ -119,6 +141,28 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
     out_hit->rect      = r;
     out_hit->label     = lbl;
     out_hit->font_size = fsz;
+}
+
+/* --- Title Screen (SCREEN_START) ----------------------------------------- */
+
+void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer) {
+    hub_draw_backdrop_alpha(ba, 95);
+    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 52.0f, 136.0f, 3.0f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_body, "BIOMECHANICAL EDITION", 640.0f, 220.0f, 26.0f, 3.0f, COLOR_PHOSPHOR_DIM);
+    for (int i = 0; i < 5; i++)
+        hub_draw_button(k_title_btns[i], k_title_labels[i], 18, vm);
+    if (saved_timer > 0.0f)
+        hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
+}
+
+HubAction ui_hub_handle_title_click(Vector2 vm, HubButtonHit *out_hit) {
+    for (int i = 0; i < 5; i++) {
+        if (CheckCollisionPointRec(vm, k_title_btns[i])) {
+            hub_record_hit(out_hit, k_title_btns[i], k_title_labels[i], 18);
+            return k_title_actions[i];
+        }
+    }
+    return HUB_ACT_NONE;
 }
 
 /* --- Main Game Hub (SCREEN_HUB_MAIN) ------------------------------------- */

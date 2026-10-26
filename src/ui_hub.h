@@ -12,7 +12,12 @@ typedef enum {
     HUB_ACT_BACK_TO_TITLE,
     HUB_ACT_OPEN_CAMPAIGN_OVERLAY,
     HUB_ACT_GOTO_STATS,
-    HUB_ACT_BACK_TO_MAIN_HUB
+    HUB_ACT_BACK_TO_MAIN_HUB,
+    HUB_ACT_TITLE_START_GAME,
+    HUB_ACT_TITLE_OPTIONS,
+    HUB_ACT_TITLE_SAVE,
+    HUB_ACT_TITLE_CREDITS,
+    HUB_ACT_TITLE_QUIT
 } HubAction;
 
 typedef struct {
@@ -24,6 +29,10 @@ typedef struct {
 /* Pure readout helpers over GameSettings (sectors 1..12, coins over bits 0..35) */
 int ui_hub_unlocked_sectors(const GameSettings *s);
 int ui_hub_count_coins(const GameSettings *s);
+
+/* Title Screen (SCREEN_START -- 5-button cutover; saved_timer > 0 shows save notice) */
+void      ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer);
+HubAction ui_hub_handle_title_click(Vector2 vm, HubButtonHit *out_hit);
 
 /* Main Game Hub (SCREEN_HUB_MAIN):
    spine_count in 0..48 displays live Spine progress (+ NEW PLAYERS hint at 0/48);
