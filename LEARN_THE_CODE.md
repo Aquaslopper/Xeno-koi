@@ -1372,26 +1372,20 @@ The strings the loop hands to this line are fixed:
 
 ## 9. Screens (`ui_screens.c`)
 
-All screens except the game itself draw `draw_bg_if_loaded(ba, alpha)` first: the
-current background through the fog shader, then a black rectangle at the given
-alpha (95 on the start screen, 180 on options/stats/credits, 170 on the match
-result).
+The Options, Stats, Credits, and match-result screens in `ui_screens.c` draw
+`draw_bg_if_loaded(ba, alpha)` first: the current background through the fog shader,
+then a black rectangle (180 on options/stats/credits, 170 on the match result).
+The active `SCREEN_START` is instead rendered by `ui_hub_draw_title()` in
+`ui_hub.c`, called from `draw_hub_screen_state()` in `ui_main.c`; it paints the
+background with a 95 alpha. The similarly named `screens_draw_start()` in
+`ui_screens.c` is a legacy renderer and is not used by the active frame loop.
 
 ### 9.1 Start
 
-Title `[XENO / KOI]` at 136 px on y 52, subtitle `BIOMECHANICAL EDITION` at 26 px
-on y 220, and seven buttons `{490, 320 + i * 50, 300, 40}` at 18 px:
-
-| i | Label | Action |
-|---:|---|---|
-| 0 | `START MATCH` | open the campaign overlay |
-| 1 | `ATRIUM PLEX` | `start_transition(SCREEN_ATRIUM, 0, 0)` |
-| 2 | `OPTION` | hub transition to options |
-| 3 | `STATS` | hub transition to stats |
-| 4 | `SAVE` | `storage_save_all()`, `saved_timer = 2.0` |
-| 5 | `CREDITS` | hub transition to credits |
-| 6 | `QUIT` | `quit_requested = 1` |
-
+The active title screen shows `[XENO / KOI]` at 136 px on y 72 and
+`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220 in the soft wine-red `{224,136,146}`.
+Its three buttons are `CONTINUE`
+(or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.
 
 ### 9.2 Options, page 1 of 2
