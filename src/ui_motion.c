@@ -126,6 +126,11 @@ int motion_is_reflowing(const GameState *g) {
         if ((unsigned)cid < 48u && g_cards[cid].moving) return 1;
     }
 
+    for (int i = 0; i < g->stock_count; i++) {
+        int cid = g->stock[i];
+        if ((unsigned)cid < 48u && g_cards[cid].moving) return 1;
+    }
+
     for (int p = 0; p < 2; p++) {
         for (int i = 0; i < g->captured_count[p]; i++) {
             int cid = g->captured[p][i];

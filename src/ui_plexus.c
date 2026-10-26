@@ -2,6 +2,7 @@
 #include "cards.h"
 #include "ui_motion.h"
 #include "ui_speed.h"
+#include "ui_action.h"
 #include "ui_theme.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -127,8 +128,8 @@ static void tut_save_telemetry(void) {
     s_saved_audio_triggers = board_get_audio_action_triggers();
     s_saved_audio_peak     = board_get_audio_peak_synergy();
     s_saved_audio_hold     = board_get_audio_full_hold_seconds();
-    s_saved_ac_symbols     = board_get_action_symbols_fired();
-    s_saved_ac_time        = board_get_action_lifetime_time();
+    s_saved_ac_symbols     = action_card_get_symbols_fired();
+    s_saved_ac_time        = action_card_get_lifetime_time();
     s_tut_telemetry_saved  = 1;
 }
 
@@ -137,7 +138,7 @@ static void tut_restore_telemetry(int clear_saved) {
     speed_bar_set_telemetry(s_saved_drops, s_saved_time_sum, s_saved_cover_sum,
                             s_saved_best_streak, s_saved_lifetime_mp);
     board_set_audio_telemetry(s_saved_audio_triggers, s_saved_audio_peak, s_saved_audio_hold);
-    board_set_action_card_telemetry(s_saved_ac_symbols, s_saved_ac_time);
+    action_card_set_telemetry(s_saved_ac_symbols, s_saved_ac_time);
     if (clear_saved) s_tut_telemetry_saved = 0;
 }
 
@@ -388,7 +389,7 @@ void plexus_load(void) {
     float t_sum = 0.0f, c_sum = 0.0f, aud_peak = 0.0f, aud_hold = 0.0f;
     speed_bar_set_telemetry(0, 0.0f, 0.0f, 0, 0);
     board_set_audio_telemetry(0, 0.0f, 0.0f);
-    board_set_action_card_telemetry(0, 0);
+    action_card_set_telemetry(0, 0);
 
     FILE *f = fopen(resolve_asset_path("plexsave.txt"), "r");
     if (!f) { ensure_log_seeded(); return; }
@@ -507,7 +508,7 @@ void plexus_load(void) {
         s_selected_slot = highest_unlocked_slot(s_selected_month);
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
-    board_set_action_card_telemetry(ac_sym, ac_tm);
+    action_card_set_telemetry(ac_sym, ac_tm);
     ensure_log_seeded();
 }
 
@@ -529,8 +530,8 @@ void plexus_save(void) {
     int aud_trig = board_get_audio_action_triggers();
     float aud_peak = board_get_audio_peak_synergy();
     float aud_hold = board_get_audio_full_hold_seconds();
-    int ac_sym = board_get_action_symbols_fired();
-    int ac_tm  = board_get_action_lifetime_time();
+    int ac_sym = action_card_get_symbols_fired();
+    int ac_tm  = action_card_get_lifetime_time();
     if (s_tut_telemetry_saved) {
         drops = s_saved_drops;
         t_sum = s_saved_time_sum;
@@ -716,7 +717,7 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
     int aud_trig    = board_get_audio_action_triggers();
     float aud_peak  = board_get_audio_peak_synergy() * 100.0f;
     float aud_hold  = board_get_audio_full_hold_seconds();
-    int ac_sym      = board_get_action_symbols_fired();
+    int ac_sym      = action_card_get_symbols_fired();
     int done_cards  = count_finished_cards();
 
     char row1[96], row2[96], row3[96], row4[96], row5[96];
@@ -1016,8 +1017,8 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                                  (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
             int drops = speed_bar_graded_drops();
             int aud_trig = board_get_audio_action_triggers();
-            int ac_sym = board_get_action_symbols_fired();
-            int ac_tm  = board_get_action_lifetime_time();
+            int ac_sym = action_card_get_symbols_fired();
+            int ac_tm  = action_card_get_lifetime_time();
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
             snprintf(sub, sizeof(sub), "KK-ADD-10  //  %s  //  %d ROUNDS   [%dW-%dL]",
                      d_name, settings.rounds, s_ac_wins, s_ac_losses);
@@ -1490,7 +1491,7 @@ void plexus_action_card_finish_match(const GameState *g) {
                          (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
     int mp = speed_bar_total();
     int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
-    board_get_action_match_time_stats(&yt, &yp, &ct, &cp, &mt);
+    action_card_get_match_time_stats(&yt, &yp, &ct, &cp, &mt);
 
     char title[80], l1[96], l2[96], l3[96];
     snprintf(title, sizeof(title), "ACTION CARD %s // YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
@@ -2010,7 +2011,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         draw_text_snapped(font_title, "THE FIVE HORRORS OF THE PLEXUS:", x, y + 98.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
         for (int s = 0; s < 5; s++) {
             float ry = y + 132.0f + (float)s * 38.0f;
-            board_draw_action_symbol_icon(ba, s, x + 16.0f, ry + 10.0f, 1, 0.0f);
+            action_card_draw_symbol_icon(ba, s, x + 16.0f, ry + 10.0f, 1, 0.0f);
             draw_text_snapped(font_body, k_h[s].lbl, x + 40.0f, ry + 2.0f, 16.0f, 1.0f, COLOR_PHOSPHOR);
             draw_text_snapped(font_body, k_h[s].d1,  x + 188.0f, ry + 2.0f, 16.0f, 1.0f, COLOR_TEXT_INFO);
             if (k_h[s].d2) draw_text_snapped(font_body, k_h[s].d2, x + 188.0f, ry + 22.0f, 16.0f, 1.0f, COLOR_TEXT_INFO);

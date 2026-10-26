@@ -171,7 +171,13 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
 
     if (g->phase != PHASE_TURN_HAND || g->current_player != 0 ||
         drag->selected > g->hand_count[0]) drag->selected = 0;
-    if (!input_unlocked) return;
+    if (drag->on && (g->phase != PHASE_TURN_HAND || g->current_player != 0 ||
+        drag->idx < 0 || drag->idx >= g->hand_count[0])) {
+        drag->on = 0;
+        drag->idx = -1;
+        drag->moved = 0;
+    }
+    if (!input_unlocked && !drag->on) return;
     if (IsKeyPressed(KEY_ESCAPE) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         drag->selected = 0;
         if (drag->on) {
@@ -179,13 +185,15 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
             anim_start_glide(anim, g->hand[0][drag->idx], drag->pos,
                              (Vector2){ slot.x, slot.y }, 0.40f);
             drag->on = 0;
+            drag->idx = -1;
+            drag->moved = 0;
         }
         return;
     }
 
     /* A selected card only plays on a matching card, or empty field if unmatched.
        Feed the existing drop resolver so captures and replay recording stay identical. */
-    if (!drag->on && drag->selected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (!drag->on && input_unlocked && drag->selected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         int cid = g->hand[0][drag->selected - 1], matches = 0, hit = -1;
         for (int i = 0; i < g->field_count; i++) {
             int f = g->field[i];
@@ -250,13 +258,17 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
 
     /* Release: resolve drop */
     if (drag->on && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        int was_moved = drag->moved;
         drag->on = 0;
-        if (!drag->moved) {
+        drag->moved = 0;
+        if (!was_moved) {
             drag->selected = (drag->selected == drag->idx + 1) ? 0 : drag->idx + 1;
+            drag->idx = -1;
             return;
         }
         Vector2 c = { drag->pos.x + HAND_CARD_W / 2.0f, drag->pos.y + HAND_CARD_H / 2.0f };
         resolve_drop(g, drag, anim, c);
+        drag->idx = -1;
     }
 
 }
