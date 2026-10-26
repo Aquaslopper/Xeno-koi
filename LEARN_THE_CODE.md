@@ -1013,7 +1013,7 @@ and bilinear (`play.ttf` at 36 px); each falls back to `GetFontDefault()`.
 | System | Values | Where |
 |---|---|---|
 | Match load | `TRANS_OUT_DUR 1.80f`, `TRANS_HOLD_DUR 2.20f`, `TRANS_IN_DUR 1.20f` | full-screen fade to black, card-back loader during the hold, screen swap at the end of the hold |
-| Hub navigation | `HUB_BLINK_DUR 0.20f`, `HUB_BLUR_DUR 0.16f` | clicked-button strobe, then outgoing blur/contract, a smooth dip to black, and incoming blur/expand/sharpen |
+| Hub navigation | `HUB_BLINK_DUR 0.20f`, `HUB_BLUR_DUR 0.90f` | clicked-button strobe, then gentle blur/contract, a relaxed fade-to-black with a brief hold, and gentle blur/expand/sharpen |
 
 `start_transition(target, action, track)` sets `transition_dir = 1` and
 `transition_timer = 0`. The loop then runs three stages: out (`alpha =
@@ -1025,15 +1025,15 @@ action code:
 * `2` or `3` — resume music, play the pending win/lose sting.
 
 `start_hub_transition()` instead assigns `screen` immediately, stores the source
-screen and the pressed button rectangle, and starts the 0.36 s timer. The first
+screen and the pressed button rectangle, and starts the 1.10 s timer. The first
 0.20 s only strobes the clicked button over the outgoing screen. During the final
-0.16 s, the outgoing image in `overlay_canvas` and incoming image in `canvas` are
-captured into 320×180 bilinear render textures. The outgoing screen contracts to
-72% scale and blurs/dissolves away; a smooth black veil rises to full opacity at
-the midpoint, then fades away as the new screen expands from 72% scale and
-sharpens from its low-resolution copy to the full-resolution copy. `hub_sharp_to`
-preserves the incoming full-resolution frame while `canvas` is composited; no
-scan beam or scissor wipe is used.
+0.90 s, the outgoing image in `overlay_canvas` and incoming image in `canvas` are
+captured into 480×270 bilinear render textures. The outgoing screen gently
+contracts to 94% scale and blurs away. A smooth black veil fades in, holds briefly,
+and fades back out; then the new screen gently expands from 94% scale and sharpens
+from its low-resolution copy to the full-resolution copy. `hub_sharp_to` preserves
+the incoming full-resolution frame while `canvas` is composited; no scan beam or
+scissor wipe is used.
 
 `begin_new_match()` clears the animation, motion, speed-bar and drag state; aborts
 any recording; builds `match_seed = time(NULL) ^ (frame_count * 2654435761u)`;

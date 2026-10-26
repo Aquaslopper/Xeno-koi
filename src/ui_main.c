@@ -44,9 +44,9 @@ GameSettings settings;
 #define TRANS_IN_DUR     1.20f
 #define ROUND_BANNER_DUR 4.00f
 #define HUB_BLINK_DUR    0.20f
-#define HUB_BLUR_DUR     0.16f
-#define HUB_BLUR_W       320
-#define HUB_BLUR_H       180
+#define HUB_BLUR_DUR     0.90f
+#define HUB_BLUR_W       480
+#define HUB_BLUR_H       270
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
@@ -309,18 +309,22 @@ static void draw_hub_transition_layer(Texture2D texture, float scale, float alph
 }
 
 static void draw_hub_blur_transition(float u) {
-    float out_u = smooth01(fminf(1.0f, 2.0f * u));
-    float in_u = smooth01(fmaxf(0.0f, 2.0f * u - 1.0f));
-    float from_scale = 1.0f - 0.28f * out_u;
-    float to_scale = 0.72f + 0.28f * in_u;
-    float black_u = 1.0f - smooth01(fabsf(2.0f * u - 1.0f));
+    float out_u = smooth01(fminf(1.0f, u / 0.42f));
+    float in_u = smooth01(fmaxf(0.0f, (u - 0.65f) / 0.35f));
+    float from_scale = 1.0f - 0.06f * out_u;
+    float to_scale = 0.94f + 0.06f * in_u;
+    float black_u = 0.0f;
+    if (u >= 0.38f && u < 0.54f) black_u = smooth01((u - 0.38f) / 0.16f);
+    else if (u >= 0.54f && u < 0.65f) black_u = 1.0f;
+    else if (u >= 0.65f && u < 0.82f) black_u = 1.0f - smooth01((u - 0.65f) / 0.17f);
     BeginTextureMode(canvas);
     ClearBackground(BLACK);
     draw_hub_transition_layer(overlay_canvas.texture, from_scale, 1.0f - out_u);
     draw_hub_transition_layer(hub_blur_from.texture, from_scale,
-                              0.45f * sinf(3.14159265f * out_u));
-    draw_hub_transition_layer(hub_blur_to.texture, to_scale, in_u);
-    draw_hub_transition_layer(hub_sharp_to.texture, to_scale, in_u * in_u);
+                              0.20f * sinf(3.14159265f * out_u));
+    draw_hub_transition_layer(hub_blur_to.texture, to_scale,
+                              0.24f * in_u * (1.0f - in_u));
+    draw_hub_transition_layer(hub_sharp_to.texture, to_scale, in_u);
     DrawRectangle(0, 0, CANVAS_W, CANVAS_H,
                   (Color){ 0, 0, 0, (unsigned char)(255.0f * black_u) });
     EndTextureMode();
