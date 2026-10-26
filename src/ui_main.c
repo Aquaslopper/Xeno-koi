@@ -311,8 +311,8 @@ static void draw_hub_transition_layer(Texture2D texture, float scale, float alph
 static void draw_hub_blur_transition(float u) {
     float out_u = smooth01(fminf(1.0f, u / 0.42f));
     float in_u = smooth01(fmaxf(0.0f, (u - 0.65f) / 0.35f));
-    float from_scale = 1.0f - 0.03f * out_u;
-    float to_scale = 0.97f + 0.03f * in_u;
+    float from_scale = 1.0f - 0.01f * out_u;
+    float to_scale = 0.99f + 0.01f * in_u;
     float black_u = 0.0f;
     if (u >= 0.21f && u < 0.54f) black_u = smooth01((u - 0.21f) / 0.33f);
     else if (u >= 0.54f && u < 0.61f) black_u = 1.0f;

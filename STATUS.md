@@ -9,7 +9,7 @@
 
 ### Replace hub scan wipe with soft inward/outward blur transition (26 October 2026)
 
-- Kept the clicked-button strobe and 0.20 s lead-in unchanged. The 0.90 s blur phase now uses a 3% zoom and 60% of the prior blur blend strength. The black veil starts fading in when the outgoing blur reaches half progress and holds at full black for about 0.06 s before fading out.
+- Kept the clicked-button strobe and 0.20 s lead-in unchanged. The 0.90 s blur phase now uses a 1% zoom and 60% of the prior blur blend strength. The black veil starts fading in when the outgoing blur reaches half progress and holds at full black for about 0.06 s before fading out.
 - Uses two 480×270 bilinear snapshots plus a full-resolution incoming snapshot; no new shader or external asset. `SCREEN_GAME` loading transitions are untouched.
 - **Verified:** Werror compile of `src/ui_main.c`; `./build.sh test`; `./tools/tests_guard.sh`; `python3 tools/gen_wiki_tables.py --check`; `git diff --check`.
 - **Touched:** `src/ui_main.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** button strobe timing/style, match loading transitions, assets/shaders, `tests/`, or `tools/tests_guard.*`.
