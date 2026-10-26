@@ -1379,8 +1379,8 @@ result).
 
 ### 9.1 Start
 
-Title `[XENO / KOI]` at 136 px on y 52, subtitle `BIOMECHANICAL EDITION` at 26 px
-on y 220, and seven buttons `{490, 320 + i * 50, 300, 40}` at 18 px:
+Title `[XENO / KOI]` at 136 px on y 52 and seven buttons
+`{490, 320 + i * 50, 300, 40}` at 18 px:
 
 | i | Label | Action |
 |---:|---|---|

@@ -7,6 +7,12 @@
 ## Status Summary
 ## Latest completed work
 
+### Remove subtitle from main menu (26 October 2026)
+
+- Removed the `BIOMECHANICAL EDITION` text line from both title-screen drawing paths. The title, buttons, and window title remain unchanged.
+- **Verified:** `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check`.
+- **Touched:** `src/ui_hub.c`, `src/ui_screens.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** title/button layout, window title, campaign branding, `tests/`, or `tools/tests_guard.*`.
+
 ### Rename opponent-selection title to Apex Pancratium Circuit (26 October 2026)
 
 - Changed the standard campaign opponent-picker heading to `//APEX PANCRATIUM CIRCUIT//` and centered it from the measured font width within the overlay panel. The Deus dossier's distinct title, campaign behavior, save state, and selection controls remain unchanged.
