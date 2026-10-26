@@ -288,10 +288,10 @@ static void begin_new_match(int trk) {
 }
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
-static float get_think_duration(int s)  { return (s == 0) ? 0.52f : (s == 1) ? 0.36f : 0.24f; }
+static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.25f : 0.15f; }
 
 static void trigger_event_beat(float base_s) {
-    float mul = (settings.anim_speed == 0) ? 1.25f : (settings.anim_speed == 1) ? 1.00f : 0.78f;
+    float mul = 0.0f;
     if (plexus_speedcoin_is_active()) mul *= 0.55f;
     float d = base_s * mul;
     if (d > event_beat_timer) event_beat_timer = d;
