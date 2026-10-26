@@ -410,7 +410,7 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
     DrawRectangleRec(k_camp_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_camp_panel, COLOR_PHOSPHOR_DIM);
 
-    hub_draw_centered(font_title, "//PANCRATIUM CAMPAIGN//", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_title, "PANCRATIUM CAMPAIGN", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
     DrawLine(320, 160, 960, 160, COLOR_PHOSPHOR_DIM);
 
     Rectangle info_box = { 320.0f, 176.0f, 640.0f, 62.0f };
