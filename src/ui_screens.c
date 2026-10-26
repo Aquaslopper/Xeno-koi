@@ -317,44 +317,6 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
         return;
     }
 
-    draw_section_header("MATCH RULES", 56.0f);
-    draw_text_ex_snapped(font_body, "Match Length:", (Vector2){ 300.0f, 96.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_btn((Rectangle){ 650, 92, 40, 26 }, "-", 18, vm, COLOR_PHOSPHOR);
-    draw_centered_text(font_body, TextFormat("%d Rounds", s->rounds), 782.0f, 96.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-    draw_btn((Rectangle){ 870, 92, 40, 26 }, "+", 18, vm, COLOR_PHOSPHOR);
-
-    if (is_deus) {
-        draw_locked_row(128.0f, "Ruleset:", "[ YAKUZA (LOCKED) ]");
-    } else {
-        draw_text_ex_snapped(font_body, "Ruleset:", (Vector2){ 300.0f, 132.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_btn((Rectangle){ 650, 128, 40, 26 }, "<", 18, vm, COLOR_PHOSPHOR);
-        const char *r_names[5] = { "NINTENDO", "FUDAWIKI", "KK-ADD-10", "TOURNAMENT", "YAKUZA" };
-        Color dbg = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 20, 160, 40, 55 } :
-                    (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 210, 140, 20, 55 } : (Color){ 210, 30, 30, 55 };
-        Color dbdr = (s->ruleset == RULESET_NINTENDO || s->ruleset == RULESET_KK_ADD_10) ? (Color){ 30, 220, 60, 140 } :
-                     (s->ruleset == RULESET_FUDAWIKI) ? (Color){ 240, 160, 30, 140 } : (Color){ 240, 40, 40, 140 };
-        Rectangle rbox = { 694, 128, 172, 26 };
-        DrawRectangleRec(rbox, dbg); DrawRectangleLinesEx(rbox, 1.0f, dbdr);
-        ui_theme_draw_panel_flares(rbox);
-        draw_text_in_rect(font_body, r_names[s->ruleset], rbox, 15.0f, 1.0f, COLOR_TEXT_INFO);
-        draw_btn((Rectangle){ 870, 128, 40, 26 }, ">", 18, vm, COLOR_PHOSPHOR);
-    }
-
-    draw_section_header("AI DIFFICULTY", 170.0f);
-    const char *d_names[4] = { "EASY", "HARD", "MASTER", "DEUS" };
-    Color d_col = (s->difficulty == DIFFICULTY_DEUS) ? (Color){ 255, 205, 45, 255 } :
-                  (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 60, 60, 255 } : COLOR_PHOSPHOR;
-    draw_selector_row(206.0f, "Difficulty:", d_names[s->difficulty], 16, d_col, vm);
-
-    draw_text_ex_snapped(font_body, is_deus ? "Deus Timer:" : "Master Timer:", (Vector2){ 300.0f, 246.0f }, 18.0f, 1.2f,
-                         (s->difficulty == DIFFICULTY_MASTER) ? (Color){ 255, 100, 100, 255 } : COLOR_PHOSPHOR_DIM);
-    if (s->difficulty == DIFFICULTY_MASTER) {
-        draw_option_value((Rectangle){ 650, 242, 128, 26 }, "15 SEC", 15, vm, (s->master_timer == 15) ? (Color){ 255, 80, 80, 255 } : COLOR_PHOSPHOR_DIM);
-        draw_option_value((Rectangle){ 782, 242, 128, 26 }, "30 SEC", 15, vm, (s->master_timer == 30) ? (Color){ 255, 80, 80, 255 } : COLOR_PHOSPHOR_DIM);
-    } else {
-        draw_text_ex_snapped(font_body, is_deus ? "[ 15 SEC (LOCKED) ]" : "[ MASTER ONLY ]", (Vector2){ 650.0f, 246.0f }, 16.0f, 1.2f, COLOR_PHOSPHOR_DIM);
-    }
-
     draw_section_header("AUDIO & VISUAL", 284.0f);
     const char *cnames[6] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET", "DARK" };
     if (is_deus) draw_locked_row(320.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
@@ -435,6 +397,7 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
         handle_audio_options(s, audio, vm);
         return ACT_NONE;
     }
+    if (CheckCollisionPointRec(vm, (Rectangle){260, 56, 760, 220})) return ACT_NONE;
     if (down) {
         if (CheckCollisionPointRec(vm, (Rectangle){ 688, 428, 184, 26 })) {
             s->bgm_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f));
@@ -450,22 +413,7 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     if (!pressed) return ACT_NONE;
 
     int dir, is_deus = (s->difficulty == DIFFICULTY_DEUS);
-    if (CheckCollisionPointRec(vm, (Rectangle){ 650, 92, 40, 26 })) { if (s->rounds > 1) s->rounds--; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 870, 92, 40, 26 })) { if (s->rounds < 12) s->rounds++; if (audio) audio_play_click(audio); }
-    else if (!is_deus && (dir = check_selector_click(vm, 128.0f)) != 0) { s->ruleset = (s->ruleset + 5 + dir) % 5; if (audio) audio_play_click(audio); }
-    else if ((dir = check_selector_click(vm, 206.0f)) != 0) {
-        s->difficulty = (Difficulty)((s->difficulty + 4 + dir) % 4);
-        if (s->difficulty == DIFFICULTY_DEUS) {
-            s->ruleset = RULESET_YAKUZA; s->master_timer = 15; s->terminal_color = 5; s->background = 5;
-            theme_set(5); ba->current_bg = 5;
-        } else if (s->terminal_color == 5 || s->background == 5) {
-            s->terminal_color = 2; s->background = 0; theme_set(2); ba->current_bg = 0;
-        }
-        if (audio) audio_play_click(audio);
-    }
-    else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 650, 242, 128, 26 })) { s->master_timer = 15; if (audio) audio_play_click(audio); }
-    else if (s->difficulty == DIFFICULTY_MASTER && CheckCollisionPointRec(vm, (Rectangle){ 782, 242, 128, 26 })) { s->master_timer = 30; if (audio) audio_play_click(audio); }
-    else if (!is_deus && (dir = check_selector_click(vm, 320.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
+    if (!is_deus && (dir = check_selector_click(vm, 320.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
     else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 650, 356, 36, 26 })) { s->background = (s->background == 0) ? 7 : (s->background == 6) ? 4 : s->background - 1; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
     else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 690, 356, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 824, 356, 36, 26 }))) { s->background = (s->background == 4) ? 6 : (s->background + 1) % 8; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 392, 84, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }

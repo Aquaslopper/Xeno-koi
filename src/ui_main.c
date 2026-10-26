@@ -52,6 +52,7 @@ static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_ba
 static float event_beat_timer = 0.0f;
 static int transition_dir = 0, transition_action = 0, transition_track = 1, pending_result_sfx = 0, loc_bloom, loc_crt, loc_gamma;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
+static int campaign_preset_selected = 0;
 static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
 static float hub_trans_timer = 0.0f;
 static ScreenState hub_from_screen = SCREEN_START, options_return_screen = SCREEN_START;
@@ -84,6 +85,10 @@ static float smooth01(float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+static void prepare_campaign_overlay(void) {
+    campaign_preset_selected = (settings.difficulty == DIFFICULTY_DEUS);
+}
+
 static void start_transition(ScreenState target, int action, int track) {
     hub_trans_active = 0;
     if (hub_reset_opt_page) { screens_set_options_page(0); hub_reset_opt_page = 0; }
@@ -99,6 +104,7 @@ static void start_hub_transition(ScreenState next_screen, int next_campaign,
     hub_from_campaign = campaign_overlay_open;
     screen = next_screen;
     campaign_overlay_open = next_campaign;
+    if (next_campaign) prepare_campaign_overlay();
     hub_btn_rect = btn_r;
     hub_btn_label = btn_lbl;
     hub_btn_fsz = btn_fsz;
@@ -182,11 +188,26 @@ static void draw_credits_slogan(void) {
     DrawTextEx(font_body, rhs, (Vector2){ floorf(x0 + ls.x + sym_w), y0 }, fsz, sp, COLOR_PHOSPHOR);
 }
 
+static void draw_campaign_preset_gate(void) {
+    if (campaign_preset_selected || settings.difficulty == DIFFICULTY_DEUS) return;
+    Rectangle r = { 460, 570, 240, 48 };
+    const char *label = "SELECT A PRESET";
+    Vector2 size = MeasureTextEx(font_title, label, 16.0f, 1.0f);
+    DrawRectangleRec(r, COLOR_OVERLAY_BG);
+    DrawRectangleLinesEx(r, 1.5f, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(font_title, label,
+               (Vector2){ r.x + (r.width - size.x) * 0.5f, r.y + 15.0f },
+               16.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+}
+
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
         ui_hub_draw_title(&assets, mouse_pos, saved_timer,
                           storage_profiles_mode() == STORAGE_PROFILES_READY);
-        if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+        if (camp_open) {
+            campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+            draw_campaign_preset_gate();
+        }
     } else if (sc == SCREEN_ATRIUM) {
         plexus_draw(&assets, &stats, mouse_pos);
     } else if (sc == SCREEN_OPTIONS) {
@@ -219,7 +240,10 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
                                     saved_timer, profile_operation_error);
     } else if (sc == SCREEN_HUB_CAMPAIGN) {
         ui_hub_draw_campaign(&assets, &settings, mouse_pos);
-        if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+        if (camp_open) {
+            campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+            draw_campaign_preset_gate();
+        }
     }
 }
 
@@ -631,6 +655,9 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
 }
 
 static void handle_campaign_overlay_click(Vector2 vm) {
+    if (settings.difficulty != DIFFICULTY_DEUS && !campaign_preset_selected &&
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(vm, (Rectangle){ 460, 570, 240, 48 })) return;
     int cres = campaign_handle_click(&settings, &settings.current_opponent, vm);
     if (cres == -1) {
         audio_play_click(&audio);
@@ -649,6 +676,13 @@ static void handle_campaign_overlay_click(Vector2 vm) {
         storage_save_settings(&settings);
         start_transition(SCREEN_GAME, 1, pick_match_track(1));
     } else if (cres == 2 || cres == 3) {
+        if (cres == 3) {
+            campaign_preset_selected = 1;
+            if (settings.difficulty == DIFFICULTY_MASTER) {
+                settings.master_timer = 30;
+                storage_save_settings(&settings);
+            }
+        }
         audio_play_click(&audio);
     }
 }
@@ -1901,6 +1935,7 @@ int main(int argc, char **argv) {
 
     anim_init(&anim); memset(&drag, 0, sizeof(drag));
     ai_rng = seed + 999; campaign_overlay_open = auto_campaign;
+    if (campaign_overlay_open) prepare_campaign_overlay();
 
 #ifdef __EMSCRIPTEN__
     emscripten_set_main_loop(update_draw_frame, 0, 1);
