@@ -9,7 +9,7 @@
 
 ### Rename opponent-selection title to Apex Pancratium Circuit (26 October 2026)
 
-- Changed the standard campaign opponent-picker heading to `//APEX PANCRATIUM CIRCUIT//`. The Deus dossier's distinct title, campaign behavior, save state, and selection controls remain unchanged.
+- Changed the standard campaign opponent-picker heading to `//APEX PANCRATIUM CIRCUIT//` and centered it from the measured font width within the overlay panel. The Deus dossier's distinct title, campaign behavior, save state, and selection controls remain unchanged.
 - **Touched:** `src/campaign.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** campaign progression/unlocks, rulesets, opponent data, `tests/`, or `tools/tests_guard.*`.
 
 ### Rename campaign hub branding to Pancratium Campaign (26 October 2026)

@@ -660,8 +660,9 @@ needs 4 bronze and 1 silver; index 11 ("M-12") needs 11 bronze, 10 silver and
 ### 5.3 The campaign screen
 
 `campaign_draw_overlay()` is the start screen's overlay and is also where Deus is
-selected. The standard opponent chooser is titled `//APEX PANCRATIUM CIRCUIT//`;
-the Deus dossier retains its separate title. With
+selected. The standard opponent chooser is titled `//APEX PANCRATIUM CIRCUIT//`,
+centered within the 1100 px overlay panel; the Deus dossier retains its separate
+title. With
 `settings.difficulty != DIFFICULTY_DEUS` it draws:
 
 * the panel `{ 90, 35, 1100, 650 }` and a close button `{ 1145, 48, 32, 28 }`;
