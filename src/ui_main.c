@@ -1122,14 +1122,7 @@ static void update_draw_frame(void) {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0; human_turn_started = 0;
                                         audio_play_lose(&audio);
                                         deus_banner_timer = TRANS_OUT_DUR;
-                                        if (plexus_training_is_active() || plexus_action_card_is_active()) {
-                                            plexus_training_stop();
-                                            plexus_action_card_abort();
-                                            plexus_save();
-                                            start_transition(SCREEN_ATRIUM, 3, 0);
-                                        } else {
-                                            start_transition(SCREEN_START, 3, 0);
-                                        }
+                                        start_transition(SCREEN_START, 3, 0);
                                     } else {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);

@@ -717,7 +717,8 @@ void plexus_load(void) {
                 if (r >= 1 && r <= 12) s_ac_cfg_rounds = r;
             } else if (strcmp(k, "ac_cfg_diff") == 0) {
                 int d = atoi(v);
-                if (d >= 0 && d <= (int)DIFFICULTY_DEUS) s_ac_cfg_diff = (Difficulty)d;
+                if (d >= 0 && d <= (int)DIFFICULTY_MASTER) s_ac_cfg_diff = (Difficulty)d;
+                else if (d > (int)DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
             } else if (strcmp(k, "ac_cfg_timer") == 0) {
                 int tm = atoi(v);
                 s_ac_cfg_timer = (tm == 30) ? 30 : 15;
@@ -729,7 +730,8 @@ void plexus_load(void) {
                 if (r >= 1 && r <= 12) s_tr_cfg_rounds = r;
             } else if (strcmp(k, "tr_cfg_diff") == 0) {
                 int d = atoi(v);
-                if (d >= 0 && d <= (int)DIFFICULTY_DEUS) s_tr_cfg_diff = (Difficulty)d;
+                if (d >= 0 && d <= (int)DIFFICULTY_MASTER) s_tr_cfg_diff = (Difficulty)d;
+                else if (d > (int)DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
             } else if (strcmp(k, "tr_cfg_timer") == 0) {
                 int tm = atoi(v);
                 s_tr_cfg_timer = (tm == 30) ? 30 : 15;
@@ -926,40 +928,28 @@ void plexus_sync_match_settings(GameSettings *s, BoardAssets *ba) {
     if (!s) return;
     if (s_action_card_active && !s_tut_active) {
         snapshot_campaign_settings(s);
-        s->rounds       = s_ac_cfg_rounds;
-        s->ruleset      = RULESET_KK_ADD_10;
-        s->difficulty   = s_ac_cfg_diff;
-        s->master_timer = (s_ac_cfg_diff == DIFFICULTY_DEUS) ? 15 : s_ac_cfg_timer;
-        if (s_ac_cfg_diff == DIFFICULTY_DEUS) {
-            s->current_opponent = 12;
-            s->background       = 5;
-            s->terminal_color   = 5;
-        } else {
-            s->current_opponent = (s_saved_camp_opponent >= 0 && s_saved_camp_opponent < CAMPAIGN_OPPONENT_COUNT)
-                                  ? s_saved_camp_opponent : 0;
-            s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-            s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
-        }
+        if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
+        s->rounds           = s_ac_cfg_rounds;
+        s->ruleset          = RULESET_KK_ADD_10;
+        s->difficulty       = s_ac_cfg_diff;
+        s->master_timer     = s_ac_cfg_timer;
+        s->current_opponent = (s_saved_camp_opponent >= 0 && s_saved_camp_opponent < CAMPAIGN_OPPONENT_COUNT)
+                              ? s_saved_camp_opponent : 0;
+        s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
+        s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
         if (ba) ba->current_bg = s->background;
         theme_set(s->terminal_color);
     } else if (s_training_active) {
         snapshot_campaign_settings(s);
+        if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
         int opp = clamped_tr_opponent();
-        s->rounds     = s_tr_cfg_rounds;
-        s->difficulty = s_tr_cfg_diff;
-        if (s_tr_cfg_diff == DIFFICULTY_DEUS) {
-            s->ruleset          = RULESET_YAKUZA;
-            s->master_timer     = 15;
-            s->current_opponent = 12;
-            s->background       = 5;
-            s->terminal_color   = 5;
-        } else {
-            s->ruleset          = s_tr_cfg_ruleset;
-            s->master_timer     = s_tr_cfg_timer;
-            s->current_opponent = opp;
-            s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-            s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
-        }
+        s->rounds           = s_tr_cfg_rounds;
+        s->difficulty       = s_tr_cfg_diff;
+        s->ruleset          = s_tr_cfg_ruleset;
+        s->master_timer     = s_tr_cfg_timer;
+        s->current_opponent = opp;
+        s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
+        s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
         if (ba) ba->current_bg = s->background;
         theme_set(s->terminal_color);
     } else if (s_tut_active || s_speedcoin_active) {
@@ -1031,8 +1021,7 @@ static const char *ruleset_short_name(Ruleset r) {
 }
 
 static const char *diff_short_name(Difficulty d, int timer_s) {
-    if (d == DIFFICULTY_DEUS)   return "DEUS";
-    if (d == DIFFICULTY_MASTER) return (timer_s == 30) ? "MASTER 30S" : "MASTER 15S";
+    if (d >= DIFFICULTY_MASTER) return (timer_s == 30) ? "MASTER 30S" : "MASTER 15S";
     if (d == DIFFICULTY_HARD)   return "HARD";
     return "EASY";
 }
@@ -1109,10 +1098,10 @@ static void draw_mode_settings_panel(Vector2 vm) {
              (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), 442, COLOR_PHOSPHOR_DIM);
 
     const float lx = 534.0f;
-    const Color gold_c = { 255, 205, 45, 255 };
     const Color mast_c = { 255,  70, 70, 255 };
 
     if (s_active_tab == 3) {
+        if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
         Color rfill, rbdr;
         get_ruleset_box_colors(RULESET_KK_ADD_10, &rfill, &rbdr);
         draw_text_snapped(font_body, "Ruleset:", lx, 455.0f, 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
@@ -1125,50 +1114,36 @@ static void draw_mode_settings_panel(Vector2 vm) {
                           TextFormat("%d ROUNDS", s_ac_cfg_rounds), PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
         draw_cfg_step_btn((Rectangle){ 1000.0f, 490.0f,  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
 
-        Color dc = (s_ac_cfg_diff == DIFFICULTY_DEUS) ? gold_c :
-                   (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_PHOSPHOR;
-        const char *d_lbl = (s_ac_cfg_diff == DIFFICULTY_DEUS)   ? "DEUS  (DEUS ATLAS)" :
-                            (s_ac_cfg_diff == DIFFICULTY_MASTER) ? "MASTER" :
+        Color dc = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_PHOSPHOR;
+        const char *d_lbl = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? "MASTER" :
                             (s_ac_cfg_diff == DIFFICULTY_HARD)   ? "HARD" : "EASY";
         draw_text_snapped(font_body, "Difficulty:", lx, 535.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
         draw_cfg_step_btn((Rectangle){  674.0f, 530.0f,  38.0f, 28.0f }, "<", vm, 1);
         draw_cfg_val_box ((Rectangle){  718.0f, 530.0f, 276.0f, 28.0f },
-                          d_lbl, PLEXUS_SUBBOX_BG, dc, (s_ac_cfg_diff >= DIFFICULTY_MASTER) ? dc : COLOR_TEXT_INFO);
+                          d_lbl, PLEXUS_SUBBOX_BG, dc, (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_TEXT_INFO);
         draw_cfg_step_btn((Rectangle){ 1000.0f, 530.0f,  38.0f, 28.0f }, ">", vm, 1);
 
         draw_text_snapped(font_body, "Turn Timer:", lx, 575.0f, 17.0f, 1.1f,
-                          (s_ac_cfg_diff >= DIFFICULTY_MASTER) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+                          (s_ac_cfg_diff == DIFFICULTY_MASTER) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
             draw_cfg_toggle_chip((Rectangle){ 674.0f, 570.0f, 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
             draw_cfg_toggle_chip((Rectangle){ 860.0f, 570.0f, 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
-        } else if (s_ac_cfg_diff == DIFFICULTY_DEUS) {
-            draw_cfg_val_box((Rectangle){ 674.0f, 570.0f, 364.0f, 28.0f },
-                             "[ 15 SEC SUDDEN DEATH (DEUS) ]", PLEXUS_SUBBOX_BG, gold_c, gold_c);
         } else {
             draw_cfg_val_box((Rectangle){ 674.0f, 570.0f, 364.0f, 28.0f },
-                             "[ MASTER / DEUS ONLY ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
+                             "[ MASTER ONLY ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
         }
 
-        const char *foot = (s_ac_cfg_diff == DIFFICULTY_DEUS)
-                         ? "Deus Atlas deck & 15s sudden-death clock active on KK-ADD-10."
-                         : "Saved independently in Atrium Plex (Campaign settings untouched).";
-        draw_text_snapped(font_body, foot, lx, 606.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        draw_text_snapped(font_body, "Saved independently in Atrium Plex (Campaign settings untouched).",
+                          lx, 606.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     } else {
-        int is_deus = (s_tr_cfg_diff == DIFFICULTY_DEUS);
-        draw_text_snapped(font_body, "Ruleset:", lx, 453.0f, 17.0f, 1.1f, is_deus ? COLOR_PHOSPHOR_DIM : COLOR_PHOSPHOR);
-        if (is_deus) {
-            Color yf, yb;
-            get_ruleset_box_colors(RULESET_YAKUZA, &yf, &yb);
-            draw_cfg_val_box((Rectangle){ 674.0f, 448.0f, 364.0f, 28.0f },
-                             "[ YAKUZA (DEUS LOCKED) ]", yf, yb, gold_c);
-        } else {
-            Color rf, rb;
-            get_ruleset_box_colors(s_tr_cfg_ruleset, &rf, &rb);
-            draw_cfg_step_btn((Rectangle){  674.0f, 448.0f,  38.0f, 28.0f }, "<", vm, 1);
-            draw_cfg_val_box ((Rectangle){  718.0f, 448.0f, 276.0f, 28.0f },
-                              ruleset_short_name(s_tr_cfg_ruleset), rf, rb, COLOR_TEXT_INFO);
-            draw_cfg_step_btn((Rectangle){ 1000.0f, 448.0f,  38.0f, 28.0f }, ">", vm, 1);
-        }
+        if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
+        draw_text_snapped(font_body, "Ruleset:", lx, 453.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        Color rf, rb;
+        get_ruleset_box_colors(s_tr_cfg_ruleset, &rf, &rb);
+        draw_cfg_step_btn((Rectangle){  674.0f, 448.0f,  38.0f, 28.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, 448.0f, 276.0f, 28.0f },
+                          ruleset_short_name(s_tr_cfg_ruleset), rf, rb, COLOR_TEXT_INFO);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, 448.0f,  38.0f, 28.0f }, ">", vm, 1);
 
         draw_text_snapped(font_body, "Rounds:", lx, 488.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
         draw_cfg_step_btn((Rectangle){  674.0f, 483.0f,  38.0f, 28.0f }, "-", vm, s_tr_cfg_rounds > 1);
@@ -1184,31 +1159,24 @@ static void draw_mode_settings_panel(Vector2 vm) {
             draw_cfg_toggle_chip((Rectangle){ 906.0f, 518.0f,  63.0f, 28.0f }, "15S", vm, s_tr_cfg_timer == 15, mast_c);
             draw_cfg_toggle_chip((Rectangle){ 975.0f, 518.0f,  63.0f, 28.0f }, "30S", vm, s_tr_cfg_timer == 30, mast_c);
         } else {
-            Color dc = is_deus ? gold_c : COLOR_PHOSPHOR_DIM;
-            const char *dl = is_deus ? "DEUS  (15S + ATLAS)" :
-                             (s_tr_cfg_diff == DIFFICULTY_HARD) ? "HARD" : "EASY";
+            const char *dl = (s_tr_cfg_diff == DIFFICULTY_HARD) ? "HARD" : "EASY";
             draw_cfg_step_btn((Rectangle){  674.0f, 518.0f,  38.0f, 28.0f }, "<", vm, 1);
             draw_cfg_val_box ((Rectangle){  718.0f, 518.0f, 276.0f, 28.0f },
-                              dl, PLEXUS_SUBBOX_BG, is_deus ? gold_c : dc, is_deus ? gold_c : COLOR_TEXT_INFO);
+                              dl, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
             draw_cfg_step_btn((Rectangle){ 1000.0f, 518.0f,  38.0f, 28.0f }, ">", vm, 1);
         }
 
         draw_text_snapped(font_body, "Opponent:", lx, 558.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
-        if (is_deus) {
-            draw_cfg_val_box((Rectangle){ 674.0f, 553.0f, 364.0f, 28.0f },
-                             "[ 13: DEUS SUPREMUS (OPTIMAL) ]", PLEXUS_SUBBOX_BG, gold_c, gold_c);
-        } else {
-            int unlocked = get_unlocked_camp_opponents();
-            int opp = clamped_tr_opponent();
-            const Opponent *op = campaign_get_opponent(opp);
-            char opp_txt[96];
-            snprintf(opp_txt, sizeof(opp_txt), "%s (%s) [%d/%d]",
-                     op->name, op->favorite_combo, opp + 1, unlocked);
-            draw_cfg_step_btn((Rectangle){  674.0f, 553.0f,  38.0f, 28.0f }, "<", vm, unlocked > 1);
-            draw_cfg_val_box ((Rectangle){  718.0f, 553.0f, 276.0f, 28.0f },
-                              opp_txt, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-            draw_cfg_step_btn((Rectangle){ 1000.0f, 553.0f,  38.0f, 28.0f }, ">", vm, unlocked > 1);
-        }
+        int unlocked = get_unlocked_camp_opponents();
+        int opp = clamped_tr_opponent();
+        const Opponent *op = campaign_get_opponent(opp);
+        char opp_txt[96];
+        snprintf(opp_txt, sizeof(opp_txt), "%s (%s) [%d/%d]",
+                 op->name, op->favorite_combo, opp + 1, unlocked);
+        draw_cfg_step_btn((Rectangle){  674.0f, 553.0f,  38.0f, 28.0f }, "<", vm, unlocked > 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, 553.0f, 276.0f, 28.0f },
+                          opp_txt, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, 553.0f,  38.0f, 28.0f }, ">", vm, unlocked > 1);
 
         draw_text_snapped(font_body, "Condition:", lx, 593.0f, 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
         draw_cfg_step_btn((Rectangle){  674.0f, 588.0f,  38.0f, 28.0f }, "<", vm, 0);
@@ -1229,6 +1197,7 @@ static int handle_mode_settings_click(Vector2 vm) {
     }
 
     if (s_active_tab == 3) {
+        if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
         if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 490.0f, 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
             s_ac_cfg_rounds--; plexus_save(); return 1;
         }
@@ -1236,11 +1205,11 @@ static int handle_mode_settings_click(Vector2 vm) {
             s_ac_cfg_rounds++; plexus_save(); return 1;
         }
         if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 530.0f, 38.0f, 28.0f })) {
-            s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 3) % 4);
+            s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 2) % 3);
             plexus_save(); return 1;
         }
         if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 530.0f, 38.0f, 28.0f })) {
-            s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 1) % 4);
+            s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 1) % 3);
             plexus_save(); return 1;
         }
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
@@ -1255,16 +1224,14 @@ static int handle_mode_settings_click(Vector2 vm) {
     }
 
     /* s_active_tab == 4: TRAINING */
-    int is_deus = (s_tr_cfg_diff == DIFFICULTY_DEUS);
-    if (!is_deus) {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 448.0f, 38.0f, 28.0f })) {
-            s_tr_cfg_ruleset = (Ruleset)(((int)s_tr_cfg_ruleset + 4) % 5);
-            plexus_save(); return 1;
-        }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 448.0f, 38.0f, 28.0f })) {
-            s_tr_cfg_ruleset = (Ruleset)(((int)s_tr_cfg_ruleset + 1) % 5);
-            plexus_save(); return 1;
-        }
+    if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
+    if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 448.0f, 38.0f, 28.0f })) {
+        s_tr_cfg_ruleset = (Ruleset)(((int)s_tr_cfg_ruleset + 4) % 5);
+        plexus_save(); return 1;
+    }
+    if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 448.0f, 38.0f, 28.0f })) {
+        s_tr_cfg_ruleset = (Ruleset)(((int)s_tr_cfg_ruleset + 1) % 5);
+        plexus_save(); return 1;
     }
     if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 483.0f, 38.0f, 28.0f }) && s_tr_cfg_rounds > 1) {
         s_tr_cfg_rounds--; plexus_save(); return 1;
@@ -1277,7 +1244,7 @@ static int handle_mode_settings_click(Vector2 vm) {
             s_tr_cfg_diff = DIFFICULTY_HARD; plexus_save(); return 1;
         }
         if (CheckCollisionPointRec(vm, (Rectangle){ 862.0f, 518.0f, 36.0f, 28.0f })) {
-            s_tr_cfg_diff = DIFFICULTY_DEUS; plexus_save(); return 1;
+            s_tr_cfg_diff = DIFFICULTY_EASY; plexus_save(); return 1;
         }
         if (CheckCollisionPointRec(vm, (Rectangle){ 906.0f, 518.0f, 63.0f, 28.0f })) {
             s_tr_cfg_timer = 15; plexus_save(); return 1;
@@ -1287,25 +1254,23 @@ static int handle_mode_settings_click(Vector2 vm) {
         }
     } else {
         if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 518.0f, 38.0f, 28.0f })) {
-            s_tr_cfg_diff = (Difficulty)(((int)s_tr_cfg_diff + 3) % 4);
+            s_tr_cfg_diff = (Difficulty)(((int)s_tr_cfg_diff + 2) % 3);
             plexus_save(); return 1;
         }
         if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 518.0f, 38.0f, 28.0f })) {
-            s_tr_cfg_diff = (Difficulty)(((int)s_tr_cfg_diff + 1) % 4);
+            s_tr_cfg_diff = (Difficulty)(((int)s_tr_cfg_diff + 1) % 3);
             plexus_save(); return 1;
         }
     }
-    if (!is_deus) {
-        int unlocked = get_unlocked_camp_opponents();
-        int opp = clamped_tr_opponent();
-        if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 553.0f, 38.0f, 28.0f })) {
-            s_tr_cfg_opponent = (opp + unlocked - 1) % unlocked;
-            plexus_save(); return 1;
-        }
-        if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 553.0f, 38.0f, 28.0f })) {
-            s_tr_cfg_opponent = (opp + 1) % unlocked;
-            plexus_save(); return 1;
-        }
+    int unlocked = get_unlocked_camp_opponents();
+    int opp = clamped_tr_opponent();
+    if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 553.0f, 38.0f, 28.0f })) {
+        s_tr_cfg_opponent = (opp + unlocked - 1) % unlocked;
+        plexus_save(); return 1;
+    }
+    if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 553.0f, 38.0f, 28.0f })) {
+        s_tr_cfg_opponent = (opp + 1) % unlocked;
+        plexus_save(); return 1;
     }
     return 0;
 }
@@ -2355,19 +2320,14 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                 line3 = "Press START to launch a KK-ADD-10 Action Card match.";
             }
         } else {
-            Ruleset eff_rs = (s_tr_cfg_diff == DIFFICULTY_DEUS) ? RULESET_YAKUZA : s_tr_cfg_ruleset;
             const char *d_name = diff_short_name(s_tr_cfg_diff, s_tr_cfg_timer);
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
             snprintf(sub, sizeof(sub), "%s  //  %s  //  %d ROUNDS",
-                     ruleset_short_name(eff_rs), d_name, s_tr_cfg_rounds);
-            if (s_tr_cfg_diff == DIFFICULTY_DEUS) {
-                line1 = "Opponent: ENTITY 13 // DEUS SUPREMUS  [Optimal AI]";
-            } else {
-                const Opponent *op = campaign_get_opponent(clamped_tr_opponent());
-                snprintf(sc_line1, sizeof(sc_line1), "Opponent: %s (%s)  [%d/12 Unlocked]",
-                         op->name, op->favorite_combo, get_unlocked_camp_opponents());
-                line1 = sc_line1;
-            }
+                     ruleset_short_name(s_tr_cfg_ruleset), d_name, s_tr_cfg_rounds);
+            const Opponent *op = campaign_get_opponent(clamped_tr_opponent());
+            snprintf(sc_line1, sizeof(sc_line1), "Opponent: %s (%s)  [%d/12 Unlocked]",
+                     op->name, op->favorite_combo, get_unlocked_camp_opponents());
+            line1 = sc_line1;
             line2 = "Special Condition: NONE   [Training Lore Placeholder]";
             line3 = "Use SETTINGS below to configure. No campaign awards.";
         }
@@ -2772,10 +2732,9 @@ void plexus_training_finish(const GameState *g) {
 
     const char *res  = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
     const char *r_nm = ruleset_short_name(g->ruleset);
-    const char *d_nm = (settings.difficulty == DIFFICULTY_DEUS)   ? "DEUS" :
-                       (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+    const char *d_nm = (settings.difficulty >= DIFFICULTY_MASTER) ? "MASTER" :
                        (settings.difficulty == DIFFICULTY_HARD)   ? "HARD" : "EASY";
-    int opp_num = (settings.difficulty == DIFFICULTY_DEUS) ? 13 : (settings.current_opponent + 1);
+    int opp_num = settings.current_opponent + 1;
     int mp = speed_bar_total();
 
     char title[88], detail[112];
@@ -2829,9 +2788,9 @@ void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, cons
     }
     const char *r_nm = !g ? "--" : (g->ruleset == RULESET_FUDAWIKI) ? "FUDAWIKI" : (g->ruleset == RULESET_KK_ADD_10) ? "KK-ADD-10" :
                        (g->ruleset == RULESET_TOURNAMENT) ? "TOURNAMENT" : (g->ruleset == RULESET_YAKUZA) ? "YAKUZA" : "NINTENDO";
-    const char *d_nm = (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" : (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+    const char *d_nm = (settings.difficulty >= DIFFICULTY_MASTER) ? "MASTER" :
                        (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
-    int opp_num = (settings.difficulty == DIFFICULTY_DEUS) ? 13 : (settings.current_opponent + 1);
+    int opp_num = settings.current_opponent + 1;
     draw_text_snapped(font_body, TextFormat("CONFIG        :  %s | %s | %d RDS | E-%02d", r_nm, d_nm, g ? g->total_rounds : 0, opp_num),
                       118.0f, 128.0f, 18.0f, 1.1f, COLOR_TEXT_INFO);
     draw_text_snapped(font_body, TextFormat("TOTAL POINTS  :  YOU %d PTS  |  CPU %d PTS", g ? g->total_score[0] : 0, g ? g->total_score[1] : 0), 118.0f, 158.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
@@ -2886,8 +2845,7 @@ void plexus_action_card_finish_match(const GameState *g) {
 
     const char *res = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
     const char *d_name = is_ac_tut ? "EASY" :
-                         (settings.difficulty == DIFFICULTY_DEUS) ? "DEUS" :
-                         (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+                         (settings.difficulty >= DIFFICULTY_MASTER) ? "MASTER" :
                          (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
     int mp = speed_bar_total();
     int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;

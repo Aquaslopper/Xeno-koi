@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Remove playable `DEUS` mode/difficulty from Atrium Plex `ACTION CARD` & `TRAINING` settings (26 October 2026)
+
+- Removed playable `DIFFICULTY_DEUS` from Atrium Plex's `ACTION CARD` and `TRAINING` settings/launchers (`src/ui_plexus.c`, `src/ui_main.c`) so `DEUS` exists as a playable difficulty/mode **only** in the main `OPTION -> AI DIFFICULTY` menu while keeping Atrium Plex's `[ STORY ]` lore and `[ ATLAS ]` research data untouched:
+  - **`ACTION CARD` & `TRAINING` Difficulty Restricted to `EASY / HARD / MASTER` (`src/ui_plexus.c`):** Both `SETTINGS` drawers now cycle strictly across the 3 neural-training tiers (`EASY`, `HARD`, `MASTER` with `15S / 30S` timer toggle); removed `DEUS` ruleset locking (`[ YAKUZA (DEUS LOCKED) ]`), `ENTITY 13 // DEUS SUPREMUS` opponent override, `DEUS` theme/background/sudden-death overrides in `plexus_sync_match_settings()`, and the Atrium `DIFFICULTY_DEUS` timeout branch in `src/ui_main.c`.
+  - **Save Clamping (`plexus_load()`):** Existing `plexsave.txt` files containing `ac_cfg_diff=3` or `tr_cfg_diff=3` clamp cleanly down to `DIFFICULTY_MASTER` (`2`) on load.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` on `src/ui_plexus.c` and `src/ui_main.c`, `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.c`, `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `[ STORY ]` & `[ ATLAS ]` research data in `src/ui_plexus.c`, `src/ui_screens.c`, `src/campaign.*`, `src/ai.*`, `src/storage.*`, `src/board_layout.*`, `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `tests/`, or `docs/`.
+
 ### Credits screen slogan `[to_be Ψ(n)] ⊗ [not_to_be Φ(n)]` between `[]` and `BACK` (26 October 2026)
 
 - Added the creator's slogan `[to_be Ψ(n)] ⊗ [not_to_be Φ(n)]` (matching `Credits.md`) to the Credits screen via `src/ui_main.c` (`draw_credits_slogan()` inside `draw_hub_screen_state` for `SCREEN_CREDITS`, centered at `x = 640`, `y = 488` directly underneath `[]` at `y = 445` and above `BACK` at `y = 530`), without touching protected `src/ui_screens.c`:
