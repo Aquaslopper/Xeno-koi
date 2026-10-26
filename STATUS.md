@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex bottom-right `OPTION` button & per-mode `SETTINGS` drawers for Action Card and Training (26 October 2026)
+
+- Added direct Options access and isolated per-mode match configuration inside Atrium Plex across `src/ui_plexus.h`, `src/ui_plexus.c`, and `src/ui_main.c` without modifying protected `src/ui_screens.c`, `src/storage.*`, `src/campaign.*`, `src/ai.*`, `src/rules.*`, `src/engine.*`, or `tests/`:
+  - **Bottom-Right `OPTION` Button (`{1016, 644, 196, 48}`):** Added a 6th bottom-bar button (`OPTION`) right beside `TRAINING` that opens `SCREEN_OPTIONS` via the fast `0.36s` hub wipe (`options_return_screen = SCREEN_ATRIUM`, with `font_title` button strobe matching `draw_plexus_btn`) and returns directly back to `SCREEN_ATRIUM` on `BACK (SAVE)`.
+  - **Contextual `SETTINGS` Button (`{718, 348, 160, 48}`) + Setup Drawer (`{516, 408, 540, 222}`):** Displayed next to `START` **only** on `ACTION CARD` and `TRAINING` (48 Spine Cards and `SPEEDCOIN` show only `START`). `ACTION CARD` exposes `Rounds (1..12)`, `Difficulty (EASY / HARD / MASTER / DEUS with Deus Atlas)`, and `Turn Timer (15 SEC / 30 SEC on Master, 15 SEC sudden-death on Deus)` with `KK-ADD-10` locked; `TRAINING` exposes `Ruleset (all 5, Yakuza-locked on Deus)`, `Rounds (1..12)`, `Difficulty + 15S/30S Master Timer + Deus`, `Opponent Playstyle` strictly cycling only through Campaign-unlocked opponents (`0 .. settings.unlocked_opponents - 1`, or `ENTITY 13 // DEUS SUPREMUS` on `DEUS`), and an extensible `Condition` slot (`[ NONE ]`).
+  - **Persistence & Campaign Save Isolation (`plexsave.txt` + `plexus_sync_match_settings` / `plexus_restore_match_settings`):** Persisted `ac_cfg_*` and `tr_cfg_*` in `plexsave.txt` and snapshotted/restored Campaign `GameSettings` (`rounds`, `difficulty`, `master_timer`, `ruleset`, `current_opponent`, `background`, `terminal_color`) around Atrium Plex matches so playing `DEUS` or custom rounds in Atrium Plex never mutates Campaign's `settings.txt`.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` across all modified translation units (`ui_plexus.c`, `ui_main.c`, `ui_board.c`, `ui_motion.c`, `ui_input.c`, `ui_anim.c`), `./build.sh test` (`500` full matches + `test_koikoi_trigger` + `./tests/test_table_ui.sh` + `./tests/test_music_folder.sh`), ASan+UBSan headless Atrium Plex settings/unlock-clamping/`plexsave.txt`/Campaign-isolation verification harness (`0` errors), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.h`, `src/ui_plexus.c`, `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_screens.c`, `src/storage.*`, `src/campaign.*` (`DEUS_UNLOCKED_FOR_TESTING` remains `1`), `src/ai.*`, `src/board_layout.*`, `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/rules.*`, `src/engine.*`, `src/cards.*`, `tests/`, `docs/`, or `HANDOFF_KoiKoi_Giger_v2.pdf`.
+
 ### Sticky physical table mat: month-sorted round deal with zero mid-round card sliding (26 October 2026)
 
 - Implemented a sticky physical table slot tracker across `src/ui_board.h`, `src/ui_board.c`, `src/ui_motion.c`, `src/ui_input.c`, `src/ui_anim.c`, and `src/ui_main.c` while keeping `src/board_layout.*`, `src/engine.*`, `src/rules.*`, `src/ui_audio.c`, and `tests/` untouched:
