@@ -320,6 +320,13 @@ static void trigger_event_beat(float base_s) {
     if (d > event_beat_timer) event_beat_timer = d;
 }
 
+/* Minimal CPU inter-animation beat (~90-120 ms, skipped on captures where
+   g.hitlag_timer = 150 ms already runs) so CPU steps never collapse into a
+   single frame while keeping Action Card reverb_energy decay negligible. */
+static void trigger_cpu_step_beat(float sec) {
+    if (!plexus_speedcoin_is_active() && sec > event_beat_timer) event_beat_timer = sec;
+}
+
 /* --- replay pacing -------------------------------------------------------
    A live turn is paced by the player thinking and the CPU thinking; a replay
    has neither, so it needs its own beat or the cards run together. These three
@@ -917,11 +924,17 @@ static void update_draw_frame(void) {
                         int run_waves = speed_mode_wave();
                         int run_coins = speed_bar_total();
                         int run_streak = speed_mode_run_best_streak();
+                        int was_sc_tut = plexus_tutorial_is_active();
                         plexus_speedcoin_bank_wave(&g);
                         int bonus_pts = speed_bar_apply_match_bonus(&g);
                         plexus_speedcoin_finish_run(g.total_score[0], run_waves, run_coins, bonus_pts, run_streak);
-                        pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
-                        start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                        if (was_sc_tut) {
+                            pending_result_sfx = 1;
+                            start_transition(SCREEN_ATRIUM, 2, 0);
+                        } else {
+                            pending_result_sfx = (g.total_score[0] > 0) ? 1 : -1;
+                            start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                        }
                     }
                 } else if (round_banner_timer > 0.0f) {
                     round_banner_timer -= dt;
@@ -1019,6 +1032,7 @@ static void update_draw_frame(void) {
                             engine_play_hand(&g, card, target);
                             replay_rec_play(1, card, target);
                             if (g.last_captured_count > 0) play_match_capture_sfx();
+                            else trigger_cpu_step_beat(0.09f);
                             trigger_event_beat((g.last_captured_count > 0) ? 0.36f : 0.30f);
                         } else if (!badge_freezing && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f) {
                             if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
@@ -1038,6 +1052,7 @@ static void update_draw_frame(void) {
                     if (g.phase == PHASE_TURN_DRAW && !cinematic_is_active()) {
                         if (anim.active && anim.type == ANIM_STOCK_FLY && anim.elapsed >= anim.duration) {
                             int drawn_cid = anim.card_id;
+                            int prev_player = g.current_player;
                             Vector2 landed = anim.target_pos;
                             int rev_land = (plexus_speedcoin_is_active() && landed.x == 330.0f && landed.y == 262.0f);
                             anim.active = 0; audio_play_drop(&audio);
@@ -1048,6 +1063,7 @@ static void update_draw_frame(void) {
                             } else {
                                 engine_reveal_stock(&g);
                                 if (g.last_captured_count > 0) play_match_capture_sfx();
+                                else if (prev_player == 1 || g.current_player == 1) trigger_cpu_step_beat(0.09f);
                                 trigger_event_beat((g.last_captured_count > 0) ? 0.38f : 0.30f);
                             }
                         } else if (!anim.active && !board_busy) {
@@ -1086,10 +1102,9 @@ static void update_draw_frame(void) {
                         engine_pick_draw_choice(&g, target);
                         replay_rec_pick(1, target);
                         if (g.last_captured_count > 0) play_match_capture_sfx();
+                        else trigger_cpu_step_beat(0.09f);
                         trigger_event_beat(0.36f);
-                    }
-
-                    if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
+                    } else if (g.current_player == 1 && g.phase == PHASE_DECIDE && input_unlocked) {
                         DecisionType dec = ai_choose_decision(&g, active_diff, &ai_rng);
                         if (dec == DECISION_KOI_KOI) {
                             int cpu_streak = koi_caller_multiplier(g.koi_called[1] + 1); /* streak after this call */
@@ -1099,6 +1114,7 @@ static void update_draw_frame(void) {
                         }
                         engine_decide(&g, dec);
                         replay_rec_koi(1, dec == DECISION_KOI_KOI);
+                        trigger_cpu_step_beat(0.11f);
                         trigger_event_beat((dec == DECISION_KOI_KOI) ? 0.55f : 0.36f);
                     }
 
@@ -1127,7 +1143,8 @@ static void update_draw_frame(void) {
                                         g.player_timer = 0.0f; drag.on = 0; drag.idx = -1; drag.selected = 0;
                                         engine_timeout_autoplay(&g);
                                         replay_rec_timeout(0);
-                                        if (g.last_captured_count > 0) play_match_capture_sfx(); else audio_play_drop(&audio);
+                                        if (g.last_captured_count > 0) play_match_capture_sfx();
+                                        else { audio_play_drop(&audio); trigger_cpu_step_beat(0.12f); }
                                         anim_start_banner(&anim, "! TIMEOUT !", 1.0f); human_turn_started = 0;
                                         trigger_event_beat(0.36f);
                                     }
@@ -1255,6 +1272,7 @@ static void update_draw_frame(void) {
                                 pending_result_sfx = 1;
                                 start_transition(SCREEN_ATRIUM, 2, 0);
                             } else if (g.current_round >= g.total_rounds) {
+                                int was_ac_tut = plexus_tutorial_is_active() && plexus_action_card_is_active();
                                 anim_init(&anim);
                                 speed_bar_apply_match_bonus(&g); /* KK-ADD-10: minipoints -> score */
                                 engine_next_round(&g);
@@ -1269,25 +1287,30 @@ static void update_draw_frame(void) {
 #endif
                                 }
                                 plexus_save();
-                                if (!plexus_training_result_active() && g.total_score[0] > g.total_score[1]) {
+                                if (was_ac_tut) {
                                     pending_result_sfx = 1;
-                                    if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
-                                        bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
-                                                               (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
-                                                               (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
-                                        /* Award clearance coin for this opponent on the difficulty played (sticky, no cascade) */
-                                        if (meets_clearance) {
-                                            int bit = settings.current_opponent * 3;
-                                            if (settings.difficulty == DIFFICULTY_HARD) bit += 1;
-                                            else if (settings.difficulty == DIFFICULTY_MASTER) bit += 2;
-                                            /* EASY -> +0 */
-                                            settings.cleared_mask |= (1ULL << bit);
+                                    start_transition(SCREEN_ATRIUM, 2, 0);
+                                } else {
+                                    if (!plexus_training_result_active() && g.total_score[0] > g.total_score[1]) {
+                                        pending_result_sfx = 1;
+                                        if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
+                                            bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
+                                                                   (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
+                                                                   (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
+                                            /* Award clearance coin for this opponent on the difficulty played (sticky, no cascade) */
+                                            if (meets_clearance) {
+                                                int bit = settings.current_opponent * 3;
+                                                if (settings.difficulty == DIFFICULTY_HARD) bit += 1;
+                                                else if (settings.difficulty == DIFFICULTY_MASTER) bit += 2;
+                                                /* EASY -> +0 */
+                                                settings.cleared_mask |= (1ULL << bit);
+                                            }
+                                            campaign_update_unlocks(&settings);
+                                            storage_save_settings(&settings);
                                         }
-                                        campaign_update_unlocks(&settings);
-                                        storage_save_settings(&settings);
-                                    }
-                                } else if (!plexus_training_result_active() && g.total_score[0] < g.total_score[1]) pending_result_sfx = -1;
-                                start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                                    } else if (!plexus_training_result_active() && g.total_score[0] < g.total_score[1]) pending_result_sfx = -1;
+                                    start_transition(SCREEN_MATCH_RESULT, 2, 0);
+                                }
                             } else {
                                 anim_init(&anim); prev_round_phase = PHASE_NONE;
                                 action_card_advance_round();

@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Tutorial (`TUT1` / `TUT2` / `TUT3`) isolation & restart fixes + minimal audio-safe CPU step beat (26 October 2026)
+
+- Fixed Month 01 Tutorial lifecycle/isolation bugs (`src/ui_plexus.c`, `src/ui_main.c`) and added minimal audio-envelope-safe CPU inter-animation separation (`src/ui_main.c`):
+  - **`TUT1` (`01-P2`, Standard Koi-Koi) Clean Restart:** `plexus_tutorial_setup_round()` now resets `s_tut_step = TUT1_WAIT_DEAL` so pressing `R` or `RESTART` mid-tutorial cleanly restarts from Step 1 instead of desyncing prompts and hand-card locks from the redealt board.
+  - **`TUT2` (`01-P1`, Speedcoin) & `TUT3` (`01-RP`, Action Card) Telemetry/Stats/Gate Isolation:** Completing `TUT2` (`plexus_speedcoin_finish_run()`) or `TUT3` (`plexus_action_card_finish_match()`) now restores pre-tutorial lifetime telemetry via `tut_restore_telemetry(1)`, skips real `Speedcoin` / `Action Card` run counters, win/loss stats, highscores, and mode match-log entries, clears `s_tut_active` and the active mode flag, and transitions directly back to `SCREEN_ATRIUM` (matching `TUT1`) so Month 04 / Month 08 unlock gates cannot be bypassed via `PLAY AGAIN`.
+  - **Minimal Audio-Safe CPU Inter-Animation Beat (`src/ui_main.c`):** Separated CPU `PHASE_DRAW_CHOICE` and `PHASE_DECIDE` into `if / else if` so they never execute in the same `0 ms` frame (allowing `g.hitlag_timer = 0.15s` to run between draw-choice capture and `KOI-KOI`), and added `trigger_cpu_step_beat()` (`90–120 ms` **only** when `g.last_captured_count == 0` or after CPU `PHASE_DECIDE` / non-capturing Master timeout, `0 ms` extra on captures and `0 ms` in Speedcoin) so CPU plays never snap in a single frame while keeping Action Card `reverb_energy` build-up intact.
+
+#### Checked
+- `gcc -std=c99 -O2 -Wall -Wextra -Werror` on `src/ui_plexus.c` and `src/ui_main.c`, ASan+UBSan headless `TUT1`/`TUT2`/`TUT3` restart & completion isolation harness, `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` all exit `0`.
+- **Touched:** `src/ui_plexus.c`, `src/ui_main.c`, `STATUS.md`. **Deliberately did not touch:** `src/ui_board.c` (`reverb_energy` envelope), `src/ui_audio.c`, `tools/audio_guard.sha256`, `src/ui_screens.c`, `src/engine.*`, `src/rules.*`, `src/campaign.*`, `src/ai.*`, `src/storage.*`, `src/board_layout.*`, `tests/`, or `docs/`.
+
 ### Remove playable `DEUS` mode/difficulty from Atrium Plex `ACTION CARD` & `TRAINING` settings (26 October 2026)
 
 - Removed playable `DIFFICULTY_DEUS` from Atrium Plex's `ACTION CARD` and `TRAINING` settings/launchers (`src/ui_plexus.c`, `src/ui_main.c`) so `DEUS` exists as a playable difficulty/mode **only** in the main `OPTION -> AI DIFFICULTY` menu while keeping Atrium Plex's `[ STORY ]` lore and `[ ATLAS ]` research data untouched:

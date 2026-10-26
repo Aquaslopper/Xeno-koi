@@ -2836,30 +2836,9 @@ void plexus_action_card_abort(void) {
 
 void plexus_action_card_finish_match(const GameState *g) {
     if (!g) return;
-    int is_ac_tut = (s_tut_active && s_tut_card_id == 1);
-    int you = g->total_score[0], cpu = g->total_score[1];
-    s_ac_runs++;
-    if (you > cpu) s_ac_wins++;
-    else if (you < cpu) s_ac_losses++;
-    if (you > s_ac_best_score) s_ac_best_score = you;
-
-    const char *res = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
-    const char *d_name = is_ac_tut ? "EASY" :
-                         (settings.difficulty >= DIFFICULTY_MASTER) ? "MASTER" :
-                         (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
-    int mp = speed_bar_total();
-    int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
-    action_card_get_match_time_stats(&yt, &yp, &ct, &cp, &mt);
-
-    char title[88], detail[112];
-    snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
-    snprintf(detail, sizeof(detail), "KK-ADD-10 (%d RDS)  |  Speedcoins: %d MP (+%d)  |  Time: YOU %d / CPU %d",
-             g->total_rounds, mp, mp / 10, yt, ct);
-    plexus_match_log_push(MLOG_ACTION_CARD, "ACTION CARD", title, detail);
-
-    if (is_ac_tut) {
-        s_tut_telemetry_saved = 0;
-        if (s_tut_step == TUT3_FREE_PLAY) {
+    if (s_tut_active && s_tut_card_id == 1) {
+        tut_restore_telemetry(1);
+        if (s_tut_step != TUT1_NONE) {
             int deus_pass = is_deus_spine_active();
             int was_done = mark_active_spine_card_done(1);
             if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 0)) {
@@ -2872,7 +2851,32 @@ void plexus_action_card_finish_match(const GameState *g) {
                                       "Action Card Audio Effect protocol finished -- Card 1 unlocked at apex.");
             }
         }
+        s_tut_active = 0;
+        s_tut_card_id = -1;
+        s_tut_step = TUT1_NONE;
+        s_action_card_active = 0;
+        plexus_save();
+        return;
     }
+
+    int you = g->total_score[0], cpu = g->total_score[1];
+    s_ac_runs++;
+    if (you > cpu) s_ac_wins++;
+    else if (you < cpu) s_ac_losses++;
+    if (you > s_ac_best_score) s_ac_best_score = you;
+
+    const char *res = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
+    const char *d_name = (settings.difficulty >= DIFFICULTY_MASTER) ? "MASTER" :
+                         (settings.difficulty == DIFFICULTY_HARD) ? "HARD" : "EASY";
+    int mp = speed_bar_total();
+    int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
+    action_card_get_match_time_stats(&yt, &yp, &ct, &cp, &mt);
+
+    char title[88], detail[112];
+    snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
+    snprintf(detail, sizeof(detail), "KK-ADD-10 (%d RDS)  |  Speedcoins: %d MP (+%d)  |  Time: YOU %d / CPU %d",
+             g->total_rounds, mp, mp / 10, yt, ct);
+    plexus_match_log_push(MLOG_ACTION_CARD, "ACTION CARD", title, detail);
     plexus_save();
 }
 
@@ -2886,6 +2890,7 @@ void plexus_tutorial_setup_round(GameState *g) {
         engine_start_round(g); s_tut_step = TUT3_WAIT_START; return;
     }
 
+    s_tut_step        = TUT1_WAIT_DEAL;
     g->ruleset        = RULESET_KK_ADD_10;
     g->total_rounds   = 1;
     g->current_round  = 1;
@@ -3559,6 +3564,31 @@ void plexus_speedcoin_reverse_draw_finish(GameState *g) {
 }
 
 void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int run_bonus_pts, int run_best_streak) {
+    if (s_tut_active && s_tut_card_id == 2) {
+        tut_restore_telemetry(1);
+        if (s_tut_step != TUT1_NONE) {
+            int deus_pass = is_deus_spine_active();
+            int was_done = mark_active_spine_card_done(2);
+            if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 1)) {
+                s_selected_slot = 1;
+                s_active_tab = 0;
+                stage_spine_flip(0, 1, 0.35f);
+            }
+            if (!was_done) {
+                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE",
+                                      "[01-P1 Plain] TUTORIAL 02 CLEARED",
+                                      "Speedcoin Saturation protocol finished -- Card 2 unlocked on Spine.");
+            }
+        }
+        s_tut_active = 0;
+        s_tut_card_id = -1;
+        s_tut_step = TUT1_NONE;
+        s_speedcoin_active = 0;
+        s_speedcoin_result_view = 0;
+        plexus_save();
+        return;
+    }
+
     s_sc_last_score = (final_score > 0) ? final_score : 0;
     s_sc_last_waves = (waves > 0) ? waves : 1;
     s_sc_last_coins = (run_coins > 0) ? run_coins : 0;
@@ -3602,27 +3632,6 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
     snprintf(detail, sizeof(detail), "Speedcoin Bonus: +%d PTS (%d MP)  |  Best Serie: x%d  |  Drops: %d",
              s_sc_last_bonus, s_sc_last_coins, s_sc_last_streak, s_sc_last_drops);
     plexus_match_log_push(MLOG_SPEEDCOIN, "SPEEDCOIN", title, detail);
-
-    if (s_tut_active && s_tut_card_id == 2) {
-        s_tut_telemetry_saved = 0;
-        if (s_tut_step == TUT2_FREE_PLAY) {
-            int deus_pass = is_deus_spine_active();
-            int was_done = mark_active_spine_card_done(2);
-            if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 1)) {
-                s_selected_slot = 1;
-                s_active_tab = 0;
-                stage_spine_flip(0, 1, 0.35f);
-            }
-            if (!was_done) {
-                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE",
-                                      "[01-P1 Plain] TUTORIAL 02 CLEARED",
-                                      "Speedcoin Saturation protocol finished -- Card 2 unlocked on Spine.");
-            }
-        }
-        s_tut_active  = 0;
-        s_tut_card_id = -1;
-        s_tut_step    = TUT1_NONE;
-    }
 
     s_speedcoin_active = 0;
     s_speedcoin_result_view = 1;
@@ -3729,6 +3738,11 @@ ScreenAction plexus_handle_speedcoin_result_click(Vector2 vm, int *out_clicked) 
     if (out_clicked) *out_clicked = 0;
     if (!s_speedcoin_result_view) return ACT_NONE;
     if (CheckCollisionPointRec(vm, k_sc_play_again_rect)) {
+        if (!is_speedcoin_bottom_unlocked()) {
+            s_speedcoin_active = 0;
+            if (out_clicked) *out_clicked = 1;
+            return ACT_GOTO_ATRIUM;
+        }
         s_speedcoin_active = 1;
         if (out_clicked) *out_clicked = 1;
         return ACT_START_GAME;
