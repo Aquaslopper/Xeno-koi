@@ -114,7 +114,11 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
         return;
     }
 
-    DrawTextEx(font_title, "CAMPAIGN: SELECT BIO-OPPONENT", (Vector2){ 390.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
+    const char *picker_title = " APEX  PANCRATIUM  CIRCUIT ";
+    Vector2 picker_title_size = MeasureTextEx(font_title, picker_title, 24.0f, 1.2f);
+    DrawTextEx(font_title, picker_title,
+               (Vector2){ floorf(p.x + (p.width - picker_title_size.x) * 0.5f), 52.0f },
+               24.0f, 1.2f, COLOR_PHOSPHOR);
 
     /* Top Row: 12 mini portraits */
     for (int i = 0; i < CAMPAIGN_OPPONENT_COUNT; i++) {
