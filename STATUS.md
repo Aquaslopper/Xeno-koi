@@ -7,9 +7,9 @@
 ## Status Summary
 ## Latest completed work
 
-### Remove subtitle from main menu (26 October 2026)
+### Add Hanafuda title line to the active main menu (26 October 2026)
 
-- Removed the `BIOMECHANICAL EDITION` text line from both title-screen drawing paths. The title, buttons, and window title remain unchanged.
+- Added `HANAFUDA: ACOUSTICA APEXUS` to the active `SCREEN_START` renderer in `ui_hub.c`; moved the user's title line out of the unused legacy `screens_draw_start()` path so it appears in the live menu.
 - **Verified:** `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check`.
 - **Touched:** `src/ui_hub.c`, `src/ui_screens.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** title/button layout, window title, campaign branding, `tests/`, or `tools/tests_guard.*`.
 

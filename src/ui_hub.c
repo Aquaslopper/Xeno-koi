@@ -193,6 +193,7 @@ void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int
     const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     hub_draw_backdrop_alpha(ba, 95);
     hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 52.0f, 136.0f, 3.0f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 220.0f, 26.0f, 3.0f, COLOR_PHOSPHOR_DIM);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
