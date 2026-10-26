@@ -1013,7 +1013,7 @@ and bilinear (`play.ttf` at 36 px); each falls back to `GetFontDefault()`.
 | System | Values | Where |
 |---|---|---|
 | Match load | `TRANS_OUT_DUR 1.80f`, `TRANS_HOLD_DUR 2.20f`, `TRANS_IN_DUR 1.20f` | full-screen fade to black, card-back loader during the hold, screen swap at the end of the hold |
-| Hub navigation | `HUB_BLINK_DUR 0.20f`, `HUB_WIPE_DUR 0.16f` | button strobe, then a scissor wipe through `overlay_canvas` |
+| Hub navigation | `HUB_BLINK_DUR 0.20f`, `HUB_BLUR_DUR 0.40f` | clicked-button strobe, then subtle blur/contract, a 130 ms fade to black, 50 ms hold, 130 ms fade out, and blur/expand/sharpen |
 
 `start_transition(target, action, track)` sets `transition_dir = 1` and
 `transition_timer = 0`. The loop then runs three stages: out (`alpha =
@@ -1025,9 +1025,17 @@ action code:
 * `2` or `3` — resume music, play the pending win/lose sting.
 
 `start_hub_transition()` instead assigns `screen` immediately, stores the source
-screen and the pressed button rectangle, and starts the 0.36 s timer; while it
-runs, the old screen is drawn from `hub_from_screen` and the new one is revealed
-from `overlay_canvas` with `BeginScissorMode`.
+screen and the pressed button rectangle, and starts the 0.60 s timer. The first
+0.20 s only strobes the clicked button over the outgoing screen. During the final
+0.40 s, the outgoing image in `overlay_canvas` and incoming image in `canvas` are
+captured into 480×270 bilinear render textures. The outgoing screen gently
+contracts to 99% scale and blurs away. As the blur reaches half progress, a smooth
+black veil begins fading in over 130 ms; it holds at full black for 50 ms, then
+fades back out over 130 ms as the new screen gently expands from 99% scale and
+sharpens from its low-resolution copy to the full-resolution copy. The black fades
+overlap the outgoing/incoming blur animation rather than adding to its duration.
+`hub_sharp_to` preserves the incoming full-resolution frame while `canvas` is
+composited; no scan beam or scissor wipe is used.
 
 `begin_new_match()` clears the animation, motion, speed-bar and drag state; aborts
 any recording; builds `match_seed = time(NULL) ^ (frame_count * 2654435761u)`;

@@ -44,7 +44,9 @@ GameSettings settings;
 #define TRANS_IN_DUR     1.20f
 #define ROUND_BANNER_DUR 4.00f
 #define HUB_BLINK_DUR    0.20f
-#define HUB_WIPE_DUR     0.16f
+#define HUB_BLUR_DUR     0.40f
+#define HUB_BLUR_W       480
+#define HUB_BLUR_H       270
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
@@ -70,7 +72,7 @@ static GamePhase last_overlay_phase = PHASE_NONE, prev_round_phase = PHASE_NONE;
 static AudioAssets audio;
 static Sound sfx_banner, sfx_card_slam;
 static int has_sfx_banner = 0, has_sfx_card_slam = 0;
-static RenderTexture2D canvas, overlay_canvas;
+static RenderTexture2D canvas, overlay_canvas, hub_blur_from, hub_blur_to, hub_sharp_to;
 static Shader post_shader;
 static BoardAssets assets;
 static GameStats stats;
@@ -274,16 +276,58 @@ static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int fl
     }
 }
 
-static void draw_hub_scan_beam(int split_y, float fade) {
-    if (fade <= 0.001f) return;
-    Color trail_hi = COLOR_PHOSPHOR; trail_hi.a = (unsigned char)(88.0f * fade);
-    Color trail_lo = COLOR_PHOSPHOR; trail_lo.a = 0;
-    DrawRectangleGradientV(0, split_y - 66, CANVAS_W, 66, trail_lo, trail_hi);
-    Color lead_hi = COLOR_PHOSPHOR; lead_hi.a = (unsigned char)(64.0f * fade);
-    DrawRectangleGradientV(0, split_y + 1, CANVAS_W, 7, lead_hi, trail_lo);
-    Color beam = COLOR_PHOSPHOR; beam.a = (unsigned char)(235.0f * fade);
-    DrawRectangle(0, split_y - 1, CANVAS_W, 2, beam);
-    DrawRectangle(0, split_y, CANVAS_W, 1, (Color){ 235, 255, 255, (unsigned char)(195.0f * fade) });
+static void downsample_hub_transition(RenderTexture2D source, RenderTexture2D target) {
+    BeginTextureMode(target);
+    ClearBackground(BLACK);
+    DrawTexturePro(source.texture,
+                   (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
+                   (Rectangle){ 0, 0, (float)HUB_BLUR_W, (float)HUB_BLUR_H },
+                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+    EndTextureMode();
+}
+
+static void copy_hub_transition(RenderTexture2D source, RenderTexture2D target) {
+    BeginTextureMode(target);
+    ClearBackground(BLACK);
+    DrawTexturePro(source.texture,
+                   (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
+                   (Rectangle){ 0, 0, (float)CANVAS_W, (float)CANVAS_H },
+                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+    EndTextureMode();
+}
+
+static void draw_hub_transition_layer(Texture2D texture, float scale, float alpha) {
+    if (alpha <= 0.001f) return;
+    Rectangle dst = { CANVAS_W * (1.0f - scale) * 0.5f,
+                      CANVAS_H * (1.0f - scale) * 0.5f,
+                      CANVAS_W * scale, CANVAS_H * scale };
+    Color tint = WHITE;
+    tint.a = (unsigned char)(255.0f * fminf(1.0f, fmaxf(0.0f, alpha)));
+    DrawTexturePro(texture,
+                   (Rectangle){ 0, 0, (float)texture.width, -(float)texture.height },
+                   dst, (Vector2){ 0, 0 }, 0.0f, tint);
+}
+
+static void draw_hub_blur_transition(float u) {
+    float out_u = smooth01(fminf(1.0f, u / 0.42f));
+    float in_u = smooth01(fmaxf(0.0f, (u - 0.65f) / 0.35f));
+    float from_scale = 1.0f - 0.01f * out_u;
+    float to_scale = 0.99f + 0.01f * in_u;
+    float black_u = 0.0f;
+    if (u >= 0.21f && u < 0.535f) black_u = smooth01((u - 0.21f) / 0.325f);
+    else if (u >= 0.535f && u < 0.66f) black_u = 1.0f;
+    else if (u >= 0.66f && u < 0.985f) black_u = 1.0f - smooth01((u - 0.66f) / 0.325f);
+    BeginTextureMode(canvas);
+    ClearBackground(BLACK);
+    draw_hub_transition_layer(overlay_canvas.texture, from_scale, 1.0f - out_u);
+    draw_hub_transition_layer(hub_blur_from.texture, from_scale,
+                              0.12f * sinf(3.14159265f * out_u));
+    draw_hub_transition_layer(hub_blur_to.texture, to_scale,
+                              0.144f * in_u * (1.0f - in_u));
+    draw_hub_transition_layer(hub_sharp_to.texture, to_scale, in_u);
+    DrawRectangle(0, 0, CANVAS_W, CANVAS_H,
+                  (Color){ 0, 0, 0, (unsigned char)(255.0f * black_u) });
+    EndTextureMode();
 }
 
 static void init_banner_sfx(void) {
@@ -774,7 +818,7 @@ static void update_draw_frame(void) {
 
     if (hub_trans_active) {
         hub_trans_timer += dt;
-        if (hub_trans_timer >= (HUB_BLINK_DUR + HUB_WIPE_DUR)) {
+        if (hub_trans_timer >= (HUB_BLINK_DUR + HUB_BLUR_DUR)) {
             hub_trans_active = 0;
             hub_trans_timer = 0.0f;
             if (hub_reset_opt_page) { screens_set_options_page(0); hub_reset_opt_page = 0; }
@@ -1699,8 +1743,8 @@ static void update_draw_frame(void) {
                        !cinematic_is_active() && transition_dir == 0 && transition_alpha <= 0.0f &&
                        round_banner_timer <= 0.0f && !(anim.active && anim.type == ANIM_BANNER) &&
                        IsCursorOnScreen() && IsWindowFocused(), vm);
-    int hub_wipe_stage = hub_trans_active && screen != SCREEN_GAME && (hub_trans_timer >= HUB_BLINK_DUR - 1e-4f);
-    if (hub_wipe_stage) {
+    int hub_blur_stage = hub_trans_active && screen != SCREEN_GAME && (hub_trans_timer >= HUB_BLINK_DUR - 1e-4f);
+    if (hub_blur_stage) {
         plexus_set_intro_ui_texture((Texture2D){ 0 });
         BeginTextureMode(overlay_canvas);
         ClearBackground(BLACK);
@@ -1720,24 +1764,12 @@ static void update_draw_frame(void) {
     if (screen != SCREEN_GAME) {
         if (hub_trans_active) {
             Vector2 off_vm = { -1000.0f, -1000.0f };
-            if (!hub_wipe_stage) {
+            if (!hub_blur_stage) {
                 int flash_on = ((((int)(hub_trans_timer * 60.0f + 0.5f)) / 4) & 1) == 0;
                 draw_hub_screen_state(hub_from_screen, hub_from_campaign, off_vm);
                 draw_hub_strobe_button(hub_btn_rect, hub_btn_label, hub_btn_fsz, flash_on);
             } else {
-                float u = fminf(1.0f, fmaxf(0.0f, (hub_trans_timer - HUB_BLINK_DUR) / HUB_WIPE_DUR));
-                float ease = 0.30f * u + 0.70f * smooth01(u);
-                int split_y = (int)roundf(ease * (float)CANVAS_H);
                 draw_hub_screen_state(screen, campaign_overlay_open, off_vm);
-                if (split_y < CANVAS_H) {
-                    BeginScissorMode(0, split_y, CANVAS_W, CANVAS_H - split_y);
-                    DrawTextureRec(overlay_canvas.texture,
-                                   (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
-                                   (Vector2){ 0, 0 }, WHITE);
-                    EndScissorMode();
-                }
-                float beam_fade = (u > 0.88f) ? ((1.0f - u) / 0.12f) : 1.0f;
-                draw_hub_scan_beam(split_y, beam_fade);
             }
         } else {
             draw_hub_screen_state(screen, campaign_overlay_open, vm);
@@ -1799,6 +1831,14 @@ static void update_draw_frame(void) {
         if (overlay_active && overlay_alpha >= 0.999f) draw_active_game_overlays(&assets, &g, vm, is_paused, confirm_restart, replay_pb_active());
     }
     EndTextureMode();
+
+    if (hub_blur_stage) {
+        float u = fminf(1.0f, fmaxf(0.0f, (hub_trans_timer - HUB_BLINK_DUR) / HUB_BLUR_DUR));
+        copy_hub_transition(canvas, hub_sharp_to);
+        downsample_hub_transition(overlay_canvas, hub_blur_from);
+        downsample_hub_transition(hub_sharp_to, hub_blur_to);
+        draw_hub_blur_transition(u);
+    }
 
     if (overlay_active && overlay_alpha > 0.0f && overlay_alpha < 0.999f) {
         float oa = smooth01(overlay_alpha);
@@ -1893,6 +1933,9 @@ int main(int argc, char **argv) {
 #endif
     canvas = LoadRenderTexture(CANVAS_W, CANVAS_H); SetTextureFilter(canvas.texture, TEXTURE_FILTER_BILINEAR);
     overlay_canvas = LoadRenderTexture(CANVAS_W, CANVAS_H); SetTextureFilter(overlay_canvas.texture, TEXTURE_FILTER_BILINEAR);
+    hub_blur_from = LoadRenderTexture(HUB_BLUR_W, HUB_BLUR_H); SetTextureFilter(hub_blur_from.texture, TEXTURE_FILTER_BILINEAR);
+    hub_blur_to = LoadRenderTexture(HUB_BLUR_W, HUB_BLUR_H); SetTextureFilter(hub_blur_to.texture, TEXTURE_FILTER_BILINEAR);
+    hub_sharp_to = LoadRenderTexture(CANVAS_W, CANVAS_H); SetTextureFilter(hub_sharp_to.texture, TEXTURE_FILTER_BILINEAR);
 
 #ifdef __EMSCRIPTEN__
     const char *sh_path = "assets/postprocess_web.fs";
@@ -1956,6 +1999,7 @@ int main(int argc, char **argv) {
     plexus_unload_assets();
     board_unload_assets(&assets);
     if (post_shader.id > 0) UnloadShader(post_shader);
+    UnloadRenderTexture(hub_sharp_to); UnloadRenderTexture(hub_blur_to); UnloadRenderTexture(hub_blur_from);
     UnloadRenderTexture(overlay_canvas); UnloadRenderTexture(canvas);
     CloseWindow();
     return 0;
