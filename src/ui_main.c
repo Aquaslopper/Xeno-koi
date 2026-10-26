@@ -138,6 +138,8 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
             plexus_draw_speedcoin_result(&assets, &stats, mouse_pos);
         else if (plexus_training_result_active())
             plexus_draw_training_result(&assets, &g, &stats, mouse_pos);
+        else if (plexus_action_card_result_active())
+            plexus_draw_action_card_result(&assets, &g, &stats, mouse_pos);
         else {
             screens_draw_match_result(&assets, &g, (plexus_training_is_active() || plexus_action_card_is_active()) ? NULL : &settings, mouse_pos);
             action_card_draw_match_result_extras(&g);
@@ -290,12 +292,7 @@ static void begin_new_match(int trk) {
         plexus_tutorial_setup_round(&g);
         motion_deal_round(&g, 0.45f);
         cinematic_start(g.current_round);
-    } else if (plexus_action_card_is_active()) {
-        g.dealer = 0;
-        engine_start_round(&g);
-        motion_deal_round(&g, 0.45f);
-        cinematic_start(g.current_round);
-    } else if (!plexus_training_is_active()) {
+    } else if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
 #ifndef __EMSCRIPTEN__
         /* From here to the match end every decision of both players is written down,
            so the finished match can be replayed (see docs/reference/modes.md). */
@@ -556,7 +553,11 @@ static void update_draw_frame(void) {
         if (transition_timer >= TRANS_HOLD_DUR) {
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
             if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
-            if (screen != SCREEN_MATCH_RESULT) { plexus_speedcoin_close_result(); plexus_training_close_result(); }
+            if (screen != SCREEN_MATCH_RESULT) {
+                plexus_speedcoin_close_result();
+                plexus_training_close_result();
+                plexus_action_card_close_result();
+            }
             if (screen != SCREEN_GAME && screen != SCREEN_MATCH_RESULT) {
                 action_card_reset_match();
                 plexus_restore_match_settings(&settings, &assets);
@@ -663,7 +664,15 @@ static void update_draw_frame(void) {
                 else if (act == ACT_QUIT) { plexus_save(); quit_requested = 1; return; }
             }
         } else if (screen == SCREEN_ATRIUM) {
-            if (IsKeyPressed(KEY_ESCAPE)) {
+            if (plexus_intro_blocking()) {
+                if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+                    if (plexus_intro_accept_key()) audio_play_click(&audio);
+                } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    int p_clicked = 0;
+                    plexus_handle_click(vm, &p_clicked);
+                    if (p_clicked) audio_play_click(&audio);
+                }
+            } else if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
                 if (!plexus_close_subpanel()) {
                     plexus_save();
@@ -747,6 +756,17 @@ static void update_draw_frame(void) {
                 int tr_clicked = 0;
                 if (plexus_handle_training_result_click(vm, &tr_clicked) == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
                 if (tr_clicked) audio_play_click(&audio);
+            }
+        } else if (screen == SCREEN_MATCH_RESULT && plexus_action_card_result_active()) {
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                audio_play_click(&audio);
+                start_transition(SCREEN_ATRIUM, 3, 0);
+            } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                int ac_clicked = 0;
+                ScreenAction act = plexus_handle_action_card_result_click(vm, &ac_clicked);
+                if (ac_clicked) audio_play_click(&audio);
+                if (act == ACT_START_GAME) start_transition(SCREEN_GAME, 1, pick_match_track(1));
+                else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
             }
         } else if (screen == SCREEN_MATCH_RESULT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ScreenAction act = screens_handle_match_result_click(vm);
@@ -1293,7 +1313,8 @@ static void update_draw_frame(void) {
                                 } else {
                                     if (!plexus_training_result_active() && g.total_score[0] > g.total_score[1]) {
                                         pending_result_sfx = 1;
-                                        if (!plexus_training_is_active() && !plexus_action_card_is_active()) {
+                                        if (!plexus_training_is_active() && !plexus_action_card_is_active() &&
+                                            !plexus_action_card_result_active()) {
                                             bool meets_clearance = (settings.difficulty == DIFFICULTY_MASTER && settings.rounds >= 3) ||
                                                                    (settings.difficulty == DIFFICULTY_HARD   && settings.rounds >= 6) ||
                                                                    (settings.difficulty == DIFFICULTY_EASY   && settings.rounds >= 9);
@@ -1381,10 +1402,19 @@ static void update_draw_frame(void) {
                        IsCursorOnScreen() && IsWindowFocused(), vm);
     int hub_wipe_stage = hub_trans_active && screen != SCREEN_GAME && (hub_trans_timer >= HUB_BLINK_DUR - 1e-4f);
     if (hub_wipe_stage) {
+        plexus_set_intro_ui_texture((Texture2D){ 0 });
         BeginTextureMode(overlay_canvas);
         ClearBackground(BLACK);
         draw_hub_screen_state(hub_from_screen, hub_from_campaign, (Vector2){ -1000.0f, -1000.0f });
         EndTextureMode();
+    } else if (screen == SCREEN_ATRIUM && plexus_intro_revealing()) {
+        BeginTextureMode(overlay_canvas);
+        ClearBackground(BLANK);
+        plexus_draw_ui_chrome(&assets, &stats, (Vector2){ -1000.0f, -1000.0f });
+        EndTextureMode();
+        plexus_set_intro_ui_texture(overlay_canvas.texture);
+    } else {
+        plexus_set_intro_ui_texture((Texture2D){ 0 });
     }
 
     BeginTextureMode(canvas);

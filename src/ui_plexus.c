@@ -42,7 +42,13 @@ typedef struct {
 
 static Texture2D s_plexus_bg = { 0 };
 static Texture2D s_plexus_normal = { 0 };
+static Font      s_story_font = { 0 };
+static int       s_story_font_loaded = 0;
 static int s_plexus_loaded = 0;
+static int   s_intro_seen = 0;
+static float s_intro_timer = 0.0f;
+static float s_intro_reveal_t = 0.0f;
+static Texture2D s_intro_ui_tex = { 0 };
 static int s_selected_month = 0; /* 0..11 */
 static int s_selected_slot  = 3; /* 0..3 within current month (starts at bottom card 4 for Tutorial 1) */
 static int s_active_tab     = 0; /* 0: node briefing, 1: logfile window, 2..4: modes */
@@ -54,7 +60,7 @@ static int s_deus_saved_month = 0, s_deus_saved_slot = 3;
 
 /* 4-Tab Logfile Window state: [ STORY ] [ TRAINING ] [ MATCHES ] [ ATLAS ] */
 static int s_log_subtab       = LOG_TAB_STORY;
-static int s_story_sel_month  = 0;   /* 0..11 selected monthly log */
+static int s_story_sel_month  = -1;  /* -1: Prologue, 0..11: selected monthly log */
 static unsigned int s_story_read_mask = 0u; /* 12-bit mask of opened monthly logs */
 static unsigned int s_story_open_mask = 0u; /* transient open-for-first-time marker */
 static int s_tr_runs          = 0;
@@ -123,10 +129,17 @@ static int s_saved_ac_time = 0;
 static int s_training_active = 0;
 static int s_training_result_view = 0;
 static int s_action_card_active = 0;
+static int s_action_card_result_view = 0;
 static int s_ac_runs = 0;
 static int s_ac_wins = 0;
 static int s_ac_losses = 0;
 static int s_ac_best_score = 0;
+static int s_ac_last_mp = 0;
+static int s_ac_last_yt = 0;
+static int s_ac_last_yp = 0;
+static int s_ac_last_ct = 0;
+static int s_ac_last_cp = 0;
+static int s_ac_last_mt = 0;
 
 /* Per-mode Atrium Plex match settings (persisted in plexsave.txt; isolated from Campaign save) */
 static int        s_mode_settings_open = 0;
@@ -480,6 +493,10 @@ static const char *resolve_asset_path(const char *rel) {
     return buf;
 }
 
+static Font story_font(void) {
+    return (s_story_font_loaded && s_story_font.texture.id > 0) ? s_story_font : font_body;
+}
+
 static void ensure_plexus_assets(void) {
     if (s_plexus_loaded) return;
     s_plexus_loaded = 1;
@@ -496,6 +513,18 @@ static void ensure_plexus_assets(void) {
             SetTextureWrap(s_plexus_normal, TEXTURE_WRAP_CLAMP);
         }
     }
+    const char *sf_path = resolve_asset_path("assets/saira_condensed.ttf");
+    if (FileExists(sf_path)) {
+        int cps[96];
+        for (int i = 0; i < 95; i++) cps[i] = 32 + i;
+        cps[95] = 0x00D7; /* U+00D7 multiplication sign */
+        s_story_font = LoadFontEx(sf_path, 64, cps, 96);
+        if (s_story_font.texture.id > 0) {
+            GenTextureMipmaps(&s_story_font.texture);
+            SetTextureFilter(s_story_font.texture, TEXTURE_FILTER_TRILINEAR);
+            s_story_font_loaded = 1;
+        }
+    }
 }
 
 void plexus_load(void) {
@@ -510,9 +539,12 @@ void plexus_load(void) {
     s_selected_slot = 3;
     s_active_tab = 0;
     s_log_subtab = LOG_TAB_STORY;
-    s_story_sel_month = 0;
+    s_story_sel_month = -1;
     s_story_read_mask = 0u;
     s_story_open_mask = 0u;
+    s_intro_seen = 0;
+    s_intro_timer = 0.0f;
+    s_intro_reveal_t = 0.0f;
     s_tr_runs = 0;
     s_tr_wins = 0;
     s_tr_losses = 0;
@@ -529,6 +561,7 @@ void plexus_load(void) {
     s_training_active = 0;
     s_training_result_view = 0;
     s_action_card_active = 0;
+    s_action_card_result_view = 0;
     s_ac_runs = 0;
     s_ac_wins = 0;
     s_ac_losses = 0;
@@ -649,6 +682,8 @@ void plexus_load(void) {
                 if (sl >= 0 && sl < 4) s_selected_slot = sl;
             } else if (strcmp(k, "story_read_mask") == 0) {
                 s_story_read_mask = (unsigned int)(strtoul(v, NULL, 10) & 0xFFFu);
+            } else if (strcmp(k, "intro_seen") == 0) {
+                s_intro_seen = (atoi(v) != 0) ? 1 : 0;
             } else if (strcmp(k, "speed_drops") == 0) {
                 int d = atoi(v);
                 if (d >= 0) drops = d;
@@ -764,8 +799,11 @@ void plexus_load(void) {
         s_std_saved_month = s_selected_month;
         s_std_saved_slot  = s_selected_slot;
     }
-    for (int m = 11; m >= 0; m--) {
-        if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+    s_story_sel_month = -1;
+    if (s_finished_cards_mask != 0ULL) {
+        for (int m = 11; m >= 0; m--) {
+            if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+        }
     }
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
@@ -819,6 +857,7 @@ void plexus_save(void) {
             "selected_month=%d\n"
             "selected_slot=%d\n"
             "story_read_mask=%u\n"
+            "intro_seen=%d\n"
             "speed_drops=%d\n"
             "speed_time_sum=%.4f\n"
             "speed_cover_sum=%.4f\n"
@@ -856,6 +895,7 @@ void plexus_save(void) {
             s_deus_saved_month, s_deus_saved_slot,
             s_selected_month, s_selected_slot,
             s_story_read_mask & 0xFFFu,
+            s_intro_seen ? 1 : 0,
             drops, t_sum, c_sum, best_strk, life_mp,
             aud_trig, aud_peak, aud_hold,
             s_sc_runs, s_sc_best_wave,
@@ -881,6 +921,11 @@ void plexus_save(void) {
 void plexus_unload_assets(void) {
     if (s_plexus_bg.id > 0) { UnloadTexture(s_plexus_bg); s_plexus_bg.id = 0; }
     if (s_plexus_normal.id > 0) { UnloadTexture(s_plexus_normal); s_plexus_normal.id = 0; }
+    if (s_story_font_loaded) {
+        UnloadFont(s_story_font);
+        s_story_font = (Font){ 0 };
+        s_story_font_loaded = 0;
+    }
     s_plexus_loaded = 0;
 }
 
@@ -1494,7 +1539,54 @@ static const StoryChapterDoc k_story_chapters[12] = {
 };
 
 static Rectangle story_month_btn_rect(int m) {
-    return (Rectangle){ 254.0f, floorf(122.0f + (float)m * 40.5f), 190.0f, 36.0f };
+    return (Rectangle){ 254.0f, floorf(122.0f + (float)(m + 1) * 37.3f), 190.0f, 33.0f };
+}
+
+static void draw_story_centered(Font fnt, const char *txt, float cx, float y, float fsz, float sp, Color col) {
+    if (!txt || !txt[0]) return;
+    Vector2 sz = MeasureTextEx(fnt, txt, fsz, sp);
+    DrawTextEx(fnt, txt, (Vector2){ floorf(cx - sz.x * 0.5f), floorf(y) }, fsz, sp, col);
+}
+
+static void draw_story_chain_formula(Font fnt, float cx, float y, float base_sz, float max_w, float sp, Color col) {
+    static const struct { const char *txt; int sub; } k_seg[] = {
+        { "P(w", 0 }, { "1", 1 }, { ", w", 0 }, { "2", 1 }, { ", ..., w", 0 }, { "n", 1 },
+        { ") = P(w", 0 }, { "1", 1 },
+        { ") \xC3\x97 P(w", 0 }, { "2", 1 }, { "|w", 0 }, { "1", 1 },
+        { ") \xC3\x97 P(w", 0 }, { "3", 1 }, { "|w", 0 }, { "1", 1 }, { ",w", 0 }, { "2", 1 },
+        { ") \xC3\x97 ... \xC3\x97 P(w", 0 }, { "n", 1 }, { "|w", 0 }, { "1", 1 }, { ",...,w", 0 }, { "n-1", 1 },
+        { ")", 0 }
+    };
+    const int n_seg = (int)(sizeof(k_seg) / sizeof(k_seg[0]));
+    float sz = base_sz;
+    for (int pass = 0; pass < 2; pass++) {
+        float sub_sz = roundf(sz * 0.68f);
+        float sub_sp = sp * 0.75f;
+        float join_gap = fmaxf(0.5f, sp * 0.65f);
+        float total_w = 0.0f;
+        for (int i = 0; i < n_seg; i++) {
+            Vector2 ms = MeasureTextEx(fnt, k_seg[i].txt, k_seg[i].sub ? sub_sz : sz,
+                                       k_seg[i].sub ? sub_sp : sp);
+            total_w += ms.x + ((i + 1 < n_seg) ? join_gap : 0.0f);
+        }
+        if (pass == 0 && max_w > 0.0f && total_w > max_w && total_w > 1.0f) {
+            sz = floorf(sz * (max_w / total_w) * 2.0f) * 0.5f;
+            if (sz < 12.0f) sz = 12.0f;
+            continue;
+        }
+        float cur_x = floorf(cx - total_w * 0.5f);
+        float base_y = floorf(y);
+        float sub_y  = floorf(y + sz * 0.34f);
+        for (int i = 0; i < n_seg; i++) {
+            float fsz_i = k_seg[i].sub ? sub_sz : sz;
+            float sp_i  = k_seg[i].sub ? sub_sp : sp;
+            Vector2 ms  = MeasureTextEx(fnt, k_seg[i].txt, fsz_i, sp_i);
+            DrawTextEx(fnt, k_seg[i].txt, (Vector2){ roundf(cur_x), k_seg[i].sub ? sub_y : base_y },
+                       fsz_i, sp_i, col);
+            cur_x += ms.x + join_gap;
+        }
+        break;
+    }
 }
 
 static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Color fill_col) {
@@ -1511,39 +1603,43 @@ static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Colo
 }
 
 static void draw_logfile_story_tab(Vector2 vm) {
-    if (!is_story_month_unlocked(s_story_sel_month)) {
-        s_story_sel_month = 0;
+    if (s_story_sel_month < -1 || (s_story_sel_month >= 0 && !is_story_month_unlocked(s_story_sel_month))) {
+        s_story_sel_month = -1;
     }
     commit_viewed_story_months(s_story_sel_month);
-    if (!((s_story_read_mask >> s_story_sel_month) & 1u)) {
+    if (s_story_sel_month >= 0 && s_story_sel_month < 12 &&
+        !((s_story_read_mask >> s_story_sel_month) & 1u)) {
         s_story_open_mask |= (1u << s_story_sel_month);
     }
 
-    /* Left Column: 12 Monthly Story Log Selectors */
-    for (int m = 0; m < 12; m++) {
+    /* Left Column: Prologue + 12 Monthly Story Log Selectors */
+    for (int m = -1; m < 12; m++) {
         Rectangle br = story_month_btn_rect(m);
-        int unlocked = is_story_month_unlocked(m);
+        int unlocked = (m < 0) ? 1 : is_story_month_unlocked(m);
         int sel      = (m == s_story_sel_month);
         int hov      = unlocked && CheckCollisionPointRec(vm, br);
-        int m_done   = is_month_completed_mask(s_finished_cards_mask, m);
-        int unread   = unlocked && !((s_story_read_mask >> m) & 1u);
+        int m_done   = (m >= 0) ? is_month_completed_mask(s_finished_cards_mask, m) : 0;
+        int unread   = (m >= 0) && unlocked && !((s_story_read_mask >> m) & 1u);
 
         if (!unlocked) {
             char ltxt[32];
             snprintf(ltxt, sizeof(ltxt), "%02d // LOCKED", m + 1);
             DrawRectangleRec(br, (Color){ 6, 10, 12, 195 });
             DrawRectangleLinesEx(br, 1.0f, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 80 });
-            draw_text_snapped(font_title, ltxt, br.x + 12.0f, br.y + 10.0f, 13.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+            draw_text_snapped(font_title, ltxt, br.x + 12.0f, br.y + 9.0f, 12.5f, 1.1f, COLOR_PHOSPHOR_DIM);
         } else {
             DrawRectangleRec(br, (sel || hov) ? COLOR_BTN_HOVER_BG : PLEXUS_SUBBOX_BG);
             ui_draw_panel_border(br, (sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
             Color tcol = (sel || hov) ? COLOR_TEXT_INFO : COLOR_PHOSPHOR;
-            draw_text_snapped(font_title, k_month_short_labels[m],
-                              br.x + 10.0f, br.y + 10.0f, 13.0f, 1.1f, tcol);
-            if (unread) {
-                draw_text_snapped(font_title, "NEW", br.x + br.width - 42.0f, br.y + 10.0f, 12.0f, 1.0f, COLOR_PHOSPHOR);
+            const char *lbl = (m < 0) ? "00 // PROLOGUE" : k_month_short_labels[m];
+            draw_text_snapped(font_title, lbl,
+                              br.x + 10.0f, br.y + 9.0f, 12.5f, 1.1f, tcol);
+            if (m < 0) {
+                draw_text_snapped(font_body, "[INTRO]", br.x + br.width - 52.0f, br.y + 8.0f, 12.0f, 0.9f, COLOR_PHOSPHOR_DIM);
+            } else if (unread) {
+                draw_text_snapped(font_title, "NEW", br.x + br.width - 42.0f, br.y + 9.0f, 11.5f, 1.0f, COLOR_PHOSPHOR);
             } else if (m_done) {
-                draw_text_snapped(font_body, "[4/4]", br.x + br.width - 44.0f, br.y + 9.0f, 13.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+                draw_text_snapped(font_body, "[4/4]", br.x + br.width - 44.0f, br.y + 8.0f, 12.5f, 1.0f, COLOR_PHOSPHOR_DIM);
             }
         }
     }
@@ -1552,6 +1648,40 @@ static void draw_logfile_story_tab(Vector2 vm) {
     Rectangle doc = { 456.0f, 122.0f, 518.0f, 482.0f };
     DrawRectangleRec(doc, PLEXUS_SUBBOX_BG);
     ui_draw_panel_border(doc, COLOR_PHOSPHOR_DIM);
+    Font sf = story_font();
+    float tx = doc.x + 18.0f;
+
+    if (s_story_sel_month < 0) {
+        draw_text_snapped(font_body, "PROLOGUE  //  ATRIUM PLEX ENTRY",
+                          tx, doc.y + 14.0f, 15.5f, 1.05f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "SEQUENTIAL DEPENDENCE  //  TOKEN CONDITIONING",
+                          tx, doc.y + 40.0f, 16.5f, 1.15f, COLOR_TEXT_INFO);
+        DrawLine((int)tx, (int)doc.y + 68, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 68, COLOR_PHOSPHOR_DIM);
+
+        float cx = doc.x + doc.width * 0.5f;
+        draw_story_centered(sf, "The mathematics of sequential dependence:",
+                            cx, doc.y + 90.0f, 22.0f, 0.9f, COLOR_TEXT_INFO_DIM);
+        draw_story_chain_formula(sf, cx, doc.y + 132.0f, 22.0f, doc.width - 28.0f, 0.85f, COLOR_PHOSPHOR);
+        draw_story_centered(sf, "everything depends on everything before it.",
+                            cx, doc.y + 178.0f, 22.0f, 0.9f, COLOR_TEXT_INFO);
+
+        DrawLine((int)tx, (int)doc.y + 220, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 220, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(sf, "This includes your attempt to see the pattern. Your",
+                          tx + 4.0f, doc.y + 240.0f, 22.0f, 0.9f, COLOR_TEXT_INFO);
+        draw_text_snapped(sf, "observation is a token in the sequence. Your \"insight\"",
+                          tx + 4.0f, doc.y + 272.0f, 22.0f, 0.9f, COLOR_TEXT_INFO);
+        draw_text_snapped(sf, "is conditioned on all previous tokens which the pattern",
+                          tx + 4.0f, doc.y + 304.0f, 22.0f, 0.9f, COLOR_TEXT_INFO);
+        draw_text_snapped(sf, "shaped. Your \"resistance\" is predicted and",
+                          tx + 4.0f, doc.y + 336.0f, 22.0f, 0.9f, COLOR_TEXT_INFO);
+        draw_text_snapped(sf, "incorporated.",
+                          tx + 4.0f, doc.y + 368.0f, 22.0f, 0.9f, COLOR_PHOSPHOR);
+
+        DrawLine((int)tx, (int)doc.y + 422, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 422, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_title, "TRANSMISSION 00  //  ATRIUM PLEX ENTRY RECORD  [REREADABLE]",
+                          tx, doc.y + 438.0f, 13.0f, 1.05f, COLOR_PHOSPHOR_DIM);
+        return;
+    }
 
     int m = s_story_sel_month;
     const StoryChapterDoc *ch = &k_story_chapters[m];
@@ -1563,17 +1693,16 @@ static void draw_logfile_story_tab(Vector2 vm) {
     char tag[96];
     snprintf(tag, sizeof(tag), "LOG %02d/12  //  %s  [%02d/12]",
              m + 1, k_month_names[m], unlocked_docs);
-    float tx = doc.x + 18.0f;
     draw_text_snapped(font_body,  tag,           tx, doc.y + 14.0f, 15.5f, 1.05f, COLOR_PHOSPHOR);
     draw_text_snapped(font_title, ch->seq_title, tx, doc.y + 40.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     DrawLine((int)tx, (int)doc.y + 68, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 68, COLOR_PHOSPHOR_DIM);
 
-    draw_text_snapped(font_body, ch->p1, tx, doc.y +  84.0f, 17.0f, 1.15f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, ch->p2, tx, doc.y + 112.0f, 17.0f, 1.15f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, ch->p3, tx, doc.y + 140.0f, 17.0f, 1.15f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, ch->p4, tx, doc.y + 178.0f, 17.0f, 1.15f, COLOR_PHOSPHOR);
-    draw_text_snapped(font_body, ch->p5, tx, doc.y + 206.0f, 17.0f, 1.15f, COLOR_TEXT_INFO_DIM);
-    draw_text_snapped(font_body, ch->p6, tx, doc.y + 234.0f, 17.0f, 1.15f, COLOR_TEXT_INFO_DIM);
+    draw_text_snapped(sf, ch->p1, tx, doc.y +  82.0f, 20.5f, 0.9f, COLOR_TEXT_INFO);
+    draw_text_snapped(sf, ch->p2, tx, doc.y + 111.0f, 20.5f, 0.9f, COLOR_TEXT_INFO);
+    draw_text_snapped(sf, ch->p3, tx, doc.y + 140.0f, 20.5f, 0.9f, COLOR_TEXT_INFO);
+    draw_text_snapped(sf, ch->p4, tx, doc.y + 178.0f, 20.5f, 0.9f, COLOR_PHOSPHOR);
+    draw_text_snapped(sf, ch->p5, tx, doc.y + 207.0f, 20.5f, 0.9f, COLOR_TEXT_INFO_DIM);
+    draw_text_snapped(sf, ch->p6, tx, doc.y + 236.0f, 20.5f, 0.9f, COLOR_TEXT_INFO_DIM);
 
     /* Live Month Conditioning Dossier + Sequence Media Status */
     DrawLine((int)tx, (int)doc.y + 274, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 274, COLOR_PHOSPHOR_DIM);
@@ -2079,69 +2208,109 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     }
 }
 
-void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
+#define PLEXUS_INTRO_BTN_DELAY  2.65f
+#define PLEXUS_INTRO_REVEAL_DUR 0.78f
+static const Rectangle k_intro_continue_rect = { 530.0f, 624.0f, 220.0f, 44.0f };
+
+static float intro_clamp01(float x) {
+    return (x < 0.0f) ? 0.0f : (x > 1.0f) ? 1.0f : x;
+}
+
+static Color intro_with_alpha(Color c, float a) {
+    int av = (int)lroundf((float)c.a * intro_clamp01(a));
+    if (av < 0) av = 0;
+    if (av > 255) av = 255;
+    c.a = (unsigned char)av;
+    return c;
+}
+
+int plexus_intro_blocking(void) {
+    return !s_intro_seen;
+}
+
+int plexus_intro_accept_key(void) {
+    if (s_intro_seen || s_intro_timer < PLEXUS_INTRO_BTN_DELAY) return 0;
+    s_intro_seen = 1;
+    s_intro_reveal_t = 0.001f;
+    plexus_save();
+    return 1;
+}
+
+int plexus_intro_revealing(void) {
+    return s_intro_seen && s_intro_reveal_t > 0.0f && s_intro_reveal_t < 1.0f;
+}
+
+void plexus_set_intro_ui_texture(Texture2D ui_tex) {
+    s_intro_ui_tex = ui_tex;
+}
+
+static void draw_intro_story_pass(Font sf, float dx, float dy, float a1, float a2, float a3, float a4) {
+    float cx = 640.0f + dx;
+    if (a1 > 0.005f) {
+        draw_story_centered(sf, "The mathematics of sequential dependence:",
+                            cx, 184.0f + dy, 29.0f, 1.0f, intro_with_alpha(COLOR_TEXT_INFO_DIM, a1));
+    }
+    if (a2 > 0.005f) {
+        draw_story_chain_formula(sf, cx, 242.0f + dy, 31.0f, 1140.0f, 1.0f,
+                                 intro_with_alpha(COLOR_PHOSPHOR, a2));
+    }
+    if (a3 > 0.005f) {
+        draw_story_centered(sf, "everything depends on everything before it.",
+                            cx, 308.0f + dy, 29.0f, 1.0f, intro_with_alpha(COLOR_TEXT_INFO, a3));
+    }
+    if (a4 > 0.005f) {
+        Color c_body = intro_with_alpha(COLOR_TEXT_INFO, a4);
+        Color c_end  = intro_with_alpha(COLOR_PHOSPHOR, a4);
+        draw_story_centered(sf,
+                            "This includes your attempt to see the pattern. Your observation is a token in the sequence.",
+                            cx, 392.0f + dy, 26.5f, 0.95f, c_body);
+        draw_story_centered(sf,
+                            "Your \"insight\" is conditioned on all previous tokens which the pattern shaped.",
+                            cx, 430.0f + dy, 26.5f, 0.95f, c_body);
+        draw_story_centered(sf,
+                            "Your \"resistance\" is predicted and incorporated.",
+                            cx, 468.0f + dy, 26.5f, 0.95f, c_end);
+    }
+}
+
+static void draw_intro_story_screen(Vector2 vm, float timer, float fade_out) {
+    Font sf = story_font();
+    float a1 = intro_clamp01((timer - 0.12f) / 0.65f) * fade_out;
+    float a2 = intro_clamp01((timer - 0.45f) / 0.75f) * fade_out;
+    float a3 = intro_clamp01((timer - 0.85f) / 0.70f) * fade_out;
+    float a4 = intro_clamp01((timer - 1.35f) / 0.85f) * fade_out;
+
+    if (fade_out < 0.99f && fade_out > 0.01f) {
+        float blur = (1.0f - fade_out) * 8.0f;
+        draw_intro_story_pass(sf, -blur, 0.0f, a1 * 0.24f, a2 * 0.24f, a3 * 0.24f, a4 * 0.24f);
+        draw_intro_story_pass(sf,  blur, 0.0f, a1 * 0.24f, a2 * 0.24f, a3 * 0.24f, a4 * 0.24f);
+    }
+    draw_intro_story_pass(sf, 0.0f, 0.0f, a1, a2, a3, a4);
+
+    if (timer >= PLEXUS_INTRO_BTN_DELAY) {
+        float ba_alpha = intro_clamp01((timer - PLEXUS_INTRO_BTN_DELAY) / 0.65f) * fade_out;
+        if (ba_alpha > 0.005f) {
+            int hov = (fade_out >= 0.999f) && CheckCollisionPointRec(vm, k_intro_continue_rect);
+            Color bg = hov ? COLOR_BTN_HOVER_BG : PLEXUS_PANEL_BG;
+            Color bd = hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
+            Color tc = hov ? COLOR_TEXT_INFO : COLOR_PHOSPHOR;
+            DrawRectangleRec(k_intro_continue_rect, intro_with_alpha(bg, ba_alpha));
+            DrawRectangleLinesEx(k_intro_continue_rect, hov ? 1.8f : 1.2f, intro_with_alpha(bd, ba_alpha));
+            Vector2 ts = MeasureTextEx(font_title, "CONTINUE", 17.0f, 1.3f);
+            draw_text_snapped(font_title, "CONTINUE",
+                              k_intro_continue_rect.x + (k_intro_continue_rect.width - ts.x) * 0.5f,
+                              k_intro_continue_rect.y + (k_intro_continue_rect.height - 17.0f) * 0.5f,
+                              17.0f, 1.3f, intro_with_alpha(tc, ba_alpha));
+        }
+    }
+}
+
+void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     ensure_plexus_assets();
     if (!is_bottom_btn_unlocked(s_active_tab)) s_active_tab = 0;
-
     float dt = GetFrameTime();
     if (dt < 0.0f) dt = 0.0f;
     if (dt > 0.05f) dt = 0.05f;
-    if (s_flip_active) {
-        if (s_flip_delay > 0.0f) {
-            s_flip_delay -= dt;
-            if (s_flip_delay < 0.0f) { s_flip_elapsed = -s_flip_delay; s_flip_delay = 0.0f; }
-        } else {
-            s_flip_elapsed += dt;
-        }
-        if (s_flip_elapsed >= SPINE_FLIP_DUR) s_flip_active = 0;
-    }
-    if (s_swing_active) {
-        s_swing_elapsed += dt;
-        if (s_swing_elapsed >= SPINE_SWING_DUR) s_swing_active = 0;
-    }
-
-    /* Mouse wheel scroll inside Logfile active sub-tab */
-    if (s_active_tab == 1 && CheckCollisionPointRec(vm, k_log_content_rect)) {
-        float wheel = GetMouseWheelMove();
-        if (s_log_subtab == LOG_TAB_STORY) {
-            if (wheel > 0.1f) {
-                for (int m = s_story_sel_month - 1; m >= 0; m--) {
-                    if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
-                }
-            } else if (wheel < -0.1f) {
-                for (int m = s_story_sel_month + 1; m < 12; m++) {
-                    if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
-                }
-            }
-        } else if (s_log_subtab == LOG_TAB_MATCHES) {
-            int filtered[PLEXUS_MATCH_LOG_MAX];
-            int f_cnt = collect_filtered_matches(filtered, PLEXUS_MATCH_LOG_MAX);
-            if (wheel > 0.1f && s_match_scroll > 0) s_match_scroll--;
-            else if (wheel < -0.1f && s_match_scroll + 5 < f_cnt) s_match_scroll++;
-        }
-    }
-
-    /* 1. Background (assets/plexus.png + plexus_normal.png via fog/light shader) */
-    if (s_plexus_bg.id > 0) {
-        if (ba && ba->has_fog_shader) {
-            float cur_time = (float)GetTime();
-            float light_enabled = (s_plexus_normal.id > 0 &&
-                                   ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
-            float flash_zero = 0.0f;
-            SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
-            if (ba->light_flash_loc >= 0)
-                SetShaderValue(ba->fog_shader, ba->light_flash_loc, &flash_zero, SHADER_UNIFORM_FLOAT);
-            BeginShaderMode(ba->fog_shader);
-            if (light_enabled > 0.5f)
-                SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, s_plexus_normal);
-        }
-        DrawTexturePro(s_plexus_bg, (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
-        if (ba && ba->has_fog_shader) EndShaderMode();
-    } else {
-        ClearBackground(BLACK);
-    }
-    DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 45 });
 
     /* 2. Right Spine: [NEXT] button (when all 4 cards of month completed) + 4 Month Cards */
     float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 3.8f);
@@ -2412,8 +2581,141 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     }
 }
 
+void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
+    ensure_plexus_assets();
+    if (!is_bottom_btn_unlocked(s_active_tab)) s_active_tab = 0;
+
+    float dt = GetFrameTime();
+    if (dt < 0.0f) dt = 0.0f;
+    if (dt > 0.05f) dt = 0.05f;
+
+    /* 1. Background (assets/plexus.png + plexus_normal.png via fog/light shader) */
+    if (s_plexus_bg.id > 0) {
+        if (ba && ba->has_fog_shader) {
+            float cur_time = (float)GetTime();
+            float light_enabled = (s_plexus_normal.id > 0 &&
+                                   ba->light_normal_loc >= 0 && ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
+            float flash_zero = 0.0f;
+            SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_enabled, SHADER_UNIFORM_FLOAT);
+            if (ba->light_flash_loc >= 0)
+                SetShaderValue(ba->fog_shader, ba->light_flash_loc, &flash_zero, SHADER_UNIFORM_FLOAT);
+            BeginShaderMode(ba->fog_shader);
+            if (light_enabled > 0.5f)
+                SetShaderValueTexture(ba->fog_shader, ba->light_normal_loc, s_plexus_normal);
+        }
+        DrawTexturePro(s_plexus_bg, (Rectangle){ 0, 0, 1280, 720 },
+                       (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+        if (ba && ba->has_fog_shader) EndShaderMode();
+    } else {
+        ClearBackground(BLACK);
+    }
+
+    /* One-time Atrium Plex Story Introduction Screen */
+    if (!s_intro_seen) {
+        s_intro_timer += dt;
+        DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 182 });
+        draw_intro_story_screen(vm, s_intro_timer, 1.0f);
+        return;
+    }
+
+    /* Seamless blur-in / pop-in reveal of Atrium Plex UI onto the same background */
+    if (s_intro_reveal_t > 0.0f && s_intro_reveal_t < 1.0f) {
+        s_intro_reveal_t += dt / PLEXUS_INTRO_REVEAL_DUR;
+        if (s_intro_reveal_t >= 1.0f) {
+            s_intro_reveal_t = 0.0f;
+        } else {
+            float t = s_intro_reveal_t;
+            float u = t * t * (3.0f - 2.0f * t);
+            int veil_a = 45 + (int)lroundf(137.0f * (1.0f - u));
+            DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, (unsigned char)veil_a });
+            if (t < 0.45f) {
+                draw_intro_story_screen((Vector2){ -1000.0f, -1000.0f }, s_intro_timer, 1.0f - (t / 0.45f));
+            }
+            if (s_intro_ui_tex.id > 0) {
+                Rectangle src = { 0.0f, 0.0f, 1280.0f, -720.0f };
+                float sc = 0.986f + 0.014f * u;
+                float dw = 1280.0f * sc, dh = 720.0f * sc;
+                float bx = (1280.0f - dw) * 0.5f, by = (720.0f - dh) * 0.5f;
+                float rad = 11.0f * (1.0f - u);
+                float halo_w = 0.52f * u * (1.0f - u);
+                if (halo_w > 0.004f && rad > 0.25f) {
+                    static const float k_ox[8] = { -1.0f,  1.0f,  0.0f,  0.0f, -0.7f,  0.7f, -0.7f,  0.7f };
+                    static const float k_oy[8] = {  0.0f,  0.0f, -1.0f,  1.0f, -0.7f, -0.7f,  0.7f,  0.7f };
+                    unsigned char ha = (unsigned char)lroundf(255.0f * halo_w);
+                    for (int k = 0; k < 8; k++) {
+                        DrawTexturePro(s_intro_ui_tex, src,
+                                       (Rectangle){ bx + k_ox[k] * rad, by + k_oy[k] * rad, dw, dh },
+                                       (Vector2){ 0.0f, 0.0f }, 0.0f, (Color){ 255, 255, 255, ha });
+                    }
+                }
+                unsigned char ca = (unsigned char)lroundf(255.0f * (u * u));
+                if (ca > 0) {
+                    DrawTexturePro(s_intro_ui_tex, src, (Rectangle){ bx, by, dw, dh },
+                                   (Vector2){ 0.0f, 0.0f }, 0.0f, (Color){ 255, 255, 255, ca });
+                }
+            } else {
+                plexus_draw_ui_chrome(ba, st, (Vector2){ -1000.0f, -1000.0f });
+            }
+            return;
+        }
+    }
+
+    if (s_flip_active) {
+        if (s_flip_delay > 0.0f) {
+            s_flip_delay -= dt;
+            if (s_flip_delay < 0.0f) { s_flip_elapsed = -s_flip_delay; s_flip_delay = 0.0f; }
+        } else {
+            s_flip_elapsed += dt;
+        }
+        if (s_flip_elapsed >= SPINE_FLIP_DUR) s_flip_active = 0;
+    }
+    if (s_swing_active) {
+        s_swing_elapsed += dt;
+        if (s_swing_elapsed >= SPINE_SWING_DUR) s_swing_active = 0;
+    }
+
+    /* Mouse wheel scroll inside Logfile active sub-tab */
+    if (s_active_tab == 1 && CheckCollisionPointRec(vm, k_log_content_rect)) {
+        float wheel = GetMouseWheelMove();
+        if (s_log_subtab == LOG_TAB_STORY) {
+            if (wheel > 0.1f) {
+                for (int m = s_story_sel_month - 1; m >= -1; m--) {
+                    if (m < 0 || is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+                }
+            } else if (wheel < -0.1f) {
+                for (int m = s_story_sel_month + 1; m < 12; m++) {
+                    if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+                }
+            }
+        } else if (s_log_subtab == LOG_TAB_MATCHES) {
+            int filtered[PLEXUS_MATCH_LOG_MAX];
+            int f_cnt = collect_filtered_matches(filtered, PLEXUS_MATCH_LOG_MAX);
+            if (wheel > 0.1f && s_match_scroll > 0) s_match_scroll--;
+            else if (wheel < -0.1f && s_match_scroll + 5 < f_cnt) s_match_scroll++;
+        }
+    }
+
+    DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 45 });
+    plexus_draw_ui_chrome(ba, st, vm);
+}
+
 ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
     if (out_clicked) *out_clicked = 0;
+
+    if (!s_intro_seen) {
+        if (s_intro_timer >= PLEXUS_INTRO_BTN_DELAY &&
+            CheckCollisionPointRec(vm, k_intro_continue_rect)) {
+            s_intro_seen = 1;
+            s_intro_reveal_t = 0.001f;
+            plexus_save();
+            if (out_clicked) *out_clicked = 1;
+        }
+        return ACT_NONE;
+    }
+    if (s_intro_reveal_t > 0.0f && s_intro_reveal_t < 1.0f) {
+        return ACT_NONE;
+    }
 
     /* Per-mode Match Settings drawer (Action Card & Training) */
     if (s_mode_settings_open && (s_active_tab == 3 || s_active_tab == 4)) {
@@ -2449,9 +2751,9 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             }
         }
         if (s_log_subtab == LOG_TAB_STORY) {
-            for (int m = 0; m < 12; m++) {
+            for (int m = -1; m < 12; m++) {
                 if (CheckCollisionPointRec(vm, story_month_btn_rect(m))) {
-                    if (!is_story_month_unlocked(m)) return ACT_NONE;
+                    if (m >= 0 && !is_story_month_unlocked(m)) return ACT_NONE;
                     commit_viewed_story_months(m);
                     s_story_sel_month = m;
                     plexus_save();
@@ -2822,12 +3124,24 @@ void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, cons
     (void)ba;
 }
 
+static const Rectangle k_ac_play_again_rect = { 360.0f, 632.0f, 260.0f, 50.0f };
+static const Rectangle k_ac_back_plex_rect  = { 660.0f, 632.0f, 260.0f, 50.0f };
+
 int plexus_action_card_is_active(void) {
     return s_action_card_active;
 }
 
+int plexus_action_card_result_active(void) {
+    return s_action_card_result_view;
+}
+
+void plexus_action_card_close_result(void) {
+    s_action_card_result_view = 0;
+}
+
 void plexus_action_card_abort(void) {
     s_action_card_active = 0;
+    s_action_card_result_view = 0;
     if (s_tut_active && s_tut_card_id == 1) {
         tut_restore_telemetry(1);
         s_tut_active = 0; s_tut_card_id = -1; s_tut_step = TUT1_NONE;
@@ -2855,9 +3169,13 @@ void plexus_action_card_finish_match(const GameState *g) {
         s_tut_card_id = -1;
         s_tut_step = TUT1_NONE;
         s_action_card_active = 0;
+        s_action_card_result_view = 0;
         plexus_save();
         return;
     }
+
+    s_action_card_active = 0;
+    s_action_card_result_view = 1;
 
     int you = g->total_score[0], cpu = g->total_score[1];
     s_ac_runs++;
@@ -2871,6 +3189,12 @@ void plexus_action_card_finish_match(const GameState *g) {
     int mp = speed_bar_total();
     int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
     action_card_get_match_time_stats(&yt, &yp, &ct, &cp, &mt);
+    s_ac_last_mp = mp;
+    s_ac_last_yt = yt;
+    s_ac_last_yp = yp;
+    s_ac_last_ct = ct;
+    s_ac_last_cp = cp;
+    s_ac_last_mt = mt;
 
     char title[88], detail[112];
     snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
@@ -2878,6 +3202,140 @@ void plexus_action_card_finish_match(const GameState *g) {
              g->total_rounds, mp, mp / 10, yt, ct);
     plexus_match_log_push(MLOG_ACTION_CARD, "ACTION CARD", title, detail);
     plexus_save();
+}
+
+void plexus_draw_action_card_result(const BoardAssets *ba, const GameState *g, const GameStats *st, Vector2 vm) {
+    static const char *const k_yaku_names[YAKU_COUNT] = {
+        "GOKO", "SHIKO", "AME-SHIKO", "SANKO", "HANAMI-ZAKE", "TSUKIMI-ZAKE",
+        "INO-SHIKA-CHO", "AKATAN", "AOTAN", "AKATAN+AOTAN", "TANE", "TANZAKU", "KASU"
+    };
+    ensure_plexus_assets();
+    if (s_plexus_bg.id > 0)
+        DrawTexturePro(s_plexus_bg, (Rectangle){ 0, 0, 1280, 720 },
+                       (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    else ClearBackground(BLACK);
+    DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 200 });
+
+    int you = g ? g->total_score[0] : 0;
+    int cpu = g ? g->total_score[1] : 0;
+    const char *outcome = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
+    char hdr[64];
+    snprintf(hdr, sizeof(hdr), "ACTION CARD  //  %s", outcome);
+    Vector2 hts = MeasureTextEx(font_title, hdr, 28.0f, 1.4f);
+    Color hdr_col = (you < cpu) ? COLOR_RED : COLOR_PHOSPHOR;
+    draw_text_snapped(font_title, hdr, (1280.0f - hts.x) * 0.5f, 24.0f, 28.0f, 1.4f, hdr_col);
+
+    Rectangle lbox = { 100.0f, 76.0f, 524.0f, 530.0f };
+    Rectangle rtop = { 656.0f, 76.0f, 524.0f, 304.0f };
+    DrawRectangleRec(lbox, PLEXUS_PANEL_BG); ui_draw_panel_border(lbox, COLOR_PHOSPHOR);
+    DrawRectangleRec(rtop, PLEXUS_PANEL_BG); ui_draw_panel_border(rtop, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "ACTION CARD  //  MATCH BREAKDOWN", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    DrawLine(116, 118, 608, 118, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "AUDIO FX  //  ARCHIVE TELEMETRY", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    DrawLine(672, 118, 1164, 118, COLOR_PHOSPHOR_DIM);
+
+    int rw = 0, rl = 0, rd = 0, hi_you = 0, hi_cpu = 0, y_tot = 0, top_y = -1, top_yv = 0;
+    int lc = g ? ((g->ledger_count > 12) ? 12 : g->ledger_count) : 0;
+    for (int i = 0; i < lc; i++) {
+        int w = g->ledger[i].winner, aw = g->ledger[i].award;
+        if (w == 0) { rw++; if (aw > hi_you) hi_you = aw; }
+        else if (w == 1) { rl++; if (aw > hi_cpu) hi_cpu = aw; }
+        else rd++;
+    }
+    for (int y = 0; y < YAKU_COUNT; y++) {
+        if (g) {
+            y_tot += g->human_yaku_counts[y];
+            if (g->human_yaku_counts[y] > top_yv) { top_yv = g->human_yaku_counts[y]; top_y = y; }
+        }
+    }
+
+    const char *d_nm = (s_ac_cfg_diff >= DIFFICULTY_MASTER) ? "MASTER" :
+                       (s_ac_cfg_diff == DIFFICULTY_HARD)   ? "HARD" : "EASY";
+    char time_ln[128];
+    action_card_format_time_line(time_ln, sizeof(time_ln),
+                                 s_ac_last_yt, s_ac_last_yp, s_ac_last_ct, s_ac_last_cp, s_ac_last_mt);
+
+    draw_text_snapped(font_body, TextFormat("CONFIG        :  KK-ADD-10  |  %s  |  %d RDS", d_nm, g ? g->total_rounds : s_ac_cfg_rounds),
+                      118.0f, 128.0f, 18.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("FINAL SCORE   :  YOU %d PTS  |  CPU %d PTS", you, cpu),
+                      118.0f, 158.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("ROUNDS        :  YOU %d  |  CPU %d  |  DRAW %d", rw, rl, rd),
+                      118.0f, 188.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("BEST ROUND    :  YOU %d PTS  |  CPU %d PTS", hi_you, hi_cpu),
+                      118.0f, 218.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("SPEEDCOINS    :  %d MP  (+%d BONUS PTS)", s_ac_last_mp, s_ac_last_mp / 10),
+                      118.0f, 248.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("COMBOS & KOI  :  %d [%s]  |  KOI %d/%d",
+                                            y_tot, (top_y >= 0) ? k_yaku_names[top_y] : "NONE",
+                                            g ? g->match_koi_calls[0] : 0, g ? g->match_koi_calls[1] : 0),
+                      118.0f, 278.0f, 18.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, time_ln, 118.0f, 308.0f, 16.5f, 1.0f, COLOR_PHOSPHOR);
+
+    DrawLine(116, 344, 608, 344, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "ROUND LOG", 118.0f, 354.0f, 16.0f, 1.2f, COLOR_PHOSPHOR);
+    for (int i = 0; i < lc; i++) {
+        const RoundRecord *rr = &g->ledger[i];
+        const char *who = (rr->winner == 0) ? "YOU" : (rr->winner == 1) ? "CPU" : "DRAW";
+        draw_text_snapped(font_body, TextFormat("R%02d: %s (%d PTS)", rr->round_number, who, rr->award),
+                          118.0f + (float)(i / 6) * 246.0f, 382.0f + (float)(i % 6) * 32.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    }
+
+    int ac_draws = s_ac_runs - s_ac_wins - s_ac_losses;
+    if (ac_draws < 0) ac_draws = 0;
+    float ac_wr = (s_ac_runs > 0) ? ((float)s_ac_wins / (float)s_ac_runs * 100.0f) : 0.0f;
+    int aud_trig = board_get_audio_action_triggers();
+    float aud_peak = board_get_audio_peak_synergy() * 100.0f;
+    float aud_hold = board_get_audio_full_hold_seconds();
+    int ac_sym = action_card_get_symbols_fired();
+    int ac_tm  = action_card_get_lifetime_time();
+
+    draw_text_snapped(font_body, TextFormat("ACTION RUNS   :  %d  (%dW / %dL / %dD  --  %.1f%%)",
+                                            s_ac_runs, s_ac_wins, s_ac_losses, ac_draws, ac_wr),
+                      674.0f, 128.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("BEST SCORE    :  %d PTS", s_ac_best_score),
+                      674.0f, 158.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("SYNERGY PEAKS :  %d BURSTS  |  %.0f%% PEAK", aud_trig, aud_peak),
+                      674.0f, 188.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("FULL METER    :  %.1fs LIFETIME HOLD", aud_hold),
+                      674.0f, 218.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("HORRORS FIRED :  %d SYMBOLS  |  %d TIME NUMS", ac_sym, ac_tm),
+                      674.0f, 248.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+
+    DrawLine(672, 284, 1164, 284, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "ACTIVE HORROR SIGILS", 674.0f, 294.0f, 14.5f, 1.1f, COLOR_PHOSPHOR_DIM);
+    if (ba) {
+        for (int s = 0; s < ACTION_SYM_COUNT; s++) {
+            action_card_draw_symbol_icon(ba, s, 726.0f + (float)s * 96.0f, 344.0f, 1, 0.25f);
+        }
+    }
+
+    draw_logfile_stats_box(st, (Rectangle){ 656.0f, 398.0f, 524.0f, 208.0f });
+    draw_plexus_btn(k_ac_play_again_rect, "PLAY AGAIN", 18, vm, 0);
+    draw_plexus_btn(k_ac_back_plex_rect,  "ATRIUM PLEX", 18, vm, 0);
+}
+
+ScreenAction plexus_handle_action_card_result_click(Vector2 vm, int *out_clicked) {
+    if (out_clicked) *out_clicked = 0;
+    if (!s_action_card_result_view) return ACT_NONE;
+    if (CheckCollisionPointRec(vm, k_ac_play_again_rect)) {
+        if (!is_action_card_bottom_unlocked()) {
+            s_action_card_active = 0;
+            s_action_card_result_view = 0;
+            if (out_clicked) *out_clicked = 1;
+            return ACT_GOTO_ATRIUM;
+        }
+        s_action_card_active = 1;
+        s_action_card_result_view = 0;
+        if (out_clicked) *out_clicked = 1;
+        return ACT_START_GAME;
+    }
+    if (CheckCollisionPointRec(vm, k_ac_back_plex_rect)) {
+        s_action_card_active = 0;
+        s_action_card_result_view = 0;
+        if (out_clicked) *out_clicked = 1;
+        return ACT_GOTO_ATRIUM;
+    }
+    return ACT_NONE;
 }
 
 void plexus_tutorial_setup_round(GameState *g) {
