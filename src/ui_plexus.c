@@ -914,8 +914,7 @@ void plexus_save(void) {
                 s_match_logs[i].title, s_match_logs[i].detail);
     }
     if (fclose(f) != 0) { remove(tmp); return; }
-    remove(target);
-    rename(tmp, target);
+    if (!storage_profiles_commit_live_temp("plexsave.txt", tmp)) remove(tmp);
 }
 
 void plexus_unload_assets(void) {

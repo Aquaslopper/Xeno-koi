@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Menu Hub Stage 5: Three isolated profiles and profile-first start flow (26 October 2026)
+
+- Implemented the owner-approved Stage 5 profile flow from `ROADMAP_MENU_HUB.md`:
+  - **Storage-owned profile API (`src/storage.{h,c}`):** Added versioned `profiles.txt` metadata and three per-slot directories (`profiles/slot01..03/`). Storage owns initialization, legacy migration, create, switch/load, erase, active flush, safe writes, and transactional file replacement. Canonical slot data is exactly `settings.txt`, `stats.txt`, `history.txt`, and `plexsave.txt`; missing sources remove corresponding destinations; `stats_report.txt` is derived and never slot-copied; active-slot erase is rejected. `replays/` remains shared and untouched.
+  - **First-run and fallback behavior:** Root canonical files migrate to Slot 01 only when they exist and `profiles.txt` does not. Metadata validates version, active slot 1–3, and slot mask. Invalid metadata leaves legacy files alone and uses single-profile behavior. First-run Start Game opens the profile manager; creating/loading a profile reloads the Main Hub. Continue with an active slot goes directly to the Main Hub.
+  - **UI and runtime synchronization (`src/ui_hub.{h,c}`, `src/ui_main.c`, `src/ui_screens.h`):** Added Options → Load / Save profile manager with Slot 01–03, Create, Load, Erase, Save Active, and Back. Switching is only available on that safe screen; it flushes `storage_save_all()` and `plexus_save()`, changes slot, reloads settings/stats/history and Plexus, reapplies unlocks, theme/background, effects/volumes, desktop music folder, AI opponent and fullscreen, regenerates the derived report, and resets transient UI, options-page, return-target, overlay, and hub state.
+  - **Persistence integration (`src/ui_plexus.c`, `web/shell.html`):** Plexus temp-file saves commit through storage so slot and live files update together. The web shell registers the manifest and every exact slot canonical path for preload, rename-sync, and unlink-removal.
+- **Verified:** `./build.sh test && ./tools/tests_guard.sh`; ASan+UBSan `/tmp` harness covered migration, switching/isolation, missing-file removal, active/inactive erase, corrupt metadata, report exclusion, shared replay preservation, and an injected mid-transaction failure/rollback; Werror compilation of `storage.c`, `ui_hub.c`, and `ui_main.c`; compilation of every `src/*.c` module; JavaScript syntax and exact web filename-list checks; `git diff --check`. Full source compilation produced existing format-truncation warnings in `ui_replay.c`; `ui_plexus.c` has its pre-existing match-counter truncation warning. `./build.sh linux` compiled all C files but could not link because `/tmp/libraylib_linux.a` and `libGL.so.1` are absent. Live desktop GUI behavior and browser reload persistence remain unverified in this headless environment.
+- **Touched:** `src/storage.{h,c}`, `src/ui_hub.{h,c}`, `src/ui_main.c`, `src/ui_plexus.c`, `src/ui_screens.h`, `web/shell.html`, `ROADMAP_MENU_HUB.md`, `STATUS.md`. **Deliberately did not touch:** `tests/`, `tools/tests_guard.*`, `src/ui_audio.c`, `tools/audio_guard.sha256`, engine/rules/campaign code, `docs/`, or replay files.
+
+
 ### Menu Hub Stage 4: Session-only Deus entry from Campaign Hub (26 October 2026)
 
 - Implemented Stage 4 of `ROADMAP_MENU_HUB.md`: the existing Campaign Hub Deus row now activates/deactivates a session-scoped Deus configuration, while Deus ON remains derived from `settings.difficulty == DIFFICULTY_DEUS`.

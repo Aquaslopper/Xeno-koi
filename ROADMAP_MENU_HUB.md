@@ -1,8 +1,8 @@
 # FRONT-END & HUB RESTRUCTURE — Roadmap (`ROADMAP_MENU_HUB.md`)
 
-> **Status:** Planned — Pre-Implementation Blueprint, **rewritten for code safety**
+> **Status:** Staged implementation; Stage 5 was owner-approved on 26 October 2026
 > **Scope:** Title Screen, Main Game Hub (`CAMPAIGN` vs. `ATRIUM PLEX`), Campaign Hub
-> **Deferred / separately gated:** 3-Slot Profiles (Stage 5), `[DEUS MODE]` toggle (Stage 4)
+> **Deferred / separately gated:** `[DEUS MODE]` toggle (Stage 4)
 > **Architecture Reference:** [`LEARN_THE_CODE.md`](LEARN_THE_CODE.md) · [`AGENTS.md`](AGENTS.md) · [`STATUS.md`](STATUS.md)
 >
 > This rewrite supersedes the previous draft of this roadmap. That draft described the
@@ -295,39 +295,50 @@ If, and only if, a second persistent entry point is approved, the safe shape is:
       in `/tmp` only — no new files in `tests/`. **Touched (max):** `src/ui_hub.{h,c}`,
       `src/ui_main.c`, `STATUS.md`.
 
-## Stage 5 — 3-Slot Profiles — ⛔ DEFERRED, not part of the hub restructure
+## Stage 5 — 3-Slot Profiles — OWNER-APPROVED (26 October 2026)
 
-The old draft's profile design is **not approved for implementation** in any form
-that keeps "zero protected edits": it needs `static` helpers inside `src/storage.c`
-and its copy step demonstrably leaks progress between profiles (§0.2–0.4). Profiles
-return only as a separate proposal that includes, up front:
+The owner approved implementation by directing: “go on, start stage 5.” The earlier
+profile draft remains rejected where it conflicts with this corrected checklist. The
+implemented profile layout is the approved per-slot directory shape:
+`profiles/slot01/`, `profiles/slot02/`, and `profiles/slot03/`.
 
-- [ ] Owner-approved `storage.*` API (single writer preserved) that owns slot
-      load/save/erase, reusing `get_app_path()` / `safe_write_text()` internally.
-- [ ] The canonical file set named exactly (`settings.txt`, `stats.txt`,
-      `history.txt`, `plexsave.txt`; `stats_report.txt` is derived and regenerated,
-      never slot-copied as truth), per-file missing-slot-file ⇒ remove-live semantics,
-      active-slot erase prohibition, and a failure/rollback story for partial switches.
-      The desktop `replays/` directory is explicitly **shared, not profiled**, and the
-      UI must not claim otherwise.
-- [ ] Switch sequence executed only from the profile screen with no match, replay,
-      tutorial or overlay active: flush (`storage_save_all()` + `plexus_save()`) →
-      switch → reload (`storage_load_*`, `campaign_update_unlocks()`,
-      `theme_set(terminal_color)`, `assets.current_bg`, `audio_set_effects()` +
-      volumes + desktop music-folder reload, `ai_set_opponent()`, `plexus_load()`) →
-      all transient UI state reset (overlay, options page, return targets, hub state).
-- [ ] First-run migration into Slot 01 only when root files exist and no
-      `profiles.txt` exists, with a versioned, validated `profiles.txt` (active slot
-      1–3); invalid content falls back to today's single-profile behaviour.
-- [ ] Web: every exact filename (canonical set × 3 slots + `profiles.txt`) registered
-      in `web/shell.html` for preload, rename-sync **and** unlink-removal; erase uses
-      only paths that the shell hook actually mirrors.
-- [ ] Verification in `/tmp` scratch harnesses (ASan+UBSan: migrate / switch / erase /
-      corrupt-`profiles.txt` / missing-file cases) — nothing added under `tests/`
-      without the owner's explicit approval.
-- [ ] Until Stage 5 is separately approved, `START GAME` goes straight to
-      `SCREEN_HUB_MAIN`. No `profiles.txt` parser, slot files or dead profile UI are
-      landed early "to be wired later".
+- [x] **Storage-owned API:** `src/storage.*` owns slot initialization, create/load-by-
+      switch/erase/flush, file staging, transactional replacement/rollback, and the
+      `plexsave.txt` temp-file commit. Existing loaders keep using live root files;
+      profile code reuses `get_app_path()` and the storage-owned safe writer.
+- [x] **Canonical files and failure rules:** Per-slot files are exactly
+      `settings.txt`, `stats.txt`, `history.txt`, and `plexsave.txt`. Missing source
+      files remove their live or slot counterparts. `stats_report.txt` is regenerated
+      after profile load and is never copied into a slot. Active-slot erase is
+      rejected. `replays/` is untouched and remains shared; the UI does not describe
+      replays as profile-owned.
+- [x] **Safe switching and reload:** Profile changes are only actionable from the
+      Title Options profile manager (or the first-launch profile manager), not while
+      a match, replay, tutorial, or overlay is active. Switching flushes saves,
+      updates the active slot transactionally, reloads settings/stats/history and
+      Plexus state, reapplies unlocks/theme/background/audio/opponent/music-folder and
+      fullscreen state, regenerates the derived report, and clears transient UI,
+      overlay, options-page, return-target, and hub state.
+- [x] **First-run migration and metadata:** Existing canonical root files migrate to
+      Slot 01 only when `profiles.txt` is absent. `profiles.txt` has a validated
+      version-1 format, active slot 1–3, and a slot mask. Invalid metadata leaves the
+      existing single-profile files untouched and uses legacy behavior.
+- [x] **Web persistence registration:** `web/shell.html` explicitly registers each
+      exact canonical slot path plus `profiles.txt` for preload, `FS.rename` sync, and
+      `FS.unlink` removal; profile erase uses those mirrored canonical paths.
+- [x] **Scratch verification:** ASan+UBSan harnesses in `/tmp` covered migration,
+      slot switching/isolation, missing-file removal, active erase rejection,
+      inactive erase, corrupt-metadata fallback, derived-report exclusion, shared
+      replay preservation, and injected partial-commit rollback. No files were added
+      under `tests/`.
+- [x] **Approved flow:** First launch follows Start Game → profile screen → Main Hub;
+      with a saved active profile, Continue proceeds directly to Main Hub. The
+      pre-approval direct-to-hub rule no longer applies.
+
+**Runtime limitation:** The full `src/*.c` source set compiles, but `./build.sh linux`
+can't complete its final link in this container because `/tmp/libraylib_linux.a` and
+`libGL.so.1` are absent. A live desktop GUI pass and actual browser reload/persistence
+pass remain unverified. See `STATUS.md` for commands and results.
 
 ## Stage 6 — Final verification & handoff
 

@@ -16,7 +16,9 @@ typedef enum {
     SCREEN_GAME,
     SCREEN_MATCH_RESULT,
     SCREEN_HUB_MAIN,
-    SCREEN_HUB_CAMPAIGN
+    SCREEN_HUB_CAMPAIGN,
+    SCREEN_HUB_OPTIONS,
+    SCREEN_PROFILE_MANAGER
 } ScreenState;
 
 typedef enum {

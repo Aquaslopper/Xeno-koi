@@ -29,6 +29,12 @@ typedef struct {
     unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
 } GameSettings;
 
+typedef enum {
+    STORAGE_PROFILES_LEGACY = 0,
+    STORAGE_PROFILES_NEW,
+    STORAGE_PROFILES_READY
+} StorageProfileMode;
+
 typedef struct {
     int valid;
     Difficulty difficulty;
@@ -71,6 +77,17 @@ const char *storage_get_favorite_combo(const GameStats *st);
 void storage_load_settings(GameSettings *s);
 void storage_save_settings(const GameSettings *s);
 void storage_set_deus_session_snapshot(const StorageDeusSessionSnapshot *snapshot);
+
+/* Profile slots are owned by storage; live files remain the existing loaders' interface. */
+StorageProfileMode storage_profiles_init(void);
+StorageProfileMode storage_profiles_mode(void);
+int storage_profiles_active_slot(void);
+int storage_profiles_slot_exists(int slot);
+int storage_profiles_create(int slot);
+int storage_profiles_switch(int slot);
+int storage_profiles_erase(int slot);
+int storage_profiles_flush_active(void);
+int storage_profiles_commit_live_temp(const char *filename, const char *temp_path);
 
 void storage_load_stats(GameStats *st);
 void storage_save_stats(const GameStats *st);

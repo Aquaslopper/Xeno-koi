@@ -37,23 +37,38 @@ const StorageDeusSessionSnapshot *ui_hub_deus_snapshot(void) {
 
 /* --- Geometry (1280 x 720 virtual canvas) -------------------------------- */
 
-static const Rectangle k_title_btns[5] = {
-    { 490.0f, 344.0f, 300.0f, 44.0f },
-    { 490.0f, 400.0f, 300.0f, 44.0f },
-    { 490.0f, 456.0f, 300.0f, 44.0f },
-    { 490.0f, 512.0f, 300.0f, 44.0f },
-    { 490.0f, 568.0f, 300.0f, 44.0f }
+static const Rectangle k_title_btns[3] = {
+    { 490.0f, 374.0f, 300.0f, 48.0f },
+    { 490.0f, 440.0f, 300.0f, 48.0f },
+    { 490.0f, 506.0f, 300.0f, 48.0f }
 };
-static const char *const k_title_labels[5] = {
-    "START GAME", "OPTION", "SAVE", "CREDITS", "QUIT"
+static const Rectangle k_options_menu_btns[4] = {
+    { 430.0f, 316.0f, 420.0f, 46.0f },
+    { 430.0f, 374.0f, 420.0f, 46.0f },
+    { 430.0f, 432.0f, 420.0f, 46.0f },
+    { 430.0f, 490.0f, 420.0f, 46.0f }
 };
-static const HubAction k_title_actions[5] = {
-    HUB_ACT_TITLE_START_GAME,
-    HUB_ACT_TITLE_OPTIONS,
-    HUB_ACT_TITLE_SAVE,
-    HUB_ACT_TITLE_CREDITS,
-    HUB_ACT_TITLE_QUIT
+static const char *const k_options_menu_labels[4] = {
+    "SYSTEM OPTIONS", "LOAD / SAVE", "CREDITS", "BACK"
 };
+static const HubAction k_options_menu_actions[4] = {
+    HUB_ACT_OPTIONS_SYSTEM, HUB_ACT_OPTIONS_PROFILES,
+    HUB_ACT_OPTIONS_CREDITS, HUB_ACT_OPTIONS_BACK
+};
+static const Rectangle k_profile_rows[3] = {
+    { 265.0f, 220.0f, 750.0f, 66.0f },
+    { 265.0f, 306.0f, 750.0f, 66.0f },
+    { 265.0f, 392.0f, 750.0f, 66.0f }
+};
+static const Rectangle k_profile_actions[5] = {
+    { 108.0f, 524.0f, 204.0f, 48.0f }, { 328.0f, 524.0f, 204.0f, 48.0f },
+    { 548.0f, 524.0f, 204.0f, 48.0f }, { 768.0f, 524.0f, 204.0f, 48.0f },
+    { 988.0f, 524.0f, 184.0f, 48.0f }
+};
+static const char *const k_profile_action_labels[5] = {
+    "CREATE", "LOAD", "ERASE", "SAVE ACTIVE", "BACK"
+};
+
 
 static const Rectangle k_main_left_panel    = { 120.0f, 148.0f, 500.0f, 390.0f };
 static const Rectangle k_main_right_panel   = { 660.0f, 148.0f, 500.0f, 390.0f };
@@ -174,22 +189,119 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
 
 /* --- Title Screen (SCREEN_START) ----------------------------------------- */
 
-void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer) {
+void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile) {
+    const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     hub_draw_backdrop_alpha(ba, 95);
     hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 52.0f, 136.0f, 3.0f, COLOR_PHOSPHOR);
     hub_draw_centered(font_body, "BIOMECHANICAL EDITION", 640.0f, 220.0f, 26.0f, 3.0f, COLOR_PHOSPHOR_DIM);
-    for (int i = 0; i < 5; i++)
-        hub_draw_button(k_title_btns[i], k_title_labels[i], 18, vm);
+    for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
 }
 
-HubAction ui_hub_handle_title_click(Vector2 vm, HubButtonHit *out_hit) {
-    for (int i = 0; i < 5; i++) {
+HubAction ui_hub_handle_title_click(Vector2 vm, HubButtonHit *out_hit, int has_active_profile) {
+    static const HubAction actions[3] = { HUB_ACT_TITLE_START_GAME, HUB_ACT_TITLE_OPTIONS, HUB_ACT_TITLE_QUIT };
+    const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
+    for (int i = 0; i < 3; i++) {
         if (CheckCollisionPointRec(vm, k_title_btns[i])) {
-            hub_record_hit(out_hit, k_title_btns[i], k_title_labels[i], 18);
-            return k_title_actions[i];
+            hub_record_hit(out_hit, k_title_btns[i], labels[i], 18);
+            return actions[i];
         }
+    }
+    return HUB_ACT_NONE;
+}
+
+static void hub_draw_menu_panel(const BoardAssets *ba, const char *title, const char *subtitle) {
+    hub_draw_backdrop(ba);
+    hub_draw_centered(font_title, title, 640.0f, 118.0f, 30.0f, 1.4f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_body, subtitle, 640.0f, 164.0f, 17.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+}
+
+void ui_hub_draw_options_menu(const BoardAssets *ba, Vector2 vm, float saved_timer) {
+    hub_draw_menu_panel(ba, "OPTIONS", "SYSTEM SETTINGS  //  PROFILE DATA  //  CREDITS");
+    for (int i = 0; i < 4; i++) hub_draw_button(k_options_menu_btns[i], k_options_menu_labels[i], 18, vm);
+    if (saved_timer > 0.0f)
+        hub_draw_centered(font_body, "PROFILE SAVED", 640.0f, 590.0f, 17.0f, 1.0f, COLOR_PHOSPHOR);
+}
+
+HubAction ui_hub_handle_options_menu_click(Vector2 vm, HubButtonHit *out_hit) {
+    for (int i = 0; i < 4; i++) {
+        if (CheckCollisionPointRec(vm, k_options_menu_btns[i])) {
+            hub_record_hit(out_hit, k_options_menu_btns[i], k_options_menu_labels[i], 18);
+            return k_options_menu_actions[i];
+        }
+    }
+    return HUB_ACT_NONE;
+}
+
+static int s_profile_manager_selected_slot = 1;
+void ui_hub_profile_manager_reset(int selected_slot) {
+    s_profile_manager_selected_slot = (selected_slot >= 1 && selected_slot <= 3) ? selected_slot : 1;
+}
+
+int ui_hub_profile_manager_selected_slot(void) { return s_profile_manager_selected_slot; }
+
+void ui_hub_draw_profile_manager(const BoardAssets *ba, const int slots[3], int active_slot,
+                                 int selected_slot, Vector2 vm, float saved_timer, int error) {
+    hub_draw_menu_panel(ba, "PROFILE LOAD / SAVE", "SELECT A SLOT  //  PROFILES ARE STORED SEPARATELY");
+    for (int i = 0; i < 3; i++) {
+        Rectangle r = k_profile_rows[i];
+        int slot = i + 1;
+        int selected = slot == selected_slot;
+        DrawRectangleRec(r, selected ? (Color){ 8, 28, 31, 242 } : (Color){ 0, 0, 0, 224 });
+        DrawRectangleLinesEx(r, selected ? 2.0f : 1.0f, selected ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+        char label[96];
+        snprintf(label, sizeof(label), "SLOT %02d  //  %s%s", slot,
+                 slots[i] ? "PROFILE" : "EMPTY",
+                 (slot == active_slot) ? "  //  ACTIVE" : "");
+        hub_draw_text_snapped(font_body, label, r.x + 24.0f, r.y + 21.0f, 19.0f, 1.0f,
+                              selected ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
+        if (CheckCollisionPointRec(vm, r)) {
+            Color glow = COLOR_PHOSPHOR; glow.a = 45;
+            DrawRectangleRec(r, glow);
+        }
+    }
+    for (int i = 0; i < 5; i++) {
+        int enabled = 1;
+        if (i == 0) enabled = !slots[selected_slot - 1];
+        else if (i == 1) enabled = slots[selected_slot - 1];
+        else if (i == 2) enabled = slots[selected_slot - 1] && selected_slot != active_slot;
+        else if (i == 3) enabled = active_slot > 0;
+        if (enabled) hub_draw_button(k_profile_actions[i], k_profile_action_labels[i], 15, vm);
+        else {
+            DrawRectangleRec(k_profile_actions[i], (Color){ 0, 0, 0, 175 });
+            DrawRectangleLinesEx(k_profile_actions[i], 1.0f, COLOR_PHOSPHOR_DIM);
+            hub_draw_centered(font_body, k_profile_action_labels[i],
+                              k_profile_actions[i].x + k_profile_actions[i].width * 0.5f,
+                              k_profile_actions[i].y + 14.0f, 15.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+        }
+    }
+    if (error) hub_draw_centered(font_body, "PROFILE OPERATION FAILED  //  ACTIVE DATA PRESERVED",
+                                 640.0f, 610.0f, 16.0f, 1.0f, COLOR_RED);
+    else if (saved_timer > 0.0f)
+        hub_draw_centered(font_body, "PROFILE SAVED", 640.0f, 610.0f, 16.0f, 1.0f, COLOR_PHOSPHOR);
+}
+
+HubAction ui_hub_handle_profile_manager_click(Vector2 vm, HubButtonHit *out_hit, int *out_slot,
+                                                const int slots[3], int active_slot) {
+    for (int i = 0; i < 3; i++) {
+        if (CheckCollisionPointRec(vm, k_profile_rows[i])) {
+            s_profile_manager_selected_slot = i + 1;
+            if (out_slot) *out_slot = i + 1;
+            hub_record_hit(out_hit, k_profile_rows[i], "SLOT", 18);
+            return HUB_ACT_PROFILE_SLOT_SELECTED;
+        }
+    }
+    int selected = s_profile_manager_selected_slot - 1;
+    for (int i = 0; i < 5; i++) {
+        if (!CheckCollisionPointRec(vm, k_profile_actions[i])) continue;
+        if ((i == 0 && slots[selected]) ||
+            (i == 1 && !slots[selected]) ||
+            (i == 2 && (!slots[selected] || s_profile_manager_selected_slot == active_slot)) ||
+            (i == 3 && active_slot == 0)) return HUB_ACT_NONE;
+        if (out_slot) *out_slot = s_profile_manager_selected_slot;
+        hub_record_hit(out_hit, k_profile_actions[i], k_profile_action_labels[i], 15);
+        return (HubAction)(HUB_ACT_PROFILE_CREATE + i);
     }
     return HUB_ACT_NONE;
 }

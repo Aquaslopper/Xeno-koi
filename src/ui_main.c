@@ -56,6 +56,8 @@ static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, 
 static float hub_trans_timer = 0.0f;
 static ScreenState hub_from_screen = SCREEN_START, options_return_screen = SCREEN_START;
 static ScreenState stats_return_screen = SCREEN_START, atrium_return_screen = SCREEN_START, match_origin = SCREEN_START;
+static ScreenState profile_return_screen = SCREEN_START, credits_return_screen = SCREEN_START;
+static int profile_operation_error = 0;
 static Rectangle hub_btn_rect = { 0, 0, 0, 0 };
 static const char *hub_btn_label = "";
 static int combo_player = -1, combo_page = 0;
@@ -104,6 +106,64 @@ static void start_hub_transition(ScreenState next_screen, int next_campaign,
     hub_trans_active = 1;
 }
 
+static void reset_profile_transients(void) {
+    campaign_overlay_open = 0;
+    hub_trans_active = 0; hub_trans_timer = 0.0f;
+    hub_from_screen = SCREEN_START; hub_from_campaign = 0;
+    hub_reset_opt_page = 0;
+    hub_btn_rect = (Rectangle){ 0, 0, 0, 0 }; hub_btn_label = ""; hub_btn_fsz = 18;
+    options_return_screen = SCREEN_START; stats_return_screen = SCREEN_START;
+    atrium_return_screen = SCREEN_START; match_origin = SCREEN_START;
+    profile_return_screen = SCREEN_START; credits_return_screen = SCREEN_START;
+    screens_set_options_page(0);
+    confirm_reset = 0; confirm_restart = 0; is_paused = 0;
+    combo_player = -1; combo_page = 0; hovered_idx = -1;
+    overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
+    transition_dir = 0; transition_timer = 0.0f; transition_alpha = 0.0f;
+    transition_action = 0; transition_track = 1; transition_target_screen = SCREEN_START;
+    pending_result_sfx = 0; saved_timer = 0.0f; log_timer = 0.0f;
+    round_banner_timer = 0.0f; deus_banner_timer = 0.0f;
+    speedcoin_gameover_timer = 0.0f; event_beat_timer = 0.0f;
+    last_replay_round = 0; replay_beat = 0.0f; prev_round_phase = PHASE_NONE;
+    memset(&drag, 0, sizeof(drag)); anim_init(&anim); motion_init();
+    storage_set_deus_session_snapshot(NULL);
+    ui_hub_deus_snapshot_invalidate();
+}
+
+static void reload_profile_runtime(void) {
+    storage_load_settings(&settings);
+#ifdef __EMSCRIPTEN__
+    settings.fullscreen = 0;
+#endif
+    storage_load_stats(&stats);
+    storage_load_history(&history);
+    if (campaign_update_unlocks(&settings)) storage_save_settings(&settings);
+    theme_set(settings.terminal_color);
+    assets.current_bg = settings.background;
+#ifndef __EMSCRIPTEN__
+    if ((settings.fullscreen != 0) != IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE))
+        ToggleBorderlessWindowed();
+#endif
+    audio_set_effects(settings.effect_chorus, settings.effect_bass, settings.effect_reverb);
+    audio_set_bgm_volume(&audio, settings.bgm_volume);
+    audio_set_sfx_volume(&audio, settings.sfx_volume);
+#ifndef __EMSCRIPTEN__
+    audio_set_music_folder(&audio, settings.music_folder);
+#endif
+    ai_set_opponent(settings.current_opponent);
+    plexus_load();
+    storage_write_report(&stats, &history);
+    cached_bloom = cached_crt = cached_gamma = -1.0f;
+    reset_profile_transients();
+}
+
+static int save_current_profile(void) {
+    plexus_restore_match_settings(&settings, &assets);
+    storage_save_all(&settings, &stats, &history);
+    plexus_save();
+    return (storage_profiles_mode() == STORAGE_PROFILES_READY) ? storage_profiles_flush_active() : 1;
+}
+
 static void draw_credits_slogan(void) {
     const char *lhs = "[to_be \xCE\xA8(n)]";
     const char *rhs = "[not_to_be \xCE\xA6(n)]";
@@ -124,7 +184,8 @@ static void draw_credits_slogan(void) {
 
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
-        ui_hub_draw_title(&assets, mouse_pos, saved_timer);
+        ui_hub_draw_title(&assets, mouse_pos, saved_timer,
+                          storage_profiles_mode() == STORAGE_PROFILES_READY);
         if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
     } else if (sc == SCREEN_ATRIUM) {
         plexus_draw(&assets, &stats, mouse_pos);
@@ -148,6 +209,14 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
         }
     } else if (sc == SCREEN_HUB_MAIN) {
         ui_hub_draw_main(&assets, &settings, plexus_get_spine_count(), mouse_pos);
+    } else if (sc == SCREEN_HUB_OPTIONS) {
+        ui_hub_draw_options_menu(&assets, mouse_pos, saved_timer);
+    } else if (sc == SCREEN_PROFILE_MANAGER) {
+        int slots[3] = { storage_profiles_slot_exists(1), storage_profiles_slot_exists(2),
+                         storage_profiles_slot_exists(3) };
+        ui_hub_draw_profile_manager(&assets, slots, storage_profiles_active_slot(),
+                                    ui_hub_profile_manager_selected_slot(), mouse_pos,
+                                    saved_timer, profile_operation_error);
     } else if (sc == SCREEN_HUB_CAMPAIGN) {
         ui_hub_draw_campaign(&assets, &settings, mouse_pos);
         if (camp_open) campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
@@ -159,7 +228,8 @@ static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int fl
                         (plexus_speedcoin_result_active() || plexus_training_result_active() || plexus_action_card_result_active());
     int use_title = hub_from_campaign || (hub_from_screen == SCREEN_START) ||
                     (hub_from_screen == SCREEN_ATRIUM) || from_plex_res ||
-                    (hub_from_screen == SCREEN_HUB_MAIN) || (hub_from_screen == SCREEN_HUB_CAMPAIGN);
+                    (hub_from_screen == SCREEN_HUB_MAIN) || (hub_from_screen == SCREEN_HUB_CAMPAIGN) ||
+                    (hub_from_screen == SCREEN_HUB_OPTIONS) || (hub_from_screen == SCREEN_PROFILE_MANAGER);
     Font fnt = use_title ? font_title : font_body;
     float sp = use_title ? 1.2f : 1.0f;
     Vector2 ts = MeasureTextEx(fnt, txt, (float)fsz, sp);
@@ -692,23 +762,92 @@ static void update_draw_frame(void) {
                 handle_campaign_overlay_click(vm);
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 HubButtonHit hit = { { 0, 0, 0, 0 }, "", 18 };
-                HubAction hact = ui_hub_handle_title_click(vm, &hit);
+                int has_profile = storage_profiles_mode() == STORAGE_PROFILES_READY;
+                HubAction hact = ui_hub_handle_title_click(vm, &hit, has_profile);
                 if (hact != HUB_ACT_NONE) audio_play_click(&audio);
                 if (hact == HUB_ACT_TITLE_START_GAME) {
-                    start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
+                    if (storage_profiles_mode() == STORAGE_PROFILES_NEW) {
+                        profile_return_screen = SCREEN_START;
+                        profile_operation_error = 0;
+                        ui_hub_profile_manager_reset(1);
+                        start_hub_transition(SCREEN_PROFILE_MANAGER, 0, hit.rect, hit.label, hit.font_size);
+                    } else {
+                        start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
+                    }
                 } else if (hact == HUB_ACT_TITLE_OPTIONS) {
-                    options_return_screen = SCREEN_START;
-                    start_hub_transition(SCREEN_OPTIONS, 0, hit.rect, hit.label, hit.font_size);
-                } else if (hact == HUB_ACT_TITLE_SAVE) {
-                    storage_save_all(&settings, &stats, &history);
-                    plexus_save();
-                    saved_timer = 2.0f;
-                } else if (hact == HUB_ACT_TITLE_CREDITS) {
-                    start_hub_transition(SCREEN_CREDITS, 0, hit.rect, hit.label, hit.font_size);
+                    start_hub_transition(SCREEN_HUB_OPTIONS, 0, hit.rect, hit.label, hit.font_size);
                 } else if (hact == HUB_ACT_TITLE_QUIT) {
-                    plexus_save();
+                    save_current_profile();
                     quit_requested = 1;
                     return;
+                }
+            }
+        } else if (screen == SCREEN_HUB_OPTIONS) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                HubButtonHit hit = { { 0, 0, 0, 0 }, "", 18 };
+                HubAction hact = ui_hub_handle_options_menu_click(vm, &hit);
+                if (hact != HUB_ACT_NONE) audio_play_click(&audio);
+                if (hact == HUB_ACT_OPTIONS_SYSTEM) {
+                    options_return_screen = SCREEN_HUB_OPTIONS;
+                    start_hub_transition(SCREEN_OPTIONS, 0, hit.rect, hit.label, hit.font_size);
+                } else if (hact == HUB_ACT_OPTIONS_PROFILES) {
+                    if (storage_profiles_mode() == STORAGE_PROFILES_READY ||
+                        storage_profiles_mode() == STORAGE_PROFILES_NEW) {
+                        profile_return_screen = SCREEN_HUB_OPTIONS;
+                        profile_operation_error = 0;
+                        ui_hub_profile_manager_reset(storage_profiles_active_slot());
+                        start_hub_transition(SCREEN_PROFILE_MANAGER, 0, hit.rect, hit.label, hit.font_size);
+                    } else {
+                        save_current_profile();
+                        saved_timer = 2.0f;
+                    }
+                } else if (hact == HUB_ACT_OPTIONS_CREDITS) {
+                    credits_return_screen = SCREEN_HUB_OPTIONS;
+                    start_hub_transition(SCREEN_CREDITS, 0, hit.rect, hit.label, hit.font_size);
+                } else if (hact == HUB_ACT_OPTIONS_BACK) {
+                    start_hub_transition(SCREEN_START, 0, hit.rect, hit.label, hit.font_size);
+                }
+            }
+        } else if (screen == SCREEN_PROFILE_MANAGER) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                HubButtonHit hit = { { 0, 0, 0, 0 }, "", 15 };
+                int slot = 0;
+                int slots[3] = { storage_profiles_slot_exists(1), storage_profiles_slot_exists(2),
+                                 storage_profiles_slot_exists(3) };
+                HubAction hact = ui_hub_handle_profile_manager_click(vm, &hit, &slot, slots,
+                                                                       storage_profiles_active_slot());
+                if (hact != HUB_ACT_NONE) audio_play_click(&audio);
+                if (hact == HUB_ACT_PROFILE_SLOT_SELECTED) {
+                    profile_operation_error = 0;
+                } else if (hact == HUB_ACT_PROFILE_CREATE) {
+                    profile_operation_error = 0;
+                    if (storage_profiles_mode() == STORAGE_PROFILES_READY && !save_current_profile())
+                        profile_operation_error = 1;
+                    if (!profile_operation_error && storage_profiles_create(slot)) {
+                        reload_profile_runtime();
+                        storage_save_all(&settings, &stats, &history);
+                        plexus_save();
+                        storage_profiles_flush_active();
+                        saved_timer = 2.0f;
+                        start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
+                    } else profile_operation_error = 1;
+                } else if (hact == HUB_ACT_PROFILE_LOAD) {
+                    if (slot == storage_profiles_active_slot()) {
+                        start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
+                    } else {
+                        if (save_current_profile() && storage_profiles_switch(slot)) {
+                            reload_profile_runtime();
+                            saved_timer = 0.0f;
+                            start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
+                        } else profile_operation_error = 1;
+                    }
+                } else if (hact == HUB_ACT_PROFILE_ERASE) {
+                    profile_operation_error = !storage_profiles_erase(slot);
+                } else if (hact == HUB_ACT_PROFILE_SAVE) {
+                    profile_operation_error = !save_current_profile();
+                    if (!profile_operation_error) saved_timer = 2.0f;
+                } else if (hact == HUB_ACT_PROFILE_BACK) {
+                    start_hub_transition(profile_return_screen, 0, hit.rect, hit.label, hit.font_size);
                 }
             }
         } else if (screen == SCREEN_HUB_MAIN) {
@@ -800,7 +939,7 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_CREDITS && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             if (screens_handle_credits_click(vm) == ACT_GOTO_MENU) {
                 audio_play_click(&audio);
-                start_hub_transition(SCREEN_START, 0, (Rectangle){ 520, 530, 240, 46 }, "BACK", 22);
+                start_hub_transition(credits_return_screen, 0, (Rectangle){ 520, 530, 240, 46 }, "BACK", 22);
             }
         } else if (screen == SCREEN_OPTIONS) {
             int prev_opt_page = screens_get_options_page();
@@ -1693,6 +1832,7 @@ int main(int argc, char **argv) {
     if (GetApplicationDirectory() && GetApplicationDirectory()[0] != '\0') ChangeDirectory(GetApplicationDirectory());
     SetWindowMinSize(960, 540); SetTargetFPS(60);
 
+    storage_profiles_init();
     storage_load_settings(&settings);
     if (campaign_update_unlocks(&settings)) storage_save_settings(&settings);
 #ifdef __EMSCRIPTEN__
@@ -1749,6 +1889,7 @@ int main(int argc, char **argv) {
     small_font = font_body;
 
     storage_load_stats(&stats); storage_load_history(&history); plexus_load();
+    storage_write_report(&stats, &history);
     screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
     engine_init(&g, settings.ruleset, settings.rounds, seed);
     motion_init(); taunt_init(); ai_set_opponent(settings.current_opponent);
@@ -1768,7 +1909,9 @@ int main(int argc, char **argv) {
 #endif
 
     plexus_restore_match_settings(&settings, &assets);
+    storage_save_all(&settings, &stats, &history);
     plexus_save();
+    storage_profiles_flush_active();
     action_card_detach_music(&audio);
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
