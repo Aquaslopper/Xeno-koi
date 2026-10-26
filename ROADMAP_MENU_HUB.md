@@ -304,14 +304,16 @@ implemented profile layout is the approved per-slot directory shape:
 
 - [x] **Storage-owned API:** `src/storage.*` owns slot initialization, create/load-by-
       switch/erase/flush, file staging, transactional replacement/rollback, and the
-      `plexsave.txt` temp-file commit. Existing loaders keep using live root files;
-      profile code reuses `get_app_path()` and the storage-owned safe writer.
+      `plexsave.txt` temp-file commit. Existing loaders keep the same filenames but
+      resolve active working files under `profiles/`; profile code reuses
+      `get_app_path()` and the storage-owned safe writer.
 - [x] **Canonical files and failure rules:** Per-slot files are exactly
-      `settings.txt`, `stats.txt`, `history.txt`, and `plexsave.txt`. Missing source
-      files remove their live or slot counterparts. `stats_report.txt` is regenerated
-      after profile load and is never copied into a slot. Active-slot erase is
-      rejected. `replays/` is untouched and remains shared; the UI does not describe
-      replays as profile-owned.
+      `settings.txt`, `stats.txt`, `history.txt`, and `plexsave.txt`; the active
+      working copies are `profiles/<canonical-file>` beside, not inside, `slot01..03`.
+      Missing source files remove their live or slot counterparts. `stats_report.txt`
+      remains at the app root, is regenerated after profile load, and is never
+      slot-copied. Active-slot erase is rejected. `replays/` is untouched and remains
+      shared; the UI does not describe replays as profile-owned.
 - [x] **Safe switching and reload:** Profile changes are only actionable from the
       Title Options profile manager (or the first-launch profile manager), not while
       a match, replay, tutorial, or overlay is active. Switching flushes saves,
@@ -319,17 +321,21 @@ implemented profile layout is the approved per-slot directory shape:
       Plexus state, reapplies unlocks/theme/background/audio/opponent/music-folder and
       fullscreen state, regenerates the derived report, and clears transient UI,
       overlay, options-page, return-target, and hub state.
-- [x] **First-run migration and metadata:** Existing canonical root files migrate to
-      Slot 01 only when `profiles.txt` is absent. `profiles.txt` has a validated
-      version-1 format, active slot 1–3, and a slot mask. Invalid metadata leaves the
-      existing single-profile files untouched and uses legacy behavior.
-- [x] **Web persistence registration:** `web/shell.html` explicitly registers each
-      exact canonical slot path plus `profiles.txt` for preload, `FS.rename` sync, and
-      `FS.unlink` removal; profile erase uses those mirrored canonical paths.
+- [x] **Fresh initialization and metadata:** No legacy root-file import is performed.
+      Root-level `settings.txt`, `stats.txt`, `history.txt`, and `plexsave.txt` are
+      discarded; current saves live only under `profiles/`. `profiles.txt` remains at
+      the app root and has a validated version-1 format, active slot 1–3, and slot
+      mask. Invalid metadata falls back to single-profile behavior using the nested
+      active working copies, not retired root saves.
+- [x] **Web persistence registration:** `web/shell.html` explicitly registers the
+      nested active working copies, every exact canonical slot path, `profiles.txt`,
+      and root `stats_report.txt` for preload, `FS.rename` sync, and `FS.unlink`
+      removal. Retired root-level LocalStorage save keys are deleted, not migrated.
 - [x] **Scratch verification:** ASan+UBSan harnesses in `/tmp` covered migration,
-      slot switching/isolation, missing-file removal, active erase rejection,
-      inactive erase, corrupt-metadata fallback, derived-report exclusion, shared
-      replay preservation, and injected partial-commit rollback. No files were added
+      fresh profile creation, slot switching/isolation, missing-file removal, active
+      erase rejection, inactive erase, corrupt-metadata fallback, retired-root-file
+      discard, nested active working paths, derived-report exclusion, shared replay
+      preservation, and injected partial-commit rollback. No files were added
       under `tests/`.
 - [x] **Approved flow:** First launch follows Start Game → profile screen → Main Hub;
       with a saved active profile, Continue proceeds directly to Main Hub. The
