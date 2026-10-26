@@ -16,11 +16,11 @@ extern GameSettings settings;
 #define CEIL_VFX_MOTES   56
 #define CEIL_VFX_DUR     1.15f
 
-#define BADGE_POP_DUR    0.20f
-#define BADGE_HOLD_DUR   0.32f
-#define BADGE_EFFECT_T   0.52f
-#define BADGE_VAPOR_DUR  0.50f
-#define BADGE_TOTAL_DUR  1.02f
+#define BADGE_FORM_DUR   0.38f
+#define BADGE_HOLD_DUR   1.30f
+#define BADGE_EFFECT_T   1.68f
+#define BADGE_VAPOR_DUR  0.60f
+#define BADGE_TOTAL_DUR  2.28f
 #define BADGE_VFX_MOTES  96
 
 typedef struct {
@@ -183,7 +183,7 @@ void action_card_start_badge_event(int sym, int who, AudioAssets *audio) {
             .pos = { (float)FIELD_X + (float)FIELD_W * 0.5f, (float)FIELD_Y + (float)FIELD_H * 0.5f },
             .vel = { 0.0f, 0.0f },
             .ox = rx, .oy = ry,
-            .delay = BADGE_EFFECT_T + 0.16f * rd,
+            .delay = 0.24f * rd,
             .phase = 6.2831853f * (((float)((h >> 5) & 255u)) / 255.0f),
             .freq = 8.0f + 9.0f * (((float)((h >> 13) & 255u)) / 255.0f),
             .swirl = (rx >= 0.0f) ? (0.5f + rd) : -(0.5f + rd),
@@ -858,7 +858,21 @@ static void draw_ceil_claim_vfx(float dt) {
     EndBlendMode();
 }
 
+static Vector2 badge_mote_point(const VaporMote *m, Rectangle tr, float tau) {
+    float cx = tr.x + tr.width * 0.5f, cy = tr.y + tr.height * 0.5f;
+    float sx = cx + m->ox * tr.width * 0.92f, sy = cy + m->oy * tr.height * 0.88f;
+    float rdx = m->ox, rdy = m->oy - 0.14f;
+    float rlen = sqrtf(rdx * rdx + rdy * rdy);
+    Vector2 out = (rlen > 1e-3f) ? (Vector2){ rdx / rlen, rdy / rlen } : (Vector2){ 0.0f, -1.0f };
+    Vector2 perp = { -out.y, out.x };
+    float dist = (95.0f + 135.0f * fabsf(m->swirl)) * (0.35f * tau + 0.65f * tau * tau);
+    float curl = sinf(tau * m->freq * 0.65f + m->phase) * 28.0f * tau * m->swirl;
+    return (Vector2){ sx + out.x * dist + perp.x * curl,
+                      sy + out.y * dist + perp.y * curl - 96.0f * tau * tau };
+}
+
 static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
+    (void)dt;
     if (!s_badge_evt_active) return;
 
     static const char * const k_titles[ACTION_SYM_COUNT] = {
@@ -876,24 +890,14 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
         "CLAIMING ACCUMULATED TIME NUMBERS"
     };
 
-    Rectangle orig_r  = { 405.0f, 132.0f, 32.0f, 32.0f };
     Rectangle table_r = { (float)FIELD_X, (float)FIELD_Y, (float)FIELD_W, (float)FIELD_H };
+    int forming  = (s_badge_evt_t < BADGE_FORM_DUR);
+    int vaporing = (s_badge_evt_t >= BADGE_EFFECT_T);
 
-    float pop_u = fminf(1.0f, s_badge_evt_t / BADGE_POP_DUR);
-    float pop_e = smooth01_ac(pop_u);
-    float punch = (pop_u < 1.0f) ? (sinf(pop_u * 3.14159265f) * 0.035f) : 0.0f;
-
-    Rectangle cur = {
-        orig_r.x + (table_r.x - orig_r.x) * pop_e,
-        orig_r.y + (table_r.y - orig_r.y) * pop_e,
-        orig_r.width  + (table_r.width  - orig_r.width)  * (pop_e + punch),
-        orig_r.height + (table_r.height - orig_r.height) * (pop_e + punch)
-    };
-    cur.x -= (cur.width - (orig_r.width + (table_r.width - orig_r.width) * pop_e)) * 0.5f;
-    cur.y -= (cur.height - (orig_r.height + (table_r.height - orig_r.height) * pop_e)) * 0.5f;
-
-    float u_diss = (s_badge_evt_t > BADGE_EFFECT_T)
-                   ? fminf(1.0f, (s_badge_evt_t - BADGE_EFFECT_T) / 0.25f) : 0.0f;
+    float u_in  = (s_badge_evt_t > 0.10f)
+                  ? fminf(1.0f, (s_badge_evt_t - 0.10f) / (BADGE_FORM_DUR - 0.10f)) : 0.0f;
+    float u_out = vaporing ? fminf(1.0f, (s_badge_evt_t - BADGE_EFFECT_T) / 0.32f) : 0.0f;
+    float u_diss = forming ? (1.0f - u_in) : u_out;
     float d_alpha = 1.0f - smooth01_ac(u_diss);
     int is_coin = (s_badge_evt_sym == ACTION_SYM_GOLD_COIN);
     Color accent = is_coin ? (Color){ 255, 214, 92, 255 } : (Color){ 224, 108, 122, 255 };
@@ -902,29 +906,30 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
     if (d_alpha > 0.01f) {
         float jx = sinf(s_badge_evt_t * 96.0f) * 7.0f * u_diss;
         float jy = cosf(s_badge_evt_t * 82.0f) * 4.0f * u_diss;
-        Rectangle box = { cur.x + jx, cur.y + jy, cur.width, cur.height };
+        Rectangle box = { table_r.x + jx, table_r.y + jy, table_r.width, table_r.height };
 
         DrawRectangleRec(box, (Color){ 6, 10, 10, (unsigned char)(218.0f * d_alpha) });
-        Rectangle inner = { box.x + 8.0f, box.y + 8.0f,
-                            fmaxf(4.0f, box.width - 16.0f), fmaxf(4.0f, box.height - 16.0f) };
+        Rectangle inner = { box.x + 8.0f, box.y + 8.0f, box.width - 16.0f, box.height - 16.0f };
         DrawRectangleLinesEx(box, 2.0f, (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(245.0f * d_alpha) });
         DrawRectangleLinesEx(inner, 1.5f, (Color){ accent.r, accent.g, accent.b, (unsigned char)(185.0f * d_alpha) });
-        if (pop_u >= 0.85f && u_diss < 0.35f) {
+        if (u_diss < 0.35f) {
             ui_theme_set_panel_flare_glow(box, 0.92f * d_alpha);
             ui_theme_draw_panel_flares(box);
         }
 
-        /* Subtle additive energy pulse at effect impact */
-        float impact = 1.0f - fminf(1.0f, fabsf(s_badge_evt_t - BADGE_EFFECT_T) / 0.16f);
-        if (impact > 0.01f) {
+        /* Subtle additive pulse on reverse-vaporize condensation & effect trigger */
+        float lock_p   = 1.0f - fminf(1.0f, fabsf(s_badge_evt_t - BADGE_FORM_DUR) / 0.14f);
+        float impact_p = 1.0f - fminf(1.0f, fabsf(s_badge_evt_t - BADGE_EFFECT_T) / 0.16f);
+        float pulse    = fmaxf(lock_p * 0.75f, impact_p);
+        if (pulse > 0.01f) {
             BeginBlendMode(BLEND_ADDITIVE);
-            DrawRectangleRec(box, (Color){ accent.r, accent.g, accent.b, (unsigned char)(70.0f * impact * d_alpha) });
+            DrawRectangleRec(box, (Color){ accent.r, accent.g, accent.b, (unsigned char)(70.0f * pulse * d_alpha) });
             EndBlendMode();
         }
 
         float sc = fminf(box.width / 76.0f, box.height / 58.0f);
         float gcx = box.x + box.width * 0.5f;
-        float gcy = (box.width >= 320.0f) ? (box.y + box.height * 0.43f) : (box.y + box.height * 0.5f);
+        float gcy = box.y + box.height * 0.43f;
         Color fg = is_coin ? (Color){ 255, 224, 118, 255 } : COLOR_TEXT_INFO;
         Color cut = { 8, 12, 12, 245 };
 
@@ -934,50 +939,31 @@ static void draw_badge_popup_vapor_vfx(const BoardAssets *ba, float dt) {
         EndBlendMode();
         draw_symbol_glyph_scaled(ba, s_badge_evt_sym, gcx, gcy, sc, fg, cut, d_alpha);
 
-        if (box.width >= 360.0f && pop_u >= 0.70f) {
-            float txt_a = fminf(1.0f, (pop_u - 0.70f) / 0.30f) * d_alpha;
-            const char *who_tag = (s_badge_evt_who == 1) ? "TARGET: CPU" : "TARGET: YOU";
-            draw_centered_snapped(font_body, who_tag, gcx, box.y + 22.0f, 18.0f, 1.4f,
-                                  (Color){ accent.r, accent.g, accent.b, (unsigned char)(235.0f * txt_a) });
-            draw_centered_snapped(font_title, k_titles[s_badge_evt_sym], gcx, box.y + box.height - 92.0f, 26.0f, 1.3f,
-                                  (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(255.0f * txt_a) });
-            draw_centered_snapped(font_body, k_subs[s_badge_evt_sym], gcx, box.y + box.height - 52.0f, 19.0f, 1.2f,
-                                  (Color){ COLOR_TEXT_INFO.r, COLOR_TEXT_INFO.g, COLOR_TEXT_INFO.b, (unsigned char)(240.0f * txt_a) });
-        }
+        const char *who_tag = (s_badge_evt_who == 1) ? "TARGET: CPU" : "TARGET: YOU";
+        draw_centered_snapped(font_body, who_tag, gcx, box.y + 22.0f, 18.0f, 1.4f,
+                              (Color){ accent.r, accent.g, accent.b, (unsigned char)(235.0f * d_alpha) });
+        draw_centered_snapped(font_title, k_titles[s_badge_evt_sym], gcx, box.y + box.height - 92.0f, 26.0f, 1.3f,
+                              (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(255.0f * d_alpha) });
+        draw_centered_snapped(font_body, k_subs[s_badge_evt_sym], gcx, box.y + box.height - 52.0f, 19.0f, 1.2f,
+                              (Color){ COLOR_TEXT_INFO.r, COLOR_TEXT_INFO.g, COLOR_TEXT_INFO.b, (unsigned char)(240.0f * d_alpha) });
     }
 
-    if (s_badge_evt_t >= BADGE_EFFECT_T) {
-        float cx = table_r.x + table_r.width * 0.5f;
-        float cy = table_r.y + table_r.height * 0.5f;
+    if (forming || vaporing) {
+        float phase_u = forming ? (1.0f - fminf(1.0f, s_badge_evt_t / BADGE_FORM_DUR))
+                                : fminf(1.0f, (s_badge_evt_t - BADGE_EFFECT_T) / BADGE_VAPOR_DUR);
         BeginBlendMode(BLEND_ADDITIVE);
         for (int i = 0; i < BADGE_VFX_MOTES; i++) {
-            VaporMote *m = &s_badge_motes[i];
-            if (s_badge_evt_t < m->delay) continue;
-            if (!m->spawned) {
-                m->pos = (Vector2){ cx + m->ox * table_r.width * 0.92f,
-                                    cy + m->oy * table_r.height * 0.88f };
-                float rdx = m->ox, rdy = m->oy - 0.18f;
-                float rlen = sqrtf(rdx * rdx + rdy * rdy);
-                Vector2 out = (rlen > 1e-3f) ? (Vector2){ rdx / rlen, rdy / rlen } : (Vector2){ 0.0f, -1.0f };
-                float sp0 = 140.0f + 220.0f * fabsf(m->swirl);
-                m->vel = (Vector2){ out.x * sp0 - out.y * m->swirl * 65.0f,
-                                    out.y * sp0 - 85.0f };
-                m->spawned = 1;
-            }
-            float age = s_badge_evt_t - m->delay;
-            float max_age = fmaxf(0.12f, BADGE_TOTAL_DUR - m->delay);
-            float prog = fminf(1.0f, age / max_age);
-            float curl = sinf(age * m->freq + m->phase) * 260.0f;
-            m->vel.x += curl * dt;
-            m->vel.y += (-420.0f + cosf(age * m->freq + m->phase) * 140.0f) * dt;
-            m->pos.x += m->vel.x * dt;
-            m->pos.y += m->vel.y * dt;
-            float ma = sinf(prog * 3.14159265f) * (1.0f - 0.30f * prog);
+            const VaporMote *m = &s_badge_motes[i];
+            if (phase_u < m->delay) continue;
+            float tau = fminf(1.0f, (phase_u - m->delay) / fmaxf(0.10f, 1.0f - m->delay));
+            float ma = sinf(tau * 3.14159265f) * (1.0f - 0.28f * tau);
             if (ma <= 0.01f) continue;
-            Vector2 tail = { m->pos.x - m->vel.x * 0.026f, m->pos.y - m->vel.y * 0.026f };
-            DrawLineEx(tail, m->pos, 1.5f + 0.8f * ma,
+            float tau_tail = fminf(1.0f, fmaxf(0.0f, tau + (forming ? 0.085f : -0.085f)));
+            Vector2 p0 = badge_mote_point(m, table_r, tau);
+            Vector2 pt = badge_mote_point(m, table_r, tau_tail);
+            DrawLineEx(pt, p0, 1.5f + 0.8f * ma,
                        (Color){ accent.r, accent.g, accent.b, (unsigned char)(205.0f * ma) });
-            DrawRectangle((int)lroundf(m->pos.x) - 1, (int)lroundf(m->pos.y) - 1, 3, 3,
+            DrawRectangle((int)lroundf(p0.x) - 1, (int)lroundf(p0.y) - 1, 3, 3,
                           (Color){ rim_c.r, rim_c.g, rim_c.b, (unsigned char)(245.0f * ma) });
         }
         EndBlendMode();
