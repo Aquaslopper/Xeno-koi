@@ -317,33 +317,33 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
         return;
     }
 
-    draw_section_header("AUDIO & VISUAL", 284.0f);
+    draw_section_header("DISPLAY & SOUND", 56.0f);
     const char *cnames[6] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET", "DARK" };
-    if (is_deus) draw_locked_row(320.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
-    else draw_selector_row(320.0f, "Terminal Color:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
+    if (is_deus) draw_locked_row(96.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
+    else draw_selector_row(96.0f, "Terminal Color:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
 
     const char *bg_names[8] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City", "5: Deus", "6: Face", "7: Realm" };
     Vector2 bg_vm = is_deus ? (Vector2){ -1.0f, -1.0f } : vm;
     Color bg_c = is_deus ? COLOR_PHOSPHOR_DIM : COLOR_PHOSPHOR;
-    draw_text_ex_snapped(font_body, "Background:", (Vector2){ 300.0f, 360.0f }, 18.0f, 1.2f, bg_c);
-    draw_btn((Rectangle){ 650, 356, 36, 26 }, "<", 18, bg_vm, bg_c);
-    draw_option_value((Rectangle){ 690, 356, 130, 26 }, is_deus ? "[ DEUS (LOCKED) ]" : bg_names[s->background % 8], is_deus ? 13 : 15, bg_vm, is_deus ? COLOR_PHOSPHOR_DIM : COLOR_TEXT_INFO);
-    draw_btn((Rectangle){ 824, 356, 36, 26 }, ">", 18, bg_vm, bg_c);
+    draw_text_ex_snapped(font_body, "Background:", (Vector2){ 300.0f, 158.0f }, 18.0f, 1.2f, bg_c);
+    draw_btn((Rectangle){ 650, 154, 36, 26 }, "<", 18, bg_vm, bg_c);
+    draw_option_value((Rectangle){ 690, 154, 130, 26 }, is_deus ? "[ DEUS (LOCKED) ]" : bg_names[s->background % 8], is_deus ? 13 : 15, bg_vm, is_deus ? COLOR_PHOSPHOR_DIM : COLOR_TEXT_INFO);
+    draw_btn((Rectangle){ 824, 154, 36, 26 }, ">", 18, bg_vm, bg_c);
     int bg_idx = is_deus ? 5 : s->background;
     if (bg_idx >= 0 && bg_idx < 8 && ba->bgs[bg_idx].id > 0) {
-        Rectangle prev = { 864, 356, 46, 26 };
+        Rectangle prev = { 864, 154, 46, 26 };
         DrawTexturePro(ba->bgs[bg_idx], (Rectangle){0,0,1280,720}, prev, (Vector2){0}, 0, WHITE);
         DrawRectangleLinesEx(prev, 1.0f, COLOR_PHOSPHOR_DIM);
         ui_theme_draw_panel_flares(prev);
     }
 
-    draw_text_ex_snapped(font_body, "Anim Speed:", (Vector2){ 300.0f, 396.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_option_value((Rectangle){ 650, 392, 84, 26 }, "SLOW", 15, vm, (s->anim_speed == 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_option_value((Rectangle){ 738, 392, 84, 26 }, "NORMAL", 15, vm, (s->anim_speed == 1) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_option_value((Rectangle){ 826, 392, 84, 26 }, "FAST", 15, vm, (s->anim_speed == 2) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_text_ex_snapped(font_body, "Anim Speed:", (Vector2){ 300.0f, 216.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_option_value((Rectangle){ 650, 212, 84, 26 }, "SLOW", 15, vm, (s->anim_speed == 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_option_value((Rectangle){ 738, 212, 84, 26 }, "NORMAL", 15, vm, (s->anim_speed == 1) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_option_value((Rectangle){ 826, 212, 84, 26 }, "FAST", 15, vm, (s->anim_speed == 2) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
 
-    draw_slider(428, s->bgm_volume, "BGM Volume:", TextFormat("%d%%", (int)(s->bgm_volume * 100.0f + 0.5f)), vm);
-    draw_slider(464, s->sfx_volume, "SFX Volume:", TextFormat("%d%%", (int)(s->sfx_volume * 100.0f + 0.5f)), vm);
+    draw_slider(270, s->bgm_volume, "BGM Volume:", TextFormat("%d%%", (int)(s->bgm_volume * 100.0f + 0.5f)), vm);
+    draw_slider(328, s->sfx_volume, "SFX Volume:", TextFormat("%d%%", (int)(s->sfx_volume * 100.0f + 0.5f)), vm);
 
 #ifdef __EMSCRIPTEN__
     /* The web shell owns fullscreen in the browser build, so show the browser's
@@ -351,18 +351,18 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
        ignored there, see ui_main.c). */
     int fs_active = EM_ASM_INT({ return (window.XenoKoiFullscreen && window.XenoKoiFullscreen.active()) ? 1 : 0; });
     const char *fs_names[2] = { "WINDOWED", "FULLSCREEN" };
-    draw_selector_row(500.0f, "Fullscreen:", fs_names[fs_active ? 1 : 0], 15, COLOR_TEXT_INFO, vm);
+    draw_selector_row(386.0f, "Fullscreen:", fs_names[fs_active ? 1 : 0], 15, COLOR_TEXT_INFO, vm);
 #else
     const char *fs_names[2] = { "WINDOWED", "BORDERLESS" };
-    draw_selector_row(500.0f, "Fullscreen:", fs_names[s->fullscreen ? 1 : 0], 15, COLOR_TEXT_INFO, vm);
+    draw_selector_row(386.0f, "Fullscreen:", fs_names[s->fullscreen ? 1 : 0], 15, COLOR_TEXT_INFO, vm);
 #endif
     const char *bl_names[3] = { "OFF", "MID", "FULL" };
-    draw_selector_row(536.0f, "Bloom Effect:", bl_names[s->bloom % 3], 15, (s->bloom > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM, vm);
+    draw_selector_row(444.0f, "Bloom Effect:", bl_names[s->bloom % 3], 15, (s->bloom > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM, vm);
     const char *crt_names[4] = { "0: OFF", "1: LOW", "2: MID", "3: HIGH" };
-    draw_selector_row(572.0f, "CRT Filter:", crt_names[s->crt_filter % 4], 15, (s->crt_filter > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM, vm);
+    draw_selector_row(502.0f, "CRT Filter:", crt_names[s->crt_filter % 4], 15, (s->crt_filter > 0) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM, vm);
 
     float g_frac = fmaxf(0.0f, fminf(1.0f, (s->gamma - 0.5f) / 1.5f));
-    draw_slider(608, g_frac, "Display Gamma:", TextFormat("%.2f", s->gamma), vm);
+    draw_slider(560, g_frac, "Display Gamma:", TextFormat("%.2f", s->gamma), vm);
     draw_options_footer(vm);
 }
 
@@ -397,15 +397,14 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
         handle_audio_options(s, audio, vm);
         return ACT_NONE;
     }
-    if (CheckCollisionPointRec(vm, (Rectangle){260, 56, 760, 220})) return ACT_NONE;
     if (down) {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 688, 428, 184, 26 })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 688, 270, 184, 26 })) {
             s->bgm_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f));
             if (audio) audio_set_bgm_volume(audio, s->bgm_volume);
-        } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 464, 184, 26 })) {
+        } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 328, 184, 26 })) {
             s->sfx_volume = fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f));
             if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); if (pressed) audio_play_click(audio); }
-        } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 608, 184, 26 })) {
+        } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 560, 184, 26 })) {
             s->gamma = 0.5f + fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f)) * 1.5f;
             if (pressed && audio) audio_play_click(audio);
         }
@@ -413,17 +412,17 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     if (!pressed) return ACT_NONE;
 
     int dir, is_deus = (s->difficulty == DIFFICULTY_DEUS);
-    if (!is_deus && (dir = check_selector_click(vm, 320.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
-    else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 650, 356, 36, 26 })) { s->background = (s->background == 0) ? 7 : (s->background == 6) ? 4 : s->background - 1; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
-    else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 690, 356, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 824, 356, 36, 26 }))) { s->background = (s->background == 4) ? 6 : (s->background + 1) % 8; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 392, 84, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 738, 392, 84, 26 })) { s->anim_speed = 1; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 826, 392, 84, 26 })) { s->anim_speed = 2; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 428, 34, 26 })) { s->bgm_volume = fmaxf(0.0f, s->bgm_volume - 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 428, 34, 26 })) { s->bgm_volume = fminf(1.0f, s->bgm_volume + 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 464, 34, 26 })) { s->sfx_volume = fmaxf(0.0f, s->sfx_volume - 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 464, 34, 26 })) { s->sfx_volume = fminf(1.0f, s->sfx_volume + 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
-    else if (check_selector_click(vm, 500.0f) != 0) {
+    if (!is_deus && (dir = check_selector_click(vm, 96.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
+    else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 650, 154, 36, 26 })) { s->background = (s->background == 0) ? 7 : (s->background == 6) ? 4 : s->background - 1; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 690, 154, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 824, 154, 36, 26 }))) { s->background = (s->background == 4) ? 6 : (s->background + 1) % 8; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 212, 84, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 738, 212, 84, 26 })) { s->anim_speed = 1; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 826, 212, 84, 26 })) { s->anim_speed = 2; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 270, 34, 26 })) { s->bgm_volume = fmaxf(0.0f, s->bgm_volume - 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 270, 34, 26 })) { s->bgm_volume = fminf(1.0f, s->bgm_volume + 0.10f); if (audio) { audio_set_bgm_volume(audio, s->bgm_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 328, 34, 26 })) { s->sfx_volume = fmaxf(0.0f, s->sfx_volume - 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 328, 34, 26 })) { s->sfx_volume = fminf(1.0f, s->sfx_volume + 0.10f); if (audio) { audio_set_sfx_volume(audio, s->sfx_volume); audio_play_click(audio); } }
+    else if (check_selector_click(vm, 386.0f) != 0) {
 #ifdef __EMSCRIPTEN__
         /* Same switch as the page's [ FULLSCREEN ] button. Works while the game
            is fullscreen too, which is the only in-game way back out. */
@@ -433,10 +432,10 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
 #endif
         if (audio) audio_play_click(audio);
     }
-    else if ((dir = check_selector_click(vm, 536.0f)) != 0) { s->bloom = (s->bloom + 3 + dir) % 3; if (audio) audio_play_click(audio); }
-    else if ((dir = check_selector_click(vm, 572.0f)) != 0) { s->crt_filter = (s->crt_filter + 4 + dir) % 4; if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 608, 34, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 608, 34, 26 })) { s->gamma = fminf(2.0f, s->gamma + 0.05f); if (audio) audio_play_click(audio); }
+    else if ((dir = check_selector_click(vm, 444.0f)) != 0) { s->bloom = (s->bloom + 3 + dir) % 3; if (audio) audio_play_click(audio); }
+    else if ((dir = check_selector_click(vm, 502.0f)) != 0) { s->crt_filter = (s->crt_filter + 4 + dir) % 4; if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 560, 34, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }
+    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 560, 34, 26 })) { s->gamma = fminf(2.0f, s->gamma + 0.05f); if (audio) audio_play_click(audio); }
 
     return ACT_NONE;
 }

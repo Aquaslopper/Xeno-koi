@@ -7,8 +7,9 @@
 ## Status Summary
 ## Latest completed work
 
-### Campaign preset gate and mode-specific match settings (26 October 2026)
+### Campaign presets and expanded system Options layout (26 October 2026)
 
+- Re-spaced the nine system controls on Options page 1 from the lower half into a regular vertical rhythm across the panel; the separate audio-effects page is unchanged.
 - Normal Campaign Start Match now requires clicking Easy, Hard, or Master; until then the Start button reads `SELECT A PRESET`. Choosing Master sets its timer to 30 seconds. No Campaign ruleset override is introduced, and Deus remains on its existing separate dossier/settings path.
 - The actual shared Options route now uses a system-only view: match length, ruleset, difficulty, and timer controls are not drawn or interactive there; audio/visual controls remain. The main-menu and Plex Option entry points share this system-only view. Plex Training and Action Card settings are unchanged.
 - The old shared Options match controls and their click actions are removed from the application screen; the existing Options/audio checks remain unchanged.
