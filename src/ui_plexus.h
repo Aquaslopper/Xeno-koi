@@ -60,6 +60,12 @@ void plexus_tutorial_finish_match(void);
 /* Unload lazy-loaded Atrium Plex background textures on shutdown */
 void plexus_unload_assets(void);
 
+/* Sync / restore Atrium Plex per-mode match settings around SCREEN_GAME / SCREEN_MATCH_RESULT */
+void      plexus_sync_match_settings(GameSettings *s, BoardAssets *ba);
+void      plexus_restore_match_settings(GameSettings *s, BoardAssets *ba);
+Rectangle plexus_get_option_btn_rect(void);
+int       plexus_close_subpanel(void);
+
 /* Load / save Atrium Plex progress and telemetry (plexsave.txt) */
 void plexus_load(void);
 void plexus_save(void);

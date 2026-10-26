@@ -417,16 +417,152 @@ Rectangle board_get_field_card_rect(int index, int total_cards) {
     return (Rectangle){ x, y, FIELD_CARD_W, FIELD_CARD_H };
 }
 
-/* The table is painted sorted by month (then by position in g->field[]), so a card's position in
-   the field array is NOT the slot it is drawn in.  This returns the rectangle of the slot the card
-   is painted in, using the same slot order as the painter (board_layout.c).  Pass a card that is not
-   on the field yet (the drawn stock card) and it returns the slot that card will occupy once
-   engine_reveal_stock() appends it. */
+/* Sticky physical table mat:
+   - 16 non-overlapping primary slots (2 rows x 8 cols at 81px step inside FIELD_X..FIELD_X+FIELD_W)
+     plus 8 fanned backup slots (16..23) for extreme >16-card Speedcoin waves.
+   - Initial round deals are sorted cleanly by month into two centered rows (cols 2..5 for 8 cards,
+     cols 0..6 for 14 cards), then locked in place so existing table cards never slide around.
+   - Capturing a card frees its slot in place; unmatched plays/draws claim an empty slot. */
+#define TABLE_COLS          8
+#define TABLE_PRIMARY_SLOTS 16
+#define TABLE_TOTAL_SLOTS   24
+
+static int     s_slot_card[TABLE_TOTAL_SLOTS];
+static int     s_table_seeded  = 0;
+static int     s_table_round   = -1;
+static int     s_drop_hint_cid = -1;
+static Vector2 s_drop_hint_pos = { 0.0f, 0.0f };
+
+static const int k_table_slot_order[TABLE_TOTAL_SLOTS] = {
+    2, 3, 4, 5,  10, 11, 12, 13,
+    1, 6,         9, 14,
+    0, 7,         8, 15,
+    16, 17, 18, 19, 20, 21, 22, 23
+};
+
+static Rectangle table_slot_rect(int slot) {
+    if (slot < 0 || slot >= TABLE_TOTAL_SLOTS) return (Rectangle){ 0, 0, 0, 0 };
+    if (slot < TABLE_PRIMARY_SLOTS) {
+        int row = slot / TABLE_COLS;
+        int col = slot % TABLE_COLS;
+        return (Rectangle){ 434.0f + (float)col * 81.0f, (row == 0) ? 170.0f : 310.0f,
+                            FIELD_CARD_W, FIELD_CARD_H };
+    }
+    int ov  = slot - TABLE_PRIMARY_SLOTS;
+    int row = (ov >= 4) ? 1 : 0;
+    int col = 2 + (ov & 3);
+    return (Rectangle){ 434.0f + (float)col * 81.0f + 12.0f, (row == 0) ? 184.0f : 324.0f,
+                        FIELD_CARD_W, FIELD_CARD_H };
+}
+
+void board_reset_field_slots(const GameState *g) {
+    for (int s = 0; s < TABLE_TOTAL_SLOTS; s++) s_slot_card[s] = -1;
+    s_drop_hint_cid = -1;
+    if (!g) {
+        s_table_seeded = 0;
+        s_table_round = -1;
+        return;
+    }
+    s_table_seeded = 1;
+    s_table_round = g->current_round;
+    int n = g->field_count;
+    if (n <= 0) return;
+    if (n > 48) n = 48;
+
+    int sf[48];
+    board_field_sort_slots(g->field, n, sf);
+
+    int pri_n = (n <= TABLE_PRIMARY_SLOTS) ? n : TABLE_PRIMARY_SLOTS;
+    int top_n = (pri_n + 1) / 2;
+    int bot_n = pri_n - top_n;
+    int c0 = (TABLE_COLS - top_n) / 2;
+    int c1 = (TABLE_COLS - bot_n) / 2;
+
+    for (int i = 0; i < top_n; i++) s_slot_card[c0 + i] = g->field[sf[i]];
+    for (int i = 0; i < bot_n; i++) s_slot_card[TABLE_COLS + c1 + i] = g->field[sf[top_n + i]];
+    for (int i = TABLE_PRIMARY_SLOTS; i < n && i < TABLE_TOTAL_SLOTS; i++) {
+        s_slot_card[i] = g->field[sf[i]];
+    }
+}
+
+void board_hint_field_drop(int card_id, Vector2 drop_center) {
+    if ((unsigned)card_id >= 48u) return;
+    s_drop_hint_cid = card_id;
+    s_drop_hint_pos = drop_center;
+}
+
+static int pick_open_table_slot(int use_hint, Vector2 hint_center) {
+    if (use_hint) {
+        int best_s = -1;
+        float best_d2 = 1e30f;
+        for (int s = 0; s < TABLE_PRIMARY_SLOTS; s++) {
+            if (s_slot_card[s] != -1) continue;
+            Rectangle r = table_slot_rect(s);
+            float dx = (r.x + r.width * 0.5f) - hint_center.x;
+            float dy = (r.y + r.height * 0.5f) - hint_center.y;
+            float d2 = dx * dx + dy * dy;
+            if (d2 < best_d2) { best_d2 = d2; best_s = s; }
+        }
+        if (best_s >= 0) return best_s;
+    }
+    for (int i = 0; i < TABLE_TOTAL_SLOTS; i++) {
+        int s = k_table_slot_order[i];
+        if (s_slot_card[s] == -1) return s;
+    }
+    return -1;
+}
+
+static void sync_field_slots(const GameState *g) {
+    if (!g) return;
+    if (g->phase == PHASE_DEALER_SELECT) {
+        board_reset_field_slots(NULL);
+        return;
+    }
+    if (!s_table_seeded || g->current_round != s_table_round) {
+        board_reset_field_slots(g);
+        return;
+    }
+
+    uint64_t present = 0ULL;
+    for (int i = 0; i < g->field_count; i++) {
+        int cid = g->field[i];
+        if ((unsigned)cid < 48u) present |= (1ULL << cid);
+    }
+    for (int s = 0; s < TABLE_TOTAL_SLOTS; s++) {
+        int cid = s_slot_card[s];
+        if (cid >= 0 && !((present >> cid) & 1ULL)) s_slot_card[s] = -1;
+    }
+
+    uint64_t assigned = 0ULL;
+    for (int s = 0; s < TABLE_TOTAL_SLOTS; s++) {
+        int cid = s_slot_card[s];
+        if ((unsigned)cid < 48u) assigned |= (1ULL << cid);
+    }
+    for (int i = 0; i < g->field_count; i++) {
+        int cid = g->field[i];
+        if ((unsigned)cid >= 48u || ((assigned >> cid) & 1ULL)) continue;
+        int use_hint = (cid == s_drop_hint_cid);
+        int s = pick_open_table_slot(use_hint, s_drop_hint_pos);
+        if (use_hint) s_drop_hint_cid = -1;
+        if (s >= 0) {
+            s_slot_card[s] = cid;
+            assigned |= (1ULL << cid);
+        }
+    }
+}
+
+/* Returns the sticky table slot rectangle of card_id.  If card_id is not on g->field[] yet
+   (an incoming stock card or CPU/replay unmatched card), returns the open slot it will claim
+   upon landing so flight animations land with zero post-drop sliding. */
 Rectangle board_get_field_card_rect_of(const GameState *g, int card_id) {
-    int total = 0;
-    int slot = board_field_slot_of(card_id, g->field, g->field_count, &total);
-    if (slot < 0) return (Rectangle){ 0, 0, 0, 0 };
-    return board_get_field_card_rect(slot, total);
+    if (!g || card_id < 0 || card_id >= 48) return (Rectangle){ 0, 0, 0, 0 };
+    sync_field_slots(g);
+    for (int s = 0; s < TABLE_TOTAL_SLOTS; s++) {
+        if (s_slot_card[s] == card_id) return table_slot_rect(s);
+    }
+    int preview_s = pick_open_table_slot(card_id == s_drop_hint_cid, s_drop_hint_pos);
+    if (preview_s >= 0) return table_slot_rect(preview_s);
+    return (Rectangle){ 710.0f, 240.0f, FIELD_CARD_W, FIELD_CARD_H };
 }
 
 Vector2 board_get_card_field_pos(const GameState *g, int card_id) {
@@ -739,9 +875,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
     action_card_draw_meters(ba, g, reverb_synergy, env_dt, replay_mode);
 
-    /* 5. Field Cards (Insertion sort via board_field_sort_slots + month bitmask for O(1) Easy Mode glow) */
-    int sf[48];
-    board_field_sort_slots(g->field, g->field_count, sf);
+    /* 5. Field Cards (Sticky physical slots: sorted at deal, zero movement once on the felt) */
+    sync_field_slots(g);
     uint16_t field_month_mask = 0;
     for (int i = 0; i < g->field_count; i++) {
         int fcid = g->field[i];
@@ -750,10 +885,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     int drag_m = (dragging_idx >= 0 && dragging_idx < g->hand_count[0]) ? CARDS[g->hand[0][dragging_idx]].month : -1;
     float pulse = 0.12f + 0.28f * (0.5f + 0.5f * sinf(cur_time * 4.0f));
 
-    for (int i = 0; i < g->field_count; i++) {
-        int cid = g->field[sf[i]];
-        Rectangle r = board_get_field_card_rect(i, g->field_count);
-        motion_set_target(cid, (Vector2){ r.x, r.y }, (Vector2){ r.width, r.height }, 0.30f);
+    for (int s = 0; s < TABLE_TOTAL_SLOTS; s++) {
+        int cid = s_slot_card[s];
+        if (cid < 0) continue;
+        Rectangle r = table_slot_rect(s);
+        motion_set_target(cid, (Vector2){ r.x, r.y }, (Vector2){ r.width, r.height }, 0.22f);
         Rectangle dr = motion_get_rect(cid);
         int is_blind = board_is_blind_field_card(cid);
         if (!action_card_draw_blind_flip(ba, cid, dr, env_dt, ac_card_lvl)) {

@@ -70,6 +70,7 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
         printf("DROP centre=(%d,%d) -> PLACE hand[%d]=%s\n",
                (int)c.x, (int)c.y, hand_idx, CARDS[card_id].name);
         fflush(stdout);
+        board_hint_field_drop(card_id, c);
         engine_play_hand(g, card_id, -1);
         replay_rec_play(0, card_id, -1);
     } else if (mc == 1) {

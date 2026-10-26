@@ -53,7 +53,7 @@ static int transition_dir = 0, transition_action = 0, transition_track = 1, pend
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
 static float hub_trans_timer = 0.0f;
-static ScreenState hub_from_screen = SCREEN_START;
+static ScreenState hub_from_screen = SCREEN_START, options_return_screen = SCREEN_START;
 static Rectangle hub_btn_rect = { 0, 0, 0, 0 };
 static const char *hub_btn_label = "";
 static int combo_player = -1, combo_page = 0;
@@ -89,6 +89,8 @@ static void start_transition(ScreenState target, int action, int track) {
 
 static void start_hub_transition(ScreenState next_screen, int next_campaign,
                                  Rectangle btn_r, const char *btn_lbl, int btn_fsz) {
+    if (next_screen != SCREEN_GAME && next_screen != SCREEN_MATCH_RESULT)
+        plexus_restore_match_settings(&settings, &assets);
     hub_from_screen = screen;
     hub_from_campaign = campaign_overlay_open;
     screen = next_screen;
@@ -125,8 +127,9 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
 }
 
 static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int flash_on) {
-    Font fnt = hub_from_campaign ? font_title : font_body;
-    float sp = hub_from_campaign ? 1.2f : 1.0f;
+    int use_title = hub_from_campaign || (hub_from_screen == SCREEN_ATRIUM);
+    Font fnt = use_title ? font_title : font_body;
+    float sp = use_title ? 1.2f : 1.0f;
     Vector2 ts = MeasureTextEx(fnt, txt, (float)fsz, sp);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - (float)fsz) * 0.5f) };
     if (flash_on) {
@@ -244,6 +247,7 @@ static int pick_match_track(int next) {
 }
 
 static void begin_new_match(int trk) {
+    plexus_sync_match_settings(&settings, &assets);
     if (frame_count > 0 && !plexus_tutorial_is_active()) plexus_save();
     if (!plexus_tutorial_is_active() && !plexus_speedcoin_is_active() && settings.difficulty == DIFFICULTY_DEUS) {
         if (!plexus_action_card_is_active()) settings.ruleset = RULESET_YAKUZA;
@@ -527,7 +531,10 @@ static void update_draw_frame(void) {
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
             if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
             if (screen != SCREEN_MATCH_RESULT) { plexus_speedcoin_close_result(); plexus_training_close_result(); }
-            if (screen != SCREEN_GAME && screen != SCREEN_MATCH_RESULT) action_card_reset_match();
+            if (screen != SCREEN_GAME && screen != SCREEN_MATCH_RESULT) {
+                action_card_reset_match();
+                plexus_restore_match_settings(&settings, &assets);
+            }
             campaign_overlay_open = 0; combo_player = -1; combo_page = 0;
             round_banner_timer = 0.0f; speedcoin_gameover_timer = 0.0f; event_beat_timer = 0.0f; prev_round_phase = PHASE_NONE;
             if (transition_action == 1) {
@@ -620,7 +627,10 @@ static void update_draw_frame(void) {
                 if (act != ACT_NONE) audio_play_click(&audio);
                 if (act == ACT_START_GAME) start_hub_transition(SCREEN_START, 1, (Rectangle){ 490, 320, 300, 40 }, "START MATCH", 18);
                 else if (act == ACT_GOTO_ATRIUM) start_transition(SCREEN_ATRIUM, 3, 0);
-                else if (act == ACT_GOTO_OPTIONS) start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
+                else if (act == ACT_GOTO_OPTIONS) {
+                    options_return_screen = SCREEN_START;
+                    start_hub_transition(SCREEN_OPTIONS, 0, (Rectangle){ 490, 420, 300, 40 }, "OPTION", 18);
+                }
                 else if (act == ACT_GOTO_STATS) start_hub_transition(SCREEN_STATS, 0, (Rectangle){ 490, 470, 300, 40 }, "STATS", 18);
                 else if (act == ACT_GOTO_CREDITS) start_hub_transition(SCREEN_CREDITS, 0, (Rectangle){ 490, 570, 300, 40 }, "CREDITS", 18);
                 else if (act == ACT_SAVE) { storage_save_all(&settings, &stats, &history); plexus_save(); saved_timer = 2.0f; }
@@ -629,9 +639,11 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_ATRIUM) {
             if (IsKeyPressed(KEY_ESCAPE)) {
                 audio_play_click(&audio);
-                plexus_save();
-                storage_save_all(&settings, &stats, &history);
-                start_transition(SCREEN_START, 3, 0);
+                if (!plexus_close_subpanel()) {
+                    plexus_save();
+                    storage_save_all(&settings, &stats, &history);
+                    start_transition(SCREEN_START, 3, 0);
+                }
             } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 int p_clicked = 0;
                 ScreenAction act = plexus_handle_click(vm, &p_clicked);
@@ -640,6 +652,9 @@ static void update_draw_frame(void) {
                     plexus_save();
                     storage_save_all(&settings, &stats, &history);
                     start_transition(SCREEN_START, 3, 0);
+                } else if (act == ACT_GOTO_OPTIONS) {
+                    options_return_screen = SCREEN_ATRIUM;
+                    start_hub_transition(SCREEN_OPTIONS, 0, plexus_get_option_btn_rect(), "OPTION", 16);
                 } else if (act == ACT_START_GAME) {
                     start_transition(SCREEN_GAME, 1, pick_match_track(1));
                 }
@@ -654,7 +669,7 @@ static void update_draw_frame(void) {
             if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) {
                 screens_set_options_page(prev_opt_page);
                 hub_reset_opt_page = 1;
-                start_hub_transition(SCREEN_START, 0, (Rectangle){ 300, 656, 260, 38 }, "BACK (SAVE)", 20);
+                start_hub_transition(options_return_screen, 0, (Rectangle){ 300, 656, 260, 38 }, "BACK (SAVE)", 20);
             }
         } else if (screen == SCREEN_STATS) {
 #ifndef __EMSCRIPTEN__
@@ -981,7 +996,7 @@ static void update_draw_frame(void) {
                             int card = anim.cpu_card, target = anim.cpu_target;
                             Vector2 landed = anim.target_pos;
                             anim.active = 0; audio_play_drop(&audio);
-                            motion_set_instant(card, landed, (Vector2){ 76.0f, 116.0f });
+                            motion_set_instant(card, landed, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
                             engine_play_hand(&g, card, target);
                             replay_rec_play(1, card, target);
                             if (g.last_captured_count > 0) play_match_capture_sfx();
@@ -991,7 +1006,9 @@ static void update_draw_frame(void) {
                                 anim.active = 0; int card, target;
                                 ai_choose_hand(&g, active_diff, &ai_rng, &card, &target);
                                 Vector2 from = { 710.0f, 12.0f };
-                                Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target) : (Vector2){ 710.0f, 240.0f };
+                                Rectangle land = (target < 0) ? board_get_field_card_rect_of(&g, card) : (Rectangle){ 0, 0, 0, 0 };
+                                Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target)
+                                           : (land.width > 0.0f ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f });
                                 anim_start_cpu_fly(&anim, card, target, from, to, get_flight_duration(settings.anim_speed));
                             } else if (!anim.active) {
                                 anim_start_cpu_think(&anim, get_think_duration(settings.anim_speed));
@@ -1005,7 +1022,7 @@ static void update_draw_frame(void) {
                             Vector2 landed = anim.target_pos;
                             int rev_land = (plexus_speedcoin_is_active() && landed.x == 330.0f && landed.y == 262.0f);
                             anim.active = 0; audio_play_drop(&audio);
-                            motion_set_instant(drawn_cid, landed, (Vector2){ 76.0f, 116.0f });
+                            motion_set_instant(drawn_cid, landed, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
                             if (rev_land) {
                                 plexus_speedcoin_reverse_draw_finish(&g);
                                 trigger_event_beat(0.24f);
@@ -1555,6 +1572,7 @@ int main(int argc, char **argv) {
     while (!WindowShouldClose() && !quit_requested) update_draw_frame();
 #endif
 
+    plexus_restore_match_settings(&settings, &assets);
     plexus_save();
     action_card_detach_music(&audio);
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
