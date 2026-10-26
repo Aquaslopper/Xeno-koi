@@ -1382,8 +1382,9 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 136 px on y 52 and
-`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220. Its three buttons are `CONTINUE`
+The active title screen shows `[XENO / KOI]` at 136 px on y 72 and
+`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220 in the soft wine-red `{224,136,146}`.
+Its three buttons are `CONTINUE`
 (or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.
 
