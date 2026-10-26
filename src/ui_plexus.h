@@ -76,6 +76,7 @@ void      plexus_sync_match_settings(GameSettings *s, BoardAssets *ba);
 void      plexus_restore_match_settings(GameSettings *s, BoardAssets *ba);
 Rectangle plexus_get_option_btn_rect(void);
 int       plexus_close_subpanel(void);
+int       plexus_get_spine_count(void);
 
 /* Load / save Atrium Plex progress and telemetry (plexsave.txt) */
 void plexus_load(void);

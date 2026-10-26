@@ -1026,6 +1026,10 @@ int plexus_close_subpanel(void) {
     return 0;
 }
 
+int plexus_get_spine_count(void) {
+    return count_finished_cards();
+}
+
 static void draw_plexus_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, int active) {
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, (hov || active) ? COLOR_BTN_HOVER_BG : PLEXUS_PANEL_BG);

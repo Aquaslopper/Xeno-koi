@@ -14,7 +14,9 @@ typedef enum {
     SCREEN_STATS,
     SCREEN_CREDITS,
     SCREEN_GAME,
-    SCREEN_MATCH_RESULT
+    SCREEN_MATCH_RESULT,
+    SCREEN_HUB_MAIN,
+    SCREEN_HUB_CAMPAIGN
 } ScreenState;
 
 typedef enum {
