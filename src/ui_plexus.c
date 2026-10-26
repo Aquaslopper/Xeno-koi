@@ -14,27 +14,60 @@ extern Font font_title;
 extern Font font_body;
 extern GameSettings settings;
 
-#define PLEXUS_LOG_MAX 32
+#define PLEXUS_MATCH_LOG_MAX 48
+#define DEUS_SPINE_UNLOCKED_FOR_TESTING 0
 #define PLEXUS_PANEL_BG (Color){ 0, 0, 0, 228 }
 #define PLEXUS_SUBBOX_BG (Color){ 4, 8, 10, 236 }
 
+typedef enum {
+    LOG_TAB_STORY    = 0,
+    LOG_TAB_TRAINING = 1,
+    LOG_TAB_MATCHES  = 2,
+    LOG_TAB_ATLAS    = 3
+} PlexusLogTab;
+
+typedef enum {
+    MLOG_SPINE       = 1,
+    MLOG_SPEEDCOIN   = 2,
+    MLOG_ACTION_CARD = 3,
+    MLOG_TRAINING    = 4
+} PlexusMatchMode;
+
 typedef struct {
-    char tag[64];
-    char title[80];
-    char line1[96];
-    char line2[96];
-    char line3[96];
-    int  read;
-    int  viewed_open;
-} PlexusLogEntry;
+    int  mode;
+    char badge[32];
+    char title[88];
+    char detail[112];
+} PlexusMatchEntry;
 
 static Texture2D s_plexus_bg = { 0 };
 static Texture2D s_plexus_normal = { 0 };
 static int s_plexus_loaded = 0;
 static int s_selected_month = 0; /* 0..11 */
 static int s_selected_slot  = 3; /* 0..3 within current month (starts at bottom card 4 for Tutorial 1) */
-static int s_active_tab     = 0; /* 0: node briefing, 1: logfile window, 2..4: training 1..3 */
-static unsigned long long s_finished_cards_mask = 0ULL; /* 48-bit mask of completed cards */
+static int s_active_tab     = 0; /* 0: node briefing, 1: logfile window, 2..4: modes */
+static unsigned long long s_finished_cards_mask      = 0ULL; /* 48-bit Standard Atlas mask */
+static unsigned long long s_deus_finished_cards_mask = 0ULL; /* 48-bit Hardcore Deus Atlas mask */
+static int s_deus_spine_mode  = 0; /* 0: Standard Spine pass, 1: Hardcore Deus Spine pass */
+static int s_std_saved_month  = 0, s_std_saved_slot  = 3;
+static int s_deus_saved_month = 0, s_deus_saved_slot = 3;
+
+/* 4-Tab Logfile Window state: [ STORY ] [ TRAINING ] [ MATCHES ] [ ATLAS ] */
+static int s_log_subtab       = LOG_TAB_STORY;
+static int s_story_sel_month  = 0;   /* 0..11 selected monthly log */
+static unsigned int s_story_read_mask = 0u; /* 12-bit mask of opened monthly logs */
+static unsigned int s_story_open_mask = 0u; /* transient open-for-first-time marker */
+static int s_tr_runs          = 0;
+static int s_tr_wins          = 0;
+static int s_tr_losses        = 0;
+static int s_tr_best_score    = 0;
+static int s_tr_rounds_total  = 0;
+static PlexusMatchEntry s_match_logs[PLEXUS_MATCH_LOG_MAX];
+static int s_match_log_count  = 0;
+static int s_match_filter     = 0; /* 0: ALL, 1..4: MLOG_* */
+static int s_match_scroll     = 0;
+static int s_atlas_view_deus  = 0; /* 0: Standard Atlas, 1: Deus Atlas */
+static int s_atlas_pinned_cid = 3; /* 0..47 inspected card in Atlas viewer */
 
 /* Spine unlock turn-around flip & irreversible [NEXT] month swing-in animation state */
 #define SPINE_FLIP_DUR  0.46f
@@ -164,19 +197,16 @@ static void tut_restore_telemetry(int clear_saved) {
     if (clear_saved) s_tut_telemetry_saved = 0;
 }
 
-static PlexusLogEntry s_log_entries[PLEXUS_LOG_MAX];
-static int s_log_count  = 0;
-static int s_log_cursor = 0; /* 0 = newest (last given to player), increases toward older entries */
-static int s_log_seeded = 0;
 static unsigned int s_last_briefing_hash = 0u;
 static int s_briefing_hash_ready = 0;
 static float s_briefing_glow = 0.0f;
 
-static void commit_viewed_log_entries(int except_idx) {
-    for (int i = 0; i < s_log_count; i++) {
-        if (i != except_idx && s_log_entries[i].viewed_open) {
-            s_log_entries[i].read = 1;
-            s_log_entries[i].viewed_open = 0;
+static void commit_viewed_story_months(int keep_month) {
+    for (int m = 0; m < 12; m++) {
+        unsigned int bit = (1u << m);
+        if (m != keep_month && (s_story_open_mask & bit)) {
+            s_story_read_mask |= bit;
+            s_story_open_mask &= ~bit;
         }
     }
 }
@@ -207,6 +237,12 @@ static const char * const k_month_names[12] = {
     "DECEMBER // PAULOWNIA"
 };
 
+static const char * const k_month_short_labels[12] = {
+    "01 // JANUARY",   "02 // FEBRUARY",  "03 // MARCH",     "04 // APRIL",
+    "05 // MAY",       "06 // JUNE",      "07 // JULY",      "08 // AUGUST",
+    "09 // SEPTEMBER", "10 // OCTOBER",   "11 // NOVEMBER",  "12 // DECEMBER"
+};
+
 /* Geometry matching plexus/plexus_mockup.png and expanded vertically for un-squished 18px-22px text */
 static const Rectangle k_next_month_rect = { 1072.0f,  54.0f,  96.0f,  34.0f };
 static const Rectangle k_card_rects[4] = {
@@ -231,13 +267,37 @@ static const char * const k_bottom_labels[6] = {
     "SAVE & BACK", "LOGFILE", "SPEEDCOIN", "ACTION CARD", "TRAINING", "OPTION"
 };
 
-/* Expanded Logfile middle-screen window geometry (taller top & bottom for full-size readable text) */
-static const Rectangle k_logfile_win_rect     = { 236.0f,  22.0f, 756.0f, 602.0f };
-static const Rectangle k_log_top_area_rect    = { 236.0f,  74.0f, 756.0f, 312.0f };
-static const Rectangle k_log_scroll_up_rect   = { 590.0f,  80.0f,  48.0f,  28.0f };
-static const Rectangle k_log_scroll_down_rect = { 590.0f, 352.0f,  48.0f,  28.0f };
-static const Rectangle k_log_stats_rect       = { 254.0f, 400.0f, 436.0f, 208.0f };
-static const Rectangle k_log_atlas_rect       = { 704.0f, 400.0f, 270.0f, 208.0f };
+/* Full-Panel 4-Tab Logfile Window geometry ({ 236, 22, 756, 602 }) */
+static const Rectangle k_logfile_win_rect = { 236.0f, 22.0f, 756.0f, 602.0f };
+static const Rectangle k_log_tab_rects[4] = {
+    { 412.0f, 30.0f, 134.0f, 34.0f }, /* STORY */
+    { 554.0f, 30.0f, 142.0f, 34.0f }, /* TRAINING */
+    { 704.0f, 30.0f, 136.0f, 34.0f }, /* MATCHES */
+    { 848.0f, 30.0f, 126.0f, 34.0f }  /* ATLAS */
+};
+static const char * const k_log_tab_labels[4] = {
+    "STORY", "TRAINING", "MATCHES", "ATLAS"
+};
+static const Rectangle k_log_directive_rect    = { 254.0f,  72.0f, 720.0f,  34.0f };
+static const Rectangle k_log_content_rect      = { 254.0f, 122.0f, 720.0f, 484.0f };
+static const Rectangle k_match_filter_rects[5] = {
+    { 254.0f, 122.0f, 112.0f, 32.0f }, /* ALL */
+    { 374.0f, 122.0f, 132.0f, 32.0f }, /* SPINE */
+    { 514.0f, 122.0f, 148.0f, 32.0f }, /* SPEEDCOIN */
+    { 670.0f, 122.0f, 156.0f, 32.0f }, /* ACTION CARD */
+    { 834.0f, 122.0f, 140.0f, 32.0f }  /* TRAINING */
+};
+static const char * const k_match_filter_labels[5] = {
+    "ALL", "SPINE", "SPEEDCOIN", "ACTION CARD", "TRAINING"
+};
+static const Rectangle k_match_scroll_up_rect   = { 934.0f, 204.0f, 40.0f, 32.0f };
+static const Rectangle k_match_scroll_down_rect = { 934.0f, 566.0f, 40.0f, 32.0f };
+static const Rectangle k_atlas_std_btn_rect     = { 254.0f, 122.0f, 232.0f, 32.0f };
+static const Rectangle k_atlas_deus_btn_rect    = { 494.0f, 122.0f, 236.0f, 32.0f };
+static const Rectangle k_atlas_spine_btn_rect   = { 738.0f, 122.0f, 236.0f, 32.0f };
+static const Rectangle k_atlas_grid_box_rect    = { 254.0f, 162.0f, 498.0f, 286.0f };
+static const Rectangle k_atlas_insp_box_rect    = { 760.0f, 162.0f, 214.0f, 286.0f };
+static const Rectangle k_atlas_ach_box_rect     = { 254.0f, 456.0f, 720.0f, 150.0f };
 
 static void draw_text_snapped(Font font, const char *text, float x, float y, float fsz, float sp, Color col) {
     DrawTextEx(font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
@@ -255,66 +315,99 @@ static void copy_clean(char *dst, size_t cap, const char *src) {
     dst[i] = '\0';
 }
 
-static void plexus_log_push(const char *tag, const char *title,
-                            const char *l1, const char *l2, const char *l3) {
-    commit_viewed_log_entries(-1);
-    if (s_log_count < PLEXUS_LOG_MAX) {
-        s_log_count++;
+static void plexus_match_log_push(int mode, const char *badge, const char *title, const char *detail) {
+    if (mode < MLOG_SPINE || mode > MLOG_TRAINING) mode = MLOG_SPINE;
+    if (s_match_log_count < PLEXUS_MATCH_LOG_MAX) {
+        s_match_log_count++;
     }
-    for (int i = s_log_count - 1; i > 0; i--) {
-        s_log_entries[i] = s_log_entries[i - 1];
+    for (int i = s_match_log_count - 1; i > 0; i--) {
+        s_match_logs[i] = s_match_logs[i - 1];
     }
-    copy_clean(s_log_entries[0].tag,   sizeof(s_log_entries[0].tag),   tag);
-    copy_clean(s_log_entries[0].title, sizeof(s_log_entries[0].title), title);
-    copy_clean(s_log_entries[0].line1, sizeof(s_log_entries[0].line1), l1);
-    copy_clean(s_log_entries[0].line2, sizeof(s_log_entries[0].line2), l2);
-    copy_clean(s_log_entries[0].line3, sizeof(s_log_entries[0].line3), l3);
-    s_log_entries[0].read = 0;
-    s_log_entries[0].viewed_open = 0;
-    s_log_cursor = 0;
+    s_match_logs[0].mode = mode;
+    copy_clean(s_match_logs[0].badge,  sizeof(s_match_logs[0].badge),  badge);
+    copy_clean(s_match_logs[0].title,  sizeof(s_match_logs[0].title),  title);
+    copy_clean(s_match_logs[0].detail, sizeof(s_match_logs[0].detail), detail);
+    s_match_scroll = 0;
 }
 
-static void ensure_log_seeded(void) {
-    if (s_log_seeded) return;
-    s_log_seeded = 1;
-    plexus_log_push("STORY // SEQ 00 -- INTRODUCTION",
-                    "ATRIUM PLEX // RESEARCH & CONDITIONING THRESHOLD",
-                    "Biomechanical neural link established. Deep inside the vessel,",
-                    "an anomalous entity [DEUS SUPREMUS] has been detected.",
-                    "Conditioning across all 12 Months (48 cards) is required.");
-    plexus_log_push("DIRECTIVE // MONTHLY PROGRESSION",
-                    "MONTH 01 // JANUARY // PINE -- ACTIVE",
-                    "Complete each face-up card from bottom to top to turn the",
-                    "next card face up; finish all 4 to reveal [NEXT] on top.",
-                    "Finished cards illuminate inside the bottom-right Atlas map.");
-}
-
-static int count_finished_cards(void) {
+static int count_mask_cards(unsigned long long mask) {
     int cnt = 0;
     for (int i = 0; i < 48; i++) {
-        if ((s_finished_cards_mask >> i) & 1ULL) cnt++;
+        if ((mask >> i) & 1ULL) cnt++;
     }
     return cnt;
 }
 
-static int is_month_completed(int m) {
-    if (m < 0 || m >= 12) return 0;
-    return (((s_finished_cards_mask >> (m * 4)) & 0xFULL) == 0xFULL) ? 1 : 0;
+static int count_finished_cards(void) {
+    return count_mask_cards(s_finished_cards_mask);
 }
 
-static int is_month_unlocked(int m) {
+static int is_deus_spine_unlocked(void) {
+    return DEUS_SPINE_UNLOCKED_FOR_TESTING || count_mask_cards(s_finished_cards_mask) >= 48;
+}
+
+static int is_deus_spine_active(void) {
+    return s_deus_spine_mode && is_deus_spine_unlocked();
+}
+
+static unsigned long long active_spine_mask(void) {
+    return is_deus_spine_active() ? s_deus_finished_cards_mask : s_finished_cards_mask;
+}
+
+static int mark_active_spine_card_done(int cid) {
+    if (cid < 0 || cid >= 48) return 1;
+    unsigned long long bit = (1ULL << cid);
+    if (is_deus_spine_active()) {
+        int was = (int)((s_deus_finished_cards_mask & bit) != 0ULL);
+        s_deus_finished_cards_mask |= bit;
+        return was;
+    } else {
+        int was = (int)((s_finished_cards_mask & bit) != 0ULL);
+        s_finished_cards_mask |= bit;
+        return was;
+    }
+}
+
+static int is_month_completed_mask(unsigned long long mask, int m) {
+    if (m < 0 || m >= 12) return 0;
+    return (((mask >> (m * 4)) & 0xFULL) == 0xFULL) ? 1 : 0;
+}
+
+static int is_month_unlocked_mask(unsigned long long mask, int m) {
     if (m <= 0) return 1;
     if (m >= 12) return 0;
     for (int prev = 0; prev < m; prev++) {
-        if (!is_month_completed(prev)) return 0;
+        if (!is_month_completed_mask(mask, prev)) return 0;
     }
     return 1;
 }
 
+static int is_story_month_unlocked(int m) {
+    return is_month_unlocked_mask(s_finished_cards_mask, m);
+}
+
+static int has_unread_story_months(void) {
+    for (int m = 0; m < 12; m++) {
+        if (is_story_month_unlocked(m) && !((s_story_read_mask >> m) & 1u)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int is_month_completed(int m) {
+    return is_month_completed_mask(active_spine_mask(), m);
+}
+
+static int is_month_unlocked(int m) {
+    return is_month_unlocked_mask(active_spine_mask(), m);
+}
+
 static int is_slot_unlocked_in_month(int m, int slot) {
+    unsigned long long mask = active_spine_mask();
     if (m < 0 || m >= 12 || slot < 0 || slot >= 4) return 0;
     for (int prev = 3; prev > slot; prev--) {
-        if (!((s_finished_cards_mask >> (m * 4 + prev)) & 1ULL)) return 0;
+        if (!((mask >> (m * 4 + prev)) & 1ULL)) return 0;
     }
     return 1;
 }
@@ -326,6 +419,34 @@ static int highest_unlocked_slot(int m) {
     return 3;
 }
 
+static void clamp_active_spine_cursor(void) {
+    while (s_selected_month > 0 && !is_month_unlocked(s_selected_month)) s_selected_month--;
+    if (!is_slot_unlocked_in_month(s_selected_month, s_selected_slot))
+        s_selected_slot = highest_unlocked_slot(s_selected_month);
+}
+
+static void set_deus_spine_mode(int enable_deus) {
+    int want = (enable_deus && is_deus_spine_unlocked()) ? 1 : 0;
+    int cur  = is_deus_spine_active() ? 1 : 0;
+    if (want == cur) return;
+    if (cur == 0) {
+        s_std_saved_month = s_selected_month;
+        s_std_saved_slot  = s_selected_slot;
+        s_deus_spine_mode = 1;
+        s_selected_month  = s_deus_saved_month;
+        s_selected_slot   = s_deus_saved_slot;
+    } else {
+        s_deus_saved_month = s_selected_month;
+        s_deus_saved_slot  = s_selected_slot;
+        s_deus_spine_mode  = 0;
+        s_selected_month   = s_std_saved_month;
+        s_selected_slot    = s_std_saved_slot;
+    }
+    s_flip_active  = 0;
+    s_swing_active = 0;
+    clamp_active_spine_cursor();
+}
+
 static void stage_spine_flip(int m, int slot, float delay) {
     s_flip_active  = 1;
     s_flip_month   = m;
@@ -335,11 +456,11 @@ static void stage_spine_flip(int m, int slot, float delay) {
 }
 
 static int is_speedcoin_bottom_unlocked(void) {
-    return SPEEDCOIN_UNLOCKED_FOR_TESTING || is_month_unlocked(4); /* Unlocks after all 4 cards of Month 1..4 are finished */
+    return SPEEDCOIN_UNLOCKED_FOR_TESTING || is_month_unlocked_mask(s_finished_cards_mask, 4);
 }
 
 static int is_action_card_bottom_unlocked(void) {
-    return ACTION_CARD_UNLOCKED_FOR_TESTING || is_month_unlocked(8); /* Unlocks after all 4 cards of Month 1..8 are finished */
+    return ACTION_CARD_UNLOCKED_FOR_TESTING || is_month_unlocked_mask(s_finished_cards_mask, 8);
 }
 
 static int is_bottom_btn_unlocked(int idx) {
@@ -379,9 +500,29 @@ static void ensure_plexus_assets(void) {
 
 void plexus_load(void) {
     s_finished_cards_mask = 0ULL;
+    s_deus_finished_cards_mask = 0ULL;
+    s_deus_spine_mode = 0;
+    s_std_saved_month = 0;
+    s_std_saved_slot  = 3;
+    s_deus_saved_month = 0;
+    s_deus_saved_slot  = 3;
     s_selected_month = 0;
     s_selected_slot = 3;
     s_active_tab = 0;
+    s_log_subtab = LOG_TAB_STORY;
+    s_story_sel_month = 0;
+    s_story_read_mask = 0u;
+    s_story_open_mask = 0u;
+    s_tr_runs = 0;
+    s_tr_wins = 0;
+    s_tr_losses = 0;
+    s_tr_best_score = 0;
+    s_tr_rounds_total = 0;
+    s_match_log_count = 0;
+    s_match_filter = 0;
+    s_match_scroll = 0;
+    s_atlas_view_deus = 0;
+    s_atlas_pinned_cid = 3;
     s_flip_active = 0;
     s_swing_active = 0;
     s_tut_telemetry_saved = 0;
@@ -412,22 +553,17 @@ void plexus_load(void) {
     s_sc_last_avg_sec = 0.0f;
     s_sc_last_avg_cov = 0.0f;
     speed_mode_stop();
-    s_log_count = 0;
-    s_log_cursor = 0;
-    s_log_seeded = 0;
     s_briefing_hash_ready = 0;
     s_briefing_glow = 0.0f;
 
     int drops = 0, best_strk = 0, life_mp = 0, aud_trig = 0, ac_sym = 0, ac_tm = 0;
-    unsigned long log_read_mask = 0UL;
-    int has_read_mask = 0;
     float t_sum = 0.0f, c_sum = 0.0f, aud_peak = 0.0f, aud_hold = 0.0f;
     speed_bar_set_telemetry(0, 0.0f, 0.0f, 0, 0);
     board_set_audio_telemetry(0, 0.0f, 0.0f);
     action_card_set_telemetry(0, 0);
 
     FILE *f = fopen(resolve_asset_path("plexsave.txt"), "r");
-    if (!f) { ensure_log_seeded(); return; }
+    if (!f) return;
 
     char line[600];
     while (fgets(line, sizeof(line), f)) {
@@ -437,7 +573,24 @@ void plexus_load(void) {
             continue;
         }
         line[strcspn(line, "\r\n")] = '\0';
+        if (strncmp(line, "mlog=", 5) == 0) {
+            char *p[4] = { line + 5, "", "", "" };
+            char *cur = line + 5;
+            for (int fi = 1; fi < 4; fi++) {
+                char *tab = strchr(cur, '\t');
+                if (!tab) break;
+                *tab = '\0';
+                cur = tab + 1;
+                p[fi] = cur;
+            }
+            int md = atoi(p[0]);
+            if (md >= MLOG_SPINE && md <= MLOG_TRAINING && p[2][0] != '\0') {
+                plexus_match_log_push(md, p[1], p[2], p[3]);
+            }
+            continue;
+        }
         if (strncmp(line, "log=", 4) == 0) {
+            /* Legacy save migration: keep only completed runs/matches, drop click spam */
             char *p[5] = { line + 4, "", "", "", "" };
             char *cur = line + 4;
             for (int fi = 1; fi < 5; fi++) {
@@ -447,8 +600,15 @@ void plexus_load(void) {
                 cur = tab + 1;
                 p[fi] = cur;
             }
-            plexus_log_push(p[0], p[1], p[2], p[3], p[4]);
-            s_log_seeded = 1;
+            if (strstr(p[0], "ACTION CARD // MATCH SUMMARY")) {
+                plexus_match_log_push(MLOG_ACTION_CARD, "ACTION CARD", p[1], p[2]);
+            } else if (strstr(p[0], "SPEEDCOIN // RUN SUMMARY")) {
+                plexus_match_log_push(MLOG_SPEEDCOIN, "SPEEDCOIN", p[1], p[2]);
+            } else if (strstr(p[0], "TRAINING // SESSION COMPLETE")) {
+                plexus_match_log_push(MLOG_TRAINING, "TRAINING", p[1], p[2]);
+            } else if (strstr(p[0], "CARD COMPLETED") || strstr(p[0], "TUTORIAL CARD")) {
+                plexus_match_log_push(MLOG_SPINE, "SPINE", p[1], p[2]);
+            }
             continue;
         }
         if (strncmp(line, "sc_rank=", 8) == 0 && s_sc_rank_count < SPEEDCOIN_RANK_MAX) {
@@ -465,15 +625,30 @@ void plexus_load(void) {
         if (sscanf(line, "%63[^=]=%63s", k, v) == 2) {
             if (strcmp(k, "finished_cards_mask") == 0) {
                 s_finished_cards_mask = strtoull(v, NULL, 10) & ((1ULL << 48) - 1ULL);
+            } else if (strcmp(k, "deus_finished_cards_mask") == 0) {
+                s_deus_finished_cards_mask = strtoull(v, NULL, 10) & ((1ULL << 48) - 1ULL);
+            } else if (strcmp(k, "deus_spine_mode") == 0) {
+                s_deus_spine_mode = (atoi(v) != 0) ? 1 : 0;
+            } else if (strcmp(k, "std_saved_month") == 0) {
+                int m = atoi(v);
+                if (m >= 0 && m < 12) s_std_saved_month = m;
+            } else if (strcmp(k, "std_saved_slot") == 0) {
+                int sl = atoi(v);
+                if (sl >= 0 && sl < 4) s_std_saved_slot = sl;
+            } else if (strcmp(k, "deus_saved_month") == 0) {
+                int m = atoi(v);
+                if (m >= 0 && m < 12) s_deus_saved_month = m;
+            } else if (strcmp(k, "deus_saved_slot") == 0) {
+                int sl = atoi(v);
+                if (sl >= 0 && sl < 4) s_deus_saved_slot = sl;
             } else if (strcmp(k, "selected_month") == 0) {
                 int m = atoi(v);
                 if (m >= 0 && m < 12) s_selected_month = m;
             } else if (strcmp(k, "selected_slot") == 0) {
                 int sl = atoi(v);
                 if (sl >= 0 && sl < 4) s_selected_slot = sl;
-            } else if (strcmp(k, "log_read_mask") == 0) {
-                log_read_mask = strtoul(v, NULL, 10);
-                has_read_mask = 1;
+            } else if (strcmp(k, "story_read_mask") == 0) {
+                s_story_read_mask = (unsigned int)(strtoul(v, NULL, 10) & 0xFFFu);
             } else if (strcmp(k, "speed_drops") == 0) {
                 int d = atoi(v);
                 if (d >= 0) drops = d;
@@ -522,6 +697,21 @@ void plexus_load(void) {
             } else if (strcmp(k, "ac_time_total") == 0) {
                 int tm = atoi(v);
                 if (tm >= 0) ac_tm = tm;
+            } else if (strcmp(k, "tr_runs") == 0) {
+                int r = atoi(v);
+                if (r >= 0) s_tr_runs = r;
+            } else if (strcmp(k, "tr_wins") == 0) {
+                int w = atoi(v);
+                if (w >= 0) s_tr_wins = w;
+            } else if (strcmp(k, "tr_losses") == 0) {
+                int l = atoi(v);
+                if (l >= 0) s_tr_losses = l;
+            } else if (strcmp(k, "tr_best_score") == 0) {
+                int bs = atoi(v);
+                if (bs >= 0) s_tr_best_score = bs;
+            } else if (strcmp(k, "tr_rounds_total") == 0) {
+                int rt = atoi(v);
+                if (rt >= 0) s_tr_rounds_total = rt;
             } else if (strcmp(k, "ac_cfg_rounds") == 0) {
                 int r = atoi(v);
                 if (r >= 1 && r <= 12) s_ac_cfg_rounds = r;
@@ -553,33 +743,41 @@ void plexus_load(void) {
         }
     }
     fclose(f);
+    if (!is_deus_spine_unlocked()) {
+        s_deus_spine_mode = 0;
+        s_atlas_view_deus = 0;
+    }
     if (s_ac_runs < s_ac_wins + s_ac_losses) s_ac_runs = s_ac_wins + s_ac_losses;
+    if (s_tr_runs < s_tr_wins + s_tr_losses) s_tr_runs = s_tr_wins + s_tr_losses;
     if (s_sc_runs < s_sc_rank_count) s_sc_runs = s_sc_rank_count;
     for (int i = 0; i < s_sc_rank_count; i++) {
         if (s_sc_ranks[i].waves > s_sc_best_wave) s_sc_best_wave = s_sc_ranks[i].waves;
     }
-    if (has_read_mask) {
-        for (int i = 0; i < s_log_count && i < 32; i++) {
-            s_log_entries[i].read = (int)((log_read_mask >> i) & 1UL);
-            s_log_entries[i].viewed_open = 0;
-        }
-    }
     if (drops == 0) { t_sum = 0.0f; c_sum = 0.0f; }
-    while (s_selected_month > 0 && !is_month_unlocked(s_selected_month)) s_selected_month--;
-    if (!is_slot_unlocked_in_month(s_selected_month, s_selected_slot))
-        s_selected_slot = highest_unlocked_slot(s_selected_month);
+    clamp_active_spine_cursor();
+    if (is_deus_spine_active()) {
+        s_deus_saved_month = s_selected_month;
+        s_deus_saved_slot  = s_selected_slot;
+    } else {
+        s_std_saved_month = s_selected_month;
+        s_std_saved_slot  = s_selected_slot;
+    }
+    for (int m = 11; m >= 0; m--) {
+        if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+    }
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
     action_card_set_telemetry(ac_sym, ac_tm);
-    ensure_log_seeded();
 }
 
 void plexus_save(void) {
-    ensure_log_seeded();
-    commit_viewed_log_entries(-1);
-    unsigned long log_read_mask = 0UL;
-    for (int i = 0; i < s_log_count && i < 32; i++) {
-        if (s_log_entries[i].read) log_read_mask |= (1UL << i);
+    commit_viewed_story_months(-1);
+    if (is_deus_spine_active()) {
+        s_deus_saved_month = s_selected_month;
+        s_deus_saved_slot  = s_selected_slot;
+    } else {
+        s_std_saved_month = s_selected_month;
+        s_std_saved_slot  = s_selected_slot;
     }
     char target[512], tmp[520];
     snprintf(target, sizeof(target), "%s", resolve_asset_path("plexsave.txt"));
@@ -610,9 +808,15 @@ void plexus_save(void) {
     }
     fprintf(f,
             "finished_cards_mask=%llu\n"
+            "deus_finished_cards_mask=%llu\n"
+            "deus_spine_mode=%d\n"
+            "std_saved_month=%d\n"
+            "std_saved_slot=%d\n"
+            "deus_saved_month=%d\n"
+            "deus_saved_slot=%d\n"
             "selected_month=%d\n"
             "selected_slot=%d\n"
-            "log_read_mask=%lu\n"
+            "story_read_mask=%u\n"
             "speed_drops=%d\n"
             "speed_time_sum=%.4f\n"
             "speed_cover_sum=%.4f\n"
@@ -629,6 +833,11 @@ void plexus_save(void) {
             "ac_best_score=%d\n"
             "ac_symbols=%d\n"
             "ac_time_total=%d\n"
+            "tr_runs=%d\n"
+            "tr_wins=%d\n"
+            "tr_losses=%d\n"
+            "tr_best_score=%d\n"
+            "tr_rounds_total=%d\n"
             "ac_cfg_rounds=%d\n"
             "ac_cfg_diff=%d\n"
             "ac_cfg_timer=%d\n"
@@ -639,12 +848,17 @@ void plexus_save(void) {
             "tr_cfg_opponent=%d\n"
             "tr_cfg_condition=%d\n",
             s_finished_cards_mask & ((1ULL << 48) - 1ULL),
+            s_deus_finished_cards_mask & ((1ULL << 48) - 1ULL),
+            is_deus_spine_active() ? 1 : 0,
+            s_std_saved_month, s_std_saved_slot,
+            s_deus_saved_month, s_deus_saved_slot,
             s_selected_month, s_selected_slot,
-            log_read_mask,
+            s_story_read_mask & 0xFFFu,
             drops, t_sum, c_sum, best_strk, life_mp,
             aud_trig, aud_peak, aud_hold,
             s_sc_runs, s_sc_best_wave,
             s_ac_runs, s_ac_wins, s_ac_losses, s_ac_best_score, ac_sym, ac_tm,
+            s_tr_runs, s_tr_wins, s_tr_losses, s_tr_best_score, s_tr_rounds_total,
             s_ac_cfg_rounds, (int)s_ac_cfg_diff, s_ac_cfg_timer,
             (int)s_tr_cfg_ruleset, s_tr_cfg_rounds, (int)s_tr_cfg_diff,
             s_tr_cfg_timer, s_tr_cfg_opponent, s_tr_cfg_condition);
@@ -652,10 +866,10 @@ void plexus_save(void) {
         fprintf(f, "sc_rank=%d,%d,%d\n",
                 s_sc_ranks[i].score, s_sc_ranks[i].waves, s_sc_ranks[i].coins);
     }
-    for (int i = s_log_count - 1; i >= 0; i--) {
-        fprintf(f, "log=%s\t%s\t%s\t%s\t%s\n",
-                s_log_entries[i].tag, s_log_entries[i].title,
-                s_log_entries[i].line1, s_log_entries[i].line2, s_log_entries[i].line3);
+    for (int i = s_match_log_count - 1; i >= 0; i--) {
+        fprintf(f, "mlog=%d\t%s\t%s\t%s\n",
+                s_match_logs[i].mode, s_match_logs[i].badge,
+                s_match_logs[i].title, s_match_logs[i].detail);
     }
     if (fclose(f) != 0) { remove(tmp); return; }
     remove(target);
@@ -1123,54 +1337,18 @@ static void draw_triangle_btn(Rectangle r, int is_up, Vector2 vm, int enabled) {
     DrawTriangle(v1, v3, v2, fill);
 }
 
-static void draw_logfile_atlas_map(const BoardAssets *ba, Rectangle box, Vector2 vm) {
-    DrawRectangleRec(box, PLEXUS_SUBBOX_BG);
-    ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
-
-    int done_cnt = count_finished_cards();
-    char hdr[48];
-    snprintf(hdr, sizeof(hdr), "ATLAS CARDS  [%02d/48]", done_cnt);
-    draw_text_snapped(font_title, hdr, box.x + 12.0f, box.y + 10.0f, 16.0f, 1.3f, COLOR_PHOSPHOR);
-    DrawLine((int)box.x + 12, (int)box.y + 34, (int)(box.x + box.width - 12.0f), (int)box.y + 34, COLOR_PHOSPHOR_DIM);
-
-    /* 12 columns (Months 01..12) x 4 rows (Cards 0..3) = 48 cards */
-    float start_x = box.x + 10.0f;
-    float start_y = box.y + 42.0f;
-    float cell_w  = 19.0f;
-    float cell_h  = 36.0f;
-    float step_x  = 21.0f;
-    float step_y  = 40.0f;
-
-    Texture2D tex = (ba && settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0)
-                    ? ba->atlas_deus
-                    : (ba ? ba->atlas : (Texture2D){ 0 });
-
-    for (int m = 0; m < 12; m++) {
-        for (int r = 0; r < 4; r++) {
-            int cid = m * 4 + r;
-            int finished = (int)((s_finished_cards_mask >> cid) & 1ULL);
-            Rectangle dst = { floorf(start_x + (float)m * step_x), floorf(start_y + (float)r * step_y), cell_w, cell_h };
-            int hov = CheckCollisionPointRec(vm, dst);
-
-            if (tex.id > 0) {
-                Rectangle src = { (float)(m * ATLAS_CELL_W), (float)(r * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-                Color tint = finished ? WHITE : (Color){ 70, 80, 88, 125 };
-                DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
-                if (!finished) {
-                    DrawRectangleRec(dst, (Color){ 0, 0, 0, 145 });
-                }
-            } else {
-                DrawRectangleRec(dst, finished ? COLOR_BTN_HOVER_BG : (Color){ 10, 14, 16, 200 });
-            }
-
-            if (finished) {
-                DrawRectangleLinesEx(dst, hov ? 2.0f : 1.5f, COLOR_PHOSPHOR);
-            } else {
-                Color dim_b = COLOR_PHOSPHOR_DIM;
-                dim_b.a = hov ? 180 : 75;
-                DrawRectangleLinesEx(dst, 1.0f, dim_b);
-            }
-        }
+static void draw_spine_card_face(const BoardAssets *ba, int card_id, Rectangle dst) {
+    if (!ba || card_id < 0 || card_id >= 48) return;
+    if (is_deus_spine_active() && ba->atlas_deus.id > 0) {
+        int col = card_id / 4;
+        int row = card_id % 4;
+        Rectangle src = {
+            (float)(col * ATLAS_CELL_W), (float)(row * ATLAS_CELL_H),
+            (float)ATLAS_CELL_W, (float)ATLAS_CELL_H
+        };
+        DrawTexturePro(ba->atlas_deus, src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    } else {
+        board_draw_card(ba, card_id, dst);
     }
 }
 
@@ -1229,73 +1407,715 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
     draw_text_snapped(font_body, row5, lx, box.y + 172.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
+typedef struct {
+    const char *seq_title;
+    const char *p1;
+    const char *p2;
+    const char *p3;
+    const char *p4;
+    const char *p5;
+    const char *p6;
+} StoryChapterDoc;
+
+static const StoryChapterDoc k_story_chapters[12] = {
+    {
+        "SEQ 01 // THRESHOLD OF OBSIDIAN PINE",
+        "Biomechanical neural link online in the Atrium.",
+        "Deep in the vessel core, entity [DEUS] pulses",
+        "beneath twelve sealed floral strata.",
+        "Month 01 calibrates Entity 001 in 4 protocols:",
+        "Standard Koi-Koi, Speedcoin, Action Card Audio,",
+        "and Final Verification."
+    },
+    {
+        "SEQ 02 // PLUM BLOSSOM IN FROSTED CHITIN",
+        "Second floral stratum unsealed. Sub-dermal lines",
+        "echo card-capture rhythms back into the hull.",
+        "Story dossier slot reserved for Month 02 prose",
+        "and surreal in-match Construct sequence.",
+        "Clear all four Plum cards from bottom to apex",
+        "to unseal the March Cherry stratum."
+    },
+    {
+        "SEQ 03 // CURTAIN OF SYNTHETIC SAKURA",
+        "Third stratum online. Optical sensors register",
+        "pale petals drifting across a windless chamber.",
+        "Story dossier slot reserved for Month 03 prose",
+        "and in-game sequence replay.",
+        "Every cleared card illuminates permanently in",
+        "the 48-card Standard Atlas."
+    },
+    {
+        "SEQ 04 // WISTERIA & SATURATION GATE",
+        "Fourth stratum online. High-frequency injectors",
+        "prime the Speedcoin Saturation chamber.",
+        "Clearing all four April Wisteria cards unlocks",
+        "standalone SPEEDCOIN on the bottom console.",
+        "Story dossier slot reserved for Month 04",
+        "narrative transmission."
+    },
+    {
+        "SEQ 05 // WATER IRIS OVER DARK COOLANT",
+        "Fifth stratum online. The Speedcoin bridge hums",
+        "below the mat while deeper memory sectors wake.",
+        "Story dossier slot reserved for Month 05 prose",
+        "and Construct observation log.",
+        "Advance from Card 4 to Card 1 to unseal the",
+        "June Peony chamber."
+    },
+    {
+        "SEQ 06 // CRIMSON PEONY & BUTTERFLY PULSE",
+        "Midpoint of the twelve-month conditioning spine.",
+        "Neural latency drops as pattern recognition",
+        "fuses with involuntary reflex.",
+        "Story dossier slot reserved for Month 06 prose",
+        "and mid-spine cutscene archive.",
+        "Halfway to the vessel's inner sanctum."
+    },
+    {
+        "SEQ 07 // BUSH CLOVER IN STATIC HAZE",
+        "Seventh stratum online. Audio harmonics bleed",
+        "across bulkheads, hinting at beat interference.",
+        "Story dossier slot reserved for Month 07 prose",
+        "and Construct transmission.",
+        "Four Bush Clover nodes stand between you and",
+        "the August Susuki threshold."
+    },
+    {
+        "SEQ 08 // SUSUKI MOON & RESONANCE GATE",
+        "Eighth stratum online. Twin acoustic bio-meters",
+        "lock onto cardiac and cortical tempo.",
+        "Clearing all four August Susuki cards unlocks",
+        "standalone ACTION CARD on the bottom console.",
+        "Story dossier slot reserved for Month 08",
+        "narrative transmission."
+    },
+    {
+        "SEQ 09 // CHRYSANTHEMUM & NEURAL ECHO",
+        "Ninth stratum online. Full-spectrum modules",
+        "run concurrently across the conditioning deck.",
+        "Story dossier slot reserved for Month 09 prose",
+        "and vessel core telemetry.",
+        "Three floral seals remain before the Paulownia",
+        "convergence."
+    },
+    {
+        "SEQ 10 // AUTUMN MAPLE & FRACTURED LATTICE",
+        "Tenth stratum online. Structural ribs around",
+        "the Atrium shift into stark monochrome lines.",
+        "Story dossier slot reserved for Month 10 prose",
+        "and deep-sector log.",
+        "Entity [DEUS SUPREMUS] begins mirroring human",
+        "Koi-Koi declarations."
+    },
+    {
+        "SEQ 11 // LIGHTNING OVER WEEPING WILLOW",
+        "Eleventh stratum online. Storm-surge impulses",
+        "test reflex stability under peak reverb.",
+        "Story dossier slot reserved for Month 11 prose",
+        "and pre-convergence briefing.",
+        "One final [NEXT] transition leads to December",
+        "Paulownia."
+    },
+    {
+        "SEQ 12 // PAULOWNIA PHOENIX // APEX SEAL",
+        "Twelfth and final stratum of the Standard Spine.",
+        "Illuminating the 48th card completes initial",
+        "conditioning and unseals the DEUS ATLAS.",
+        "Story dossier slot reserved for Month 12 finale",
+        "and hardcore second-spine awakening.",
+        "Beyond 48/48 waits the monochrome Deus Spine."
+    }
+};
+
+static Rectangle story_month_btn_rect(int m) {
+    return (Rectangle){ 254.0f, floorf(122.0f + (float)m * 40.5f), 190.0f, 36.0f };
+}
+
+static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Color fill_col) {
+    if (ratio < 0.0f) ratio = 0.0f;
+    if (ratio > 1.0f) ratio = 1.0f;
+    Rectangle bg = { floorf(x), floorf(y), floorf(w), floorf(h) };
+    DrawRectangleRec(bg, (Color){ 10, 18, 20, 230 });
+    if (ratio > 0.005f) {
+        Rectangle fg = { bg.x + 1.0f, bg.y + 1.0f, floorf((bg.width - 2.0f) * ratio), bg.height - 2.0f };
+        if (fg.width < 2.0f) fg.width = 2.0f;
+        DrawRectangleRec(fg, fill_col);
+    }
+    DrawRectangleLinesEx(bg, 1.0f, COLOR_PHOSPHOR_DIM);
+}
+
+static void draw_logfile_story_tab(Vector2 vm) {
+    if (!is_story_month_unlocked(s_story_sel_month)) {
+        s_story_sel_month = 0;
+    }
+    commit_viewed_story_months(s_story_sel_month);
+    if (!((s_story_read_mask >> s_story_sel_month) & 1u)) {
+        s_story_open_mask |= (1u << s_story_sel_month);
+    }
+
+    /* Left Column: 12 Monthly Story Log Selectors */
+    for (int m = 0; m < 12; m++) {
+        Rectangle br = story_month_btn_rect(m);
+        int unlocked = is_story_month_unlocked(m);
+        int sel      = (m == s_story_sel_month);
+        int hov      = unlocked && CheckCollisionPointRec(vm, br);
+        int m_done   = is_month_completed_mask(s_finished_cards_mask, m);
+        int unread   = unlocked && !((s_story_read_mask >> m) & 1u);
+
+        if (!unlocked) {
+            char ltxt[32];
+            snprintf(ltxt, sizeof(ltxt), "%02d // LOCKED", m + 1);
+            DrawRectangleRec(br, (Color){ 6, 10, 12, 195 });
+            DrawRectangleLinesEx(br, 1.0f, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 80 });
+            draw_text_snapped(font_title, ltxt, br.x + 12.0f, br.y + 10.0f, 13.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        } else {
+            DrawRectangleRec(br, (sel || hov) ? COLOR_BTN_HOVER_BG : PLEXUS_SUBBOX_BG);
+            ui_draw_panel_border(br, (sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+            Color tcol = (sel || hov) ? COLOR_TEXT_INFO : COLOR_PHOSPHOR;
+            draw_text_snapped(font_title, k_month_short_labels[m],
+                              br.x + 10.0f, br.y + 10.0f, 13.0f, 1.1f, tcol);
+            if (unread) {
+                draw_text_snapped(font_title, "NEW", br.x + br.width - 42.0f, br.y + 10.0f, 12.0f, 1.0f, COLOR_PHOSPHOR);
+            } else if (m_done) {
+                draw_text_snapped(font_body, "[4/4]", br.x + br.width - 44.0f, br.y + 9.0f, 13.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+            }
+        }
+    }
+
+    /* Right Panel: Selected Story Document Reader */
+    Rectangle doc = { 456.0f, 122.0f, 518.0f, 482.0f };
+    DrawRectangleRec(doc, PLEXUS_SUBBOX_BG);
+    ui_draw_panel_border(doc, COLOR_PHOSPHOR_DIM);
+
+    int m = s_story_sel_month;
+    const StoryChapterDoc *ch = &k_story_chapters[m];
+    int unlocked_docs = 0;
+    for (int i = 0; i < 12; i++) {
+        if (is_story_month_unlocked(i)) unlocked_docs++;
+    }
+
+    char tag[96];
+    snprintf(tag, sizeof(tag), "LOG %02d/12  //  %s  [%02d/12]",
+             m + 1, k_month_names[m], unlocked_docs);
+    float tx = doc.x + 18.0f;
+    draw_text_snapped(font_body,  tag,           tx, doc.y + 14.0f, 15.5f, 1.05f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, ch->seq_title, tx, doc.y + 40.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    DrawLine((int)tx, (int)doc.y + 68, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 68, COLOR_PHOSPHOR_DIM);
+
+    draw_text_snapped(font_body, ch->p1, tx, doc.y +  84.0f, 17.0f, 1.15f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, ch->p2, tx, doc.y + 112.0f, 17.0f, 1.15f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, ch->p3, tx, doc.y + 140.0f, 17.0f, 1.15f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, ch->p4, tx, doc.y + 178.0f, 17.0f, 1.15f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, ch->p5, tx, doc.y + 206.0f, 17.0f, 1.15f, COLOR_TEXT_INFO_DIM);
+    draw_text_snapped(font_body, ch->p6, tx, doc.y + 234.0f, 17.0f, 1.15f, COLOR_TEXT_INFO_DIM);
+
+    /* Live Month Conditioning Dossier + Sequence Media Status */
+    DrawLine((int)tx, (int)doc.y + 274, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 274, COLOR_PHOSPHOR_DIM);
+    int m_cards_std  = count_mask_cards((s_finished_cards_mask >> (m * 4)) & 0xFULL);
+    int m_cards_deus = count_mask_cards((s_deus_finished_cards_mask >> (m * 4)) & 0xFULL);
+    char media_ln[96];
+    if (is_deus_spine_unlocked()) {
+        snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: STD %d/4  |  DEUS %d/4  //  [ARCHIVE READY]",
+                 m_cards_std, m_cards_deus);
+    } else {
+        snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: %d / 4 SPINE CARDS CLEARED  //  [REREADABLE]",
+                 m_cards_std);
+    }
+    draw_text_snapped(font_title, media_ln, tx, doc.y + 286.0f, 14.0f, 1.1f, COLOR_PHOSPHOR);
+
+    /* 4 Spine Card Sub-Nodes for Selected Month (ordered Card 4 -> Card 1 left-to-right) */
+    static const int k_slot_order[4] = { 3, 2, 1, 0 };
+    for (int idx = 0; idx < 4; idx++) {
+        int sl  = k_slot_order[idx];
+        int cid = m * 4 + sl;
+        int std_done = (int)((s_finished_cards_mask >> cid) & 1ULL);
+        int std_open = 1;
+        for (int p = 3; p > sl; p--) {
+            if (!((s_finished_cards_mask >> (m * 4 + p)) & 1ULL)) { std_open = 0; break; }
+        }
+        Rectangle nb = { floorf(tx + (float)idx * 121.0f), doc.y + 318.0f, 115.0f, 74.0f };
+        DrawRectangleRec(nb, std_done ? (Color){ 10, 26, 22, 230 } : (Color){ 6, 10, 12, 220 });
+        DrawRectangleLinesEx(nb, std_done ? 1.5f : 1.0f, std_done ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+
+        draw_text_snapped(font_title, TextFormat("CARD %d", sl + 1),
+                          nb.x + 8.0f, nb.y + 8.0f, 13.0f, 1.0f,
+                          std_done ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
+        draw_text_snapped(font_body, CARDS[cid].name,
+                          nb.x + 8.0f, nb.y + 28.0f, 14.0f, 1.0f,
+                          std_done ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
+        const char *st_lbl = std_done ? "[CLEARED]" : (std_open ? "[ACTIVE]" : "[SEALED]");
+        draw_text_snapped(font_body, st_lbl,
+                          nb.x + 8.0f, nb.y + 50.0f, 14.0f, 1.0f,
+                          std_done ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    }
+
+    const char *foot = (m == 0)
+        ? "Tutorials 01-03 & Card 1 stay archived here forever."
+        : "Monthly story logs never get overwritten by matches.";
+    draw_text_snapped(font_body, foot, tx, doc.y + 412.0f, 15.0f, 1.05f, COLOR_TEXT_INFO_DIM);
+    draw_text_snapped(font_body, "TIP: Click 01-12 or use mouse wheel to reread logs.",
+                      tx, doc.y + 440.0f, 15.0f, 1.05f, COLOR_PHOSPHOR_DIM);
+}
+
+static void draw_logfile_training_tab(const GameStats *st) {
+    Rectangle b_spd  = { 254.0f, 122.0f, 352.0f, 228.0f };
+    Rectangle b_aud  = { 622.0f, 122.0f, 352.0f, 228.0f };
+    Rectangle b_comb = { 254.0f, 360.0f, 720.0f, 244.0f };
+
+    DrawRectangleRec(b_spd,  PLEXUS_SUBBOX_BG); ui_draw_panel_border(b_spd,  COLOR_PHOSPHOR_DIM);
+    DrawRectangleRec(b_aud,  PLEXUS_SUBBOX_BG); ui_draw_panel_border(b_aud,  COLOR_PHOSPHOR_DIM);
+    DrawRectangleRec(b_comb, PLEXUS_SUBBOX_BG); ui_draw_panel_border(b_comb, COLOR_PHOSPHOR_DIM);
+
+    int drops     = speed_bar_graded_drops();
+    float avg_sec = speed_bar_avg_drop_seconds();
+    float avg_cov = speed_bar_avg_cover_pct();
+    int best_strk = speed_bar_best_streak();
+    int life_mp   = speed_bar_lifetime_minipoints();
+    int aud_trig  = board_get_audio_action_triggers();
+    float aud_pk  = board_get_audio_peak_synergy();
+    float aud_hld = board_get_audio_full_hold_seconds();
+    int ac_sym    = action_card_get_symbols_fired();
+    int ac_tm     = action_card_get_lifetime_time();
+
+    /* 1. Top-Left: Speedbar Reflex & Match Precision */
+    float lx = b_spd.x + 16.0f;
+    draw_text_snapped(font_title, "SPEEDBAR // REFLEX & PRECISION", lx, b_spd.y + 10.0f, 15.0f, 1.1f, COLOR_PHOSPHOR);
+    DrawLine((int)lx, (int)b_spd.y + 32, (int)(b_spd.x + b_spd.width - 16.0f), (int)b_spd.y + 32, COLOR_PHOSPHOR_DIM);
+
+    float spd_ratio = (drops > 0) ? (1.0f - (avg_sec - 0.35f) / 2.65f) : 0.0f;
+    draw_text_snapped(font_body,
+                      (drops > 0) ? TextFormat("AVG DROP SPEED :  %.2f SEC", avg_sec)
+                                  : "AVG DROP SPEED :  --.-- SEC",
+                      lx, b_spd.y + 42.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_gauge_bar(lx, b_spd.y + 66.0f, 320.0f, 9.0f, spd_ratio, COLOR_PHOSPHOR);
+
+    draw_text_snapped(font_body,
+                      (drops > 0) ? TextFormat("HOW CLOSE      :  %.1f%% OVERLAP", avg_cov)
+                                  : "HOW CLOSE      :  --.-% OVERLAP",
+                      lx, b_spd.y + 84.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_gauge_bar(lx, b_spd.y + 108.0f, 320.0f, 9.0f, (drops > 0) ? (avg_cov * 0.01f) : 0.0f, COLOR_PHOSPHOR);
+
+    draw_text_snapped(font_body, TextFormat("GRADED DROPS   :  %d TOTAL", drops),
+                      lx, b_spd.y + 128.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("BEST PERFECT   :  x%d SERIE", best_strk),
+                      lx, b_spd.y + 156.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("LIFETIME COINS :  %d MP (+%d PTS)", life_mp, life_mp / 10),
+                      lx, b_spd.y + 184.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+
+    /* 2. Top-Right: Audio FX & Action Card Telemetry */
+    float rx = b_aud.x + 16.0f;
+    draw_text_snapped(font_title, "ACTION FX // AUDIO & OVERLOAD", rx, b_aud.y + 10.0f, 15.0f, 1.1f, COLOR_PHOSPHOR);
+    DrawLine((int)rx, (int)b_aud.y + 32, (int)(b_aud.x + b_aud.width - 16.0f), (int)b_aud.y + 32, COLOR_PHOSPHOR_DIM);
+
+    draw_text_snapped(font_body, TextFormat("PEAK SYNERGY   :  %.1f%%", aud_pk * 100.0f),
+                      rx, b_aud.y + 42.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_gauge_bar(rx, b_aud.y + 66.0f, 320.0f, 9.0f, aud_pk, COLOR_PHOSPHOR);
+
+    float hold_ratio = aud_hld / 60.0f;
+    draw_text_snapped(font_body, TextFormat("FULL-HOLD TIME :  %.1f SEC", aud_hld),
+                      rx, b_aud.y + 84.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_gauge_bar(rx, b_aud.y + 108.0f, 320.0f, 9.0f, hold_ratio, COLOR_PHOSPHOR);
+
+    draw_text_snapped(font_body, TextFormat("AUDIO TRIGGERS :  %d BURSTS", aud_trig),
+                      rx, b_aud.y + 128.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("HORRORS FIRED  :  %d SURVIVED", ac_sym),
+                      rx, b_aud.y + 156.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("TIME NUMBERS   :  %d CLAIMED", ac_tm),
+                      rx, b_aud.y + 184.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+
+    /* 3. Bottom Full-Width: Sparring, Mode Records & Special Condition Traceability */
+    float bx = b_comb.x + 16.0f;
+    draw_text_snapped(font_title, "SPARRING, MODES & SPECIAL DRILL TELEMETRY",
+                      bx, b_comb.y + 10.0f, 15.5f, 1.1f, COLOR_PHOSPHOR);
+    DrawLine((int)bx, (int)b_comb.y + 34, (int)(b_comb.x + b_comb.width - 16.0f), (int)b_comb.y + 34, COLOR_PHOSPHOR_DIM);
+    DrawLine(614, (int)b_comb.y + 42, 614, (int)(b_comb.y + b_comb.height - 14.0f), COLOR_PHOSPHOR_DIM);
+
+    int sc_hi = (s_sc_rank_count > 0) ? s_sc_ranks[0].score : 0;
+    int c_won = st ? st->matches_won : 0, c_lost = st ? st->matches_lost : 0;
+    int koi_u = st ? st->koi_calls_you : 0, koi_c = st ? st->koi_calls_cpu : 0;
+    int hi_rd = st ? st->highest_round_score : 0, hi_aw = st ? st->best_award : 0;
+    const char *fav_combo = st ? storage_get_favorite_combo(st) : "None";
+
+    draw_text_snapped(font_body,
+                      TextFormat("TRAINING RUNS : %d (%dW-%dL / %d RDS)",
+                                 s_tr_runs, s_tr_wins, s_tr_losses, s_tr_rounds_total),
+                      bx, b_comb.y + 46.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body,
+                      TextFormat("TRAINING BEST : %d PTS", s_tr_best_score),
+                      bx, b_comb.y + 78.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body,
+                      (s_sc_rank_count > 0)
+                          ? TextFormat("SPEEDCOIN     : HI %d [W-%02d / %d RUNS]", sc_hi, s_sc_best_wave, s_sc_runs)
+                          : TextFormat("SPEEDCOIN     : HI -- [%d RUNS]", s_sc_runs),
+                      bx, b_comb.y + 110.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body,
+                      TextFormat("ACTION CARD   : %dW-%dL [BEST %d / %d]",
+                                 s_ac_wins, s_ac_losses, s_ac_best_score, s_ac_runs),
+                      bx, b_comb.y + 142.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body,
+                      TextFormat("CAREER + PLEX : %dW-%dL | KOI %d/%d",
+                                 c_won + s_ac_wins, c_lost + s_ac_losses, koi_u, koi_c),
+                      bx, b_comb.y + 174.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body,
+                      TextFormat("WIN STREAK    : BEST x%d (NOW x%d)",
+                                 st ? st->best_streak : 0, st ? st->current_streak : 0),
+                      bx, b_comb.y + 206.0f, 16.5f, 1.1f, COLOR_TEXT_INFO_DIM);
+
+    float cx = 628.0f;
+    draw_text_snapped(font_body,
+                      TextFormat("FAVORITE YAKU : %s", fav_combo),
+                      cx, b_comb.y + 46.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body,
+                      TextFormat("PEAK SCORING  : RD %d | WIN %d PTS", hi_rd, hi_aw),
+                      cx, b_comb.y + 78.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body,
+                      TextFormat("AI PLAYSTYLES : %d / 12 UNLOCKED", get_unlocked_camp_opponents()),
+                      cx, b_comb.y + 110.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
+
+    Rectangle drill_box = { 628.0f, b_comb.y + 140.0f, 330.0f, 90.0f };
+    DrawRectangleRec(drill_box, (Color){ 8, 16, 18, 225 });
+    DrawRectangleLinesEx(drill_box, 1.0f, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_title, "SPECIAL CONDITION TRACE", drill_box.x + 10.0f, drill_box.y + 8.0f, 13.5f, 1.0f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, "5s Blitz & Extreme Drills: [READY]", drill_box.x + 10.0f, drill_box.y + 32.0f, 15.5f, 1.0f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, "Custom drill records auto-log here.", drill_box.x + 10.0f, drill_box.y + 58.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+}
+
+static int collect_filtered_matches(int *out_indices, int max_out) {
+    int n = 0;
+    for (int i = 0; i < s_match_log_count && n < max_out; i++) {
+        if (s_match_filter == 0 || s_match_logs[i].mode == s_match_filter) {
+            out_indices[n++] = i;
+        }
+    }
+    return n;
+}
+
+static void draw_logfile_matches_tab(const GameStats *st, Vector2 vm) {
+    for (int f = 0; f < 5; f++) {
+        draw_plexus_btn(k_match_filter_rects[f], k_match_filter_labels[f], 13, vm, s_match_filter == f);
+    }
+
+    int filtered[PLEXUS_MATCH_LOG_MAX];
+    int f_cnt = collect_filtered_matches(filtered, PLEXUS_MATCH_LOG_MAX);
+    if (s_match_scroll > f_cnt - 5) s_match_scroll = f_cnt - 5;
+    if (s_match_scroll < 0) s_match_scroll = 0;
+
+    /* Summary Bar */
+    Rectangle sbar = { 254.0f, 162.0f, 720.0f, 30.0f };
+    DrawRectangleRec(sbar, PLEXUS_SUBBOX_BG);
+    DrawRectangleLinesEx(sbar, 1.0f, COLOR_PHOSPHOR_DIM);
+
+    char sum_txt[96];
+    if (s_match_filter == MLOG_SPEEDCOIN) {
+        int hi = (s_sc_rank_count > 0) ? s_sc_ranks[0].score : 0;
+        snprintf(sum_txt, sizeof(sum_txt), "SPEEDCOIN ARCHIVE  //  %d RUNS  |  TOP: %d PTS  [BEST W-%02d]",
+                 s_sc_runs, hi, s_sc_best_wave);
+    } else if (s_match_filter == MLOG_ACTION_CARD) {
+        snprintf(sum_txt, sizeof(sum_txt), "ACTION CARD ARCHIVE  //  %dW - %dL  (%d RUNS)  |  BEST: %d PTS",
+                 s_ac_wins, s_ac_losses, s_ac_runs, s_ac_best_score);
+    } else if (s_match_filter == MLOG_TRAINING) {
+        snprintf(sum_txt, sizeof(sum_txt), "TRAINING ARCHIVE  //  %d SESSIONS  (%dW - %dL)  |  BEST: %d PTS",
+                 s_tr_runs, s_tr_wins, s_tr_losses, s_tr_best_score);
+    } else if (s_match_filter == MLOG_SPINE) {
+        snprintf(sum_txt, sizeof(sum_txt), "SPINE COMPLETIONS  //  STANDARD %02d/48  |  DEUS %02d/48",
+                 count_mask_cards(s_finished_cards_mask), count_mask_cards(s_deus_finished_cards_mask));
+    } else {
+        int cw = st ? st->matches_won : 0, cl = st ? st->matches_lost : 0;
+        snprintf(sum_txt, sizeof(sum_txt), "ALL COMPLETED MATCHES & RUNS  //  TOTAL %dW - %dL  |  %d LOGGED",
+                 cw + s_ac_wins + s_tr_wins, cl + s_ac_losses + s_tr_losses, f_cnt);
+    }
+    draw_text_snapped(font_body, sum_txt, sbar.x + 12.0f, sbar.y + 6.0f, 16.0f, 1.1f, COLOR_PHOSPHOR);
+
+    char cnt_txt[32];
+    if (f_cnt > 0) {
+        int last_vis = s_match_scroll + 5;
+        if (last_vis > f_cnt) last_vis = f_cnt;
+        snprintf(cnt_txt, sizeof(cnt_txt), "[%02d-%02d / %02d]", s_match_scroll + 1, last_vis, f_cnt);
+    } else {
+        snprintf(cnt_txt, sizeof(cnt_txt), "[00 / 00]");
+    }
+    Vector2 cts = MeasureTextEx(font_body, cnt_txt, 15.5f, 1.1f);
+    draw_text_snapped(font_body, cnt_txt, sbar.x + sbar.width - cts.x - 12.0f, sbar.y + 7.0f, 15.5f, 1.1f, COLOR_TEXT_INFO);
+
+    /* 5 Match Cards + Right Scroll Triangles */
+    if (f_cnt == 0) {
+        Rectangle empty = { 254.0f, 200.0f, 720.0f, 404.0f };
+        DrawRectangleRec(empty, PLEXUS_SUBBOX_BG);
+        ui_draw_panel_border(empty, COLOR_PHOSPHOR_DIM);
+        const char *e1 = "NO COMPLETED MATCHES RECORDED IN THIS CATEGORY YET.";
+        const char *e2 = "Finish a Spine card, Speedcoin run, Action Card match, or Training session.";
+        Vector2 s1 = MeasureTextEx(font_title, e1, 16.0f, 1.2f);
+        Vector2 s2 = MeasureTextEx(font_body,  e2, 16.5f, 1.1f);
+        draw_text_snapped(font_title, e1, empty.x + (empty.width - s1.x) * 0.5f, 376.0f, 16.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body,  e2, empty.x + (empty.width - s2.x) * 0.5f, 408.0f, 16.5f, 1.1f, COLOR_TEXT_INFO_DIM);
+        return;
+    }
+
+    for (int r = 0; r < 5 && (s_match_scroll + r) < f_cnt; r++) {
+        const PlexusMatchEntry *me = &s_match_logs[filtered[s_match_scroll + r]];
+        Rectangle row = { 254.0f, 200.0f + (float)r * 81.0f, 670.0f, 74.0f };
+        DrawRectangleRec(row, PLEXUS_SUBBOX_BG);
+        ui_draw_panel_border(row, COLOR_PHOSPHOR_DIM);
+
+        Color bcol = (me->mode == MLOG_ACTION_CARD) ? (Color){ 255, 196, 84, 255 } :
+                     (me->mode == MLOG_SPEEDCOIN)   ? COLOR_PHOSPHOR :
+                     (me->mode == MLOG_TRAINING)    ? (Color){ 135, 215, 255, 255 } :
+                                                      COLOR_TEXT_INFO;
+        char btxt[40];
+        snprintf(btxt, sizeof(btxt), "[%s]", me->badge);
+        draw_text_snapped(font_title, btxt, row.x + 14.0f, row.y + 12.0f, 14.0f, 1.1f, bcol);
+        Vector2 bsz = MeasureTextEx(font_title, btxt, 14.0f, 1.1f);
+        draw_text_snapped(font_title, me->title, row.x + 24.0f + bsz.x, row.y + 11.0f, 15.5f, 1.1f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  me->detail, row.x + 14.0f, row.y + 42.0f, 16.0f, 1.1f, COLOR_TEXT_INFO_DIM);
+    }
+
+    draw_triangle_btn(k_match_scroll_up_rect,   1, vm, s_match_scroll > 0);
+    draw_triangle_btn(k_match_scroll_down_rect, 0, vm, s_match_scroll + 5 < f_cnt);
+}
+
+static Rectangle atlas_grid_cell_rect(int m, int r) {
+    return (Rectangle){
+        floorf(k_atlas_grid_box_rect.x + 11.0f + (float)m * 40.0f),
+        floorf(k_atlas_grid_box_rect.y + 28.0f + (float)r * 63.0f),
+        36.0f, 58.0f
+    };
+}
+
+static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
+    int std_done  = count_mask_cards(s_finished_cards_mask);
+    int deus_done = count_mask_cards(s_deus_finished_cards_mask);
+    int deus_open = is_deus_spine_unlocked();
+    if (!deus_open) s_atlas_view_deus = 0;
+
+    /* 1. Top Dual-Atlas Selector + Hardcore Second-Spine Switch */
+    char std_lbl[40], deus_lbl[40];
+    snprintf(std_lbl, sizeof(std_lbl), "STANDARD ATLAS [%02d/48]", std_done);
+    draw_plexus_btn(k_atlas_std_btn_rect, std_lbl, 13, vm, s_atlas_view_deus == 0);
+
+    if (deus_open) {
+        snprintf(deus_lbl, sizeof(deus_lbl), "DEUS ATLAS [%02d/48]", deus_done);
+        draw_plexus_btn(k_atlas_deus_btn_rect, deus_lbl, 13, vm, s_atlas_view_deus == 1);
+        const char *sp_lbl = is_deus_spine_active() ? "SPINE: DEUS HARDCORE" : "SPINE: STANDARD PASS";
+        draw_plexus_btn(k_atlas_spine_btn_rect, sp_lbl, 13, vm, is_deus_spine_active());
+    } else {
+        draw_plexus_locked_btn(k_atlas_deus_btn_rect,  "DEUS ATLAS [LOCKED]", 13);
+        draw_plexus_locked_btn(k_atlas_spine_btn_rect, "2ND PASS: CLEAR 48/48", 13);
+    }
+
+    /* 2. Middle-Left: 12 x 4 Full-Size Atlas Grid */
+    DrawRectangleRec(k_atlas_grid_box_rect, PLEXUS_SUBBOX_BG);
+    ui_draw_panel_border(k_atlas_grid_box_rect, COLOR_PHOSPHOR_DIM);
+
+    unsigned long long view_mask = s_atlas_view_deus ? s_deus_finished_cards_mask : s_finished_cards_mask;
+    Texture2D tex = (s_atlas_view_deus && ba && ba->atlas_deus.id > 0)
+                    ? ba->atlas_deus
+                    : (ba ? ba->atlas : (Texture2D){ 0 });
+    Color earned_border = s_atlas_view_deus ? (Color){ 235, 220, 175, 255 } : COLOR_PHOSPHOR;
+
+    for (int m = 0; m < 12; m++) {
+        float mx = k_atlas_grid_box_rect.x + 18.0f + (float)m * 40.0f;
+        draw_text_snapped(font_title, TextFormat("%02d", m + 1), mx, k_atlas_grid_box_rect.y + 8.0f, 12.0f, 1.0f,
+                          is_month_completed_mask(view_mask, m) ? earned_border : COLOR_PHOSPHOR_DIM);
+        for (int r = 0; r < 4; r++) {
+            int cid = m * 4 + r;
+            int finished = (int)((view_mask >> cid) & 1ULL);
+            Rectangle dst = atlas_grid_cell_rect(m, r);
+            int hov = CheckCollisionPointRec(vm, dst);
+            if (hov) s_atlas_pinned_cid = cid;
+
+            if (tex.id > 0) {
+                Rectangle src = { (float)(m * ATLAS_CELL_W), (float)(r * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
+                Color tint = finished ? WHITE : (Color){ 65, 74, 82, 115 };
+                DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
+                if (!finished) {
+                    DrawRectangleRec(dst, (Color){ 0, 0, 0, 155 });
+                }
+            } else {
+                DrawRectangleRec(dst, finished ? COLOR_BTN_HOVER_BG : (Color){ 10, 14, 16, 210 });
+            }
+
+            int pinned = (s_atlas_pinned_cid == cid);
+            if (finished) {
+                DrawRectangleLinesEx(dst, (hov || pinned) ? 2.0f : 1.3f, earned_border);
+            } else {
+                Color dim_b = COLOR_PHOSPHOR_DIM;
+                dim_b.a = (hov || pinned) ? 190 : 75;
+                DrawRectangleLinesEx(dst, 1.0f, dim_b);
+            }
+        }
+    }
+
+    /* 3. Middle-Right: High-Res Card Inspector */
+    DrawRectangleRec(k_atlas_insp_box_rect, PLEXUS_SUBBOX_BG);
+    ui_draw_panel_border(k_atlas_insp_box_rect, COLOR_PHOSPHOR_DIM);
+
+    int icid = (s_atlas_pinned_cid >= 0 && s_atlas_pinned_cid < 48) ? s_atlas_pinned_cid : 3;
+    int ic_done = (int)((view_mask >> icid) & 1ULL);
+    const char *insp_hdr = s_atlas_view_deus ? "DEUS INSPECTOR" : "CARD INSPECTOR";
+    Vector2 ihs = MeasureTextEx(font_title, insp_hdr, 13.5f, 1.1f);
+    draw_text_snapped(font_title, insp_hdr,
+                      k_atlas_insp_box_rect.x + (k_atlas_insp_box_rect.width - ihs.x) * 0.5f,
+                      k_atlas_insp_box_rect.y + 8.0f, 13.5f, 1.1f, earned_border);
+
+    Rectangle preview = {
+        floorf(k_atlas_insp_box_rect.x + (k_atlas_insp_box_rect.width - 114.0f) * 0.5f),
+        k_atlas_insp_box_rect.y + 30.0f, 114.0f, 185.0f
+    };
+    board_draw_card_shadow(preview, 0.55f);
+    if (ic_done && tex.id > 0) {
+        int pm = icid / 4, pr = icid % 4;
+        Rectangle src = { (float)(pm * ATLAS_CELL_W), (float)(pr * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
+        DrawTexturePro(tex, src, preview, (Vector2){ 0, 0 }, 0.0f, WHITE);
+        DrawRectangleLinesEx(preview, 1.8f, earned_border);
+    } else {
+        if (ba) board_draw_card_back(ba, preview);
+        else DrawRectangleRec(preview, (Color){ 10, 14, 16, 220 });
+        DrawRectangleLinesEx(preview, 1.0f, COLOR_PHOSPHOR_DIM);
+    }
+
+    const char *c_title = ic_done ? CARDS[icid].name : "[ SEALED CARD ]";
+    const char *t_name  = (CARDS[icid].type == CARD_TYPE_BRIGHT) ? "BRIGHT" :
+                          (CARDS[icid].type == CARD_TYPE_ANIMAL) ? "ANIMAL" :
+                          (CARDS[icid].type == CARD_TYPE_RIBBON) ? "RIBBON" : "PLAIN";
+    char c_sub[48];
+    snprintf(c_sub, sizeof(c_sub), "MONTH %02d // %s", (icid / 4) + 1, t_name);
+    Vector2 ct1 = MeasureTextEx(font_title, c_title, 13.5f, 1.0f);
+    Vector2 ct2 = MeasureTextEx(font_body,  c_sub,   14.5f, 1.0f);
+    draw_text_snapped(font_title, c_title,
+                      k_atlas_insp_box_rect.x + (k_atlas_insp_box_rect.width - ct1.x) * 0.5f,
+                      k_atlas_insp_box_rect.y + 226.0f, 13.5f, 1.0f,
+                      ic_done ? COLOR_TEXT_INFO : COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_body, c_sub,
+                      k_atlas_insp_box_rect.x + (k_atlas_insp_box_rect.width - ct2.x) * 0.5f,
+                      k_atlas_insp_box_rect.y + 250.0f, 14.5f, 1.0f, COLOR_TEXT_INFO_DIM);
+
+    /* 4. Bottom: Progression & Achievements */
+    DrawRectangleRec(k_atlas_ach_box_rect, PLEXUS_SUBBOX_BG);
+    ui_draw_panel_border(k_atlas_ach_box_rect, COLOR_PHOSPHOR_DIM);
+
+    int story_docs = 0;
+    for (int m = 0; m < 12; m++) {
+        if (is_story_month_unlocked(m)) story_docs++;
+    }
+    int ach_ok[8];
+    ach_ok[0] = is_month_completed_mask(s_finished_cards_mask, 0);
+    ach_ok[1] = is_month_unlocked_mask(s_finished_cards_mask, 4);
+    ach_ok[2] = is_month_unlocked_mask(s_finished_cards_mask, 8);
+    ach_ok[3] = (std_done >= 48);
+    ach_ok[4] = (story_docs >= 12);
+    ach_ok[5] = (s_sc_best_wave >= 5 || (s_sc_rank_count > 0 && s_sc_ranks[0].score >= 100));
+    ach_ok[6] = (get_unlocked_camp_opponents() >= 12);
+    ach_ok[7] = (deus_done >= 48);
+
+    static const char * const k_ach_labels[8] = {
+        "THRESHOLD LINK  (MONTH 01)",
+        "SATURATION GATE (SPEEDCOIN)",
+        "RESONANCE GATE  (ACTION CARD)",
+        "STANDARD ATLAS  (48/48 -> DEUS)",
+        "STORY ARCHIVE   (12/12 LOGS)",
+        "SPEEDCOIN ACE   (WAVE 05+)",
+        "SECTOR HUNTER   (12/12 RIVALS)",
+        "DEUS CONVERGENCE (48/48 DEUS)"
+    };
+
+    int earned_cnt = 0;
+    for (int i = 0; i < 8; i++) {
+        if (ach_ok[i]) earned_cnt++;
+    }
+    draw_text_snapped(font_title, "PROGRESSION & ACHIEVEMENTS",
+                      k_atlas_ach_box_rect.x + 14.0f, k_atlas_ach_box_rect.y + 8.0f, 14.5f, 1.1f, COLOR_PHOSPHOR);
+    char e_txt[96];
+    snprintf(e_txt, sizeof(e_txt), "MILESTONES: %d / 8   |   STD %02d/48   |   DEUS %02d/48",
+             earned_cnt, std_done, deus_done);
+    Vector2 ets = MeasureTextEx(font_body, e_txt, 15.0f, 1.0f);
+    draw_text_snapped(font_body, e_txt,
+                      k_atlas_ach_box_rect.x + k_atlas_ach_box_rect.width - ets.x - 14.0f,
+                      k_atlas_ach_box_rect.y + 8.0f, 15.0f, 1.0f, COLOR_TEXT_INFO);
+    DrawLine((int)k_atlas_ach_box_rect.x + 14, (int)k_atlas_ach_box_rect.y + 30,
+             (int)(k_atlas_ach_box_rect.x + k_atlas_ach_box_rect.width - 14.0f),
+             (int)k_atlas_ach_box_rect.y + 30, COLOR_PHOSPHOR_DIM);
+
+    for (int i = 0; i < 8; i++) {
+        int col = i / 4, row = i % 4;
+        float ax = k_atlas_ach_box_rect.x + 16.0f + (float)col * 356.0f;
+        float ay = k_atlas_ach_box_rect.y + 38.0f + (float)row * 27.0f;
+        Color ac = ach_ok[i] ? ((i == 7) ? (Color){ 235, 220, 175, 255 } : COLOR_PHOSPHOR) : COLOR_PHOSPHOR_DIM;
+        draw_text_snapped(font_body,
+                          TextFormat("%s %s", ach_ok[i] ? "[OK]" : "[--]", k_ach_labels[i]),
+                          ax, ay, 15.5f, 1.05f, ac);
+    }
+    (void)st;
+}
+
 static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
-    ensure_log_seeded();
-    commit_viewed_log_entries(s_log_cursor);
+    if (s_log_subtab != LOG_TAB_STORY) {
+        commit_viewed_story_months(-1);
+    }
 
     DrawRectangleRec(k_logfile_win_rect, PLEXUS_PANEL_BG);
     ui_draw_panel_border(k_logfile_win_rect, COLOR_PHOSPHOR);
 
-    /* 1. Title Bar & Top Divider (y = 22..74) */
+    /* 1. Top Title + 4 Full-Panel Sub-Tabs: [ STORY ] [ TRAINING ] [ MATCHES ] [ ATLAS ] */
     draw_text_snapped(font_title, "LOGFILE",
-                      k_logfile_win_rect.x + 22.0f, k_logfile_win_rect.y + 16.0f,
+                      k_logfile_win_rect.x + 20.0f, k_logfile_win_rect.y + 15.0f,
                       24.0f, 1.5f, COLOR_PHOSPHOR);
-    char idx_txt[64];
-    snprintf(idx_txt, sizeof(idx_txt), "[ENTRY %02d / %02d]   USE ARROWS TO SCROLL",
-             s_log_count > 0 ? (s_log_cursor + 1) : 0, s_log_count);
-    Vector2 its = MeasureTextEx(font_body, idx_txt, 18.0f, 1.2f);
-    float idx_x = k_logfile_win_rect.x + k_logfile_win_rect.width - its.x - 22.0f;
-    draw_text_snapped(font_body, idx_txt,
-                      idx_x, k_logfile_win_rect.y + 20.0f,
-                      18.0f, 1.2f, COLOR_TEXT_INFO);
-    if (s_log_count > 0 && s_log_cursor >= 0 && s_log_cursor < s_log_count &&
-        !s_log_entries[s_log_cursor].read) {
-        s_log_entries[s_log_cursor].viewed_open = 1;
-        Vector2 nts = MeasureTextEx(font_body, "[new]", 15.0f, 1.1f);
-        draw_text_snapped(font_body, "[new]",
-                          idx_x - nts.x - 10.0f,
-                          k_logfile_win_rect.y + 22.0f,
-                          15.0f, 1.1f, COLOR_PHOSPHOR);
-    }
-    DrawLine((int)k_logfile_win_rect.x + 18, 74,
-             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 74, COLOR_PHOSPHOR_DIM);
-
-    /* 2. Top Section: Story / Last Event / Information Log + Up/Down Scroll Triangles (y = 74..386) */
-    int can_scroll_up   = (s_log_cursor > 0);
-    int can_scroll_down = (s_log_cursor + 1 < s_log_count);
-    draw_triangle_btn(k_log_scroll_up_rect,   1, vm, can_scroll_up);
-    draw_triangle_btn(k_log_scroll_down_rect, 0, vm, can_scroll_down);
-
-    float tx = k_logfile_win_rect.x + 24.0f;
-    if (s_log_count > 0) {
-        const PlexusLogEntry *cur = &s_log_entries[s_log_cursor];
-        draw_text_snapped(font_body,  cur->tag,   tx, 110.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, cur->title, tx, 136.0f, 20.0f, 1.3f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  cur->line1, tx, 170.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  cur->line2, tx, 198.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  cur->line3, tx, 226.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-
-        /* Show older entry preview below divider inside top log box */
-        if (s_log_cursor + 1 < s_log_count) {
-            const PlexusLogEntry *prev = &s_log_entries[s_log_cursor + 1];
-            DrawLine((int)tx, 260, (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 24.0f), 260, COLOR_PHOSPHOR_DIM);
-            draw_text_snapped(font_body,  prev->tag,   tx, 270.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
-            draw_text_snapped(font_title, prev->title, tx, 294.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
-            draw_text_snapped(font_body,  prev->line1, tx, 322.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+    for (int t = 0; t < 4; t++) {
+        draw_plexus_btn(k_log_tab_rects[t], k_log_tab_labels[t], 14, vm, s_log_subtab == t);
+        if (t == LOG_TAB_STORY && has_unread_story_months()) {
+            DrawCircle((int)(k_log_tab_rects[t].x + k_log_tab_rects[t].width - 11.0f),
+                       (int)(k_log_tab_rects[t].y + 9.0f), 4.0f, COLOR_PHOSPHOR);
         }
     }
 
-    DrawLine((int)k_logfile_win_rect.x + 18, 386,
-             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 386, COLOR_PHOSPHOR_DIM);
+    /* 2. Pinned Current Spine Directive Strip */
+    DrawRectangleRec(k_log_directive_rect, PLEXUS_SUBBOX_BG);
+    DrawRectangleLinesEx(k_log_directive_rect, 1.0f, COLOR_PHOSPHOR_DIM);
 
-    /* 3. Bottom-Left Stats Box & Bottom-Right 48-Card Atlas Map */
-    draw_logfile_stats_box(st, k_log_stats_rect);
-    draw_logfile_atlas_map(ba, k_log_atlas_rect, vm);
+    char dir_txt[120];
+    int active_done = count_mask_cards(active_spine_mask());
+    if (active_done >= 48) {
+        if (is_deus_spine_active()) {
+            snprintf(dir_txt, sizeof(dir_txt),
+                     "DIRECTIVE // DEUS HARDCORE SPINE 48/48 COMPLETE  --  CONVERGENCE ACHIEVED");
+        } else {
+            snprintf(dir_txt, sizeof(dir_txt),
+                     "DIRECTIVE // STANDARD SPINE 48/48 COMPLETE  --  DEUS PASS READY IN [ATLAS]");
+        }
+    } else if (is_month_completed(s_selected_month) && s_selected_month + 1 < 12) {
+        snprintf(dir_txt, sizeof(dir_txt),
+                 "DIRECTIVE // %sMONTH %02d COMPLETE  --  PRESS [NEXT] ABOVE SPINE FOR MONTH %02d",
+                 is_deus_spine_active() ? "DEUS " : "", s_selected_month + 1, s_selected_month + 2);
+    } else {
+        int sl = highest_unlocked_slot(s_selected_month);
+        int cid = s_selected_month * 4 + sl;
+        snprintf(dir_txt, sizeof(dir_txt),
+                 "DIRECTIVE // %sMONTH %02d (%s)  --  NEXT: CARD %d OF 4 [%s]",
+                 is_deus_spine_active() ? "DEUS " : "",
+                 s_selected_month + 1, k_month_names[s_selected_month],
+                 sl + 1, CARDS[cid].name);
+    }
+    draw_text_snapped(font_body, dir_txt,
+                      k_log_directive_rect.x + 12.0f, k_log_directive_rect.y + 8.0f,
+                      16.0f, 1.1f, COLOR_PHOSPHOR);
+
+    DrawLine((int)k_logfile_win_rect.x + 18, 114,
+             (int)(k_logfile_win_rect.x + k_logfile_win_rect.width - 18.0f), 114, COLOR_PHOSPHOR_DIM);
+
+    /* 3. Active Full-Panel Tab Content */
+    if (s_log_subtab == LOG_TAB_STORY) {
+        draw_logfile_story_tab(vm);
+    } else if (s_log_subtab == LOG_TAB_TRAINING) {
+        draw_logfile_training_tab(st);
+    } else if (s_log_subtab == LOG_TAB_MATCHES) {
+        draw_logfile_matches_tab(st, vm);
+    } else {
+        draw_logfile_atlas_tab(ba, st, vm);
+    }
 }
 
 void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     ensure_plexus_assets();
-    ensure_log_seeded();
     if (!is_bottom_btn_unlocked(s_active_tab)) s_active_tab = 0;
 
     float dt = GetFrameTime();
@@ -1315,11 +2135,25 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         if (s_swing_elapsed >= SPINE_SWING_DUR) s_swing_active = 0;
     }
 
-    /* Mouse wheel scroll inside Logfile top section when Logfile is open */
-    if (s_active_tab == 1 && CheckCollisionPointRec(vm, k_log_top_area_rect)) {
+    /* Mouse wheel scroll inside Logfile active sub-tab */
+    if (s_active_tab == 1 && CheckCollisionPointRec(vm, k_log_content_rect)) {
         float wheel = GetMouseWheelMove();
-        if (wheel > 0.1f && s_log_cursor > 0) s_log_cursor--;
-        else if (wheel < -0.1f && s_log_cursor + 1 < s_log_count) s_log_cursor++;
+        if (s_log_subtab == LOG_TAB_STORY) {
+            if (wheel > 0.1f) {
+                for (int m = s_story_sel_month - 1; m >= 0; m--) {
+                    if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+                }
+            } else if (wheel < -0.1f) {
+                for (int m = s_story_sel_month + 1; m < 12; m++) {
+                    if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
+                }
+            }
+        } else if (s_log_subtab == LOG_TAB_MATCHES) {
+            int filtered[PLEXUS_MATCH_LOG_MAX];
+            int f_cnt = collect_filtered_matches(filtered, PLEXUS_MATCH_LOG_MAX);
+            if (wheel > 0.1f && s_match_scroll > 0) s_match_scroll--;
+            else if (wheel < -0.1f && s_match_scroll + 5 < f_cnt) s_match_scroll++;
+        }
     }
 
     /* 1. Background (assets/plexus.png + plexus_normal.png via fog/light shader) */
@@ -1362,7 +2196,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             or_r.x += 215.0f * uo * uo;
             if (or_r.x >= 1280.0f) continue;
             board_draw_card_shadow(or_r, 0.30f);
-            board_draw_card(ba, s_swing_prev_month * 4 + i, or_r);
+            draw_spine_card_face(ba, s_swing_prev_month * 4 + i, or_r);
             DrawRectangleLinesEx((Rectangle){ or_r.x - 1.0f, or_r.y - 1.0f, or_r.width + 2.0f, or_r.height + 2.0f },
                                  1.0f, COLOR_PHOSPHOR_DIM);
         }
@@ -1398,7 +2232,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
             board_draw_card_shadow(draw_r, (sel || hov) ? 0.85f : 0.35f);
             if (sel) board_draw_card_glow(draw_r, pulse);
             else if (hov) board_draw_card_glow(draw_r, 0.45f);
-            if (ba) board_draw_card(ba, card_id, draw_r);
+            if (ba) draw_spine_card_face(ba, card_id, draw_r);
             Color bcol = (sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
             Rectangle border_r = { draw_r.x - 1.0f, draw_r.y - 1.0f, draw_r.width + 2.0f, draw_r.height + 2.0f };
             DrawRectangleLinesEx(border_r, sel ? 2.0f : 1.0f, bcol);
@@ -1417,7 +2251,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     if (s_active_tab == 1) {
         draw_logfile_window(ba, st, vm);
     } else {
-        commit_viewed_log_entries(-1);
+        commit_viewed_story_months(-1);
 
         char hdr[96];
         char sub[96];
@@ -1430,6 +2264,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
         char sc_line2[96];
         char sc_line3[96];
         if (s_active_tab == 0) {
+            const char *deus_p = is_deus_spine_active() ? "DEUS // " : "";
             if (s_selected_month == 0) {
                 static const char * const k_tut_titles[4] = {
                     "TUTORIAL 04 // FINAL VERIFICATION MATCH",
@@ -1443,15 +2278,15 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
                     "180s Speedcoin saturation tutorial.",
                     "Learn floral matching, deck draw, yaku & Koi-Koi."
                 };
-                snprintf(hdr, sizeof(hdr), "MONTH 01  //  %s   [TUTORIAL]", k_month_names[0]);
+                snprintf(hdr, sizeof(hdr), "%sMONTH 01  //  %s   [TUTORIAL]", deus_p, k_month_names[0]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
                 line3 = "";
             } else {
-                snprintf(hdr, sizeof(hdr), "MONTH %02d  //  %s", s_selected_month + 1, k_month_names[s_selected_month]);
+                snprintf(hdr, sizeof(hdr), "%sMONTH %02d  //  %s", deus_p, s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
-                line1 = "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
+                line1 = is_deus_spine_active() ? "HARDCORE DEUS SPINE  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
                 line2 = "";
                 line3 = "";
             }
@@ -1618,7 +2453,6 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
 }
 
 ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
-    ensure_log_seeded();
     if (out_clicked) *out_clicked = 0;
 
     /* Per-mode Match Settings drawer (Action Card & Training) */
@@ -1641,17 +2475,81 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         return ACT_NONE;
     }
 
-    /* Logfile scroll triangles when Logfile window is open */
+    /* Full-Panel 4-Tab Logfile Window interactions when open */
     if (s_active_tab == 1) {
-        if (CheckCollisionPointRec(vm, k_log_scroll_up_rect)) {
-            if (s_log_cursor > 0) s_log_cursor--;
-            if (out_clicked) *out_clicked = 1;
-            return ACT_NONE;
+        for (int t = 0; t < 4; t++) {
+            if (CheckCollisionPointRec(vm, k_log_tab_rects[t])) {
+                if (s_log_subtab != t) {
+                    commit_viewed_story_months(-1);
+                    s_log_subtab = t;
+                    plexus_save();
+                }
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
         }
-        if (CheckCollisionPointRec(vm, k_log_scroll_down_rect)) {
-            if (s_log_cursor + 1 < s_log_count) s_log_cursor++;
-            if (out_clicked) *out_clicked = 1;
-            return ACT_NONE;
+        if (s_log_subtab == LOG_TAB_STORY) {
+            for (int m = 0; m < 12; m++) {
+                if (CheckCollisionPointRec(vm, story_month_btn_rect(m))) {
+                    if (!is_story_month_unlocked(m)) return ACT_NONE;
+                    commit_viewed_story_months(m);
+                    s_story_sel_month = m;
+                    plexus_save();
+                    if (out_clicked) *out_clicked = 1;
+                    return ACT_NONE;
+                }
+            }
+        } else if (s_log_subtab == LOG_TAB_MATCHES) {
+            for (int f = 0; f < 5; f++) {
+                if (CheckCollisionPointRec(vm, k_match_filter_rects[f])) {
+                    s_match_filter = f;
+                    s_match_scroll = 0;
+                    if (out_clicked) *out_clicked = 1;
+                    return ACT_NONE;
+                }
+            }
+            int filtered[PLEXUS_MATCH_LOG_MAX];
+            int f_cnt = collect_filtered_matches(filtered, PLEXUS_MATCH_LOG_MAX);
+            if (CheckCollisionPointRec(vm, k_match_scroll_up_rect)) {
+                if (s_match_scroll > 0) s_match_scroll--;
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
+            if (CheckCollisionPointRec(vm, k_match_scroll_down_rect)) {
+                if (s_match_scroll + 5 < f_cnt) s_match_scroll++;
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
+        } else if (s_log_subtab == LOG_TAB_ATLAS) {
+            if (CheckCollisionPointRec(vm, k_atlas_std_btn_rect)) {
+                s_atlas_view_deus = 0;
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
+            if (CheckCollisionPointRec(vm, k_atlas_deus_btn_rect)) {
+                if (!is_deus_spine_unlocked()) return ACT_NONE;
+                s_atlas_view_deus = 1;
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
+            if (CheckCollisionPointRec(vm, k_atlas_spine_btn_rect)) {
+                if (!is_deus_spine_unlocked()) return ACT_NONE;
+                int next_deus = !is_deus_spine_active();
+                set_deus_spine_mode(next_deus);
+                s_atlas_view_deus = next_deus;
+                plexus_save();
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
+            }
+            for (int m = 0; m < 12; m++) {
+                for (int r = 0; r < 4; r++) {
+                    if (CheckCollisionPointRec(vm, atlas_grid_cell_rect(m, r))) {
+                        s_atlas_pinned_cid = m * 4 + r;
+                        if (out_clicked) *out_clicked = 1;
+                        return ACT_NONE;
+                    }
+                }
+            }
         }
     }
 
@@ -1665,13 +2563,9 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         s_selected_slot    = 3;
         s_active_tab       = 0;
         s_mode_settings_open = 0;
-        char hdr[80];
-        snprintf(hdr, sizeof(hdr), "MONTH %02d // %s -- ACTIVE",
-                 s_selected_month + 1, k_month_names[s_selected_month]);
-        plexus_log_push("DIRECTIVE // MONTHLY PROGRESSION", hdr,
-                        "Next month swung onto the conditioning spine.",
-                        "Previous month sealed -- complete each face-up card from",
-                        "bottom to top to unlock the next card and reveal [NEXT].");
+        if (!is_deus_spine_active() && is_story_month_unlocked(s_selected_month)) {
+            s_story_sel_month = s_selected_month;
+        }
         plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
@@ -1689,7 +2583,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
     }
     if (s_active_tab != 1 && CheckCollisionPointRec(vm, k_start_rect)) {
-        /* Bottom tab 4 (TRAINING): launch match from Atrium Plex Training settings */
+        /* Bottom tab 4 (TRAINING): launch match without spamming story/match logs on click */
         if (s_active_tab == 4) {
             plexus_tutorial_abort();
             plexus_speedcoin_abort();
@@ -1697,20 +2591,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             s_mode_settings_open = 0;
             s_training_result_view = 0;
             s_training_active = 1;
-            Ruleset eff_rs = (s_tr_cfg_diff == DIFFICULTY_DEUS) ? RULESET_YAKUZA : s_tr_cfg_ruleset;
-            const char *d_name = diff_short_name(s_tr_cfg_diff, s_tr_cfg_timer);
-            char title[80], l1[96];
-            snprintf(title, sizeof(title), "TRAINING // %s // %s (%d ROUNDS)",
-                     ruleset_short_name(eff_rs), d_name, s_tr_cfg_rounds);
-            if (s_tr_cfg_diff == DIFFICULTY_DEUS) {
-                snprintf(l1, sizeof(l1), "Opponent: ENTITY 13 // DEUS SUPREMUS (Optimal AI + Deus Atlas).");
-            } else {
-                const Opponent *op = campaign_get_opponent(clamped_tr_opponent());
-                snprintf(l1, sizeof(l1), "Opponent Playstyle: %s (%s).", op->name, op->favorite_combo);
-            }
-            plexus_log_push("TRAINING // SPARRING MATCH", title, l1,
-                            "Special Condition: NONE  //  Configured via Plex Settings.",
-                            "Non-campaign game: no clearance coins or unlocks earned.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -1732,14 +2612,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             s_mode_settings_open = 0;
             s_training_active = 0;
             s_action_card_active = 1;
-            const char *d_name = diff_short_name(s_ac_cfg_diff, s_ac_cfg_timer);
-            char title[80], l1[96];
-            snprintf(title, sizeof(title), "ACTION CARD // KK-ADD-10 // %s (%d ROUNDS)", d_name, s_ac_cfg_rounds);
-            snprintf(l1, sizeof(l1), "Ruleset locked to KK-ADD-10; %s AI%s.",
-                     d_name, (s_ac_cfg_diff == DIFFICULTY_DEUS) ? " with Deus Atlas deck" : " via Plex Settings");
-            plexus_log_push("ACTION CARD // MATCH INITIATED", title, l1,
-                            "Dual audio meters, 5 beat-armed symbols & distraction glow.",
-                            "Telemetry & match results recorded in Atrium Plex.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -1755,11 +2627,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             tut_save_telemetry();
             s_tut_active = 1; s_tut_card_id = cid; s_tut_step = TUT3_WAIT_START;
             s_action_card_active = 1;
-            plexus_log_push("TUTORIAL // PROTOCOL 03 INITIATED",
-                            "CARD 2 OF 4 : [01-RP Poetry] -- ACTION CARD AUDIO EFFECT",
-                            "Locked to 3 Rounds (Easy) on KK-ADD-10 with twin bio-meters.",
-                            "Read the two Construct briefings, then finish all 3 rounds",
-                            "to unlock Card 1 on the conditioning spine.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -1773,11 +2640,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             s_tut_card_id      = cid;
             s_tut_step         = TUT2_WAIT_START;
             s_speedcoin_active = 1;
-            plexus_log_push("TUTORIAL // PROTOCOL 02 INITIATED",
-                            "CARD 3 OF 4 : [01-P1 Plain] -- SPEEDCOIN SATURATION PROTOCOL",
-                            "Objective: System Saturation before System Collapse (180s).",
-                            "Follow the Construct prompts across Wave 1, then survive",
-                            "to the end of the run to unlock Card 2 on the spine.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -1790,55 +2652,44 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             s_tut_active  = 1;
             s_tut_card_id = cid;
             s_tut_step    = TUT1_WAIT_DEAL;
-            plexus_log_push("TUTORIAL // PROTOCOL 01 INITIATED",
-                            "CARD 4 OF 4 : [01-P2 Plain] -- STANDARD RULES OF KOI-KOI",
-                            "Informational upgrade started for Entity 001.",
-                            "Follow the tutorial prompts to capture the Moon and Sake Cup,",
-                            "form Moon Viewing (Tsukimi-zake), and unlock Card 3.");
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
-        int was_done = (int)((s_finished_cards_mask >> cid) & 1ULL);
-        s_finished_cards_mask |= (1ULL << cid);
+        int deus_pass = is_deus_spine_active();
+        int was_done = mark_active_spine_card_done(cid);
         if (!was_done && s_selected_slot > 0 && is_slot_unlocked_in_month(s_selected_month, s_selected_slot - 1)) {
             s_selected_slot--;
             stage_spine_flip(s_selected_month, s_selected_slot, 0.0f);
         }
         int month_done = is_month_completed(s_selected_month);
         if (!was_done) {
-            char title[80];
-            if (month_done && s_selected_month == 3) {
-                snprintf(title, sizeof(title), "MONTH 04 COMPLETE -- SPEEDCOIN & [NEXT] UNLOCKED!");
-                plexus_log_push("STORY // SPEEDCOIN MODULE UNLOCKED", title,
-                                "All 4 cards of Month 04 are completed.",
-                                "SPEEDCOIN is now unlocked in the bottom bar, and",
-                                "[NEXT] is ready above the top card for Month 05.");
-            } else if (month_done && s_selected_month == 7) {
-                snprintf(title, sizeof(title), "MONTH 08 COMPLETE -- ACTION CARD & [NEXT] UNLOCKED!");
-                plexus_log_push("STORY // ACTION CARD MODULE UNLOCKED", title,
-                                "All 4 cards of Month 08 are completed.",
-                                "ACTION CARD is now unlocked in the bottom bar, and",
-                                "[NEXT] is ready above the top card for Month 09.");
+            char title[88], detail[112];
+            snprintf(title, sizeof(title), "%s[%s] CLEARED  //  MONTH %02d CARD %d",
+                     deus_pass ? "DEUS " : "", CARDS[cid].name,
+                     s_selected_month + 1, (cid % 4) + 1);
+            if (month_done && !deus_pass && count_mask_cards(s_finished_cards_mask) >= 48) {
+                snprintf(detail, sizeof(detail),
+                         "Standard Atlas 48/48 complete! Hardcore DEUS Spine Pass unlocked in [ATLAS].");
+            } else if (month_done && deus_pass && count_mask_cards(s_deus_finished_cards_mask) >= 48) {
+                snprintf(detail, sizeof(detail),
+                         "Hardcore Deus Atlas 48/48 complete! Full monochrome convergence achieved.");
+            } else if (month_done && !deus_pass && s_selected_month == 3) {
+                snprintf(detail, sizeof(detail),
+                         "Month 04 complete -- SPEEDCOIN module unlocked & [NEXT] ready for Month 05.");
+            } else if (month_done && !deus_pass && s_selected_month == 7) {
+                snprintf(detail, sizeof(detail),
+                         "Month 08 complete -- ACTION CARD module unlocked & [NEXT] ready for Month 09.");
             } else if (month_done && s_selected_month + 1 < 12) {
-                snprintf(title, sizeof(title), "MONTH %02d COMPLETE -- [NEXT] READY!",
+                snprintf(detail, sizeof(detail),
+                         "All 4 cards of Month %02d cleared -- press [NEXT] above the Spine.",
                          s_selected_month + 1);
-                plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED", title,
-                                "All 4 cards of this month are completed.",
-                                "[NEXT] has appeared above the top spine card.",
-                                "Press [NEXT] to swing in the next month irreversibly.");
-            } else if (month_done) {
-                plexus_log_push("STORY // SPINE CONDITIONING COMPLETE",
-                                "MONTH 12 COMPLETE -- ALL 48 CARDS CONDITIONED!",
-                                "Every card across all 12 Months has been completed",
-                                "and illuminated in the bottom-right 48-card Atlas.",
-                                "All Atrium Plex modules remain open on the bottom bar.");
             } else {
-                snprintf(title, sizeof(title), "[%s] -- COMPLETED // NEXT CARD UNLOCKED", CARDS[cid].name);
-                plexus_log_push("LAST EVENT // CARD COMPLETED", title,
-                                "Completed card illuminated in the Atlas; the next card",
-                                "above turned face up and unlocked on the spine.",
-                                "Complete all 4 cards of this month to reveal [NEXT].");
+                snprintf(detail, sizeof(detail),
+                         "%sAtlas %02d/48 illuminated -- next Spine card unlocked above.",
+                         deus_pass ? "Deus " : "Standard ",
+                         count_mask_cards(active_spine_mask()));
             }
+            plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE", title, detail);
         }
         plexus_save();
         if (out_clicked) *out_clicked = 1;
@@ -1911,13 +2762,28 @@ void plexus_training_finish(const GameState *g) {
     s_training_active = 0;
     s_training_result_view = 1;
     if (!g) return;
-    ensure_log_seeded();
-    char l1[96];
-    snprintf(l1, sizeof(l1), "Completed %d rounds  //  Points: YOU %d - CPU %d.",
-             g->total_rounds, g->total_score[0], g->total_score[1]);
-    plexus_log_push("TRAINING // SESSION COMPLETE", "TRAINING TELEMETRY RECORDED",
-                    l1, "Training session finished -- career match record untouched.",
-                    "Review Speedbar & Audio FX telemetry below.");
+
+    int you = g->total_score[0], cpu = g->total_score[1];
+    s_tr_runs++;
+    if (you > cpu) s_tr_wins++;
+    else if (you < cpu) s_tr_losses++;
+    if (you > s_tr_best_score) s_tr_best_score = you;
+    if (g->total_rounds > 0) s_tr_rounds_total += g->total_rounds;
+
+    const char *res  = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
+    const char *r_nm = ruleset_short_name(g->ruleset);
+    const char *d_nm = (settings.difficulty == DIFFICULTY_DEUS)   ? "DEUS" :
+                       (settings.difficulty == DIFFICULTY_MASTER) ? "MASTER" :
+                       (settings.difficulty == DIFFICULTY_HARD)   ? "HARD" : "EASY";
+    int opp_num = (settings.difficulty == DIFFICULTY_DEUS) ? 13 : (settings.current_opponent + 1);
+    int mp = speed_bar_total();
+
+    char title[88], detail[112];
+    snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_nm);
+    snprintf(detail, sizeof(detail), "%s  |  %d RDS  |  Rival E-%02d  |  Speedcoins: %d MP",
+             r_nm, g->total_rounds, opp_num, mp);
+    plexus_match_log_push(MLOG_TRAINING, "TRAINING", title, detail);
+    plexus_save();
 }
 
 ScreenAction plexus_handle_training_result_click(Vector2 vm, int *out_clicked) {
@@ -2011,7 +2877,6 @@ void plexus_action_card_abort(void) {
 
 void plexus_action_card_finish_match(const GameState *g) {
     if (!g) return;
-    ensure_log_seeded();
     int is_ac_tut = (s_tut_active && s_tut_card_id == 1);
     int you = g->total_score[0], cpu = g->total_score[1];
     s_ac_runs++;
@@ -2028,40 +2893,29 @@ void plexus_action_card_finish_match(const GameState *g) {
     int yt = 0, yp = 0, ct = 0, cp = 0, mt = 0;
     action_card_get_match_time_stats(&yt, &yp, &ct, &cp, &mt);
 
-    char title[80], l1[96], l2[96], l3[96];
-    snprintf(title, sizeof(title), "ACTION CARD %s // YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
-    snprintf(l1, sizeof(l1), "KK-ADD-10 (%d Rounds)  //  Speedcoins: %d MP (+%d PTS).",
-             g->total_rounds, mp, mp / 10);
-    snprintf(l2, sizeof(l2), "Time Numbers: YOU %d (+%d PTS)  //  CPU %d (+%d PTS).",
-             yt, yp, ct, cp);
-    snprintf(l3, sizeof(l3), "Action Card Record: %dW-%dL (%d Runs)  //  Best: %d PTS.",
-             s_ac_wins, s_ac_losses, s_ac_runs, s_ac_best_score);
-    plexus_log_push("ACTION CARD // MATCH SUMMARY", title, l1, l2, l3);
+    char title[88], detail[112];
+    snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
+    snprintf(detail, sizeof(detail), "KK-ADD-10 (%d RDS)  |  Speedcoins: %d MP (+%d)  |  Time: YOU %d / CPU %d",
+             g->total_rounds, mp, mp / 10, yt, ct);
+    plexus_match_log_push(MLOG_ACTION_CARD, "ACTION CARD", title, detail);
 
     if (is_ac_tut) {
         s_tut_telemetry_saved = 0;
         if (s_tut_step == TUT3_FREE_PLAY) {
-            int was_done = (int)((s_finished_cards_mask >> 1) & 1ULL);
-            s_finished_cards_mask |= (1ULL << 1);
+            int deus_pass = is_deus_spine_active();
+            int was_done = mark_active_spine_card_done(1);
             if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 0)) {
                 s_selected_slot = 0; s_active_tab = 0;
                 stage_spine_flip(0, 0, 0.35f);
             }
-            if (!was_done && is_month_completed(0)) {
-                plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED",
-                                "MONTH 01 COMPLETE -- [NEXT] READY!",
-                                "All 4 cards of Month 01 are completed.",
-                                "[NEXT] is now active above the top spine card.",
-                                "Press [NEXT] to swing in Month 02 irreversibly.");
-            } else if (!was_done) {
-                plexus_log_push("STORY // TUTORIAL CARD 3 COMPLETED",
-                                "[01-RP Poetry] -- ACTION CARD PROTOCOL COMPLETED",
-                                "Entity 001 completed Action Card Audio Effect conditioning.",
-                                "Card 2 of Month 01 is complete; Card 1 turned face up",
-                                "and unlocked at the apex of Month 01's spine.");
+            if (!was_done) {
+                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE",
+                                      "[01-RP Poetry] TUTORIAL 03 CLEARED",
+                                      "Action Card Audio Effect protocol finished -- Card 1 unlocked at apex.");
             }
         }
     }
+    plexus_save();
 }
 
 void plexus_tutorial_setup_round(GameState *g) {
@@ -2560,8 +3414,8 @@ void plexus_tutorial_finish_match(void) {
     if (!s_tut_active) return;
     tut_restore_telemetry(1);
     int cid = (s_tut_card_id >= 0 && s_tut_card_id < 48) ? s_tut_card_id : 3;
-    int was_done = (int)((s_finished_cards_mask >> cid) & 1ULL);
-    s_finished_cards_mask |= (1ULL << cid);
+    int deus_pass = is_deus_spine_active();
+    int was_done = mark_active_spine_card_done(cid);
     int m = cid / 4, sl = cid % 4;
     if (!was_done && sl > 0 && s_selected_month == m && is_slot_unlocked_in_month(m, sl - 1)) {
         s_selected_slot = sl - 1;
@@ -2573,12 +3427,10 @@ void plexus_tutorial_finish_match(void) {
     s_tut_step    = TUT1_NONE;
 
     if (!was_done) {
-        char title[80];
-        snprintf(title, sizeof(title), "[%s] -- TUTORIAL 01 COMPLETED", CARDS[cid].name);
-        plexus_log_push("STORY // TUTORIAL CARD 1 COMPLETED", title,
-                        "Entity 001 completed Standard Rules of Koi-Koi conditioning.",
-                        "Card 4 of Month 01 is complete; Card 3 turned face up",
-                        "and unlocked above it on the conditioning spine.");
+        char title[88];
+        snprintf(title, sizeof(title), "[%s] TUTORIAL 01 CLEARED", CARDS[cid].name);
+        plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE", title,
+                              "Standard Koi-Koi rules conditioning finished -- Card 3 unlocked on Spine.");
     }
     plexus_save();
 }
@@ -2749,7 +3601,6 @@ void plexus_speedcoin_reverse_draw_finish(GameState *g) {
 }
 
 void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int run_bonus_pts, int run_best_streak) {
-    ensure_log_seeded();
     s_sc_last_score = (final_score > 0) ? final_score : 0;
     s_sc_last_waves = (waves > 0) ? waves : 1;
     s_sc_last_coins = (run_coins > 0) ? run_coins : 0;
@@ -2782,42 +3633,32 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
         s_sc_last_rank_idx = ins;
     }
 
-    char title[80], l1[96], l2[96];
-    snprintf(title, sizeof(title), "SPEEDCOIN RUN // %d PTS  [WAVE %d]", s_sc_last_score, s_sc_last_waves);
-    snprintf(l1, sizeof(l1), "Final Score: %d PTS  (Speedcoin Bonus: +%d PTS from %d MP).",
-             s_sc_last_score, s_sc_last_bonus, s_sc_last_coins);
+    char title[88], detail[112];
     if (s_sc_last_rank_idx >= 0) {
-        snprintf(l2, sizeof(l2), "Ranked #%02d on the Atrium Speedcoin Ranklist  [Best Serie x%d].",
-                 s_sc_last_rank_idx + 1, s_sc_last_streak);
+        snprintf(title, sizeof(title), "%d PTS  //  WAVE %02d  [RANK #%02d]",
+                 s_sc_last_score, s_sc_last_waves, s_sc_last_rank_idx + 1);
     } else {
-        snprintf(l2, sizeof(l2), "Waves Reached: %d  //  Best Perfect Serie: x%d.",
-                 s_sc_last_waves, s_sc_last_streak);
+        snprintf(title, sizeof(title), "%d PTS  //  WAVE %02d  [180s RUN]",
+                 s_sc_last_score, s_sc_last_waves);
     }
-    plexus_log_push("SPEEDCOIN // RUN SUMMARY", title, l1, l2,
-                    "Review Speedbar telemetry below or launch another 180s run.");
+    snprintf(detail, sizeof(detail), "Speedcoin Bonus: +%d PTS (%d MP)  |  Best Serie: x%d  |  Drops: %d",
+             s_sc_last_bonus, s_sc_last_coins, s_sc_last_streak, s_sc_last_drops);
+    plexus_match_log_push(MLOG_SPEEDCOIN, "SPEEDCOIN", title, detail);
 
     if (s_tut_active && s_tut_card_id == 2) {
         s_tut_telemetry_saved = 0;
         if (s_tut_step == TUT2_FREE_PLAY) {
-            int was_done = (int)((s_finished_cards_mask >> 2) & 1ULL);
-            s_finished_cards_mask |= (1ULL << 2);
+            int deus_pass = is_deus_spine_active();
+            int was_done = mark_active_spine_card_done(2);
             if (!was_done && s_selected_month == 0 && is_slot_unlocked_in_month(0, 1)) {
                 s_selected_slot = 1;
                 s_active_tab = 0;
                 stage_spine_flip(0, 1, 0.35f);
             }
-            if (!was_done && is_month_completed(0)) {
-                plexus_log_push("STORY // MONTHLY PROGRESSION UNLOCKED",
-                                "MONTH 01 COMPLETE -- [NEXT] READY!",
-                                "All 4 cards of Month 01 are completed.",
-                                "[NEXT] is now active above the top spine card.",
-                                "Press [NEXT] to swing in Month 02 irreversibly.");
-            } else if (!was_done) {
-                plexus_log_push("STORY // TUTORIAL CARD 2 COMPLETED",
-                                "[01-P1 Plain] -- SPEEDCOIN PROTOCOL COMPLETED",
-                                "Entity 001 completed Speedcoin saturation conditioning.",
-                                "Card 3 of Month 01 is complete; Card 2 turned face up",
-                                "and unlocked above it on the conditioning spine.");
+            if (!was_done) {
+                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE",
+                                      "[01-P1 Plain] TUTORIAL 02 CLEARED",
+                                      "Speedcoin Saturation protocol finished -- Card 2 unlocked on Spine.");
             }
         }
         s_tut_active  = 0;
