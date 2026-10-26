@@ -914,8 +914,7 @@ void plexus_save(void) {
                 s_match_logs[i].title, s_match_logs[i].detail);
     }
     if (fclose(f) != 0) { remove(tmp); return; }
-    remove(target);
-    rename(tmp, target);
+    if (!storage_profiles_commit_live_temp("plexsave.txt", tmp)) remove(tmp);
 }
 
 void plexus_unload_assets(void) {
@@ -1024,6 +1023,10 @@ int plexus_close_subpanel(void) {
         return 1;
     }
     return 0;
+}
+
+int plexus_get_spine_count(void) {
+    return count_finished_cards();
 }
 
 static void draw_plexus_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, int active) {
@@ -3320,18 +3323,15 @@ ScreenAction plexus_handle_action_card_result_click(Vector2 vm, int *out_clicked
     if (CheckCollisionPointRec(vm, k_ac_play_again_rect)) {
         if (!is_action_card_bottom_unlocked()) {
             s_action_card_active = 0;
-            s_action_card_result_view = 0;
             if (out_clicked) *out_clicked = 1;
             return ACT_GOTO_ATRIUM;
         }
         s_action_card_active = 1;
-        s_action_card_result_view = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_START_GAME;
     }
     if (CheckCollisionPointRec(vm, k_ac_back_plex_rect)) {
         s_action_card_active = 0;
-        s_action_card_result_view = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_ATRIUM;
     }

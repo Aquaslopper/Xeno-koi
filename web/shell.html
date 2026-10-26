@@ -293,7 +293,15 @@
         var Module = {
             preRun: [function() {
                 try {
-                    var files = ['settings.txt', 'stats.txt', 'history.txt', 'stats_report.txt', 'plexsave.txt'];
+                    var files = [
+                        'settings.txt', 'stats.txt', 'history.txt', 'stats_report.txt', 'plexsave.txt', 'profiles.txt',
+                        'profiles/slot01/settings.txt', 'profiles/slot01/stats.txt', 'profiles/slot01/history.txt', 'profiles/slot01/plexsave.txt',
+                        'profiles/slot02/settings.txt', 'profiles/slot02/stats.txt', 'profiles/slot02/history.txt', 'profiles/slot02/plexsave.txt',
+                        'profiles/slot03/settings.txt', 'profiles/slot03/stats.txt', 'profiles/slot03/history.txt', 'profiles/slot03/plexsave.txt'
+                    ];
+                    ['/profiles', '/profiles/slot01', '/profiles/slot02', '/profiles/slot03'].forEach(function(dir) {
+                        try { FS.mkdir(dir); } catch (e) {}
+                    });
                     files.forEach(function(fn) {
                         var val = window.localStorage.getItem('xenokoi_' + fn);
                         if (val !== null) FS.writeFile('/' + fn, val);
@@ -314,7 +322,7 @@
                         var r = origUnlink.apply(FS, arguments);
                         try {
                             var base = path.replace(/^(\.\/|\/)+/, '');
-                            if (base === 'history.txt' || base === 'stats_report.txt') {
+                            if (files.indexOf(base) !== -1) {
                                 window.localStorage.removeItem('xenokoi_' + base);
                             }
                         } catch (e) {}
