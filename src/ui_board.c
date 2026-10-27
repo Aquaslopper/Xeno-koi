@@ -35,6 +35,27 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
 #define ASH_COUNT 155
 #define ASH_BURST_MAX 420
 
+/* Ember heat on the ash field. Driven by the same capture / Koi-Koi edges that drive the
+   reverb envelope, but kept in its own state so it is NOT reset per round outside
+   action-card mode (see the round_reset block in board_draw_table). Tune here only.
+   Below EMBER_MIN the particles are drawn byte-for-byte as they always were.
+
+   Note EMBER_KICK_CAP is PER CARD, and the smallest capture event takes two cards (the
+   played card plus the field card it matched), so one ordinary capture adds twice this.
+   A four-card capture adds four times. Calibrate against that, not against "one capture". */
+#define EMBER_MIN        0.07f  /* heat below this stays cold dark ash                */
+#define EMBER_HOT        0.52f  /* heat at/above this is drawn in the additive pass   */
+#define EMBER_KICK_CAP   0.10f  /* heat per captured card: one capture = 0.20         */
+#define EMBER_KICK_KOI   0.30f  /* heat added on a Koi-Koi call                       */
+#define EMBER_DECAY      0.08f  /* linear fall per second - slow, so heat accumulates  */
+#define EMBER_SMOOTH_ATK 0.12f  /* one-pole up, seconds - the glow swells, never steps */
+#define EMBER_SMOOTH_REL 0.55f  /* one-pole down, seconds - embers cool slowly         */
+#define EMBER_SIZE_BONUS 0.16f  /* extra heat on the largest fragments (8-10 px)      */
+/* Bursts are scaled from the field, not offset above it, so a faint glow gives faint
+   sparks. An additive offset made even the first capture burst go straight to HOT. */
+#define EMBER_BURST_GAIN 1.35f  /* burst heat = field heat * this                     */
+#define EMBER_YOUTH_GAIN 1.25f  /* further scale while life/max_life > 0.60           */
+
 typedef struct {
     Vector2 pos;
     float speed_x, speed_y, sway_speed, sway_amp;
@@ -62,6 +83,11 @@ typedef struct {
 static AshParticle g_ash[ASH_COUNT];
 static AshBurstParticle g_ash_burst[ASH_BURST_MAX];
 static int g_ash_initialized = 0;
+/* Written in board_draw_table where the capture edges are detected, read by both ash draw
+   passes. Both passes run later in the same frame (ash_draw_and_update at the background
+   step, ash_burst_draw_and_update after the field cards), so they see this frame's value. */
+static float s_ember_heat = 0.0f;
+static float s_ember_glow = 0.0f;
 static int s_audio_action_triggers = 0;
 static float s_audio_peak_synergy = 0.0f;
 static float s_audio_full_hold_sec = 0.0f;
@@ -169,16 +195,56 @@ static void draw_corrupted_shard(int x, int y, int sz, int shape, Color col) {
     }
 }
 
-static void draw_dark_particle(int x, int y, int w, int h, int shape, unsigned char alpha) {
+/* Dark ash -> dull red -> orange -> near-white, as heat goes 0 -> 1. */
+static Color ember_ramp_color(float h) {
+    if (h <= 0.0f) return (Color){ 5, 5, 5, 255 };
+    if (h >= 1.0f) return (Color){ 255, 224, 168, 255 };
+    static const Color stop[4] = {
+        {   5,   5,   5, 255 },   /* cold - identical to the ash that was always drawn */
+        { 118,  30,  10, 255 },   /* deep ember red                                    */
+        { 236, 112,  34, 255 },   /* orange fire                                         */
+        { 255, 224, 168, 255 },   /* hot core                                            */
+    };
+    float t = h * 3.0f;
+    int i = (int)t;
+    if (i > 2) i = 2;
+    float f = t - (float)i;
+    Color a = stop[i], b = stop[i + 1];
+    return (Color){ (unsigned char)(a.r + (b.r - a.r) * f),
+                    (unsigned char)(a.g + (b.g - a.g) * f),
+                    (unsigned char)(a.b + (b.b - a.b) * f), 255 };
+}
+
+/* heat < EMBER_MIN reproduces the original dark particle exactly: a drop-shadow halo at
+   95/255 of alpha offset by 1px, then the near-black core. At or above EMBER_HOT the halo
+   is promoted to a bloom and the caller draws this in an additive pass, so overlapping
+   embers stack toward white instead of occluding each other. */
+static void draw_dark_particle(int x, int y, int w, int h, int shape, unsigned char alpha, float heat) {
     if (alpha == 0) return;
     int sz = (w > h) ? w : h;
-    if (sz >= 4) {
-        unsigned char halo_a = (unsigned char)((unsigned int)alpha * 95u / 255u);
-        if (halo_a > 0) {
-            draw_corrupted_shard(x + 1, y + 1, sz + 1, shape, (Color){ 4, 4, 4, halo_a });
+    if (heat < EMBER_MIN) {
+        if (sz >= 4) {
+            unsigned char halo_a = (unsigned char)((unsigned int)alpha * 95u / 255u);
+            if (halo_a > 0) {
+                draw_corrupted_shard(x + 1, y + 1, sz + 1, shape, (Color){ 4, 4, 4, halo_a });
+            }
         }
+        draw_corrupted_shard(x, y, sz, shape, (Color){ 5, 5, 5, alpha });
+        return;
     }
-    draw_corrupted_shard(x, y, sz, shape, (Color){ 5, 5, 5, alpha });
+    if (heat > 1.0f) heat = 1.0f;
+    Color core = ember_ramp_color(heat);
+    core.a = alpha;
+    if (sz >= 2) {
+        Color bloom = core;
+        bloom.r = (unsigned char)(bloom.r * 58u / 100u);
+        bloom.g = (unsigned char)(bloom.g * 32u / 100u);
+        bloom.b = (unsigned char)(bloom.b * 20u / 100u);
+        bloom.a = (unsigned char)((unsigned int)alpha * (62u + (unsigned int)(76.0f * heat)) / 255u);
+        draw_corrupted_shard(x - 1, y - 1, sz + 2, shape, bloom);
+        if (heat >= EMBER_HOT) draw_corrupted_shard(x, y, sz + 1, shape, bloom);
+    }
+    draw_corrupted_shard(x, y, sz, shape, core);
 }
 
 static void ash_init(void) {
@@ -280,8 +346,42 @@ static void ash_draw_and_update(float dt) {
         if (p->alpha == 0) continue;
         float sway_x = p->pos.x + sinf(p->phase + cur_time * p->sway_speed) * p->sway_amp;
         int rot_shape = (p->shape + (int)(cur_time * 1.8f + p->phase)) & 7;
-        draw_dark_particle((int)sway_x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, p->alpha);
+        /* The big fragments (8-10 px) catch more heat than the fine dust, so the field
+           does not light up uniformly. */
+        float heat = s_ember_glow + ((p->size_w >= 8) ? EMBER_SIZE_BONUS : 0.0f);
+        if (heat > 1.0f) heat = 1.0f;
+        if (heat >= EMBER_HOT) continue;   /* drawn in the additive pass below */
+        draw_dark_particle((int)sway_x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, p->alpha, heat);
     }
+    /* One blend switch per frame for the whole hot set, rather than two per particle. */
+    if (s_ember_glow >= EMBER_MIN) {
+        BeginBlendMode(BLEND_ADDITIVE);
+        for (int i = 0; i < ASH_COUNT; i++) {
+            AshParticle *p = &g_ash[i];
+            if (p->alpha == 0) continue;
+            float heat = s_ember_glow + ((p->size_w >= 8) ? EMBER_SIZE_BONUS : 0.0f);
+            if (heat > 1.0f) heat = 1.0f;
+            if (heat < EMBER_HOT) continue;
+            float sway_x = p->pos.x + sinf(p->phase + cur_time * p->sway_speed) * p->sway_amp;
+            int rot_shape = (p->shape + (int)(cur_time * 1.8f + p->phase)) & 7;
+            draw_dark_particle((int)sway_x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, p->alpha, heat);
+        }
+        EndBlendMode();
+    }
+}
+
+/* A burst particle's heat for this frame. Pass 1 runs the physics and draws the cold
+   particles; pass 2 redraws only the hot ones additively. Heat depends on nothing pass 2
+   changes (life and size are already final), so both passes compute the same value. */
+static float ash_burst_heat(const AshBurstParticle *p, float frac) {
+    if (s_ember_glow < EMBER_MIN) return 0.0f;
+    /* Multiplicative, not additive: sparks are only as hot as the fire that threw them.
+       With an additive boost the very first capture already cleared EMBER_HOT and every
+       burst went to the additive pass, which is what made the effect look over-driven. */
+    float heat = s_ember_glow * EMBER_BURST_GAIN;
+    if (frac > 0.60f) heat *= EMBER_YOUTH_GAIN;    /* youngest sparks are the hottest */
+    if (p->size_w >= 8) heat += EMBER_SIZE_BONUS;
+    return (heat > 1.0f) ? 1.0f : heat;
 }
 
 static void ash_burst_draw_and_update(float dt) {
@@ -309,7 +409,24 @@ static void ash_burst_draw_and_update(float dt) {
         float fade = (frac < 0.35f) ? (frac / 0.35f) : 1.0f;
         unsigned char a = (unsigned char)((float)p->base_alpha * fade);
         int rot_shape = (p->shape + (int)(cur_time * 3.2f + p->phase)) & 7;
-        draw_dark_particle((int)p->pos.x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, a);
+        float heat = ash_burst_heat(p, frac);
+        if (heat >= EMBER_HOT) continue;   /* drawn in the additive pass below */
+        draw_dark_particle((int)p->pos.x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, a, heat);
+    }
+    if (s_ember_glow >= EMBER_MIN) {
+        BeginBlendMode(BLEND_ADDITIVE);
+        for (int i = 0; i < ASH_BURST_MAX; i++) {
+            AshBurstParticle *p = &g_ash_burst[i];
+            if (!p->active) continue;
+            float frac = p->life / p->max_life;
+            float heat = ash_burst_heat(p, frac);
+            if (heat < EMBER_HOT) continue;
+            float fade = (frac < 0.35f) ? (frac / 0.35f) : 1.0f;
+            unsigned char a = (unsigned char)((float)p->base_alpha * fade);
+            int rot_shape = (p->shape + (int)(cur_time * 3.2f + p->phase)) & 7;
+            draw_dark_particle((int)p->pos.x, (int)p->pos.y, p->size_w, p->size_h, rot_shape, a, heat);
+        }
+        EndBlendMode();
     }
 }
 
@@ -758,6 +875,19 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         thunder_flash *= expf(-frame_dt / 0.80f);
         if (thunder_flash < 0.002f) thunder_flash = 0.0f;
     }
+    /* Ember heat on the ash field: the same edges as the reverb, but its own envelope, and
+       deliberately NOT cleared by the round reset above - so it also runs in normal, easy,
+       speed and replay play, not only in action-card mode. frame_dt rather than env_dt for
+       the same reason: this is a background reaction, not an action-card meter. */
+    if (delta_captured > 0) s_ember_heat += (float)delta_captured * EMBER_KICK_CAP;
+    if (koi_edge)           s_ember_heat += EMBER_KICK_KOI;
+    if (s_ember_heat > 1.0f) s_ember_heat = 1.0f;
+    s_ember_heat -= EMBER_DECAY * frame_dt;
+    if (s_ember_heat < 0.0f) s_ember_heat = 0.0f;
+    float ember_tc = (s_ember_heat > s_ember_glow) ? EMBER_SMOOTH_ATK : EMBER_SMOOTH_REL;
+    s_ember_glow += (s_ember_heat - s_ember_glow) * (1.0f - expf(-frame_dt / ember_tc));
+    if (s_ember_glow < 0.002f) s_ember_glow = 0.0f;   /* lands exactly on the cold path */
+
     /* Audio reverb follows a smooth S-curve (never a spike):
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
