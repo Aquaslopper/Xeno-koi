@@ -7,6 +7,13 @@
 ## Status Summary
 ## Latest completed work
 
+### Restrict Speedcoin precision grading to drag-and-drop captures (27 October 2026)
+
+- Click-to-select followed by click-to-play still resolves ordinary captures, but no longer earns precision grading, Speedcoin minipoints, or accuracy popups. Only real drag-and-drop resolutions are eligible for drop-cover grading; the ungraded click play consumes the active bar/serie.
+- Updated `LEARN_THE_CODE.md` to record the drag-only grading contract.
+- **Verified:** `./build.sh --verify /tmp/ans.txt`, `./build.sh test`, `./tools/tests_guard.sh`, and `git diff --check` passed. `./tests/test_table_ui.sh` could not compile because Raylib headers are absent.
+- **Touched:** `src/ui_input.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** `tests/`, `tools/tests_guard.*`, engine capture rules, Action Card thresholds, or unrelated UI/modes.
+
 ### Difficulty-dependent Action Card armed-gadget meter threshold (27 October 2026)
 
 - The right-hand red added-energy meter now uses one difficulty-selected threshold for both its thick guide/side caps and armed-symbol firing: Easy 25%, Hard 50%, Master 75%. The Action Card configuration's synced `settings.difficulty` selects the threshold; the left music meter and all non-Action-Card modes remain unchanged.

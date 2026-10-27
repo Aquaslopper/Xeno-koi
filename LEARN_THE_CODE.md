@@ -1717,10 +1717,14 @@ glides a held card home over 0.40 s.
    (`engine_play_hand(card, matches[i])`); two hits or none plays with −1, which
    puts the engine into `PHASE_HAND_CHOICE`.
 
-The KK-ADD-10 grading happens at the end of the same function:
-`speed_bar_grade(cover)` when a target was involved, `speed_bar_consume()`
-otherwise. `drop_cover()` is the intersection area of the dropped hand card with
-the target slot, divided by the smaller of the two areas.
+The KK-ADD-10 grading happens at the end of the same resolver:
+`speed_bar_grade(cover)` when a target was involved in an actual drag-and-drop,
+`speed_bar_consume()` otherwise. Click-to-select followed by click-to-play still
+resolves the capture, but cannot earn precision/minipoint grading or an accuracy
+popup; it consumes the active bar/serie like an ungraded play. The non-KK visual
+grading follows the same drag-only rule. `drop_cover()` is the intersection area
+of the dropped hand card with the target slot, divided by the smaller of the two
+areas.
 
 ### 11.3 Motion
 

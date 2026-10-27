@@ -33,7 +33,8 @@ static float drop_cover(const GameState *g, Vector2 c, int target) {
     return (min_area > 0.0f) ? inter / min_area : 0.0f;
 }
 
-static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2 c) {
+static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2 c,
+                         int allow_speed_grade) {
     int hand_idx = drag->idx;
     int card_id = g->hand[0][hand_idx];
     float grade_cover = -1.0f;
@@ -154,13 +155,13 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
         }
     }
     if (g->ruleset == RULESET_KK_ADD_10) {
-        if (grade_cover >= 0.0f) speed_bar_grade(grade_cover);
+        if (allow_speed_grade && grade_cover >= 0.0f) speed_bar_grade(grade_cover);
         else speed_bar_consume();
     } else {
-        if (grade_cover >= 0.0f) speed_bar_grade_visual(grade_cover);
+        if (allow_speed_grade && grade_cover >= 0.0f) speed_bar_grade_visual(grade_cover);
         else speed_bar_consume_visual();
     }
-    if (hit_pos.x >= 0.0f && g->last_captured_count > 0) {
+    if (allow_speed_grade && hit_pos.x >= 0.0f && g->last_captured_count > 0) {
         speed_hit_popup_commit(hit_pos.x + 38.0f, hit_pos.y);
     }
 }
@@ -214,7 +215,8 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
                 target = (Vector2){ r.x + r.width / 2, r.y + r.height / 2 };
             }
             drag->selected = 0;
-            resolve_drop(g, drag, anim, target);
+            /* Click-to-play resolves normally but is never precision-graded. */
+            resolve_drop(g, drag, anim, target, 0);
             return;
         }
     }
@@ -268,7 +270,7 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
             return;
         }
         Vector2 c = { drag->pos.x + HAND_CARD_W / 2.0f, drag->pos.y + HAND_CARD_H / 2.0f };
-        resolve_drop(g, drag, anim, c);
+        resolve_drop(g, drag, anim, c, 1);
         drag->idx = -1;
     }
 
