@@ -1260,6 +1260,36 @@ Two pools, both fixed:
 were captured at once, capped at 5, reset when the round changes, when the
 captured total drops, and when the field grows.
 
+**Ember heat.** Both pools can be lit by `s_ember_heat` / `s_ember_glow`, a second
+envelope fed by the *same* `delta_captured` and `koi_edge` signals as the reverb, but
+kept in its own state so it is **not** cleared by the `round_reset` block and is
+driven by `frame_dt` rather than the action-card-paused `env_dt`. It therefore runs in
+every mode that draws the table — normal, Easy, Speedcoin, replay and Action Card —
+not only in Action Card mode. Per capture `s_ember_heat += EMBER_KICK_CAP` per card,
+per Koi-Koi call `+= EMBER_KICK_KOI`, capped at 1.0, then falling `EMBER_DECAY` per
+second and smoothed into `s_ember_glow` by one pole that is asymmetric: `EMBER_SMOOTH_ATK`
+rising, `EMBER_SMOOTH_REL` falling, so the field swells quickly and cools slowly. All
+constants are `#define`s beside `ASH_COUNT`.
+
+`draw_dark_particle()` takes the heat as its last argument. Below `EMBER_MIN` it
+reproduces the original cold particle exactly — drop-shadow halo at `95/255` of alpha
+offset 1 px, then the `{5,5,5}` core. At or above it, `ember_ramp_color()` lerps a
+four-stop ramp (`{5,5,5}` → `{118,30,10}` → `{236,112,34}` → `{255,224,168}`) for the
+core, and the halo is promoted from a shadow to a bloom drawn at `x-1, y-1` with
+`sz+2`. Per-particle variation comes from size: fragments of `size_w >= 8` add
+`EMBER_SIZE_BONUS`, so the large shards light before the fine dust does. Burst
+particles add `EMBER_BURST_BOOST` plus a further 0.25 while `life/max_life > 0.60`,
+which is what makes a capture burst read as sparks rather than as lit dust.
+
+Particles at or above `EMBER_HOT` are **not** drawn in the main pass. Each of
+`ash_draw_and_update()` and `ash_burst_draw_and_update()` finishes with a second loop
+inside one `BeginBlendMode(BLEND_ADDITIVE)` / `EndBlendMode()` pair, so overlapping
+embers stack toward white instead of occluding, and the frame pays two blend switches
+total rather than two per particle. Both calls sit outside the fog `BeginShaderMode`
+block, which closes before the ash is drawn. The hot loop recomputes sway and
+`rot_shape` from the same `cur_time`, so it lands on the same pixels; in the burst pass
+the physics runs in the first loop only.
+
 ### 8.4 Thunder
 
 A capture or a Koi-Koi call sets `thunder_flash = 1` and `thunder_hold = 1.50`.
