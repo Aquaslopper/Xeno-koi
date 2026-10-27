@@ -54,13 +54,16 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec2 end = fract(sin(vec2(moveStep + 1.0, moveStep + 18.0)
                * vec2(12.9898, 78.233)) * 43758.5453);
 
-    float orbitPhase = time * 0.31;
-    vec2 lightUV = vec2(0.16) + 0.68 * mix(start, end, blend)
-                 + vec2(0.08 * cos(orbitPhase), 0.14 * sin(orbitPhase));
+    float orbitPhase = time * 0.21;
+    vec2 phaseNudge = 0.40 * (mix(start, end, blend) - vec2(0.5));
+    vec2 lightUV = vec2(0.5) + 0.42 * vec2(
+        cos(orbitPhase * 0.65 + phaseNudge.x),
+        sin(orbitPhase * 0.50 + phaseNudge.y)
+    );
 
-    float spinPhase = time * 0.2150244;
+    float spinPhase = time * 0.09;
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
-    float xDistance = abs(dot(uv - lightUV, beamAxis)) * 1.5;
+    float xDistance = abs(dot(uv - lightUV, beamAxis)) * 1.0;
     float layer80 = 0.10 * lightLayer(xDistance, 1.568);
     float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
     float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
@@ -68,11 +71,17 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
     layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
-    layers *= 1.0 + 0.70;  // Add 50% beam strength
+    layers *= 1.0 + 0.10;  // Add 50% beam strength
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
-    float reach = exp(-dist2 / (0.30 * 0.30));
+    float reachRadius = 0.80;
+    float reach = exp(-dist2 / (reachRadius * reachRadius));
+    
+    vec2 beamDir = normalize(vec2(-beamAxis.y * 1.7777778, beamAxis.x));
+    float along = dot(toLight, beamDir) / 4.0;
+    float across = dot(toLight, vec2(-beamDir.y, beamDir.x));
+    float beamReach = exp(-(along * along + across * across) / (reachRadius * reachRadius));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
@@ -100,7 +109,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     );
 
     float flashGain = 0.50 + 0.95 * flashAmount;
-    float beam = layers * reach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
+    float beam = layers * beamReach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
     float lightBloom = beam * (surfaceMask * slope * (0.32 + 1.05 * spec) * 0.95 + bloomEnergy * 1.15);
