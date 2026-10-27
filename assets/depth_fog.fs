@@ -53,7 +53,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float layer80 = 0.10 * lightLayer(xDistance, 1.568);
     float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
     float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
-    float layer20 = 0.20 * lightLayer(xDistance, 0.392);
+    float layer20 = 0.40 * lightLayer(xDistance, 0.392);
     // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
     layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
@@ -87,7 +87,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
         sampleRidgeEmit(uv + vec2( r2.x,  r2.y), lightDir.xy)
     );
 
-    float flashGain = 2.0 + 0.95 * flashAmount;
+    float flashGain = 1.0 + 0.95 * flashAmount;
     float beam = layers * reach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
