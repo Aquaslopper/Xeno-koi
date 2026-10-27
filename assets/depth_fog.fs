@@ -72,7 +72,13 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
-    float reach = exp(-dist2 / (0.30 * 0.30));
+    float reachRadius = 0.30;
+    float reach = exp(-dist2 / (reachRadius * reachRadius));
+    
+    vec2 beamDir = normalize(vec2(-beamAxis.y * 1.7777778, beamAxis.x));
+    float along = dot(toLight, beamDir) / 4.0;
+    float across = dot(toLight, vec2(-beamDir.y, beamDir.x));
+    float beamReach = exp(-(along * along + across * across) / (reachRadius * reachRadius));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
@@ -100,7 +106,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     );
 
     float flashGain = 0.50 + 0.95 * flashAmount;
-    float beam = layers * reach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
+    float beam = layers * beamReach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
     float lightBloom = beam * (surfaceMask * slope * (0.32 + 1.05 * spec) * 0.95 + bloomEnergy * 1.15);
