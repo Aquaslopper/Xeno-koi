@@ -44,10 +44,21 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec4 map = texture(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
 
-    // Drift left-right on a 32.1-second round trip; spin 10% faster than drift.
-    float driftPhase = time * 0.1954768;
+    // Wander between positions while circling.
+    float moveTime = time * 0.10;
+    float moveStep = floor(moveTime);
+    float blend = smoothstep(0.0, 1.0, fract(moveTime));
+
+    vec2 start = fract(sin(vec2(moveStep, moveStep + 17.0)
+                 * vec2(12.9898, 78.233)) * 43758.5453);
+    vec2 end = fract(sin(vec2(moveStep + 1.0, moveStep + 18.0)
+               * vec2(12.9898, 78.233)) * 43758.5453);
+
+    float orbitPhase = time * 0.31;
+    vec2 lightUV = vec2(0.16) + 0.68 * mix(start, end, blend)
+                 + vec2(0.08 * cos(orbitPhase), 0.14 * sin(orbitPhase));
+
     float spinPhase = time * 0.2150244;
-    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
     float xDistance = abs(dot(uv - lightUV, beamAxis)) * 1.5;
     float layer80 = 0.10 * lightLayer(xDistance, 1.568);
