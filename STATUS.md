@@ -1,11 +1,25 @@
-> **Development handoff (last updated 26 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 27 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 26 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 27 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Restrict Speedcoin precision grading to drag-and-drop captures (27 October 2026)
+
+- Click-to-select followed by click-to-play still resolves ordinary captures, but no longer earns precision grading, Speedcoin minipoints, or accuracy popups. Only real drag-and-drop resolutions are eligible for drop-cover grading; the ungraded click play consumes the active bar/serie.
+- Updated `LEARN_THE_CODE.md` to record the drag-only grading contract.
+- **Verified:** `./build.sh --verify /tmp/ans.txt`, `./build.sh test`, `./tools/tests_guard.sh`, and `git diff --check` passed. `./tests/test_table_ui.sh` could not compile because Raylib headers are absent.
+- **Touched:** `src/ui_input.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** `tests/`, `tools/tests_guard.*`, engine capture rules, Action Card thresholds, or unrelated UI/modes.
+
+### Difficulty-dependent Action Card armed-gadget meter threshold (27 October 2026)
+
+- The right-hand red added-energy meter now uses one difficulty-selected threshold for both its thick guide/side caps and armed-symbol firing: Easy 25%, Hard 50%, Master 75%. The Action Card configuration's synced `settings.difficulty` selects the threshold; the left music meter and all non-Action-Card modes remain unchanged.
+- Updated `LEARN_THE_CODE.md` to describe the meter geometry, thresholds, firing condition, and configuration path.
+- **Verified:** `./build.sh --verify /tmp/ans.txt`, `./build.sh test`, `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, and `git diff --check` passed. `./tests/test_table_ui.sh` could not compile because Raylib headers are absent; `python3 -m mkdocs build --strict` could not run because the `mkdocs` module is not installed.
+- **Touched:** `src/ui_action.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** `tests/`, `tools/tests_guard.*`, other meters/modes, Action Card settings UI, unrelated rules/scoring, and protected owner decisions.
 
 ### Tune main-menu title spacing and subtitle color (26 October 2026)
 

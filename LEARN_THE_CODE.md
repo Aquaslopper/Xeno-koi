@@ -1309,6 +1309,16 @@ audio_set_reverb(reverb_synergy);
   bar is drawn below them only when the ruleset is KK-ADD-10 and this is not a
   replay.
 
+The Action Card table overlays a music-peak meter at `{414, 170, 14, 264}` and a
+right-hand added-energy meter at `{1082, 170, 14, 264}`. The right bar has fine
+quarter, half and three-quarter guides; its thick guide and side caps mark the
+armed-gadget trigger threshold. In Action Card mode the threshold is 25% on Easy,
+50% on Hard, and 75% on Master. An armed symbol fires when the right meter falls
+below that same threshold. `ui_action.c` reads `settings.difficulty`, which the
+Action Card configuration in `ui_plexus.c` syncs into `GameSettings`; the meter
+renderer returns immediately when Action Card mode is inactive. The left meter
+and other modes' meters are not changed by this threshold.
+
 ### 8.7 Card drawing
 
 ```c
@@ -1707,10 +1717,14 @@ glides a held card home over 0.40 s.
    (`engine_play_hand(card, matches[i])`); two hits or none plays with −1, which
    puts the engine into `PHASE_HAND_CHOICE`.
 
-The KK-ADD-10 grading happens at the end of the same function:
-`speed_bar_grade(cover)` when a target was involved, `speed_bar_consume()`
-otherwise. `drop_cover()` is the intersection area of the dropped hand card with
-the target slot, divided by the smaller of the two areas.
+The KK-ADD-10 grading happens at the end of the same resolver:
+`speed_bar_grade(cover)` when a target was involved in an actual drag-and-drop,
+`speed_bar_consume()` otherwise. Click-to-select followed by click-to-play still
+resolves the capture, but cannot earn precision/minipoint grading or an accuracy
+popup; it consumes the active bar/serie like an ungraded play. The non-KK visual
+grading follows the same drag-only rule. `drop_cover()` is the intersection area
+of the dropped hand card with the target slot, divided by the smaller of the two
+areas.
 
 ### 11.3 Motion
 

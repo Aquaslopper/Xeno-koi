@@ -644,7 +644,8 @@ void action_card_draw_symbol_icon(const BoardAssets *ba, int sym, float cx, floa
     draw_symbol_glyph_scaled(ba, sym, cx, cy, 1.0f, fg, cut, 1.0f);
 }
 
-static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt, int wine_right) {
+static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt,
+                                     int wine_right, int marker_quartile) {
     if (lvl >= *hold) {
         *hold = lvl;
         *timer = 0.35f;
@@ -670,7 +671,7 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     if (wine_right) {
         for (int t = 1; t <= 3; t++) {
             int ty = bot - (ih * t) / 4;
-            if (t == 2) {
+            if (t == marker_quartile) {
                 Color mc = (ty >= bot - fh)
                     ? (Color){ (unsigned char)(dim_c.r / 3), (unsigned char)(dim_c.g / 3), (unsigned char)(dim_c.b / 3), 210 }
                     : (Color){ hi_c.r, hi_c.g, hi_c.b, 215 };
@@ -696,10 +697,10 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     if (is_full) ui_theme_set_panel_flare_glow(bar, 1.0f);
     ui_draw_panel_border(bar, is_full ? base_c : dim_c);
     if (wine_right) {
-        int mid_y = bot - ih / 2;
-        Color cap_c = (mid_y >= bot - fh) ? hi_c : base_c;
-        DrawRectangle((int)bar.x - 3, mid_y - 1, 5, 3, cap_c);
-        DrawRectangle((int)(bar.x + bar.width) - 2, mid_y - 1, 5, 3, cap_c);
+        int marker_y = bot - (ih * marker_quartile) / 4;
+        Color cap_c = (marker_y >= bot - fh) ? hi_c : base_c;
+        DrawRectangle((int)bar.x - 3, marker_y - 1, 5, 3, cap_c);
+        DrawRectangle((int)(bar.x + bar.width) - 2, marker_y - 1, 5, 3, cap_c);
     }
 }
 
@@ -708,6 +709,8 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
     if (!s_action_card_mode) return;
     float added_lvl = reverb_synergy;
     int right_full = (added_lvl >= 0.98f);
+    int trigger_quartile = (settings.difficulty == DIFFICULTY_EASY) ? 1 :
+                           (settings.difficulty == DIFFICULTY_MASTER) ? 3 : 2;
     int right_fh = right_full ? 260 : (int)lroundf(260.0f * added_lvl);
     int right_above_third = (right_fh > (260 * 3) / 4);
     float b_tc = right_above_third ? 0.04f : 0.14f;
@@ -740,7 +743,7 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
         } else if (s_action_above_90 && music_lvl < 0.84f) {
             s_action_above_90 = 0;
         }
-        if (s_action_symbol_armed && right_fh < (260 / 2)) {
+        if (s_action_symbol_armed && right_fh < (260 * trigger_quartile) / 4) {
             s_action_pending_sym = s_action_symbol_idx;
             s_action_symbol_armed = 0;
             s_action_symbol_flash = 1.0f;
@@ -748,10 +751,11 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
         }
     }
     draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
-                             &s_action_peak_hold, &s_action_peak_timer, env_dt, 0);
+                             &s_action_peak_hold, &s_action_peak_timer, env_dt, 0, 2);
     action_card_draw_symbol_icon(ba, s_action_symbol_idx, 421.0f, 148.0f, s_action_symbol_armed, s_action_symbol_flash);
     draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
-                             &s_action_added_hold, &s_action_added_timer, env_dt, 1);
+                             &s_action_added_hold, &s_action_added_timer, env_dt, 1,
+                             trigger_quartile);
     if (s_action_ceil_started) {
         int ceil_num = action_card_get_ceiling_count();
         const char *cstr = TextFormat("%d", ceil_num);
