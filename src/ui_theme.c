@@ -349,7 +349,7 @@ static void panel_flares_draw(Rectangle r, int key) {
         unsigned char alpha = (unsigned char)(22.0f + 200.0f * shine);
         Color flare = (Color){ 255, 255, 255, alpha };
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
-                          0.6f + 0.2f * shine, flare);
+                          0.7f + 0.3f * shine, flare);
     }
 }
 
