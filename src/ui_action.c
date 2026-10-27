@@ -516,8 +516,8 @@ float action_card_begin_table(const GameState *g, int round_reset, float reverb_
     if (s_action_card_mode && !s_action_card_paused && !s_badge_evt_active) {
         s_action_last_synergy = reverb_synergy;
         float g_glow = 0.0f, g_spd = 1.0f;
-        if (reverb_synergy >= 0.75f)      { g_glow = 1.00f; g_spd = 2.15f; }
-        else if (reverb_synergy >= 0.50f) { g_glow = 0.62f; g_spd = 1.70f; }
+        if (reverb_synergy >= 0.75f)      { g_glow = 0.90f; g_spd = 2.00f; }
+        else if (reverb_synergy >= 0.50f) { g_glow = 0.60f; g_spd = 1.60f; }
         else if (reverb_synergy >= 0.25f) { g_glow = 0.30f; g_spd = 1.00f; }
         ui_theme_set_global_flare_boost(g_glow, g_spd);
     } else {
