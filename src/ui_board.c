@@ -762,16 +762,16 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
     float env_dt = action_card_is_paused() ? 0.0f : frame_dt;
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.14f;
-    if (koi_edge)           reverb_energy += 0.24f;
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.10f;
+    if (koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
     if (capture_edge || koi_edge) {
-        reverb_hold = 2.00f;
+        reverb_hold = 1.50f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.20f * env_dt;
+        reverb_energy -= 0.8f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.10f));
