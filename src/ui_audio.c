@@ -206,8 +206,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
 
         /* Room dimensions depend on the saved slider, not the action pulse:
            size 0.65..2.2, feedback 0.55..0.93, increasingly diffuse late field. */
-        float size = 0.65f + 1.55f*room;
-        float diffusion = 0.50f + 0.15f*room;
+        float size = 0.65f + 1.85f*room;
+        float diffusion = 0.25f + 0.10f*room;
         float bp_in_l = dry_l;
         float bp_in_r = dry_r;
 
