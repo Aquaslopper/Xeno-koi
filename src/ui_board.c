@@ -866,7 +866,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     prev_field = cur_field;
     prev_koi = cur_koi;
     if (capture_edge || koi_edge) {
-        thunder_flash = 0.10f;
+        thunder_flash = 0.25f;
         thunder_hold = 0.50f;
     } else if (thunder_hold > 0.0f) {
         thunder_hold -= frame_dt;
