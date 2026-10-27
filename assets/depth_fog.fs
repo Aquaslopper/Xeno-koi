@@ -93,6 +93,8 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
     float lightBloom = beam * (surfaceMask * slope * (0.32 + 1.05 * spec) * 0.95 + bloomEnergy * 1.15);
     vec3 lightAdd = base * warm * diffGain + warm * lightBloom;
+    float normalMask = smoothstep(0.02, 0.12, map.a);
+    lightAdd *= normalMask;
     return clamp(base + (vec3(1.0) - base) * (vec3(1.0) - exp(-lightAdd)), 0.0, 1.0);
 }
 // moving-lights end
