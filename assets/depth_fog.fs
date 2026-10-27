@@ -87,7 +87,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
         sampleRidgeEmit(uv + vec2( r2.x,  r2.y), lightDir.xy)
     );
 
-    float flashGain = 1.0 + 0.95 * flashAmount;
+    float flashGain = 2.0 + 0.95 * flashAmount;
     float beam = layers * reach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
