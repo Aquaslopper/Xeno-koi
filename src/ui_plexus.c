@@ -518,7 +518,13 @@ static void ensure_plexus_assets(void) {
         int cps[96];
         for (int i = 0; i < 95; i++) cps[i] = 32 + i;
         cps[95] = 0x00D7; /* U+00D7 multiplication sign */
-        s_story_font = LoadFontEx(sf_path, 64, cps, 96);
+        /* Rasterised at 32, not 64: this face is only ever drawn at 20.5-31px, so 64 put every
+           story line through a 0.32-0.48x bitmap downscale. At 32 the range becomes 0.64-0.97x,
+           which also keeps the trilinear filter near mip 0 - worth having, because a mip chain
+           over a packed font atlas bleeds neighbouring glyphs into each other. Measured width
+           drift is about -2%, so the hardcoded story lines get slightly narrower, which is the
+           safe direction inside the 518px reader panel. See the note in ui_main.c. */
+        s_story_font = LoadFontEx(sf_path, 32, cps, 96);
         if (s_story_font.texture.id > 0) {
             GenTextureMipmaps(&s_story_font.texture);
             SetTextureFilter(s_story_font.texture, TEXTURE_FILTER_TRILINEAR);

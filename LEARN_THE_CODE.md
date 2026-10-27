@@ -1007,9 +1007,48 @@ The post shader is loaded from `assets/postprocess_web.fs` under Emscripten and
 `assets/postprocess.fs` otherwise, falling back to `<exe dir>/assets/…`, and its
 three uniforms are looked up once: `bloom_intensity`, `crt_intensity`, `gamma`.
 
-Both fonts are loaded with mipmaps and set to trilinear (`audiowide.ttf` at 96 px)
-and bilinear (`play.ttf` at 36 px); each falls back to `GetFontDefault()`.
-`small_font` is assigned `font_body`.
+Both fonts are loaded with mipmaps and set to trilinear (`audiowide.ttf`) and bilinear
+(`play.ttf`); each falls back to `GetFontDefault()`. `small_font` is assigned
+`font_body` and has no draw sites of its own.
+
+**Rasterisation sizes.** raylib rasterises a face once, at the `baseSize` given to
+`LoadFontEx`, and every draw afterwards is a bitmap resize by `font_size / baseSize` —
+`LoadFontData` stores `advanceX` as an `int` rounded at `baseSize`, and `MeasureTextEx`
+rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 px to
+56 px, so one `baseSize` per face is always a compromise.
+
+| Face | File | `baseSize` | Drawn at | Resulting scale |
+|---|---|---:|---|---|
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 56 px | 0.24× – 1.17× |
+| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 28 px | 0.52× – 1.08× |
+| `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
+
+The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
+**0.12× downscale of a 96 px master**, so the month buttons and every hub button label were
+destroyed before the 1280×720 canvas was ever upscaled to the window. Raising the ratio is
+worth more than raising the canvas resolution, because the damage happens at the glyph step.
+The two constants are `title_base` / `body_base` in `ui_main.c` and the literal in
+`plexus_load()`; lowering them sharpens small text further at the cost of upscaling the big
+banners (`title_base` 32 gives a 3.0× gain on small text but puts the 56 px banner at 1.75×).
+
+Changing a `baseSize` shifts measured widths by about −1.7 % to −2.5 % (text gets slightly
+narrower) because `advanceX` is integer-rounded at the new size. That is safe **only**
+because a single `Font` object performs both the measure and the draw at every call site, so
+centring is unaffected and only fit margins move, in the safe direction.
+
+The complete fix is a second, small rasterisation of each face selected by `font_size`,
+which would put small text at ~1:1. It is not done because `advanceX` rounding makes the two
+rasterisations *not* metrically interchangeable — measuring with one face and drawing with
+the other misaligns centred text by up to ~4 px on a long line. Doing it correctly requires
+every `MeasureTextEx` to be routed in lockstep with its draw: about 35 sites across
+`ui_plexus.c` (22, including an auto-shrink loop at `:1104` and a width-chained label at
+`:1968`), `ui_replay.c`, `ui_screens.c`, `ui_board_status.c`, `ui_action.c` and `campaign.c`.
+Note also that `tests/test_table_ui.c` stubs `MeasureTextEx` with a synthetic
+`strlen * (size * 0.6 + spacing)` metric, so it cannot catch a real overflow, and its
+Koi-Koi overlay estimate is still calibrated to `small_font.ttf`'s 0.405 advance ratio.
+raylib 5.5 also offers `FONT_SDF`, which renders crisp from one atlas at any size and would
+remove the whole problem, but it needs an external text shader that would have to coexist
+with the existing fog, bloom and CRT passes.
 
 ### 7.3 Two transitions
 
