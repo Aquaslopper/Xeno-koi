@@ -1950,8 +1950,30 @@ int main(int argc, char **argv) {
     board_load_assets(&assets); assets.current_bg = settings.background;
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
 
-    font_title = LoadFontEx("assets/audiowide.ttf", 96, NULL, 0);
-    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 96, NULL, 0);
+    /* Font rasterisation sizes. raylib rasterises a face ONCE at this size and every draw is
+       a bitmap resize by font_size / baseSize (rtext.c: advanceX is an int rounded at
+       baseSize; MeasureTextEx scales by fontSize/baseSize). The sizes this UI actually draws
+       at run from 11.5px to 56px, so one baseSize per face is a compromise: too high and the
+       small labels - most of the Logfile, all the hub buttons - are downscaled into mush; too
+       low and the big banners upscale and go soft.
+
+       These were 96 and 36, which put Audiowide at 11.5-12.5px at a 0.12x downscale: the
+       glyph is destroyed before the 1280x720 canvas is ever upscaled to the window. Measured
+       against the shipped TTFs with raylib's own stb_truetype path, 48 and 26 improve every
+       size below their base by 2.0x and 1.4x respectively, and keep the largest text (56px
+       banner, 28px body) at a mild 1.17x / 1.08x upscale instead of a hard downscale.
+
+       Push lower for sharper small text at the cost of softer banners: 32 gives 3.0x on the
+       title but puts the 56px banner at 1.75x. Measured width drift at these values is
+       -1.7% to -2.5% (text gets very slightly narrower); because one Font object does both
+       the measuring and the drawing, centring is unaffected and only fit margins move, in the
+       safe direction. The real fix is a second small rasterisation per face selected by size,
+       but that needs every MeasureTextEx routed in lockstep with its draw - see STATUS.md. */
+    const int title_base = 48;
+    const int body_base = 26;
+
+    font_title = LoadFontEx("assets/audiowide.ttf", title_base, NULL, 0);
+    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
     else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
 
@@ -1959,8 +1981,8 @@ int main(int argc, char **argv) {
     for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
     body_cps[95] = 0x03A6; /* U+03A6 Greek Capital Letter Phi */
     body_cps[96] = 0x03A8; /* U+03A8 Greek Capital Letter Psi */
-    font_body = LoadFontEx("assets/play.ttf", 36, body_cps, 97);
-    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), 36, body_cps, 97);
+    font_body = LoadFontEx("assets/play.ttf", body_base, body_cps, 97);
+    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), body_base, body_cps, 97);
     if (!IsFontReady(font_body)) font_body = GetFontDefault();
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
     small_font = font_body;
