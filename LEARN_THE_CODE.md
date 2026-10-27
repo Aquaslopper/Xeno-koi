@@ -1314,12 +1314,8 @@ right-hand added-energy meter at `{1082, 170, 14, 264}`. The right bar has fine
 quarter, half and three-quarter guides; its thick guide and side caps mark the
 armed-gadget trigger threshold. In Action Card mode the threshold is 25% on Easy,
 50% on Hard, and 75% on Master. An armed symbol fires when the right meter falls
-below that same threshold in a frame where the main loop can consume the trigger:
-`PHASE_TURN_HAND`, no pending stock card, and no blocking event/animation. The main
-loop passes this readiness state to `ui_action.c`, preventing a trigger from being
-queued during a blocked phase and applied later after the meter has refilled.
-`ui_action.c` reads `settings.difficulty`, which the Action Card configuration in
-`ui_plexus.c` syncs into `GameSettings`; the meter
+below that same threshold. `ui_action.c` reads `settings.difficulty`, which the
+Action Card configuration in `ui_plexus.c` syncs into `GameSettings`; the meter
 renderer returns immediately when Action Card mode is inactive. The left meter
 and other modes' meters are not changed by this threshold.
 

@@ -49,7 +49,6 @@ static int s_action_ceil_started = 0;
 static int s_action_match_reset_req = 0;
 static int s_action_symbol_idx = 0;
 static int s_action_symbol_armed = 0;
-static int s_action_trigger_ready = 0;
 static int s_action_pending_sym = -1;
 static int s_action_above_90 = 0;
 static float s_action_beat_cd = 0.0f;
@@ -217,7 +216,6 @@ int action_card_update_badge_event(float dt, int *out_sym_to_apply) {
 }
 
 int action_card_is_mode_active(void) { return s_action_card_mode; }
-void action_card_set_trigger_ready(int ready) { s_action_trigger_ready = ready ? 1 : 0; }
 int action_card_is_paused(void) {
     return (s_action_card_mode && (s_action_card_paused || s_badge_evt_active)) ? 1 : 0;
 }
@@ -231,7 +229,6 @@ void action_card_set_mode(int active, float music_level) {
         ui_theme_set_global_flare_boost(0.0f, 1.0f);
     }
     s_action_card_mode = (active > 0) ? 1 : 0;
-    if (!s_action_card_mode) s_action_trigger_ready = 0;
     s_action_card_paused = (active == 2) ? 1 : 0;
     s_action_music_level = (music_level >= 0.0f) ? (music_level > 1.0f ? 1.0f : music_level) : 0.0f;
     sync_board_mirror();
@@ -746,10 +743,7 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
         } else if (s_action_above_90 && music_lvl < 0.84f) {
             s_action_above_90 = 0;
         }
-        /* Queue only when the frame loop can consume it immediately. Otherwise a
-           deferred trigger could apply after the energy meter has refilled. */
-        if (s_action_symbol_armed && s_action_trigger_ready &&
-            right_fh < (260 * trigger_quartile) / 4) {
+        if (s_action_symbol_armed && right_fh < (260 * trigger_quartile) / 4) {
             s_action_pending_sym = s_action_symbol_idx;
             s_action_symbol_armed = 0;
             s_action_symbol_flash = 1.0f;

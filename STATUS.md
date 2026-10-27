@@ -7,12 +7,6 @@
 ## Status Summary
 ## Latest completed work
 
-### Prevent delayed Action Card triggers from appearing at the wrong meter level (27 October 2026)
-
-- The main loop now passes meter-trigger readiness to Action Card drawing. The threshold crossing is evaluated only when the frame loop can immediately consume the event (`PHASE_TURN_HAND`, no pending stock card, and no blocking event/animation), preventing triggers queued during a blocked phase from applying later after the right-hand meter refills.
-- **Verified:** `./build.sh --verify /tmp/ans.txt`, `./build.sh test`, `./tools/tests_guard.sh`, and `git diff --check` passed. `./tests/test_table_ui.sh` could not compile because Raylib headers are absent.
-- **Touched:** `src/ui_main.c`, `src/ui_action.c`, `src/ui_action.h`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** meter levels/threshold mapping, unrelated modes, engine rules, `tests/`, or `tools/tests_guard.*`.
-
 ### Restrict Speedcoin precision grading to drag-and-drop captures (27 October 2026)
 
 - Click-to-select followed by click-to-play still resolves ordinary captures, but no longer earns precision grading, Speedcoin minipoints, or accuracy popups. Only real drag-and-drop resolutions are eligible for drop-cover grading; the ungraded click play consumes the active bar/serie.
