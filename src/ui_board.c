@@ -32,8 +32,8 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
     draw_text_ex_snapped(font, text, (Vector2){ b.x + (b.width - ts.x) / 2.0f, b.y + (b.height - fsz) / 2.0f }, fsz, sp, col);
 }
 
-#define ASH_COUNT 155
-#define ASH_BURST_MAX 420
+#define ASH_COUNT 100
+#define ASH_BURST_MAX 260
 
 /* Ember heat on the ash field. Driven by the same capture / Koi-Koi edges that drive the
    reverb envelope, but kept in its own state so it is NOT reset per round outside
@@ -43,14 +43,14 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
    Note EMBER_KICK_CAP is PER CARD, and the smallest capture event takes two cards (the
    played card plus the field card it matched), so one ordinary capture adds twice this.
    A four-card capture adds four times. Calibrate against that, not against "one capture". */
-#define EMBER_MIN        0.07f  /* heat below this stays cold dark ash                */
-#define EMBER_HOT        0.52f  /* heat at/above this is drawn in the additive pass   */
-#define EMBER_KICK_CAP   0.10f  /* heat per captured card: one capture = 0.20         */
-#define EMBER_KICK_KOI   0.30f  /* heat added on a Koi-Koi call                       */
+#define EMBER_MIN        0.08f  /* heat below this stays cold dark ash                */
+#define EMBER_HOT        0.50f  /* heat at/above this is drawn in the additive pass   */
+#define EMBER_KICK_CAP   0.07f  /* heat per captured card: one capture = 0.20         */
+#define EMBER_KICK_KOI   0.20f  /* heat added on a Koi-Koi call                       */
 #define EMBER_DECAY      0.08f  /* linear fall per second - slow, so heat accumulates  */
-#define EMBER_SMOOTH_ATK 0.12f  /* one-pole up, seconds - the glow swells, never steps */
+#define EMBER_SMOOTH_ATK 0.22f  /* one-pole up, seconds - the glow swells, never steps */
 #define EMBER_SMOOTH_REL 0.55f  /* one-pole down, seconds - embers cool slowly         */
-#define EMBER_SIZE_BONUS 0.16f  /* extra heat on the largest fragments (8-10 px)      */
+#define EMBER_SIZE_BONUS 0.12f  /* extra heat on the largest fragments (8-10 px)      */
 /* Bursts are scaled from the field, not offset above it, so a faint glow gives faint
    sparks. An additive offset made even the first capture burst go straight to HOT. */
 #define EMBER_BURST_GAIN 1.35f  /* burst heat = field heat * this                     */
@@ -315,7 +315,7 @@ static void ash_spawn_capture_burst(const GameState *g, int streak) {
             p->follow = 0.22f + (float)(rand() % 22) / 100.0f;
             p->phase = (float)(rand() % 628) / 100.0f;
             p->sway_speed = 2.2f + (float)(rand() % 30) / 10.0f;
-            p->max_life = 0.85f + (float)(rand() % 55) / 100.0f + 0.08f * (float)(streak - 1);
+            p->max_life = 0.95f + (float)(rand() % 55) / 100.0f + 0.08f * (float)(streak - 1);
             p->life = p->max_life;
             p->active = 1;
         }
@@ -896,12 +896,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
     if (capture_edge || koi_edge) {
-        reverb_hold = 2.00f;
+        reverb_hold = 2.20f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 1.5f * env_dt;
+        reverb_energy -= 1.2f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.10f));
