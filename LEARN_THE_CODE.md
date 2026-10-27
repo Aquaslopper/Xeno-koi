@@ -1309,6 +1309,16 @@ audio_set_reverb(reverb_synergy);
   bar is drawn below them only when the ruleset is KK-ADD-10 and this is not a
   replay.
 
+The Action Card table overlays a music-peak meter at `{414, 170, 14, 264}` and a
+right-hand added-energy meter at `{1082, 170, 14, 264}`. The right bar has fine
+quarter, half and three-quarter guides; its thick guide and side caps mark the
+armed-gadget trigger threshold. In Action Card mode the threshold is 25% on Easy,
+50% on Hard, and 75% on Master. An armed symbol fires when the right meter falls
+below that same threshold. `ui_action.c` reads `settings.difficulty`, which the
+Action Card configuration in `ui_plexus.c` syncs into `GameSettings`; the meter
+renderer returns immediately when Action Card mode is inactive. The left meter
+and other modes' meters are not changed by this threshold.
+
 ### 8.7 Card drawing
 
 ```c
