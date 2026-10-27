@@ -44,12 +44,23 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec4 map = texture(normalMap, uv);
     vec3 n = normalize(map.rgb * 2.0 - 1.0);
 
-    // Drift left-right on a 32.1-second round trip; spin 10% faster than drift.
-    float driftPhase = time * 0.1954768;
+    // Wander between positions while circling.
+    float moveTime = time * 0.10;
+    float moveStep = floor(moveTime);
+    float blend = smoothstep(0.0, 1.0, fract(moveTime));
+
+    vec2 start = fract(sin(vec2(moveStep, moveStep + 17.0)
+                 * vec2(12.9898, 78.233)) * 43758.5453);
+    vec2 end = fract(sin(vec2(moveStep + 1.0, moveStep + 18.0)
+               * vec2(12.9898, 78.233)) * 43758.5453);
+
+    float orbitPhase = time * 0.31;
+    vec2 lightUV = vec2(0.16) + 0.68 * mix(start, end, blend)
+                 + vec2(0.08 * cos(orbitPhase), 0.14 * sin(orbitPhase));
+
     float spinPhase = time * 0.2150244;
-    vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
-    float xDistance = abs(dot(uv - lightUV, beamAxis));
+    float xDistance = abs(dot(uv - lightUV, beamAxis)) * 1.5;
     float layer80 = 0.10 * lightLayer(xDistance, 1.568);
     float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
     float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
@@ -57,10 +68,11 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
     layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
+    layers *= 1.0 + 0.70;  // Add 50% beam strength
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
-    float reach = exp(-dist2 / (0.90 * 0.90));
+    float reach = exp(-dist2 / (0.30 * 0.30));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
@@ -87,12 +99,14 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
         sampleRidgeEmit(uv + vec2( r2.x,  r2.y), lightDir.xy)
     );
 
-    float flashGain = 1.0 + 0.95 * flashAmount;
+    float flashGain = 0.50 + 0.95 * flashAmount;
     float beam = layers * reach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
     float lightBloom = beam * (surfaceMask * slope * (0.32 + 1.05 * spec) * 0.95 + bloomEnergy * 1.15);
     vec3 lightAdd = base * warm * diffGain + warm * lightBloom;
+    float normalMask = smoothstep(0.02, 0.12, map.a);
+    lightAdd *= normalMask;
     return clamp(base + (vec3(1.0) - base) * (vec3(1.0) - exp(-lightAdd)), 0.0, 1.0);
 }
 // moving-lights end
