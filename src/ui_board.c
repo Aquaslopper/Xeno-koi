@@ -866,13 +866,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     prev_field = cur_field;
     prev_koi = cur_koi;
     if (capture_edge || koi_edge) {
-        thunder_flash = 1.0f;
-        thunder_hold = 1.50f;
+        thunder_flash = 0.50f;
+        thunder_hold = 0.50f;
     } else if (thunder_hold > 0.0f) {
         thunder_hold -= frame_dt;
         if (thunder_hold < 0.0f) thunder_hold = 0.0f;
     } else if (thunder_flash > 0.0f) {
-        thunder_flash *= expf(-frame_dt / 0.80f);
+        thunder_flash *= expf(-frame_dt / 2.00f);
         if (thunder_flash < 0.002f) thunder_flash = 0.0f;
     }
     /* Ember heat on the ash field: the same edges as the reverb, but its own envelope, and
