@@ -456,8 +456,8 @@ static void begin_new_match(int trk) {
     else audio_set_reverb(0.0f);
 }
 
-static float get_flight_duration(int s) { return (s == 0) ? 0.65f : (s == 1) ? 0.50f : 0.40f; }
-static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.25f : 0.15f; }
+static float get_flight_duration(int s) { return (s == 0) ? 0.40f : (s == 1) ? 0.40f : 0.40f; }
+static float get_think_duration(int s)  { return (s == 0) ? 0.15f : (s == 1) ? 0.15f : 0.15f; }
 
 static void trigger_event_beat(float base_s) {
     float mul = 0.0f;
