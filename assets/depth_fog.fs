@@ -68,7 +68,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
     layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
-    layers *= 1.0 + 0.70;  // Add 50% beam strength
+    layers *= 1.0 + 0.10;  // Add 50% beam strength
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
