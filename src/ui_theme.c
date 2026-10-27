@@ -346,10 +346,10 @@ static void panel_flares_draw(Rectangle r, int key) {
             else f->flash_active = 0;
         }
         if (glow_floor > shine) shine = glow_floor;
-        unsigned char alpha = (unsigned char)(22.0f + 233.0f * shine);
+        unsigned char alpha = (unsigned char)(22.0f + 200.0f * shine);
         Color flare = (Color){ 255, 255, 255, alpha };
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
-                          0.7f + 0.4f * shine, flare);
+                          0.9f + 0.3f * shine, flare);
     }
 }
 

@@ -45,9 +45,9 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
    A four-card capture adds four times. Calibrate against that, not against "one capture". */
 #define EMBER_MIN        0.08f  /* heat below this stays cold dark ash                */
 #define EMBER_HOT        0.50f  /* heat at/above this is drawn in the additive pass   */
-#define EMBER_KICK_CAP   0.07f  /* heat per captured card: one capture = 0.20         */
-#define EMBER_KICK_KOI   0.20f  /* heat added on a Koi-Koi call                       */
-#define EMBER_DECAY      0.08f  /* linear fall per second - slow, so heat accumulates  */
+#define EMBER_KICK_CAP   0.08f  /* heat per captured card: one capture = 0.20         */
+#define EMBER_KICK_KOI   0.10f  /* heat added on a Koi-Koi call                       */
+#define EMBER_DECAY      0.06f  /* linear fall per second - slow, so heat accumulates  */
 #define EMBER_SMOOTH_ATK 0.22f  /* one-pole up, seconds - the glow swells, never steps */
 #define EMBER_SMOOTH_REL 0.55f  /* one-pole down, seconds - embers cool slowly         */
 #define EMBER_SIZE_BONUS 0.12f  /* extra heat on the largest fragments (8-10 px)      */
@@ -330,7 +330,7 @@ static void ash_draw_and_update(float dt) {
        straight-up fall line. Vertical gusts only breathe the rise rate. */
     float wind_x = sinf(cur_time * 0.110f) * 12.0f
                  + sinf(cur_time * 0.043f + 1.7f) * 16.0f
-                 + sinf(cur_time * 0.270f + 4.1f) * 4.0f;
+                 + sinf(cur_time * 0.270f + 4.1f) * 4.0f + 30.0f;
     float wind_y = sinf(cur_time * 0.090f + 2.2f) * 3.5f;
     for (int i = 0; i < ASH_COUNT; i++) {
         AshParticle *p = &g_ash[i];
@@ -777,7 +777,7 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             Rectangle dr = motion_get_rect(cid);
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
-                board_draw_card(ba, cid, dr); board_draw_card_glow(dr, 0.8f);
+                board_draw_card(ba, cid, dr); board_draw_card_glow(dr, 0.4f);
             } else {
                 board_draw_card(ba, cid, dr);
                 capture_info_record(cid, player, c + 1, count, dr);
@@ -892,16 +892,16 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
     float env_dt = action_card_is_paused() ? 0.0f : frame_dt;
-    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.10f;
+    if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.09f;
     if (koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
     if (capture_edge || koi_edge) {
-        reverb_hold = 2.20f;
+        reverb_hold = 2.10f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 1.2f * env_dt;
+        reverb_energy -= 0.8f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.10f));
