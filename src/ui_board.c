@@ -38,16 +38,23 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
 /* Ember heat on the ash field. Driven by the same capture / Koi-Koi edges that drive the
    reverb envelope, but kept in its own state so it is NOT reset per round outside
    action-card mode (see the round_reset block in board_draw_table). Tune here only.
-   Below EMBER_MIN the particles are drawn byte-for-byte as they always were. */
-#define EMBER_MIN        0.06f  /* heat below this stays cold dark ash                */
-#define EMBER_HOT        0.45f  /* heat at/above this is drawn in the additive pass   */
-#define EMBER_KICK_CAP   0.34f  /* heat added per captured card                       */
-#define EMBER_KICK_KOI   0.55f  /* heat added on a Koi-Koi call                       */
-#define EMBER_DECAY      0.30f  /* linear fall per second once the kick has peaked    */
+   Below EMBER_MIN the particles are drawn byte-for-byte as they always were.
+
+   Note EMBER_KICK_CAP is PER CARD, and the smallest capture event takes two cards (the
+   played card plus the field card it matched), so one ordinary capture adds twice this.
+   A four-card capture adds four times. Calibrate against that, not against "one capture". */
+#define EMBER_MIN        0.07f  /* heat below this stays cold dark ash                */
+#define EMBER_HOT        0.52f  /* heat at/above this is drawn in the additive pass   */
+#define EMBER_KICK_CAP   0.10f  /* heat per captured card: one capture = 0.20         */
+#define EMBER_KICK_KOI   0.30f  /* heat added on a Koi-Koi call                       */
+#define EMBER_DECAY      0.08f  /* linear fall per second - slow, so heat accumulates  */
 #define EMBER_SMOOTH_ATK 0.12f  /* one-pole up, seconds - the glow swells, never steps */
-#define EMBER_SMOOTH_REL 0.34f  /* one-pole down, seconds - cools slower than it heats */
-#define EMBER_SIZE_BONUS 0.26f  /* extra heat on the largest fragments (8-10 px)      */
-#define EMBER_BURST_BOOST 0.45f /* capture bursts run hotter than the ambient field   */
+#define EMBER_SMOOTH_REL 0.55f  /* one-pole down, seconds - embers cool slowly         */
+#define EMBER_SIZE_BONUS 0.16f  /* extra heat on the largest fragments (8-10 px)      */
+/* Bursts are scaled from the field, not offset above it, so a faint glow gives faint
+   sparks. An additive offset made even the first capture burst go straight to HOT. */
+#define EMBER_BURST_GAIN 1.35f  /* burst heat = field heat * this                     */
+#define EMBER_YOUTH_GAIN 1.25f  /* further scale while life/max_life > 0.60           */
 
 typedef struct {
     Vector2 pos;
@@ -368,8 +375,11 @@ static void ash_draw_and_update(float dt) {
    changes (life and size are already final), so both passes compute the same value. */
 static float ash_burst_heat(const AshBurstParticle *p, float frac) {
     if (s_ember_glow < EMBER_MIN) return 0.0f;
-    float heat = s_ember_glow + EMBER_BURST_BOOST;
-    if (frac > 0.60f) heat += 0.25f;              /* youngest sparks are the hottest */
+    /* Multiplicative, not additive: sparks are only as hot as the fire that threw them.
+       With an additive boost the very first capture already cleared EMBER_HOT and every
+       burst went to the additive pass, which is what made the effect look over-driven. */
+    float heat = s_ember_glow * EMBER_BURST_GAIN;
+    if (frac > 0.60f) heat *= EMBER_YOUTH_GAIN;    /* youngest sparks are the hottest */
     if (p->size_w >= 8) heat += EMBER_SIZE_BONUS;
     return (heat > 1.0f) ? 1.0f : heat;
 }

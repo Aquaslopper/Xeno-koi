@@ -1277,9 +1277,23 @@ offset 1 px, then the `{5,5,5}` core. At or above it, `ember_ramp_color()` lerps
 four-stop ramp (`{5,5,5}` → `{118,30,10}` → `{236,112,34}` → `{255,224,168}`) for the
 core, and the halo is promoted from a shadow to a bloom drawn at `x-1, y-1` with
 `sz+2`. Per-particle variation comes from size: fragments of `size_w >= 8` add
-`EMBER_SIZE_BONUS`, so the large shards light before the fine dust does. Burst
-particles add `EMBER_BURST_BOOST` plus a further 0.25 while `life/max_life > 0.60`,
-which is what makes a capture burst read as sparks rather than as lit dust.
+`EMBER_SIZE_BONUS`, so the large shards light before the fine dust does.
+
+Burst particles scale from the field rather than being offset above it:
+`s_ember_glow * EMBER_BURST_GAIN`, times a further `EMBER_YOUTH_GAIN` while
+`life/max_life > 0.60`. The scaling is deliberate. An additive boost put even the
+first capture over `EMBER_HOT`, so every burst went straight to the additive pass;
+multiplicative means faint fire throws faint sparks and only a real blaze throws
+white ones. That is what makes a capture burst read as sparks rather than as lit dust.
+
+**Calibrating the kicks.** `EMBER_KICK_CAP` is *per card*, and the smallest capture
+event takes **two** cards — the played card plus the field card it matched — so one
+ordinary capture adds twice the constant and a four-card capture adds four times.
+Calibrate against that, not against "one capture". With the shipped values one
+ordinary capture peaks the ambient field at ~0.33 and the sparks at ~0.45, both under
+`EMBER_HOT`, so a single capture is a warm dark-red flicker with no bloom; `EMBER_DECAY`
+is slow enough that heat only accumulates when captures arrive faster than roughly
+every 2.5 s, which is what separates ordinary play from an Action Card run.
 
 Particles at or above `EMBER_HOT` are **not** drawn in the main pass. Each of
 `ash_draw_and_update()` and `ash_burst_draw_and_update()` finishes with a second loop
