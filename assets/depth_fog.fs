@@ -49,7 +49,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float spinPhase = time * 0.2150244;
     vec2 lightUV = vec2(0.08 + 0.84 * (0.5 - 0.5 * cos(driftPhase)), 0.50);
     vec2 beamAxis = vec2(cos(spinPhase), sin(spinPhase));
-    float xDistance = abs(dot(uv - lightUV, beamAxis));
+    float xDistance = abs(dot(uv - lightUV, beamAxis)) * 1.5;
     float layer80 = 0.10 * lightLayer(xDistance, 1.568);
     float layer60 = 0.133333 * lightLayer(xDistance, 1.176);
     float layer40 = 0.166667 * lightLayer(xDistance, 0.784);
@@ -61,7 +61,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
-    float reach = exp(-dist2 / (0.90 * 0.90));
+    float reach = exp(-dist2 / (0.50 * 0.50));
     vec3 lightDir = normalize(vec3(toLight, 0.42));
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
