@@ -23,9 +23,9 @@
 
 /* Independently chosen tunings for the classic parallel-comb/serial-diffuser topology. */
 static const int k_comb_len_l[REVERB_COMB_COUNT] = {1123, 1201, 1289, 1367, 1433, 1499, 1571, 1627};
-static const int k_comb_len_r[REVERB_COMB_COUNT] = {1147, 1229, 1307, 1399, 1459, 1523, 1597, 1657};
+static const int k_comb_len_r[REVERB_COMB_COUNT] = {1126, 1204, 1292, 1370, 1436, 1502, 1574, 1631};
 static const int k_ap_len_l[REVERB_AP_COUNT] = {557, 443, 337, 227};
-static const int k_ap_len_r[REVERB_AP_COUNT] = {577, 461, 359, 251};
+static const int k_ap_len_r[REVERB_AP_COUNT] = {561, 446, 341, 231};
 
 static float s_comb_buf_l[REVERB_COMB_COUNT][REVERB_COMB_MAX];
 static float s_comb_buf_r[REVERB_COMB_COUNT][REVERB_COMB_MAX];
@@ -223,7 +223,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
             bp_in_r += sfx_r * sfx_scaling;
         }
         
-        float pre_delay = 220 + 1980*room; /* ~5..50 ms at nominal 44.1 kHz. */
+        float pre_delay = 1102.5f; /* ~25 ms at nominal 44.1 kHz. */
         float early_l = delay_tap(s_pre_buf_l, REVERB_PREDELAY_MAX, s_pre_idx_l, pre_delay);
         float early_r = delay_tap(s_pre_buf_r, REVERB_PREDELAY_MAX, s_pre_idx_r, pre_delay);
         s_pre_buf_l[s_pre_idx_l] = bp_in_l;
