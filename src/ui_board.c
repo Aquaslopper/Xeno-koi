@@ -45,9 +45,9 @@ static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fs
    A four-card capture adds four times. Calibrate against that, not against "one capture". */
 #define EMBER_MIN        0.08f  /* heat below this stays cold dark ash                */
 #define EMBER_HOT        0.50f  /* heat at/above this is drawn in the additive pass   */
-#define EMBER_KICK_CAP   0.07f  /* heat per captured card: one capture = 0.20         */
+#define EMBER_KICK_CAP   0.08f  /* heat per captured card: one capture = 0.20         */
 #define EMBER_KICK_KOI   0.10f  /* heat added on a Koi-Koi call                       */
-#define EMBER_DECAY      0.20f  /* linear fall per second - slow, so heat accumulates  */
+#define EMBER_DECAY      0.06f  /* linear fall per second - slow, so heat accumulates  */
 #define EMBER_SMOOTH_ATK 0.22f  /* one-pole up, seconds - the glow swells, never steps */
 #define EMBER_SMOOTH_REL 0.55f  /* one-pole down, seconds - embers cool slowly         */
 #define EMBER_SIZE_BONUS 0.12f  /* extra heat on the largest fragments (8-10 px)      */
