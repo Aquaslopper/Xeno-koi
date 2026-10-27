@@ -34,7 +34,7 @@ float sampleRidgeEmit(vec2 sampleUV, vec2 lightDirXY)
     vec3 sb = texture(texture0, cUV).rgb;
     float sLum = dot(sb, vec3(0.299, 0.587, 0.114));
     float sMask = smoothstep(0.014, 0.065, sLum);
-    float sRelief = smoothstep(0.015, 0.30, length(sn.xy));
+    float sRelief = smoothstep(0.050, 0.30, length(sn.xy));
     float sDir = 0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(sn.xy, lightDirXY));
     return sRelief * sDir * sMask;
 }
@@ -65,7 +65,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
     // Smooth 3D relief with wrapped directional bias (no center hole or half-ridge cutoff).
-    float relief = smoothstep(0.015, 0.30, length(n.xy));
+    float relief = smoothstep(0.050, 0.30, length(n.xy));
     float dirBias = 0.55 + 0.45 * smoothstep(-0.30, 0.35, dot(n.xy, lightDir.xy));
     float slope = relief * dirBias;
     float spec = pow(max(dot(n, halfVec), 0.0), 14.0);
