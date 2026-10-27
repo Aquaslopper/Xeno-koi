@@ -1802,6 +1802,13 @@ static void update_draw_frame(void) {
 
         ac_paused = is_paused || plexus_tutorial_panel_open();
         action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, 0.0f);
+        int action_trigger_ready = ac_table && !ac_paused && !action_card_is_event_freezing() &&
+                                  !replay_pb_active() && g.phase == PHASE_TURN_HAND && !g.has_pending &&
+                                  round_banner_timer <= 0.0f && g.hitlag_timer <= 0.0f &&
+                                  (!anim.active || anim.type == ANIM_CPU_THINK || anim.type == ANIM_BANNER) &&
+                                  !cinematic_is_active() && !motion_is_reflowing(&g) &&
+                                  event_beat_timer <= 0.0f;
+        action_card_set_trigger_ready(action_trigger_ready);
         board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY)
                                         : (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY),
