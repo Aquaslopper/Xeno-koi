@@ -892,9 +892,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
     float env_dt = action_card_is_paused() ? 0.0f : frame_dt;
-    /* Five additional code lines. */
+    /* Peak state: 0 normal, 1 locked, 2 releasing. */
     static int reverb_peak_lock = 0;
-    if (reverb_energy <= 0.85f) reverb_peak_lock = 0;
+    if (round_reset || (reverb_peak_lock == 1 && reverb_energy <= 0.0f)) reverb_peak_lock = 0;
+    if (reverb_peak_lock == 2 && (delta_captured || koi_edge)) reverb_peak_lock = 0;
     if (!reverb_peak_lock && delta_captured > 0) reverb_energy += (float)delta_captured * 0.09f;
     if (!reverb_peak_lock && koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
@@ -908,7 +909,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
         reverb_energy -= 0.4f * env_dt;
-        if (reverb_peak_lock && reverb_energy < 0.85f) reverb_energy = 0.85f;
+        if (reverb_peak_lock == 1 && reverb_energy < 0.85f) reverb_energy = 0.85f;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.7f));
@@ -921,6 +922,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
     float reverb_synergy = 0.30f * syn_x + 0.70f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
+    if (reverb_peak_lock == 1 && reverb_hold <= 0.0f && reverb_energy <= 0.85f) reverb_peak_lock = 2;
+    if (reverb_peak_lock == 2 || (reverb_peak_lock == 1 && reverb_hold <= 0.0f)) {
+        if (reverb_peak_lock == 2 && reverb_synergy <= reverb_energy) reverb_peak_lock = 0;
+        if (reverb_synergy > reverb_energy) reverb_synergy = reverb_energy;
+    }
     audio_set_reverb(reverb_synergy);
     if (!replay_mode) {
         if (capture_edge || koi_edge) s_audio_action_triggers++;
