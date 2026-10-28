@@ -7,6 +7,17 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex story beats and per-card protocols (28 October 2026)
+
+- Every one of the 48 spine cards now has story text on the spine briefing: `k_story_beats[48]` in `src/ui_plexus.c` replaces the `[PLACEHOLDER]` line for Months 02-12 with three vessel-voice lines, and Month 01 keeps its tutorial title and description with one story hook underneath.
+- Extended the Month 01 tutorial mechanism into a generic **story protocol** on any card above Month 01, as asked: a card whose beat carries a keeper transmission deals one real round on the player's ruleset and opens one frozen keeper panel before play, then releases to ordinary play. `PROTO_WAIT_DEAL` / `PROTO_PANEL_STORY` / `PROTO_PLAY` ride the existing `TutorialStep` machine, discriminated by `s_tut_card_id >= 4`, so no Month 01 branch, input gate, or draw site was duplicated.
+- Fourteen cards are playable protocols today: all four of Month 02, plus each of Months 03-12's FACE card (`slot 0`). Every other card keeps the beta instant-clear path, selected in one place by `story_beat_has_protocol()`.
+- Clearing a protocol writes a card-aware MATCHES log entry (`[<card>] PROTOCOL CLEARED`) whose detail line is the beat's `trace[0]` - the vessel's account of what the sector remembered.
+- All 179 story lines were measured against the shipped TTFs with raylib's own scale (`round(advance * base / (ascent - descent)) * size / base`): the widest briefing line is 456 px of 496, the widest frozen-panel line 517 px of 668, the widest trace 378 px of 482. Nothing wraps or clips in these paths, so the budgets are documented in `plexus/roadmap_story.md` §5 with a checker.
+- **Verified:** `./tools/tests_guard.sh`, `tests/test_engine.c` (500 matches), `tools/test_koikoi_trigger.c`, `tests/test_table_ui.sh`, `tests/test_music_folder.sh`, `gcc -std=c99 -O2 -Wall -Wextra -Werror -fsyntax-only` on all 20 files that build against Raylib 5.0 headers (`src/ui_audio.c` and `src/ui_replay.c` fail only on pre-existing `IsMusicValid` / `MakeDirectory` implicit declarations in 5.0, unrelated to this change), `python3 tools/gen_wiki_tables.py --check`, and `git diff --check`. `./build.sh test` is blocked by the `--verify` gate in this sandbox, so its commands were run directly.
+- **Not verified:** the live flow. There is no display or Raylib library here, so no protocol match, panel, continue click, or spine flip has been played; the state machine was reasoned against the shipped Action Card tutorial, which uses the same `engine_start_round()` + `TUT3_WAIT_START` shape.
+- **Touched:** `src/ui_plexus.c`, `LEARN_THE_CODE.md` (§10.5), `plexus/roadmap_story.md`, `plexus/roadmap_plexus.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_main.c` (the tutorial gates already cover protocols), `src/rules.*`, `src/engine.*`, `src/cards.*`, `src/campaign.*`, `src/storage.*`, `src/ui_screens.c`, `tests/`, `tools/`, any save-file key, and the `SPEEDCOIN` / `ACTION CARD` / `DEUS` testing flags.
+
 ### Larger main-menu title and subtitle (28 October 2026)
 
 - Enlarged the title screen in `ui_hub_draw_title()`: `[XENO / KOI]` 136 → **176 px** (y 72 → 60) and `HANAFUDA: ACOUSTICA APEXUS` 26 → **34 px** (y 220 → 248, letter spacing 3.0 → 4.0 so the tracking scales with the size). Colours, the wine-red subtitle, the three buttons, and `ALL FILES SAVED` are unchanged.

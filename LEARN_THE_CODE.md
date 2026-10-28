@@ -1777,6 +1777,57 @@ The board guides are drawn only while the tutorial is active, and
 `plexus_tutorial_allowed_hand_card()` returns −1 outside the two play steps, which
 the input handler treats as "no restriction".
 
+### 10.5 Story beats and per-card protocols
+
+`k_story_beats[48]` holds one `StoryBeat` per spine card, indexed by
+`card_id = month * 4 + slot`, and is the only place story text lives
+(planned in `plexus/roadmap_story.md`):
+
+```c
+typedef struct {
+    const char *signal[3];    /* spine briefing body lines                */
+    const char *intrusion[6]; /* keeper voice, one frozen panel           */
+    const char *trace[6];     /* vessel voice, [0] becomes the log line   */
+} StoryBeat;
+```
+
+The briefing reads `signal[]`: months 02–12 put all three lines in `line1..3`,
+while Month 01 keeps its tutorial title and description on `line1..2` and shows
+`signal[0]` alone on `line3`. `trace[0]` is written into the MATCHES logfile
+entry when a protocol card is cleared. Text is ASCII only (all three faces load
+codepoints 32–126) and no line wraps or clips, so the budgets in
+`plexus/roadmap_story.md` §5 are load-bearing.
+
+A card whose `intrusion[0]` is non-NULL is a **story protocol**: clicking `START`
+deals a real round on the player's ruleset and opens one frozen keeper panel
+before play. `story_beat_has_protocol()` is the single test; every other card keeps
+the beta instant-clear path. Fourteen cards qualify today — all four of Month 02,
+and each of Months 03–12's FACE card (`slot 0`).
+
+Protocols ride the tutorial state machine rather than a parallel one. Three extra
+`TutorialStep` values carry them, and `s_tut_card_id >= 4` is the discriminator
+that keeps every Month 01 branch untouched:
+
+```
+PROTO_WAIT_DEAL      engine_start_round() has dealt; waiting for the board to settle
+PROTO_PANEL_STORY    frozen: keeper transmission, [CONTINUE] unfreezes
+PROTO_PLAY           ordinary play until the round ends
+```
+
+`plexus_tutorial_setup_round()` gives protocols `total_rounds = 1` with `dealer = 0`
+and pins `current_player = 0` after the lucky check, so the transmission always
+lands before the CPU moves. `PROTO_PANEL_STORY` is in `tut_step_is_frozen()`, so
+the existing gates (`plexus_tutorial_panel_open()`, the `tut_frozen` early return in
+the GAME branch, the panel draw at `ui_main.c`) work unchanged; its rect is
+`{280, 150, 720, 380}`, the same as the default tutorial panel. Finishing the round
+runs `plexus_tutorial_finish_match()`, which marks the card, flips the next slot and
+now writes a card-aware log title (`PROTOCOL CLEARED` above `cid == 4`).
+
+Because protocols are tutorial-active, they deliberately skip what a campaign match
+gets: no replay record, no campaign stats, no clearance coins, no Deus ruleset
+override, and speedbar/audio telemetry is isolated by `tut_save_telemetry()` /
+`tut_restore_telemetry()`.
+
 ---
 
 ## 11. Input and motion (`ui_input.c`, `ui_motion.c`, `ui_anim.c`)

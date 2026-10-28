@@ -5,7 +5,10 @@
 > build it without breaking the table.
 > **Companions:** [`story.md`](story.md) (lore notebook) · [`training_games.md`](training_games.md)
 > (game archetypes) · [`roadmap_plexus.md`](roadmap_plexus.md) (Phase 5, which this file fills in).
-> **Status:** Plan only. Nothing here is implemented beyond the surfaces listed in §1.
+> **Status:** Partly implemented (28 October 2026) — see §8. All 48 cards have SIGNAL text on the
+> spine briefing, and 14 cards (all of Month 02, plus each of Months 03-12's FACE card) play a real
+> one-round **story protocol** with a frozen keeper panel. Stages B (paged story screen) and D (art)
+> are still plan only.
 
 ---
 
@@ -292,15 +295,15 @@ static const StoryBeat k_story_beats[48]; /* index = card_id = month*4 + slot */
 
 ## 8. Delivery, in four increments
 
-### Stage A — Text beats on existing surfaces (no new UI) · ~60 lines
-* Replace the `[PLACEHOLDER]` branch for months 02–12 with `k_story_beats[cid].signal[0..2]`.
-* Add the TRACE reader: make the four card nodes in `draw_logfile_story_tab()` clickable
-  (`{tx+idx*121, doc.y+318, 115, 74}`) and, on click, draw the trace in place of the chapter prose
-  with a `[BACK]` control. Reading marks `s_story_trace_mask`.
-* Fill Month 01's four cards first — they already have tutorials, so text-only is enough there and
-  it validates the tone in-game before 44 more are written.
-* **Gate:** `./build.sh test`, `./tools/tests_guard.sh`, `git diff --check`, plus one manual read of
-  each panel against §5 budgets.
+### Stage A — Text beats on existing surfaces (no new UI) · **done 28 Oct 2026**
+* [x] `k_story_beats[48]` in `src/ui_plexus.c`; Months 02–12 read `signal[0..2]` into the three
+  briefing body lines, Month 01 keeps its tutorial title/description with `signal[0]` beneath it.
+* [x] `trace[0]` is written into the MATCHES logfile entry when a protocol card clears.
+* [ ] Clickable Logfile card nodes: the four nodes in `draw_logfile_story_tab()` are still drawn,
+  not clickable, so the full TRACE is not yet readable in-game. Nodes are at
+  `{tx+idx*121, doc.y+318, 115, 74}`; a `[BACK]` control would replace the chapter prose.
+* **Gate:** all §5 budgets were measured against the shipped TTFs (widest line 456/496 briefing,
+  517/668 panel, 378/482 trace).
 
 ### Stage B — A real story screen (paged, skippable) · ~120 lines (needs the "over 80" conversation)
 * Generalise `draw_intro_story_screen()` into a small pager: an array of line blocks, a reveal
@@ -310,9 +313,15 @@ static const StoryBeat k_story_beats[48]; /* index = card_id = month*4 + slot */
 * **Gate:** A + verify the intro can still be re-read from the Logfile and that `intro_seen`
   persistence is unchanged.
 
-### Stage C — Scripted protocol games (the expensive one; plan first, per §2.6)
-* One new module, e.g. `src/ui_protocol.{h,c}`, holding a table of scripts and one runner that
-  reuses the `tut_step` freeze machinery:
+### Stage C — Scripted protocol games · **first slice done 28 Oct 2026; the rest is still plan**
+* [x] Done without a new module: the generic protocol rides `src/ui_plexus.c`'s tutorial machine via
+  `PROTO_WAIT_DEAL` / `PROTO_PANEL_STORY` / `PROTO_PLAY`, discriminated by `s_tut_card_id >= 4`.
+  A card with `intrusion[0]` deals one real round on the player's ruleset and freezes once for the
+  keeper panel. 14 cards qualify; `story_beat_has_protocol()` is the single switch.
+  `./build.sh test`, the table-UI suite and the guard all pass; the live flow is unplayed (no
+  display in this environment).
+* [ ] Goals and hulls: today a protocol is "play one round, no goal, no hull choice". The sketch
+  below is what turns the remaining cards into real challenges:
 
 ```c
 typedef struct {
