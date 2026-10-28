@@ -9,10 +9,10 @@
 
 ### Larger, music-reactive title (28 October 2026)
 
-- Enlarged the title and subtitle; the title background gently brightens with the existing music-level tap, including the normal-map light when available. Mute fades out the response; other screens and Action Card gameplay remain separate.
+- Sized the title and subtitle to the mock-up's shared width and added dark backing. After maintainer feedback, the music-level tap brightens and glows the lettering, not the background. Mute fades out the response; other screens and Action Card gameplay remain separate.
 - The shared music-sync function now accepts a title-screen flag; no music DSP was modified.
 - Checked strict syntax of the three changed C files with Raylib 5.5 headers, the locked test guard, engine tests, table UI tests, music-folder checks, and `git diff --check`. `./build.sh test` remains blocked by the architecture-verification gate; the music-folder dialog checks were skipped without headers.
-- Not verified: live appearance, text fit, and music responsiveness in a running desktop or browser build.
+- Not verified: revised live appearance, text fit, and music responsiveness in a running desktop or browser build.
 - Touched `src/ui_action.c`, `src/ui_action.h`, `src/ui_hub.c`, `src/ui_hub.h`, `src/ui_main.c`, this status and the architecture map. Did not touch audio DSP, rules, cards, scoring or locked tests.
 
 

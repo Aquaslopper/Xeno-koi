@@ -135,7 +135,7 @@ static void hub_draw_centered(Font font, const char *text, float cx, float y, fl
         ui_theme_draw_text_flares(font, text, pos, fsz, sp, col);
 }
 
-static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha, float flash) {
+static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha) {
     if (ba && ba->current_bg >= 0 && ba->current_bg < 8 && ba->bgs[ba->current_bg].id > 0) {
         int bg = ba->current_bg;
         if (ba->has_fog_shader) {
@@ -143,7 +143,7 @@ static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha, 
             float light_on = (ba->bg_normals[bg].id > 0 &&
                               ba->light_normal_loc >= 0 &&
                               ba->light_enabled_loc >= 0) ? 1.0f : 0.0f;
-            float flash_zero = flash;
+            float flash_zero = 0.0f;
             SetShaderValue(ba->fog_shader, ba->fog_time_loc, &cur_time, SHADER_UNIFORM_FLOAT);
             SetShaderValue(ba->fog_shader, ba->light_enabled_loc, &light_on, SHADER_UNIFORM_FLOAT);
             if (ba->light_flash_loc >= 0)
@@ -164,7 +164,7 @@ static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha, 
 }
 
 static void hub_draw_backdrop(const BoardAssets *ba) {
-    hub_draw_backdrop_alpha(ba, 168, 0.0f);
+    hub_draw_backdrop_alpha(ba, 168);
 }
 
 static void hub_draw_button(Rectangle r, const char *label, int fsz, Vector2 vm) {
@@ -187,15 +187,43 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
     out_hit->font_size = fsz;
 }
 
+/* Size the two title lines to the mock-up's shared width; light only the text. */
+static void hub_draw_title_line(Font font, const char *text, float y, float size,
+                                Color color, float pulse) {
+    const float spacing = 3.0f, target_width = 900.0f;
+    for (int i = 0; i < 4; i++) {
+        float width = MeasureTextEx(font, text, size, spacing).x;
+        if (width <= 0.0f) break;
+        size *= target_width / width;
+    }
+    Vector2 dim = MeasureTextEx(font, text, size, spacing);
+    Vector2 pos = { floorf((CANVAS_W - dim.x) * 0.5f), floorf(y) };
+    DrawRectangle((int)pos.x - 8, (int)pos.y, (int)dim.x + 16, (int)size,
+                  (Color){ 0, 0, 0, 215 });
+    if (pulse > 0.001f) {
+        Color glow = { color.r, color.g, color.b, (unsigned char)(45.0f * pulse) };
+        BeginBlendMode(BLEND_ADDITIVE);
+        DrawTextEx(font, text, (Vector2){ pos.x - 2.0f, pos.y }, size, spacing, glow);
+        DrawTextEx(font, text, (Vector2){ pos.x + 2.0f, pos.y }, size, spacing, glow);
+        DrawTextEx(font, text, (Vector2){ pos.x, pos.y - 2.0f }, size, spacing, glow);
+        DrawTextEx(font, text, (Vector2){ pos.x, pos.y + 2.0f }, size, spacing, glow);
+        EndBlendMode();
+    }
+    Color lit = { (unsigned char)(color.r + (255 - color.r) * 0.4f * pulse),
+                  (unsigned char)(color.g + (255 - color.g) * 0.4f * pulse),
+                  (unsigned char)(color.b + (255 - color.b) * 0.4f * pulse), 255 };
+    DrawTextEx(font, text, pos, size, spacing, lit);
+}
+
 /* --- Title Screen (SCREEN_START) ----------------------------------------- */
 
 void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile, float music_level) {
     const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     float pulse = fminf(1.0f, fmaxf(0.0f, music_level));
-    hub_draw_backdrop_alpha(ba, (unsigned char)(95.0f - 25.0f * pulse), 0.25f * pulse);
+    hub_draw_backdrop_alpha(ba, 95);
     Color wine_red = { 224, 136, 146, 255 };
-    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 60.0f, 156.0f, 3.0f, COLOR_PHOSPHOR);
-    hub_draw_centered(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 230.0f, 58.0f, 3.0f, wine_red);
+    hub_draw_title_line(font_title, "[XENO / KOI]", 90.0f, 130.0f, COLOR_PHOSPHOR, pulse);
+    hub_draw_title_line(font_body, "HANAFUDA: ACOUSTICA APEXUS", 235.0f, 55.0f, wine_red, pulse);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
