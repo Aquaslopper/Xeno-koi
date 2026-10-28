@@ -1481,8 +1481,12 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 136 px on y 72 and
-`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220 in the soft wine-red `{224,136,146}`.
+The active title screen shows `[XENO / KOI]` at 156 px on y 60 and
+`HANAFUDA: ACOUSTICA APEXUS` at 58 px on y 230 in the soft wine-red `{224,136,146}`.
+The existing Action Card music meter tap also runs on the title screen; its smoothed
+level gently reduces backdrop darkness and drives the fog shader light flash. It is
+detached outside the title and Action Card table, and title pulsing fades to zero
+when music is muted. It measures music level, not a fixed-tempo beat detector.
 Its three buttons are `CONTINUE`
 (or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.
