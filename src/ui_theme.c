@@ -102,6 +102,11 @@ static int s_previous_panel_mouse_valid;
 static double s_last_flare_time = -1.0;
 static float s_global_flare_glow = 0.0f;
 static float s_global_flare_speed = 1.0f;
+static float s_text_flare_pulse = 0.0f;
+
+void ui_theme_set_text_flare_pulse(float pulse) {
+    s_text_flare_pulse = (pulse < 0.0f) ? 0.0f : ((pulse > 1.0f) ? 1.0f : pulse);
+}
 
 void ui_theme_set_global_flare_boost(float glow_floor, float speed_mult) {
     s_global_flare_glow = (glow_floor < 0.0f) ? 0.0f : ((glow_floor > 1.0f) ? 1.0f : glow_floor);
@@ -436,15 +441,18 @@ static const GlyphContourEntry *glyph_contours_get(const Font *font, int idx) {
 
     static const int dx[4] = { 1, 0, -1, 0 };
     static const int dy[4] = { 0, 1, 0, -1 };
-    static Vector2 raw[1024];
-    static Vector2 tmp[1024];
-    static float cum[1025];
+    /* 2048, not 1024: the title brand line traces Audiowide at 176 px, where a single
+       letter outline can run past a thousand boundary steps. At the old size the walk
+       stopped mid-glyph and the mote path cut straight across the letter. */
+    static Vector2 raw[2048];
+    static Vector2 tmp[2048];
+    static float cum[2049];
 
     for (int sy = 0; sy < vh && entry->loop_count < MAX_GLYPH_LOOPS; sy++) {
         for (int sx = 0; sx < vw && entry->loop_count < MAX_GLYPH_LOOPS; sx++) {
             if (!out_mask[sy * vw + sx]) continue;
             int cx = sx, cy = sy, n = 0;
-            while (n < 1024) {
+            while (n < 2048) {
                 unsigned char m = out_mask[cy * vw + cx];
                 if (!m) break;
                 int dir = (m & 1u) ? 0 : (m & 2u) ? 1 : (m & 4u) ? 2 : 3;
@@ -505,6 +513,12 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
     if (!text || !text[0] || font.texture.id == 0 || font.baseSize <= 0 || !font.glyphs || !font.recs) return;
     float scale = font_size / (float)font.baseSize;
     float now = (float)GetTime();
+    /* Big faces need more and faster motes: the same three dots that read as a travelling
+       spark on an 18 px label look abandoned on a 176 px letter. 0 pulse keeps the old
+       density, speed and shine, so every other caller is untouched. */
+    float pulse = s_text_flare_pulse;
+    int big = (font_size > 60.0f);
+    float speed_mult = 1.0f + 1.1f * pulse + (big ? 1.3f : 0.0f);
     int len = TextLength(text);
     float off_x = 0.0f, off_y = 0.0f;
     int char_seq = 0;
@@ -536,10 +550,11 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                         float s_perim = loop->perim * scale;
                         if (s_perim < 16.0f) continue;
                         int n_flares = (s_perim >= 230.0f) ? 3 : ((s_perim >= 95.0f) ? 2 : 1);
+                        if (big) n_flares = (s_perim >= 230.0f) ? 5 : 3;
                         for (int d = 0; d < n_flares; d++) {
                             unsigned int h = (unsigned int)(char_seq * 131 + l * 53 + d * 97 + idx * 17);
                             float dir = ((h & 1u) == 0u) ? 1.0f : -1.0f;
-                            float spd = (12.0f + (float)(h % 21u)) * 0.80f;
+                            float spd = (12.0f + (float)(h % 21u)) * 0.80f * speed_mult;
                             float phase = (float)((h * 37u) % 1000u) * 0.001f;
                             float u_head = phase + dir * (spd * now) / s_perim;
 
@@ -552,6 +567,7 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                             } else if (cycle_t < (float)PANEL_SHINE_DURATION) {
                                 shine = sinf((cycle_t / (float)PANEL_SHINE_DURATION) * 3.14159265f);
                             }
+                            if (pulse > shine) shine = 0.35f * shine + 0.75f * pulse;
 
                             float flen = fminf(12.0f + 0.05f * font_size, s_perim * 0.16f);
                             float thick = 0.8f + 0.4f * shine;

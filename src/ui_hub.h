@@ -64,9 +64,9 @@ void      ui_hub_profile_manager_reset(int selected_slot);
 int       ui_hub_profile_manager_selected_slot(void);
 
 /* Main Game Hub (SCREEN_HUB_MAIN):
-   spine_count in 0..48 displays live Spine progress (+ NEW PLAYERS hint at 0/48);
-   pass < 0 when Spine count is omitted. */
-void      ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_count, Vector2 vm);
+   st is the same global GameStats the result and stats screens read; NULL renders the
+   "no matches yet" line. The card no longer prints Spine progress, so no count is taken. */
+void      ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, const GameStats *st, Vector2 vm);
 HubAction ui_hub_handle_main_click(Vector2 vm, HubButtonHit *out_hit);
 
 /* Campaign Hub (SCREEN_HUB_CAMPAIGN):

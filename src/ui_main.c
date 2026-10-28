@@ -238,7 +238,7 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
             action_card_draw_match_result_extras(&g);
         }
     } else if (sc == SCREEN_HUB_MAIN) {
-        ui_hub_draw_main(&assets, &settings, plexus_get_spine_count(), mouse_pos);
+        ui_hub_draw_main(&assets, &settings, &stats, mouse_pos);
     } else if (sc == SCREEN_HUB_OPTIONS) {
         ui_hub_draw_options_menu(&assets, mouse_pos, saved_timer);
     } else if (sc == SCREEN_PROFILE_MANAGER) {
@@ -857,6 +857,9 @@ static void update_draw_frame(void) {
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
     action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt);
+    /* One level drives every glyph mote on the frame, so the title's dots ride the beat
+       instead of running on a fixed clock. 0 when nothing is playing. */
+    ui_theme_set_text_flare_pulse(action_card_music_pulse());
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;

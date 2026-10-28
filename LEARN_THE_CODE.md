@@ -1795,31 +1795,51 @@ the input handler treats as "no restriction".
 `SCREEN_START` is the brand line and three buttons; `SCREEN_HUB_MAIN` is the mode
 select, and each of its two cards is deliberately minimal: **one data strip and one
 button, nothing else**. There is no card heading, because the heading said the same
-name the button says and the name appeared twice on every card. The name lives on the
-button only, in plain uppercase: `PANCRATIUM CAMPAIGN` (18 px, `{154, 366, 312, 48}`)
-and `ATRIUM PLEX` (22 px, `{586, 366, 540, 48}`). Prose was removed earlier for the
-same reason — three lines of description per card had made the cards 390 px tall.
+name the button says. The name lives on the button only, in plain uppercase:
+`PANCRATIUM` and `ATRIUM PLEX`.
 
-Both cards sit on one band `y 256`, `h 178`, share the button row `y 366`, and are
-weighted differently on purpose. **Campaign** is the slim one: `{130, 256, 360, 178}`,
-one 1 px dim frame, strip `{154, 276, 312, 58}`, button `{154, 366, 312, 48}`.
-**Atrium Plex** is the heavier door: `{530, 256, 620, 178}`, a bright 2 px frame plus an
-inner hairline 7 px in, strip `{554, 276, 572, 58}`, button `{554, 366, 572, 48}`. Both
-cards inset their strip and button 24 px from the frame, so the four inner rectangles
-line up on two x-positions and one y-band. Every button label on this screen is 20 px
-(`hub_draw_button()`), which keeps the two doors reading as one row. Footer `BACK` is
-`{510, 594, 260, 48}`.
+The two cards are built the **same way and differ only in width**, so the screen reads as
+one system of doors: same band, same 24 px inset, same 58 px strip, same 48 px button row,
+same single 1 px frame, same 20 px button label.
 
-There is deliberately **no Spine ladder on the card** any more. Earlier the Atrium card
-carried twelve ticks down its left edge; the owner removed it, so the card's weight is
-carried by width and the double frame alone, and the Spine count stays inside the data
-strip (`SPINE 21/48`). Do not reintroduce a second read-out of the same number.
+| | Pancratium | Atrium Plex |
+|---|---|---|
+| panel | `{130, 256, 320, 178}` | `{482, 256, 668, 178}` |
+| strip | `{154, 276, 272, 58}` | `{506, 276, 620, 58}` |
+| button | `{154, 366, 272, 48}` | `{506, 366, 620, 48}` |
+| strip line 1 | `SECTORS nn/12   //   COINS nn/36` | a two-line description |
+| strip line 2 | rotating combat line | |
 
-The same vocabulary is used with opposite signals elsewhere: the **campaign page**
-(`SCREEN_HUB_CAMPAIGN`) keeps its own double frame as the finite tournament side and
-its own `SYSTEM OPTIONS` button that returns here via `options_return_screen`.
-Everything about the Atrium reads as depth — the wider card, the doubled frame, the
-spine counter, the loading card on entry — while Campaign reads as a bracket.
+Footer `BACK` is `{510, 594, 260, 48}`.
+
+The Pancratium strip's second line is the only moving copy on the screen. `hub_draw_combat_line()`
+prints one line from `GameStats`, switching every 5 s:
+
+| slot | line |
+|---|---|
+| 0 | `W <won> / L <lost>   //   STREAK <current_streak>` |
+| 1 | `WIN RATE <pct>%   //   BEST STREAK <best_streak>` |
+| 2 | `TOP YAKU  <storage_get_favorite_combo()>` |
+| 3 | `KOI CALLS <koi_calls_you>   //   BEST ROUND <highest_round_score>` |
+| none | `NO MATCHES YET  //  PLAY ONE` in amber when `matches_played == 0` |
+
+Deus outranks it: with `s->difficulty == DIFFICULTY_DEUS` the line is a red
+`DEUS SUPREMUS ACTIVE` instead, because that is a live session warning rather than a stat.
+`GameStats` is the single global match record — the same struct the result and stats screens
+read — so these numbers are **not** chamber-local. Plexus tutorials, protocols, Speedcoin and
+Action Card runs are diverted to their own `plexus_*_finish` paths and never reach
+`storage_record_match()`, so they do not move any of the four lines.
+
+There is deliberately **no Spine ladder and no second frame on these cards** any more. Earlier
+the Atrium card carried twelve ticks down its left edge and a bright 2 px frame plus an inner
+hairline; both were removed so the two cards are one system, and the Spine count is not printed
+on this screen at all. Do not reintroduce a second read-out of the same number, and do not give
+one card a frame the other does not have.
+
+The **Pancratium page** (`SCREEN_HUB_CAMPAIGN`) is headed `PANCRATIUM`; its first button is the
+`APEX PANCRATIUM CIRCUIT` (the twelve-opponent tournament, which is what the code still calls
+the campaign) and it keeps `RECORDS & STATS`, `SYSTEM OPTIONS` (returns here via
+`options_return_screen`), the Deus row and `BACK`. It uses a single frame like everything else.
 
 `HUB_ACT_TITLE_QUIT` is not a click-to-exit: it calls
 `start_transition(SCREEN_START, TRANSACT_QUIT, 0)`, so the ordinary fade plays, the
@@ -2000,6 +2020,28 @@ assumption in a single frame, since the 176 px brand line is traced alongside 15
 labels. `MAX_TRACE_DIM` must cover the tallest glyph *bitmap* it is asked to trace — 160 for
 Audiowide at 176 px, where `j` is 135 px tall and the brackets 128 px. Anything larger than the
 limit is skipped silently, so a flared draw at a new size needs a look at that constant.
+
+The outline walk buffers (`raw`, `tmp`, `cum`) are 2048 steps, not 1024. A single letter at
+176 px can run past a thousand boundary steps; at the old size the walk stopped mid-glyph and
+the mote path cut straight across the letter, which is why the brand line could look like it
+had no dots at all on some glyphs.
+
+The motes are **two effects on one clock**:
+
+- the idle cycle and the hover shine, unchanged;
+- `ui_theme_set_text_flare_pulse(level)`, a 0..1 music level that brightens every mote
+  (`shine = 0.35 * shine + 0.75 * pulse`) and speeds the travel
+  (`speed_mult = 1 + 1.1 * pulse`). It defaults to 0, so any caller that does not set it
+  behaves exactly as before. `src/ui_main.c` sets it once per frame from
+  `action_card_music_pulse()`, which is the smoothed level of the live music stream — the menu
+  plays the same match streams, so the title's dots ride the track. It reads 0 whenever no
+  music is playing.
+
+Faces drawn above 60 px also get a higher mote count per outline (5 / 3 instead of 3 / 2) and a
+1.3x travel speed, because three dots on an 18 px label and on a 176 px letter do not read as
+the same effect. The brand line draws with `font_display`, so its flare gate has to accept both
+title faces — `hub_font_has_motes()` in `ui_hub.c` does; a `font_title`-only test silently
+drops the flares.
 
 ### 12.2 Panel flares
 
