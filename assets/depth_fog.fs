@@ -35,7 +35,6 @@ const float MASK_LO      = 0.01;      // normal-map alpha gate: which areas may 
 const float MASK_HI      = 0.06;
 const float BLACK_LO     = 0.014;     // art-luminance gate: keeps true black unlit
 const float BLACK_HI     = 0.065;
-const float REST_LEVEL   = 1.0;       // resting beam brightness - independent of the thunder
 const float DIFF_GAIN    = 2.6;       // wrapped diffuse strength
 const float SPEC_GAIN    = 1.5;       // specular strength
 const float SPEC_POWER   = 24.0;      // specular tightness
@@ -71,8 +70,8 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     float mask = smoothstep(MASK_LO, MASK_HI, map.a);
     float blackGate = smoothstep(BLACK_LO, BLACK_HI, dot(base, vec3(0.299, 0.587, 0.114)));
 
-    float flashGain = 0.95 * flashAmount;   // thunder only - exactly as shipped
-    float energy = beam * (REST_LEVEL + flashGain) + flashAmount * 0.065;
+    float flashGain = 0.50 + 0.95 * flashAmount;
+    float energy = beam * flashGain + flashAmount * 0.065;
 
     vec3 warm = vec3(1.0, 0.93, 0.80);
     vec3 lightAdd = base * warm * (energy * diff * DIFF_GAIN)
