@@ -1025,9 +1025,20 @@ rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 p
 
 | Face | File | `baseSize` | Drawn at | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 176 px | 0.24× – 3.67× |
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 56 px | 0.24× – 1.17× |
+| `font_display` | `audiowide.ttf` | **176** | 176 px only | 1.00× |
 | `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 34 px | 0.52× – 1.31× |
 | `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
+
+`font_display` exists because the 176 px `[XENO / KOI]` brand line was the one place the
+single-face compromise showed: a 3.67× bitmap stretch of the 48 px master reads as soft no
+matter what filter is set. It is rasterised at the size it is drawn at, so the glyphs are 1:1
+and only the canvas-to-window scale touches them. It is safe precisely because
+`ui_hub_draw_title()` passes it to `hub_draw_centered()`, which measures and draws with the
+same `Font` object; the metric hazard that blocked a general font LOD below is measuring with
+one face and drawing with the other, and no call site does that for this face. It is not a
+general "big text" face: at the 30–56 px headers it would be a 0.17×–0.32× downscale, which is
+worse than the 1.17× it replaces. One `Font` per draw size, each used only at that size.
 
 The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
 **0.12× downscale of a 96 px master**, so the month buttons and every hub button label were
@@ -1042,8 +1053,10 @@ narrower) because `advanceX` is integer-rounded at the new size. That is safe **
 because a single `Font` object performs both the measure and the draw at every call site, so
 centring is unaffected and only fit margins move, in the safe direction.
 
-The complete fix is a second, small rasterisation of each face selected by `font_size`,
-which would put small text at ~1:1. It is not done because `advanceX` rounding makes the two
+The general fix is a second, *small* rasterisation of each face selected by `font_size`,
+which would put small text at ~1:1. (The narrow exception above — one extra large face used by
+a single call site that measures and draws with it — does not run into the hazard, because no
+measure/draw pair is ever split across the two faces.) It is not done because `advanceX` rounding makes the two
 rasterisations *not* metrically interchangeable — measuring with one face and drawing with
 the other misaligns centred text by up to ~4 px on a long line. Doing it correctly requires
 every `MeasureTextEx` to be routed in lockstep with its draw: about 35 sites across
@@ -1940,6 +1953,16 @@ Each theme is a `TerminalTheme` of eight `Color`s: `base`, `dim`, `text_info`,
 `COLOR_AMBER` (`{255,176,0,255}`), `COLOR_RED` (`{255,64,64,255}`),
 `COLOR_PANEL_BG` (`{0,0,0,178}`), `COLOR_OVERLAY_BG` (`{0,0,0,220}`) and
 `COLOR_TABLE_DIM` (`{0,0,0,38}`) are fixed.
+
+### 12.1b Text flares and the contour cache
+
+`ui_theme_draw_text_flares()` traces glyph outlines once per glyph and caches them in
+`s_glyph_contours[96]`, keyed **per entry** by the source texture id and `baseSize`. It used to
+be keyed globally, which assumed one face was traceable at a time; the title screen breaks that
+assumption in a single frame, since the 176 px brand line is traced alongside 15 px button
+labels. `MAX_TRACE_DIM` must cover the tallest glyph *bitmap* it is asked to trace — 160 for
+Audiowide at 176 px, where `j` is 135 px tall and the brackets 128 px. Anything larger than the
+limit is skipped silently, so a flared draw at a new size needs a look at that constant.
 
 ### 12.2 Panel flares
 

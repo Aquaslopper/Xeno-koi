@@ -34,9 +34,10 @@
 #define IsFontReady(f) ((f).texture.id > 0)
 #endif
 
-Font font_title;  // Audiowide for titles, headers, and button labels
-Font font_body;   // Play for data, options, HUD, and supporting text
-Font small_font;  // Legacy alias for modules that still use the old name
+Font font_title;    // Audiowide for titles, headers, and button labels
+Font font_body;     // Play for data, options, HUD, and supporting text
+Font font_display;  // Audiowide at title-screen size; only the 176 px brand line uses it
+Font small_font;    // Legacy alias for modules that still use the old name
 GameSettings settings;
 
 #define TRANS_OUT_DUR    1.80f
@@ -2018,10 +2019,26 @@ int main(int argc, char **argv) {
     const int title_base = 48;
     const int body_base = 26;
 
+    /* One extra Audiowide rasterisation at the title screen's own draw size.
+       A texture is only resampled by font_size / baseSize, so the 176 px brand line was a
+       3.67x stretch of the 48 px master and read as soft. This face is drawn at exactly the
+       size it is rasterised at, so it is 1:1 and only the canvas-to-window scale touches it.
+       It is safe to have two faces of one family because ui_hub_draw_title() hands this Font
+       to hub_draw_centered(), which both measures and draws with the object it is given -- the
+       mix that would misalign text is measuring with one face and drawing with the other, and
+       no call site does that here. Do NOT swap font_title for this anywhere else: at 11.5-56 px
+       it would be a hard downscale, which is what the low title_base exists to avoid. */
+    const int display_base = 176;
+
     font_title = LoadFontEx("assets/audiowide.ttf", title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
     else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
+
+    font_display = LoadFontEx("assets/audiowide.ttf", display_base, NULL, 0);
+    if (!IsFontReady(font_display)) font_display = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), display_base, NULL, 0);
+    if (!IsFontReady(font_display)) font_display = font_title;  /* fall back to the shared face */
+    else { GenTextureMipmaps(&font_display.texture); SetTextureFilter(font_display.texture, TEXTURE_FILTER_TRILINEAR); }
 
     int body_cps[97];
     for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
@@ -2064,6 +2081,8 @@ int main(int argc, char **argv) {
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
+    if (font_display.texture.id != font_title.texture.id &&
+        font_display.texture.id != GetFontDefault().texture.id) UnloadFont(font_display);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
     plexus_unload_assets();

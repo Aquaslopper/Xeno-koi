@@ -7,6 +7,16 @@
 ## Status Summary
 ## Latest completed work
 
+### Sharper title-screen brand line (28 October 2026)
+
+- Reported symptom: after enlarging `[XENO / KOI]` to 176 px it looked soft, "as if it had to be resized". It did: raylib rasterises Audiowide once at `font_title.baseSize = 48` and every draw is a bitmap resize by `font_size / baseSize`, so the brand line was a **3.67x stretch** of a 48 px master (2.83x before the enlargement). No filter setting fixes that.
+- Added `font_display`, a second Audiowide rasterisation at `display_base = 176`, used by exactly one call site: the brand line in `ui_hub_draw_title()`. It is drawn at the size it is rasterised at, so the glyphs are 1:1 and only the canvas-to-window scale applies. Falls back to `font_title` if the face fails to load, and is unloaded only when it owns a distinct texture.
+- This does not reopen the abandoned font-LOD work: the hazard recorded in §7.2 is measuring with one face and drawing with another, and `hub_draw_centered()` measures and draws with the `Font` it is handed. It is deliberately *not* a general big-text face - at the 30-56 px headers it would be a 0.17x-0.32x downscale, worse than the 1.17x it replaces.
+- Follow-on fix the new face forced: `s_glyph_contours[]` in `ui_theme.c` was keyed globally by texture id + `baseSize`, which assumed one face was traceable at a time. The title screen traces the 176 px face and 15 px button labels in the same frame, so the two evicted each other and rebuilt every contour twice per frame. The cache is now keyed per entry (two 4-byte fields), and `MAX_TRACE_DIM` went 128 -> 160 because Audiowide at 176 px has a 135 px `j` and 128 px brackets, which would otherwise silently lose their flares.
+- **Verified:** `./tools/tests_guard.sh`, `tests/test_engine.c` (500 matches), `tools/test_koikoi_trigger.c`, `tests/test_table_ui.sh`, `tests/test_music_folder.sh`, strict `-std=c99 -O2 -Wall -Wextra -Werror` compile of `src/ui_main.c`, `src/ui_hub.c` and `src/ui_theme.c`, `python3 tools/gen_wiki_tables.py --check`, `git diff --check`.
+- **Not verified:** the live render. No display or Raylib library here, so the sharpness gain is reconstructed in `font_sharpness_preview.png` (Pillow: master-size raster then bilinear resample by `font_size / baseSize`, which is the path raylib takes) rather than captured from the game.
+- **Touched:** `src/ui_main.c`, `src/ui_hub.c`, `src/ui_theme.c`, `LEARN_THE_CODE.md` (§7.2 table, new §12.1b), `STATUS.md`, `font_sharpness_preview.png`. **Deliberately did not touch:** the other ~90 `font_title` draw sites, `font_body` / story face base sizes, the subtitle (34 px from a 26 px master is a 1.31x stretch and reads acceptably), text metrics or letter spacing, `tests/`, `tools/`, and all rules/scoring/audio.
+
 ### Atrium Plex story beats and per-card protocols (28 October 2026)
 
 - Every one of the 48 spine cards now has story text on the spine briefing: `k_story_beats[48]` in `src/ui_plexus.c` replaces the `[PLACEHOLDER]` line for Months 02-12 with three vessel-voice lines, and Month 01 keeps its tutorial title and description with one story hook underneath.

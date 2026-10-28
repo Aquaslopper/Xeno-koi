@@ -5,6 +5,10 @@
 
 extern Font font_title;
 extern Font font_body;
+/* Audiowide rasterised at the title screen's own 176 px draw size (1:1, no bitmap
+   stretch). Declared locally like font_title/font_body; only the brand line below
+   uses it, and it always travels together with its own MeasureTextEx call. */
+extern Font font_display;
 
 /* Deus ON state is derived from settings; only pre-activation values are cached. */
 static StorageDeusSessionSnapshot s_deus_snapshot;
@@ -193,7 +197,8 @@ void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int
     const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     hub_draw_backdrop_alpha(ba, 95);
     Color wine_red = { 224, 136, 146, 255 };
-    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 60.0f, 176.0f, 3.0f, COLOR_PHOSPHOR);
+    hub_draw_centered((font_display.texture.id > 0) ? font_display : font_title,
+                      "[XENO / KOI]", 640.0f, 60.0f, 176.0f, 3.0f, COLOR_PHOSPHOR);
     hub_draw_centered(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 248.0f, 34.0f, 4.0f, wine_red);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)

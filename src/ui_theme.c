@@ -372,7 +372,10 @@ void ui_theme_draw_panel_flares_keyed(Rectangle r, int key) {
 
 #define GLYPH_LOOP_PTS   64
 #define MAX_GLYPH_LOOPS  3
-#define MAX_TRACE_DIM    128
+/* Must cover the tallest glyph bitmap anywhere the flares are used. The title screen now
+   traces Audiowide rasterised at 176 px, where 'j' is 135 px tall and the brackets are 128 px;
+   at the old 128 limit those glyphs would silently lose their flares. */
+#define MAX_TRACE_DIM    160
 
 typedef struct {
     Vector2 pts[GLYPH_LOOP_PTS];
@@ -381,13 +384,16 @@ typedef struct {
 
 typedef struct {
     int built;
+    /* Keyed per entry, not globally: the title screen traces an Audiowide face rasterised at
+       176 px while its own buttons use the 48 px face in the same frame. A single global key
+       made the two faces evict each other and rebuilt every contour twice per frame. */
+    unsigned int src_tex;
+    int src_base;
     int loop_count;
     GlyphContourLoop loops[MAX_GLYPH_LOOPS];
 } GlyphContourEntry;
 
 static GlyphContourEntry s_glyph_contours[96];
-static unsigned int s_glyph_font_tex_id = 0;
-static int s_glyph_font_base_size = 0;
 
 static int glyph_pixel_inside(const Image *img, int x, int y) {
     if (!img || !img->data || x < 0 || y < 0 || x >= img->width || y >= img->height) return 0;
@@ -403,14 +409,11 @@ static int glyph_pixel_inside(const Image *img, int x, int y) {
 
 static const GlyphContourEntry *glyph_contours_get(const Font *font, int idx) {
     if (!font || !font->glyphs || idx < 0 || idx >= 96 || idx >= font->glyphCount) return NULL;
-    if (font->texture.id != s_glyph_font_tex_id || font->baseSize != s_glyph_font_base_size) {
-        memset(s_glyph_contours, 0, sizeof(s_glyph_contours));
-        s_glyph_font_tex_id = font->texture.id;
-        s_glyph_font_base_size = font->baseSize;
-    }
     GlyphContourEntry *entry = &s_glyph_contours[idx];
-    if (entry->built) return entry;
+    if (entry->built && entry->src_tex == font->texture.id && entry->src_base == font->baseSize) return entry;
     entry->built = 1;
+    entry->src_tex = font->texture.id;
+    entry->src_base = font->baseSize;
     entry->loop_count = 0;
 
     const Image *img = &font->glyphs[idx].image;
