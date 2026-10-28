@@ -993,6 +993,12 @@ short-circuit to their screens.
 
 ### 7.2 Startup
 
+Normal startup displays a silent hearing warning for 5 seconds, then the existing
+loading card for `TRANS_HOLD_DUR`, before fading into `SCREEN_START` and starting
+the usual audio/frame loop. The startup stages are drawn in `update_draw_frame()`;
+`--autostart`, `--dealer`, `--options`, `--stats`, `--campaign`, and `--shot-frame`
+bypass them for automation. The warning is not shown again on return to the menu.
+
 `InitWindow` with `FLAG_WINDOW_RESIZABLE`, then `ChangeDirectory` to the
 executable directory, `SetWindowMinSize(960, 540)`, `SetTargetFPS(60)`.
 
