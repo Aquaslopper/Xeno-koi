@@ -460,7 +460,7 @@ static float get_flight_duration(int s) { return (s == 0) ? 0.60f : (s == 1) ? 0
 static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.30f : 0.20f; }
 
 static void trigger_event_beat(float base_s) {
-    float mul = 0.0f;
+    float mul = 1.0f;
     if (plexus_speedcoin_is_active()) mul *= 0.55f;
     float d = base_s * mul;
     if (d > event_beat_timer) event_beat_timer = d;
