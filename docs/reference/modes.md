@@ -68,6 +68,8 @@ The left column is the label the screen shows. The right column is what `storage
 
 BACK (SAVE) writes the settings and returns you to the menu (`screens_handle_options_click()` in `src/ui_screens.c`), and the next match starts with what you left there.
 
+**Anim Speed** controls CPU thinking and CPU/stock card flights, including in Action Card. Slow, Normal, and Fast use 0.80, 0.60, and 0.40 seconds per flight respectively; replays also follow this setting. Speedcoin keeps its existing 0.40-second stock flights so the timed high-score mode remains comparable. Anim Speed does not change the one-second Speedbar, music, turn timers, or Action Card badge effects.
+
 ### Custom music (desktop)
 
 1. Open **Options**, use the bottom-right arrow to reach **page 2**, and click the music-folder button at the top.

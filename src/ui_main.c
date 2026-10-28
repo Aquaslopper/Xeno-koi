@@ -456,8 +456,14 @@ static void begin_new_match(int trk) {
     else audio_set_reverb(0.0f);
 }
 
-static float get_flight_duration(int s) { return (s == 0) ? 0.40f : (s == 1) ? 0.40f : 0.40f; }
-static float get_think_duration(int s)  { return (s == 0) ? 0.15f : (s == 1) ? 0.15f : 0.15f; }
+/* Slow, normal and fast govern CPU/stock flights and CPU thinking. */
+static float get_flight_duration(int s) { return (s == 0) ? 0.80f : (s == 1) ? 0.60f : 0.40f; }
+static float get_think_duration(int s)  { return (s == 0) ? 0.45f : (s == 1) ? 0.30f : 0.15f; }
+
+/* Keep the timed Speedcoin mode's existing stock pace and high-score conditions. */
+static float live_flight_duration(void) {
+    return plexus_speedcoin_is_active() ? 0.40f : get_flight_duration(settings.anim_speed);
+}
 
 static void trigger_event_beat(float base_s) {
     float mul = 0.0f;
@@ -1402,7 +1408,7 @@ static void update_draw_frame(void) {
                                 Rectangle land = (target < 0) ? board_get_field_card_rect_of(&g, card) : (Rectangle){ 0, 0, 0, 0 };
                                 Vector2 to = (target >= 0) ? board_get_card_field_pos(&g, target)
                                            : (land.width > 0.0f ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f });
-                                anim_start_cpu_fly(&anim, card, target, from, to, get_flight_duration(settings.anim_speed));
+                                anim_start_cpu_fly(&anim, card, target, from, to, live_flight_duration());
                             } else if (!anim.active) {
                                 anim_start_cpu_think(&anim, get_think_duration(settings.anim_speed));
                             }
@@ -1433,7 +1439,7 @@ static void update_draw_frame(void) {
                                 if (plexus_speedcoin_reverse_draw_start(&g, &rev_cid, &from_pos)) {
                                     audio_play_flip(&audio);
                                     anim_start_stock_fly(&anim, rev_cid, from_pos, (Vector2){ 330.0f, 262.0f },
-                                                         get_flight_duration(settings.anim_speed));
+                                                         live_flight_duration());
                                 } else {
                                     plexus_speedcoin_reverse_draw_finish(&g);
                                     trigger_event_beat(0.24f);
@@ -1448,7 +1454,7 @@ static void update_draw_frame(void) {
                                     Rectangle land = (match_target >= 0) ? board_get_field_card_rect_of(&g, match_target)
                                                                          : board_get_field_card_rect_of(&g, top_stock);
                                     Vector2 to_pos = (land.width > 0.0f) ? (Vector2){ land.x, land.y } : (Vector2){ 710.0f, 240.0f };
-                                    anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, get_flight_duration(settings.anim_speed));
+                                    anim_start_stock_fly(&anim, top_stock, (Vector2){ 330.0f, 262.0f }, to_pos, live_flight_duration());
                                 } else {
                                     engine_reveal_stock(&g);
                                     trigger_event_beat(0.24f);

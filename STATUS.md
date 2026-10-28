@@ -1,11 +1,20 @@
-> **Development handoff (last updated 27 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 28 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 27 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 28 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Restore animation-speed settings for Action Card and other matches (28 October 2026)
+
+- Slow, Normal, and Fast previously all used the same 0.40 s card flight and 0.15 s CPU think delay. They now use 0.80 / 0.60 / 0.40 s flights and 0.45 / 0.30 / 0.15 s thinking, including in Action Card; replay flights still use the selected duration times 1.40. Fast preserves the previous pace.
+- Speedcoin's normal and reverse stock flights remain fixed at their previous 0.40 s, preserving its timed high-score conditions. The one-second Speedbar, music, turn timers, Action Card badge timings, audio envelope, and existing CPU step beat are unchanged. No additional event pauses were introduced.
+- Documented the setting and Speedcoin exception in `docs/reference/modes.md` and `LEARN_THE_CODE.md`; corrected the stale timing comment in `src/storage.h`.
+- **Verified:** `./build.sh test` (500-match engine suite, Koi-Koi trigger, table UI, and music/Options checks), `./tools/tests_guard.sh`, `python3 tools/gen_wiki_tables.py --check`, MkDocs Material strict build, `git diff --check`, and `src/ui_main.c` compiled with `-Wall -Wextra -Werror`. An ASan/UBSan headless frame-loop harness simulated 45 Action Card matches with mocked rendering, input, and music, exercised natural badge triggers and pause/resume at all three speeds/difficulties, checked card-zone invariants, and checked both Speedcoin stock-flight paths and the running clock. Scratch harnesses were kept outside the repository.
+- **Remaining verification:** visual desktop/browser playtesting and subjective pacing; the sandbox has no linked Raylib display runtime. The harness uses simulated music beats, not a live audio device.
+- **Touched:** `src/ui_main.c`, `src/storage.h`, `docs/reference/modes.md`, `LEARN_THE_CODE.md`, `STATUS.md`. **Deliberately did not touch:** `tests/`, `tools/tests_guard.*`, engine/rules/scoring, audio processing, Action Card meter parameters, or assets.
 
 ### Sharper small text: lower font rasterisation sizes (27 October 2026)
 

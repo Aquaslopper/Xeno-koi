@@ -1143,6 +1143,14 @@ owning the frame:
 Every time the loop returns to `PHASE_TURN_HAND` for player 1, `human_turn_started`
 is cleared and the clock is not touched.
 
+`settings.anim_speed` selects CPU/stock flight durations of 0.80, 0.60, or 0.40 s
+and CPU think durations of 0.45, 0.30, or 0.15 s for Slow, Normal, or Fast. The
+Action Card match settings leave this global option intact. `live_flight_duration()`
+keeps Speedcoin flights at 0.40 s so its running clock and existing high scores are
+not affected. Replays instead use the selected flight duration times 1.40. These
+settings do not scale the Speedbar, turn timers, audio envelope, or badge sequence;
+`trigger_event_beat()` remains disabled and the short CPU step beat is unchanged.
+
 ### 7.5 The two timeout branches
 
 ```c
