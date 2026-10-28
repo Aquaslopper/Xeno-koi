@@ -41,6 +41,7 @@ GameSettings settings;
 
 #define TRANS_OUT_DUR    1.80f
 #define TRANS_HOLD_DUR   2.20f
+#define STARTUP_WARNING_DUR 5.0f
 #define TRANS_IN_DUR     1.20f
 #define ROUND_BANNER_DUR 4.00f
 #define HUB_BLINK_DUR    0.20f
@@ -49,6 +50,8 @@ GameSettings settings;
 #define HUB_BLUR_H       270
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
+static int startup_stage = 0; /* 1: hearing warning, 2: loading card */
+static float startup_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
 static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f, speedcoin_gameover_timer = 0.0f;
 static float event_beat_timer = 0.0f;
@@ -734,6 +737,49 @@ static void handle_campaign_overlay_click(Vector2 vm) {
 static void update_draw_frame(void) {
     frame_count++;
     float dt = fminf(0.05f, GetFrameTime());
+
+    /* Present the warning silently before the usual loading card and menu. */
+    if (startup_stage) {
+        float duration = startup_stage == 1 ? STARTUP_WARNING_DUR : TRANS_HOLD_DUR;
+        BeginTextureMode(canvas);
+        ClearBackground(BLACK);
+        if (startup_stage == 1) {
+            ClearBackground(WHITE);
+            DrawTriangle((Vector2){ 145.0f, 312.0f }, (Vector2){ 111.0f, 382.0f },
+                         (Vector2){ 179.0f, 382.0f }, RED);
+            DrawRectangle(142, 334, 6, 23, WHITE);
+            DrawRectangle(142, 363, 6, 6, WHITE);
+            const char *lines[] = {
+                "HIGH VOLUME AND PROLONGED LISTENING MAY DAMAGE YOUR HEARING.",
+                "PLEASE ADJUST YOUR VOLUME AND TAKE REGULAR BREAKS."
+            };
+            for (int i = 0; i < 2; i++) {
+                Vector2 size = MeasureTextEx(font_body, lines[i], 24.0f, 1.0f);
+                DrawTextEx(font_body, lines[i], (Vector2){ floorf((CANVAS_W - size.x) * 0.5f), 325.0f + i * 38.0f },
+                           24.0f, 1.0f, BLACK);
+            }
+        } else {
+            draw_loading_card(&assets, startup_timer / duration);
+        }
+        EndTextureMode();
+        Letterbox l = input_get_letterbox();
+        BeginDrawing(); ClearBackground(BLACK);
+        DrawTexturePro(canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
+                       (Rectangle){ l.ox, l.oy, CANVAS_W * l.scale, CANVAS_H * l.scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+        EndDrawing();
+        startup_timer += dt;
+        if (startup_timer >= duration) {
+            startup_timer = 0.0f;
+            if (startup_stage == 1) startup_stage = 2;
+            else {
+                startup_stage = 0;
+                transition_alpha = 1.0f;
+                transition_dir = -1;
+                transition_timer = 0.0f;
+            }
+        }
+        return;
+    }
 
     if (transition_dir == 1) {
         transition_timer += dt;
@@ -1990,6 +2036,8 @@ int main(int argc, char **argv) {
     storage_load_stats(&stats); storage_load_history(&history); plexus_load();
     storage_write_report(&stats, &history);
     screen = (auto_start || auto_dealer) ? SCREEN_GAME : auto_options ? SCREEN_OPTIONS : auto_stats ? SCREEN_STATS : SCREEN_START;
+    /* Automation entry points bypass the normal startup sequence. */
+    startup_stage = !(auto_start || auto_dealer || auto_options || auto_stats || auto_campaign || shot_frame > 0);
     engine_init(&g, settings.ruleset, settings.rounds, seed);
     motion_init(); taunt_init(); ai_set_opponent(settings.current_opponent);
     if (auto_start) {

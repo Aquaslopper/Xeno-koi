@@ -1,11 +1,17 @@
-> **Development handoff (last updated 27 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 28 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 27 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 28 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Hearing warning at startup (28 October 2026)
+
+- Normal startup shows a black-on-white two-line hearing warning with a red warning symbol silently for five seconds, then the existing loading card, then fades into the main menu. Automation entry points bypass the sequence.
+- Checked: strict syntax compilation of `src/ui_main.c` against Raylib 5.5 headers, `tools/tests_guard.sh`, and `git diff --check`. `./build.sh test` was blocked by the repository architecture verification gate. Live startup visuals and audio have not been checked.
+- Touched `src/ui_main.c`, `LEARN_THE_CODE.md`, and `STATUS.md`; no game rules, audio DSP, or locked tests changed.
 
 ### Sharper small text: lower font rasterisation sizes (27 October 2026)
 
