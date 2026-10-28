@@ -888,15 +888,14 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     s_ember_glow += (s_ember_heat - s_ember_glow) * (1.0f - expf(-frame_dt / ember_tc));
     if (s_ember_glow < 0.002f) s_ember_glow = 0.0f;   /* lands exactly on the cold path */
 
-    /* Audio reverb follows a smooth S-curve (never a spike):
+    /* Capture buildup follows a smooth S-curve:
        clearly audible on the 1st capture (~55% reverb, gentle ~17% stereo spread),
        builds on the 2nd capture (~92%), and reaches 100% wide stereo synergy on the 3rd capture. */
     float env_dt = action_card_is_paused() ? 0.0f : frame_dt;
     if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.09f;
     if (koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
-    if (capture_edge || koi_edge); 
-    if ((capture_edge || koi_edge) && reverb_energy < 0.85f){
+    if ((capture_edge || koi_edge) && reverb_energy < 0.85f) {
         reverb_hold = 4.10f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
@@ -915,6 +914,20 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (syn_x < 0.0f) syn_x = 0.0f;
     if (syn_x > 1.0f) syn_x = 1.0f;
     float reverb_synergy = 0.30f * syn_x + 0.70f * (syn_x * syn_x * (3.0f - 2.0f * syn_x));
+    /* Limit a full-strength peak independently of the normal capture hold. */
+    static float reverb_peak_hold = 0.0f;
+    if (round_reset || reverb_synergy <= 0.85f) reverb_peak_hold = 0.0f;
+    else if (reverb_peak_hold > 0.0f) {
+        reverb_peak_hold -= env_dt;
+        if (reverb_peak_hold <= 0.0f) {
+            /* Do not raise the idle envelope or its smoothing history. */
+            reverb_energy = fminf(reverb_energy, 0.53222625f);
+            reverb_mid = fminf(reverb_mid, 0.53222625f);
+            reverb_curve = 0.53222625f; /* 85% on the S-curve */
+            reverb_synergy = 0.85f;
+            reverb_peak_hold = 0.0f;
+        }
+    } else if (reverb_synergy >= 1.0f) reverb_peak_hold = 4.10f;
     audio_set_reverb(reverb_synergy);
     if (!replay_mode) {
         if (capture_edge || koi_edge) s_audio_action_triggers++;
