@@ -1483,7 +1483,7 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 The active title screen fits `[XENO / KOI]` and the soft wine-red
 `HANAFUDA: ACOUSTICA APEXUS` to a shared 900 px width, at y 90 and y 235,
-with dark backing behind each line. The existing Action Card music meter tap also
+directly over the background. The existing Action Card music meter tap also
 runs on the title screen; its smoothed level brightens and adds a glow to the text,
 not the background. It is detached outside the title and Action Card table, and
 title pulsing fades to zero when music is muted. It measures music level, not a

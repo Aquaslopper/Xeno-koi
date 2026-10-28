@@ -198,8 +198,6 @@ static void hub_draw_title_line(Font font, const char *text, float y, float size
     }
     Vector2 dim = MeasureTextEx(font, text, size, spacing);
     Vector2 pos = { floorf((CANVAS_W - dim.x) * 0.5f), floorf(y) };
-    DrawRectangle((int)pos.x - 8, (int)pos.y, (int)dim.x + 16, (int)size,
-                  (Color){ 0, 0, 0, 215 });
     if (pulse > 0.001f) {
         Color glow = { color.r, color.g, color.b, (unsigned char)(45.0f * pulse) };
         BeginBlendMode(BLEND_ADDITIVE);
