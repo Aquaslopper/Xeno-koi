@@ -7,6 +7,12 @@
 ## Status Summary
 ## Latest completed work
 
+### Remove the ambient vignette (28 October 2026)
+
+- Removed the vignette from both desktop and web background shaders. Moving light, fog, the table wash, and the bottom gradient are unchanged.
+- Checked both shaders with `glslangValidator`, verified their remaining shader content is unchanged, and passed `./build.sh test` including the table UI checks. Live visual verification remains for the maintainer.
+- Touched `assets/depth_fog.fs`, `assets/depth_fog_web.fs`, `LEARN_THE_CODE.md`, and `STATUS.md`; no gameplay, audio, or locked tests changed.
+
 ### Hearing warning at startup (28 October 2026)
 
 - Normal startup shows a black-on-white two-line hearing warning with a red warning symbol silently for five seconds, then the existing loading card, then fades into the main menu. Automation entry points bypass the sequence.

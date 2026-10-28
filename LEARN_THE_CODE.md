@@ -2134,9 +2134,9 @@ callback clears the DSP state on the next buffer when the epoch changed.
 
 ## 14. The two shaders
 
-Both exist in a desktop and a web variant that differ only in GLSL level
-(`#version 330` with `texture()`/`finalColor` versus `#version 100` with
-`texture2D()`/`gl_FragColor`) and the `precision` line.
+Both exist in desktop (`#version 330`, `texture()`/`finalColor`) and web
+(`#version 100`, `texture2D()`/`gl_FragColor`) variants. Their moving-light
+and fog parameters can also differ; the equations below describe the web variant.
 
 ### 14.1 `depth_fog.fs`
 
@@ -2219,8 +2219,8 @@ float fogAlpha = clamp(depthMask * yMask * patch * 0.80, 0.0, 0.55);
 The blend is `mix(blended, fogColor, fogAlpha)`. The comment above the gate reads
 "Fog exists on bottom 62% of screen; skip trig waves completely above y = 0.38."
 
-**Vignette** is applied to every pixel, lit or not:
-`smoothstep(0.75, 0.25, length(fragTexCoord - 0.5))`, multiplied into the colour.
+The fog shaders output the lit and fogged colour without an ambient vignette.
+The separate table dim and vertical gradient remain (§8.2).
 
 ### 14.2 `postprocess.fs`
 
