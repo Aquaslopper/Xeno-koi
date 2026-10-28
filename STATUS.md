@@ -10,8 +10,8 @@
 ### Larger title with music-reactive travelling dots (28 October 2026)
 
 - Enlarged the title and placed a modest, slightly emboldened subtitle close underneath. Four independent constants in `ui_hub.c` tune their sizes and vertical positions.
-- Reused the Action Card music-level tap to brighten the existing travelling glyph-contour flares on both lines. The background and text do not pulse. Added a second contour-cache slot to avoid rebuilding both fonts every frame. The shared music-sync function now takes a title-screen flag.
-- Checked `./build.sh test` after the architecture verification gate, strict syntax compilation of the four changed C files against Raylib 5.5 headers, and `git diff --check`. Live visuals and music responsiveness have not been verified; the sandbox lacks the graphics libraries needed for the Linux build.
+- Extracted the existing music-level tap to a neutral shared module for the title and Action Card; it brightens the existing travelling glyph-contour flares on both lines. The background and text do not pulse. Added a second contour-cache slot to avoid rebuilding both fonts every frame. The Action Card sync interface remains unchanged.
+- Checked `./build.sh test` after the architecture verification gate, strict syntax compilation against Raylib 5.5 headers, a temporary shared-meter check for attachment, Action Card freeze, mute/stop fade and detach, and `git diff --check`. Using Raylib's stb font metrics and rasterisation sizes, the glyph bounds are title x=187–1096, y=80–200 and subtitle x=405–874, y=214–234 on the 1280×720 canvas: a 14 px gap. Live visuals and music responsiveness have not been verified; the sandbox lacks the graphics libraries needed for the Linux build.
 - Touched UI action, hub, theme and main files, their headers, this status, and `LEARN_THE_CODE.md`. Did not change audio DSP, game rules or locked tests.
 
 ### Hearing warning at startup (28 October 2026)

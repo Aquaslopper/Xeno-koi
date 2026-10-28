@@ -27,6 +27,7 @@
 #include "ui_taunt.h"
 #include "ui_speed.h"
 #include "ui_action.h"
+#include "ui_music_meter.h"
 #include "replay.h"
 #include "ui_replay.h"
 
@@ -208,7 +209,7 @@ static void draw_campaign_preset_gate(void) {
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
         ui_hub_draw_title(&assets, mouse_pos, saved_timer,
-                          storage_profiles_mode() == STORAGE_PROFILES_READY, action_card_music_level());
+                          storage_profiles_mode() == STORAGE_PROFILES_READY, music_meter_level());
         if (camp_open) {
             campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
             draw_campaign_preset_gate();
@@ -842,7 +843,11 @@ static void update_draw_frame(void) {
     }
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
-    action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt, screen == SCREEN_START);
+    int title_meter = (screen == SCREEN_START);
+    music_meter_update(&audio, ac_table || title_meter,
+                       ac_table && (ac_paused || action_card_is_event_freezing()),
+                       transition_alpha, dt, title_meter);
+    action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt);
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -1847,7 +1852,7 @@ static void update_draw_frame(void) {
         else if (g.phase == PHASE_DECIDE) status = (g.current_player == 0) ? "CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE" : "";
 
         ac_paused = is_paused || plexus_tutorial_panel_open();
-        action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, 0.0f, 0);
+        action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, 0.0f);
         board_draw_table(&assets, &g, &anim, hovered_idx, drag.on ? drag.idx : -1, drag.pos,
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY)
                                         : (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY),

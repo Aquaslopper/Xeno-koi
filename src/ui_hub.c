@@ -188,10 +188,10 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
 }
 
 /* Independent sizes and positions in the 1280 x 720 canvas. */
-#define TITLE_SIZE 150.0f
+#define TITLE_SIZE 160.0f
 #define TITLE_Y 60.0f
 #define SUBTITLE_SIZE 32.0f
-#define SUBTITLE_Y 215.0f
+#define SUBTITLE_Y 207.0f
 
 static void hub_draw_music_title(Font font, const char *text, float y, float size,
                                  Color color, float music_level, int bold) {
