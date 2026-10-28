@@ -9,6 +9,9 @@
 > spine briefing, and 14 cards (all of Month 02, plus each of Months 03-12's FACE card) play a real
 > one-round **story protocol** with a frozen keeper panel. Stages B (paged story screen) and D (art)
 > are still plan only.
+> **Before editing story code, read the invariants in `AGENTS.md` ("Atrium Plex story beats and
+> story protocols"):** one table, one protocol test, one state machine, ASCII only, and a card is
+> always a string edit rather than a code edit.
 
 ---
 

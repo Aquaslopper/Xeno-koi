@@ -1828,6 +1828,11 @@ gets: no replay record, no campaign stats, no clearance coins, no Deus ruleset
 override, and speedbar/audio telemetry is isolated by `tut_save_telemetry()` /
 `tut_restore_telemetry()`.
 
+The contributor rules that keep this from growing a second engine — one table, one
+protocol test, one state machine, ASCII-only text, branch order above the generic
+`>= 4` path — are written out in `AGENTS.md` under "Atrium Plex story beats and
+story protocols". Read that before adding a story card.
+
 ---
 
 ## 11. Input and motion (`ui_input.c`, `ui_motion.c`, `ui_anim.c`)

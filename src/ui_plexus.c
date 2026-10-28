@@ -111,7 +111,10 @@ typedef enum {
     TUT3_PANEL_HORRORS,
     TUT3_FREE_PLAY,
     /* Generic story protocol on any spine card above Month 01 (card_id >= 4):
-       one ordinary dealt round, one frozen keeper transmission, then play. */
+       one ordinary dealt round, one frozen keeper transmission, then play.
+       These ride the tutorial machine on purpose -- see the note above
+       story_beat_has_protocol(). Do not add a fourth state, a second freeze
+       flag or a second match launcher for story content. */
     PROTO_WAIT_DEAL,
     PROTO_PANEL_STORY,
     PROTO_PLAY
@@ -1761,7 +1764,15 @@ static const StoryBeat k_story_beats[48] = {
 };
 
 /* NULL-safe view of a beat; also the single place that decides whether a card
-   is a playable story protocol or still a beta instant-clear card. */
+   is a playable story protocol or still a beta instant-clear card.
+   `intrusion[0]` is the switch: give a card transmission text and it becomes a
+   protocol, delete the text and it returns to the beta instant-clear. Never test
+   `card_id` (or month/slot) directly in a click handler -- one place, one rule.
+   The protocol states are tutorial states because the tutorial already owns
+   everything a story beat needs: a frozen table, an input gate, an abort path,
+   telemetry isolation and the clear/flip in plexus_tutorial_finish_match().
+   A parallel story state machine would have to re-implement all five, and the
+   two would drift apart the first time the tutorial changes. */
 static const StoryBeat *story_beat(int cid) {
     return (cid >= 0 && cid < 48) ? &k_story_beats[cid] : NULL;
 }
@@ -2649,6 +2660,9 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
+                /* Tutorials keep their own title/description on lines 1-2; the
+                   story beat only ever gets the third line here, so the feedback
+                   that teaches the mode can never be overwritten by lore. */
                 line3 = k_story_beats[card_id].signal[0];
             } else {
                 snprintf(hdr, sizeof(hdr), "%sMONTH %02d  //  %s", deus_p, s_selected_month + 1, k_month_names[s_selected_month]);
@@ -3715,7 +3729,13 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
     if (out_clicked) *out_clicked = 0;
     if (!s_tut_active || !g) return 0;
 
+    /* Order matters: the Month 01 branches below are `== 1` / `== 2`, so a new
+       special card must be given its own branch ABOVE this test, or this generic
+       path will swallow it. */
     if (s_tut_card_id >= 4) {
+        /* WAIT_DEAL returns 0 on purpose: the table is still dealing, and
+           returning 1 here would "freeze" a board that has nothing to freeze
+           yet and swallow the first click of the match. */
         if (s_tut_step == PROTO_WAIT_DEAL) {
             if (board_settled && g->phase == PHASE_TURN_HAND) s_tut_step = PROTO_PANEL_STORY;
             return 0;
