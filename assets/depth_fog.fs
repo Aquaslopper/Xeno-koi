@@ -153,5 +153,5 @@ void main()
         blended = mix(blended, fogColor, fogAlpha);
     }
 
-    finalColor = vec4(blended, texel.a) * colDiffuse * fragColor;
+    finalColor = vec4(blended * 1.2, texel.a) * colDiffuse * fragColor;
 }
