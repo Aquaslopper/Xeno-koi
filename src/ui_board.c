@@ -895,7 +895,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (delta_captured > 0) reverb_energy += (float)delta_captured * 0.09f;
     if (koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
-    if (capture_edge || koi_edge) {
+    if (capture_edge || koi_edge); 
+    if ((capture_edge || koi_edge) && reverb_energy < 0.85f){
         reverb_hold = 4.10f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
