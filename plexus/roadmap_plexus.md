@@ -83,3 +83,4 @@
 
 - [ ] **Deferred Until Gameplay & Hub Are Solid:**
   - Introduce the non-linear biomechanical story sequences (`Sequence 00` intro + monthly fragments archived in `LOGFILE`) after Phases 1–4 are verified.
+  - Planned in [`plexus/roadmap_story.md`](roadmap_story.md): the four existing text surfaces and their measured budgets, the SIGNAL / INTRUSION / TRACE beat unit per card, the cast already present in `g_opponents[]`, the per-card mask additions to `plexsave.txt`, and the staged rollout (text beats → paged story screen → scripted protocol games → 12 monthly stills).
