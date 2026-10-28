@@ -71,7 +71,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
     // Nested bands combined with a soft Gaussian aura so band edges never hard-clip.
     float layers = max(max(layer80, layer60), max(layer40, layer20));
     layers = 0.65 * layers + 0.35 * (0.20 * exp(-(xDistance * xDistance) / (0.52 * 0.52)));
-    layers *= 1.0 + 0.30;  // Add 50% beam strength
+    layers *= 1.0 + 0.40;  // Add 50% beam strength
 
     vec2 toLight = (lightUV - uv) * vec2(1.7777778, 1.0);
     float dist2 = dot(toLight, toLight);
@@ -108,7 +108,7 @@ vec3 bgMovingLights(vec3 base, vec2 uv)
         sampleRidgeEmit(uv + vec2( r2.x,  r2.y), lightDir.xy)
     );
 
-    float flashGain = 0.80 + 0.95 * flashAmount;
+    float flashGain = 0.60 + 0.95 * flashAmount;
     float beam = layers * beamReach * flashGain + flashAmount * 0.065 * (0.35 + 0.65 * reach);
     vec3 warm = vec3(1.0, 0.93, 0.80);
     float diffGain = beam * (slope * 11.0 + bloomEnergy * 6.5);
@@ -156,7 +156,8 @@ void main()
     // 5. Ambient Vignette:
     vec2 uvCentered = fragTexCoord - vec2(0.5, 0.5);
     float dist = length(uvCentered);
-    float vignette = 1.5 - smoothstep(0.75, 0.25, dist);
+    float vignette = 1.0 - smoothstep(0.75, 0.25, dist);
+    vignette = mix(1.0, vignette, 0.5);
 
     finalColor = vec4(blended * vignette, texel.a) * colDiffuse * fragColor;
 }
