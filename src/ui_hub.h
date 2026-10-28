@@ -49,7 +49,7 @@ int  ui_hub_deus_snapshot_is_valid(void);
 const StorageDeusSessionSnapshot *ui_hub_deus_snapshot(void);
 
 /* Title Screen: active profiles see CONTINUE; new/legacy installs see START GAME. */
-void      ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile);
+void      ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile, float music_level);
 HubAction ui_hub_handle_title_click(Vector2 vm, HubButtonHit *out_hit, int has_active_profile);
 
 /* Options landing menu and 3-slot profile manager. Draw functions are side-effect free. */

@@ -7,6 +7,13 @@
 ## Status Summary
 ## Latest completed work
 
+### Larger title with music-reactive travelling dots (28 October 2026)
+
+- Enlarged the title and placed a modest, slightly emboldened subtitle close underneath. Four independent constants in `ui_hub.c` tune their sizes and vertical positions.
+- Reused the Action Card music-level tap to brighten the existing travelling glyph-contour flares on both lines. The background and text do not pulse. Added a second contour-cache slot to avoid rebuilding both fonts every frame. The shared music-sync function now takes a title-screen flag.
+- Checked `./build.sh test` after the architecture verification gate, strict syntax compilation of the four changed C files against Raylib 5.5 headers, and `git diff --check`. Live visuals and music responsiveness have not been verified; the sandbox lacks the graphics libraries needed for the Linux build.
+- Touched UI action, hub, theme and main files, their headers, this status, and `LEARN_THE_CODE.md`. Did not change audio DSP, game rules or locked tests.
+
 ### Hearing warning at startup (28 October 2026)
 
 - Normal startup shows a black-on-white two-line hearing warning with a red warning symbol silently for five seconds, then the existing loading card, then fades into the main menu. Automation entry points bypass the sequence.

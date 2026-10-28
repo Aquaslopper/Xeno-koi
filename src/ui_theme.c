@@ -385,9 +385,10 @@ typedef struct {
     GlyphContourLoop loops[MAX_GLYPH_LOOPS];
 } GlyphContourEntry;
 
-static GlyphContourEntry s_glyph_contours[96];
-static unsigned int s_glyph_font_tex_id = 0;
-static int s_glyph_font_base_size = 0;
+/* Two slots let the title and subtitle retain their contours across frames. */
+static GlyphContourEntry s_glyph_contours[2][96];
+static unsigned int s_glyph_font_tex_id[2];
+static int s_glyph_font_base_size[2];
 
 static int glyph_pixel_inside(const Image *img, int x, int y) {
     if (!img || !img->data || x < 0 || y < 0 || x >= img->width || y >= img->height) return 0;
@@ -403,12 +404,14 @@ static int glyph_pixel_inside(const Image *img, int x, int y) {
 
 static const GlyphContourEntry *glyph_contours_get(const Font *font, int idx) {
     if (!font || !font->glyphs || idx < 0 || idx >= 96 || idx >= font->glyphCount) return NULL;
-    if (font->texture.id != s_glyph_font_tex_id || font->baseSize != s_glyph_font_base_size) {
-        memset(s_glyph_contours, 0, sizeof(s_glyph_contours));
-        s_glyph_font_tex_id = font->texture.id;
-        s_glyph_font_base_size = font->baseSize;
+    int slot = (s_glyph_font_tex_id[0] == 0 ||
+                (font->texture.id == s_glyph_font_tex_id[0] && font->baseSize == s_glyph_font_base_size[0])) ? 0 : 1;
+    if (font->texture.id != s_glyph_font_tex_id[slot] || font->baseSize != s_glyph_font_base_size[slot]) {
+        memset(s_glyph_contours[slot], 0, sizeof(s_glyph_contours[slot]));
+        s_glyph_font_tex_id[slot] = font->texture.id;
+        s_glyph_font_base_size[slot] = font->baseSize;
     }
-    GlyphContourEntry *entry = &s_glyph_contours[idx];
+    GlyphContourEntry *entry = &s_glyph_contours[slot][idx];
     if (entry->built) return entry;
     entry->built = 1;
     entry->loop_count = 0;
@@ -498,7 +501,8 @@ static Vector2 glyph_loop_sample(const GlyphContourLoop *loop, float u, Vector2 
     return (Vector2){ origin.x + gx * scale, origin.y + gy * scale };
 }
 
-void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing, Color col) {
+void ui_theme_draw_text_flares_lit(Font font, const char *text, Vector2 pos, float font_size, float spacing, Color col, float light) {
+    light = fminf(1.0f, fmaxf(0.0f, light));
     if (!text || !text[0] || font.texture.id == 0 || font.baseSize <= 0 || !font.glyphs || !font.recs) return;
     float scale = font_size / (float)font.baseSize;
     float now = (float)GetTime();
@@ -550,6 +554,7 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                                 shine = sinf((cycle_t / (float)PANEL_SHINE_DURATION) * 3.14159265f);
                             }
 
+                            shine = fmaxf(shine, light);
                             float flen = fminf(12.0f + 0.05f * font_size, s_perim * 0.16f);
                             float thick = 0.8f + 0.4f * shine;
                             int segs = 4;
@@ -561,7 +566,9 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
                                 Vector2 p0 = glyph_loop_sample(loop, u0, g_origin, scale);
                                 Vector2 p1 = glyph_loop_sample(loop, u1, g_origin, scale);
                                 unsigned char a = (unsigned char)((55.0f + 200.0f * shine) * (0.35f + 0.65f * t1));
-                                Color c = { col.r, col.g, col.b, a };
+                                Color c = { (unsigned char)(col.r + (255 - col.r) * light),
+                                            (unsigned char)(col.g + (255 - col.g) * light),
+                                            (unsigned char)(col.b + (255 - col.b) * light), a };
                                 DrawLineEx(p0, p1, thick, c);
                             }
                         }
@@ -576,6 +583,10 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
         }
         i += cp_bytes;
     }
+}
+
+void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing, Color col) {
+    ui_theme_draw_text_flares_lit(font, text, pos, font_size, spacing, col, 0.0f);
 }
 
 void ui_draw_panel_border(Rectangle r, Color border_color) {

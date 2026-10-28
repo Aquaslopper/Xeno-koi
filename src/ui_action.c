@@ -129,17 +129,23 @@ static void sync_music_meter_tap(AudioAssets *audio, int attach) {
 }
 
 void action_card_sync_music(AudioAssets *audio, int in_action_table, int paused,
-                            float transition_alpha, float dt) {
-    sync_music_meter_tap(audio, in_action_table ? 1 : 0);
-    int freeze_music = paused || s_badge_evt_active;
-    if (in_action_table && !freeze_music && audio && dt > 0.0f) {
+                            float transition_alpha, float dt, int title_screen) {
+    sync_music_meter_tap(audio, (in_action_table || title_screen) ? 1 : 0);
+    int freeze_music = in_action_table && (paused || s_badge_evt_active);
+    if ((in_action_table || title_screen) && !freeze_music && audio && dt > 0.0f) {
         float raw = __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f;
         float tgt = (audio->current_music == 2) ? raw * (1.0f - transition_alpha) : 0.0f;
+        if (title_screen && (audio->bgm_volume <= 0.0f || audio->current_game_track < 0 ||
+                             audio->current_game_track >= AUDIO_MAX_TRACKS ||
+                             !audio->has_music_game[audio->current_game_track] ||
+                             !IsMusicStreamPlaying(audio->music_game[audio->current_game_track]))) tgt = 0.0f;
         s_music_meter_vis += (tgt - s_music_meter_vis) *
                              (1.0f - expf(-dt / ((tgt > s_music_meter_vis) ? 0.035f : 0.120f)));
     }
-    action_card_set_mode(in_action_table ? (paused ? 2 : 1) : 0, s_music_meter_vis);
+    action_card_set_mode(in_action_table ? (paused ? 2 : 1) : 0, in_action_table ? s_music_meter_vis : 0.0f);
 }
+
+float action_card_music_level(void) { return s_music_meter_vis; }
 
 void action_card_detach_music(AudioAssets *audio) {
     sync_music_meter_tap(audio, 0);

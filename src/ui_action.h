@@ -21,7 +21,8 @@ typedef enum {
 
 /* Music rhythm tap & mode state */
 void  action_card_sync_music(AudioAssets *audio, int in_action_table, int paused,
-                             float transition_alpha, float dt);
+                             float transition_alpha, float dt, int title_screen);
+float action_card_music_level(void);
 void  action_card_detach_music(AudioAssets *audio);
 void  action_card_set_mode(int active, float music_level);
 int   action_card_is_mode_active(void);

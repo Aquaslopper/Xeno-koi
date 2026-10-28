@@ -1481,8 +1481,14 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 136 px on y 72 and
-`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220 in the soft wine-red `{224,136,146}`.
+The active title screen shows `[XENO / KOI]` at 150 px on y 60 and
+`HANAFUDA: ACOUSTICA APEXUS` at 32 px on y 215 in the soft wine-red `{224,136,146}`.
+`TITLE_SIZE`, `TITLE_Y`, `SUBTITLE_SIZE` and `SUBTITLE_Y` in `ui_hub.c` are independent
+tuning values. The subtitle is drawn twice with a small horizontal offset for weight.
+Both lines use the existing travelling glyph-contour flares; a shared music-level tap
+brightens those flares on the title screen, while the text and background do not pulse.
+The tap detaches outside the title and Action Card table, and the title response fades
+when music is muted or stopped. This is a smoothed level follower, not beat detection.
 Its three buttons are `CONTINUE`
 (or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.

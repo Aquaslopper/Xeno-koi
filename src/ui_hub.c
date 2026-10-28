@@ -187,14 +187,29 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
     out_hit->font_size = fsz;
 }
 
+/* Independent sizes and positions in the 1280 x 720 canvas. */
+#define TITLE_SIZE 150.0f
+#define TITLE_Y 60.0f
+#define SUBTITLE_SIZE 32.0f
+#define SUBTITLE_Y 215.0f
+
+static void hub_draw_music_title(Font font, const char *text, float y, float size,
+                                 Color color, float music_level, int bold) {
+    Vector2 ts = MeasureTextEx(font, text, size, 3.0f);
+    Vector2 pos = { floorf((CANVAS_W - ts.x) * 0.5f), floorf(y) };
+    DrawTextEx(font, text, pos, size, 3.0f, color);
+    if (bold) DrawTextEx(font, text, (Vector2){ pos.x + 0.7f, pos.y }, size, 3.0f, color);
+    ui_theme_draw_text_flares_lit(font, text, pos, size, 3.0f, color, music_level);
+}
+
 /* --- Title Screen (SCREEN_START) ----------------------------------------- */
 
-void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile) {
+void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile, float music_level) {
     const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     hub_draw_backdrop_alpha(ba, 95);
     Color wine_red = { 224, 136, 146, 255 };
-    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 72.0f, 136.0f, 3.0f, COLOR_PHOSPHOR);
-    hub_draw_centered(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 220.0f, 26.0f, 3.0f, wine_red);
+    hub_draw_music_title(font_title, "[XENO / KOI]", TITLE_Y, TITLE_SIZE, COLOR_PHOSPHOR, music_level, 0);
+    hub_draw_music_title(font_body, "HANAFUDA: ACOUSTICA APEXUS", SUBTITLE_Y, SUBTITLE_SIZE, wine_red, music_level, 1);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
