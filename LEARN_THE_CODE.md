@@ -1802,18 +1802,24 @@ same reason — three lines of description per card had made the cards 390 px ta
 
 Both cards sit on one band `y 256`, `h 178`, share the button row `y 366`, and are
 weighted differently on purpose. **Campaign** is the slim one: `{130, 256, 360, 178}`,
-one 1 px dim frame, strip `{154, 276, 312, 58}`. **Atrium Plex** is the heavier door:
-`{530, 256, 620, 178}`, a bright 2 px frame plus an inner hairline 7 px in, strip
-`{586, 276, 540, 58}` indented past the ladder column. `hub_draw_spine_ladder()` runs
-twelve ticks down the Atrium card's left edge, one per month, bright and doubled in
-weight once cleared (`spine_count / 4`), inset 24 px top and bottom. Footer `BACK` is
+one 1 px dim frame, strip `{154, 276, 312, 58}`, button `{154, 366, 312, 48}`.
+**Atrium Plex** is the heavier door: `{530, 256, 620, 178}`, a bright 2 px frame plus an
+inner hairline 7 px in, strip `{554, 276, 572, 58}`, button `{554, 366, 572, 48}`. Both
+cards inset their strip and button 24 px from the frame, so the four inner rectangles
+line up on two x-positions and one y-band. Every button label on this screen is 20 px
+(`hub_draw_button()`), which keeps the two doors reading as one row. Footer `BACK` is
 `{510, 594, 260, 48}`.
+
+There is deliberately **no Spine ladder on the card** any more. Earlier the Atrium card
+carried twelve ticks down its left edge; the owner removed it, so the card's weight is
+carried by width and the double frame alone, and the Spine count stays inside the data
+strip (`SPINE 21/48`). Do not reintroduce a second read-out of the same number.
 
 The same vocabulary is used with opposite signals elsewhere: the **campaign page**
 (`SCREEN_HUB_CAMPAIGN`) keeps its own double frame as the finite tournament side and
 its own `SYSTEM OPTIONS` button that returns here via `options_return_screen`.
-Everything about the Atrium reads as depth — ladder, spine counter, the loading card
-on entry — while Campaign reads as a bracket.
+Everything about the Atrium reads as depth — the wider card, the doubled frame, the
+spine counter, the loading card on entry — while Campaign reads as a bracket.
 
 `HUB_ACT_TITLE_QUIT` is not a click-to-exit: it calls
 `start_transition(SCREEN_START, TRANSACT_QUIT, 0)`, so the ordinary fade plays, the

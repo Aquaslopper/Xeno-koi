@@ -76,14 +76,15 @@ static const char *const k_profile_action_labels[5] = {
 
 /* Mode select: one data strip and one button per card. The card heading is the button
    label, so it is not drawn twice, and the two doors carry different weight: Atrium is
-   the wide, double-framed card with the Spine ladder, Campaign the slim one. Both share
-   one band (y 256, h 178) and one button row, so the pair reads as a single unit. */
+   the wide, double-framed card, Campaign the slim one. Both share one band (y 256,
+   h 178), the same 24 px inset, and one button row at y 366, so the strip and the button
+   of each card line up with the frame they sit in. */
 static const Rectangle k_main_left_panel    = { 130.0f, 256.0f, 360.0f, 178.0f };
 static const Rectangle k_main_right_panel   = { 530.0f, 256.0f, 620.0f, 178.0f };
 static const Rectangle k_main_campaign_box  = { 154.0f, 276.0f, 312.0f,  58.0f };
-static const Rectangle k_main_atrium_box    = { 586.0f, 276.0f, 540.0f,  58.0f };
+static const Rectangle k_main_atrium_box    = { 554.0f, 276.0f, 572.0f,  58.0f };
 static const Rectangle k_main_campaign_btn  = { 154.0f, 366.0f, 312.0f,  48.0f };
-static const Rectangle k_main_atrium_btn    = { 586.0f, 366.0f, 540.0f,  48.0f };
+static const Rectangle k_main_atrium_btn    = { 554.0f, 366.0f, 572.0f,  48.0f };
 static const Rectangle k_main_back_btn      = { 510.0f, 594.0f, 260.0f,  48.0f };
 
 static const Rectangle k_camp_panel         = { 280.0f,  96.0f, 720.0f, 548.0f };
@@ -176,20 +177,6 @@ static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha) 
 
 static void hub_draw_backdrop(const BoardAssets *ba) {
     hub_draw_backdrop_alpha(ba, 168);
-}
-
-/* The Atrium card carries a compressed Spine ladder down its left edge: twelve ticks,
-   the cleared months drawn bright and doubled in weight. It is the one thing on this
-   screen that hints at how much sits behind the other door, and it costs twelve lines. */
-static void hub_draw_spine_ladder(Rectangle panel, int cleared_months) {
-    float x0 = panel.x + 16.0f, x1 = panel.x + 30.0f;
-    float y0 = panel.y + 24.0f, span = panel.height - 48.0f;
-    for (int m = 0; m < 12; m++) {
-        float y = floorf(y0 + span * (float)m / 11.0f);
-        int lit = (m < cleared_months);
-        DrawLineEx((Vector2){ x0, y }, (Vector2){ x1, y }, lit ? 2.0f : 1.0f,
-                   lit ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    }
 }
 
 static void hub_draw_button(Rectangle r, const char *label, int fsz, Vector2 vm) {
@@ -363,7 +350,7 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_co
         hub_draw_centered(font_body, line2, 310.0f, 308.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     }
 
-    hub_draw_button(k_main_campaign_btn, "PANCRATIUM CAMPAIGN", 18, vm);
+    hub_draw_button(k_main_campaign_btn, "PANCRATIUM CAMPAIGN", 20, vm);
 
     /* Right Card: ATRIUM PLEX -- the heavier door: wide, a bright 2 px frame and an inner
        hairline, so the depth behind it is legible before the loading card says so too. */
@@ -372,28 +359,27 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_co
     DrawRectangleLinesEx((Rectangle){ k_main_right_panel.x + 7.0f, k_main_right_panel.y + 7.0f,
                                       k_main_right_panel.width - 14.0f, k_main_right_panel.height - 14.0f },
                          1.0f, COLOR_PHOSPHOR_DIM);
-    hub_draw_spine_ladder(k_main_right_panel, (spine_count > 0) ? spine_count / 4 : 0);
 
     DrawRectangleRec(k_main_atrium_box, (Color){ 4, 8, 10, 210 });
     DrawRectangleLinesEx(k_main_atrium_box, 1.0f, COLOR_PHOSPHOR_DIM);
     if (spine_count >= 0) {
         int clamped_spine = (spine_count > 48) ? 48 : spine_count;
         snprintf(line1, sizeof(line1), "SPINE %02d/48", clamped_spine);
-        hub_draw_centered(font_body, line1, 856.0f, 283.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
+        hub_draw_centered(font_body, line1, 840.0f, 283.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
         if (clamped_spine == 0) {
             hub_draw_centered(font_body, "NEW PLAYERS  //  TUTORIALS START HERE",
-                              856.0f, 308.0f, 15.0f, 1.0f, COLOR_AMBER);
+                              840.0f, 308.0f, 15.0f, 1.0f, COLOR_AMBER);
         } else {
             hub_draw_centered(font_body, "TUTORIALS  |  SPEEDCOIN  |  ACTION CARD  |  STORY",
-                              856.0f, 308.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                              840.0f, 308.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         }
     } else {
-        hub_draw_centered(font_body, "NEURAL CORTEX ARCHIVE", 856.0f, 283.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
+        hub_draw_centered(font_body, "NEURAL CORTEX ARCHIVE", 840.0f, 283.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
         hub_draw_centered(font_body, "TUTORIALS  |  SPEEDCOIN  |  ACTION CARD  |  STORY",
-                          856.0f, 308.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                          840.0f, 308.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     }
 
-    hub_draw_button(k_main_atrium_btn, "ATRIUM PLEX", 22, vm);
+    hub_draw_button(k_main_atrium_btn, "ATRIUM PLEX", 20, vm);
 
     /* Footer Back Button */
     hub_draw_button(k_main_back_btn, "BACK", 20, vm);
@@ -401,11 +387,11 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_co
 
 HubAction ui_hub_handle_main_click(Vector2 vm, HubButtonHit *out_hit) {
     if (CheckCollisionPointRec(vm, k_main_campaign_btn)) {
-        hub_record_hit(out_hit, k_main_campaign_btn, "PANCRATIUM CAMPAIGN", 18);
+        hub_record_hit(out_hit, k_main_campaign_btn, "PANCRATIUM CAMPAIGN", 20);
         return HUB_ACT_GOTO_CAMPAIGN_HUB;
     }
     if (CheckCollisionPointRec(vm, k_main_atrium_btn)) {
-        hub_record_hit(out_hit, k_main_atrium_btn, "ATRIUM PLEX", 22);
+        hub_record_hit(out_hit, k_main_atrium_btn, "ATRIUM PLEX", 20);
         return HUB_ACT_GOTO_ATRIUM;
     }
     if (CheckCollisionPointRec(vm, k_main_back_btn)) {
