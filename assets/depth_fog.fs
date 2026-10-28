@@ -156,8 +156,7 @@ void main()
     // 5. Ambient Vignette:
     vec2 uvCentered = fragTexCoord - vec2(0.5, 0.5);
     float dist = length(uvCentered);
-    float vignette = 1.0 - smoothstep(0.75, 0.25, dist);
-    vignette = mix(1.0, vignette, 0.5);
+    float vignette = 1.5 - smoothstep(0.75, 0.25, dist);
 
     finalColor = vec4(blended * vignette, texel.a) * colDiffuse * fragColor;
 }
