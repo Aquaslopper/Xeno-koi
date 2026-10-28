@@ -27,12 +27,12 @@ uniform float flashAmount;
 
 // --- the knobs, in screen-height units unless the name says otherwise --------
 const float ASPECT       = 1.7777778; // 1280/720: this space is screen-proportional
-const float BEAM_WIDTH   = 0.16;      // beam half-width (~115 px); one number, no bands
+const float BEAM_WIDTH   = 0.18;      // beam half-width (~115 px); one number, no bands
 const float WALK_STEP    = 26.0;      // seconds per traverse between random anchors
 const float SPIN_RATE    = 0.012;     // rad/s: one turn per ~8.7 min, a hint of spin
 const float LIGHT_HEIGHT = 0.55;      // how far "above" the plate the light sits
-const float MASK_LO      = 0.02;      // normal-map alpha gate: which areas may light
-const float MASK_HI      = 0.12;
+const float MASK_LO      = 0.01;      // normal-map alpha gate: which areas may light
+const float MASK_HI      = 0.06;
 const float BLACK_LO     = 0.014;     // art-luminance gate: keeps true black unlit
 const float BLACK_HI     = 0.065;
 const float DIFF_GAIN    = 2.6;       // wrapped diffuse strength
