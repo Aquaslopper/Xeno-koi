@@ -872,7 +872,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         thunder_hold -= frame_dt;
         if (thunder_hold < 0.0f) thunder_hold = 0.0f;
     } else if (thunder_flash > 0.0f) {
-        thunder_flash *= expf(-frame_dt / 0.50f);
+        thunder_flash *= expf(-frame_dt / 1.00f);
         if (thunder_flash < 0.002f) thunder_flash = 0.0f;
     }
     /* Ember heat on the ash field: the same edges as the reverb, but its own envelope, and
