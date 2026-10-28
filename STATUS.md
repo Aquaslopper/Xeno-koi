@@ -7,6 +7,15 @@
 ## Status Summary
 ## Latest completed work
 
+### Larger main-menu title and subtitle (28 October 2026)
+
+- Enlarged the title screen in `ui_hub_draw_title()`: `[XENO / KOI]` 136 → **176 px** (y 72 → 60) and `HANAFUDA: ACOUSTICA APEXUS` 26 → **34 px** (y 220 → 248, letter spacing 3.0 → 4.0 so the tracking scales with the size). Colours, the wine-red subtitle, the three buttons, and `ALL FILES SAVED` are unchanged.
+- The y moves are required, not cosmetic: raylib anchors a draw `y` at the top of a line box that is exactly `font_size` tall, so the old 72 / 220 pair only had 12 px between the boxes. At 176 px the title box ends at 236 and the subtitle box runs 248–282, keeping the same 12 px gap and clearing the first button at y 374.
+- Widths measured against the shipped TTFs through raylib's own scale (`baseSize / (ascent − descent)`): the title goes 804 → 1030 px (125 px margins), the subtitle 412 → 541 px, so nothing overflows the 1280 px canvas. The title is now a 3.67× upscale of its 48 px rasterisation instead of 2.83×; trilinear mipmaps keep it smooth.
+- **Verified:** `tools/tests_guard.sh`, `tests/test_table_ui.sh` (with `RAYLIB_SRC=/tmp/raylib-5.0/src`), `tests/test_engine.c` (500 matches), `tools/test_koikoi_trigger.c`, strict `-std=c99 -O2 -Wall -Wextra -Werror` compile of `src/ui_hub.c`, and `git diff --check`. `./build.sh test` is blocked by the `--verify` gate in this environment; its individual commands were run directly. The other `src/*.c` files compile clean except pre-existing `IsMusicValid` / `MakeDirectory` implicit-declaration errors under Raylib 5.0 headers (this sandbox has 5.0 sources, not 5.5).
+- **Not verified:** the visual result — no display or Raylib library here, so the sizes are measured, not seen.
+- **Touched:** `src/ui_hub.c`, `LEARN_THE_CODE.md` (§7.2 draw-size table, §9.1 title screen), `STATUS.md`. **Deliberately did not touch:** the Main Hub header (`[XENO / KOI]` at 44 px in `ui_hub_draw_main`), the button geometry, the legacy `screens_draw_start()` in `src/ui_screens.c`, font `baseSize`s, `tests/`, `tools/`, and all rules/scoring/audio.
+
 ### Remove the ambient vignette (28 October 2026)
 
 - Removed the vignette from both desktop and web background shaders. Moving light, fog, the table wash, and the bottom gradient are unchanged.

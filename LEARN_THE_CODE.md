@@ -1021,12 +1021,12 @@ Both fonts are loaded with mipmaps and set to trilinear (`audiowide.ttf`) and bi
 `LoadFontEx`, and every draw afterwards is a bitmap resize by `font_size / baseSize` —
 `LoadFontData` stores `advanceX` as an `int` rounded at `baseSize`, and `MeasureTextEx`
 rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 px to
-56 px, so one `baseSize` per face is always a compromise.
+176 px, so one `baseSize` per face is always a compromise.
 
 | Face | File | `baseSize` | Drawn at | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 56 px | 0.24× – 1.17× |
-| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 28 px | 0.52× – 1.08× |
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 176 px | 0.24× – 3.67× |
+| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 34 px | 0.52× – 1.31× |
 | `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
 
 The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
@@ -1481,8 +1481,11 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 136 px on y 72 and
-`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220 in the soft wine-red `{224,136,146}`.
+The active title screen shows `[XENO / KOI]` at 176 px on y 60 and
+`HANAFUDA: ACOUSTICA APEXUS` at 34 px on y 248 (spacing 4.0, measured 541 px wide) in the
+soft wine-red `{224,136,146}`. raylib treats a draw `y` as the top of the line box, which is
+exactly `font_size` tall, so the title box ends at 236 and the subtitle box runs 248–282 —
+12 px apart, and clear of the first button at y 374.
 Its three buttons are `CONTINUE`
 (or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.
