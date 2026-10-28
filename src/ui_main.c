@@ -457,8 +457,8 @@ static void begin_new_match(int trk) {
 }
 
 /* Slow, normal and fast govern CPU/stock flights and CPU thinking. */
-static float get_flight_duration(int s) { return (s == 0) ? 0.80f : (s == 1) ? 0.60f : 0.40f; }
-static float get_think_duration(int s)  { return (s == 0) ? 0.45f : (s == 1) ? 0.30f : 0.15f; }
+static float get_flight_duration(int s) { return (s == 0) ? 0.60f : (s == 1) ? 0.60f : 0.60f; }
+static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.30f : 0.20f; }
 
 /* Keep the timed Speedcoin mode's existing stock pace and high-score conditions. */
 static float live_flight_duration(void) {
