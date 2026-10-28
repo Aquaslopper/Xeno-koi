@@ -74,17 +74,21 @@ static const char *const k_profile_action_labels[5] = {
 };
 
 
-static const Rectangle k_main_left_panel    = { 120.0f, 148.0f, 500.0f, 390.0f };
-static const Rectangle k_main_right_panel   = { 660.0f, 148.0f, 500.0f, 390.0f };
-static const Rectangle k_main_campaign_btn  = { 210.0f, 456.0f, 320.0f,  52.0f };
-static const Rectangle k_main_atrium_btn    = { 750.0f, 456.0f, 320.0f,  52.0f };
+/* Mode select: title + one data strip + one button. The three lines of prose that
+   used to sit under each strip are gone, so the cards are 248 tall instead of 390 and
+   are centred between the header and the footer BACK button. */
+static const Rectangle k_main_left_panel    = { 120.0f, 230.0f, 500.0f, 248.0f };
+static const Rectangle k_main_right_panel   = { 660.0f, 230.0f, 500.0f, 248.0f };
+static const Rectangle k_main_campaign_btn  = { 210.0f, 402.0f, 320.0f,  48.0f };
+static const Rectangle k_main_atrium_btn    = { 750.0f, 402.0f, 320.0f,  48.0f };
 static const Rectangle k_main_back_btn      = { 510.0f, 594.0f, 260.0f,  48.0f };
 
 static const Rectangle k_camp_panel         = { 280.0f,  96.0f, 720.0f, 548.0f };
-static const Rectangle k_camp_select_btn    = { 430.0f, 266.0f, 420.0f,  54.0f };
-static const Rectangle k_camp_stats_btn     = { 430.0f, 342.0f, 420.0f,  54.0f };
-static const Rectangle k_camp_deus_box      = { 430.0f, 418.0f, 420.0f,  64.0f };
-static const Rectangle k_camp_back_btn      = { 510.0f, 536.0f, 260.0f,  48.0f };
+static const Rectangle k_camp_select_btn    = { 430.0f, 254.0f, 420.0f,  50.0f };
+static const Rectangle k_camp_stats_btn     = { 430.0f, 314.0f, 420.0f,  50.0f };
+static const Rectangle k_camp_options_btn   = { 430.0f, 374.0f, 420.0f,  50.0f };
+static const Rectangle k_camp_deus_box      = { 430.0f, 434.0f, 420.0f,  56.0f };
+static const Rectangle k_camp_back_btn      = { 510.0f, 536.0f, 260.0f,  46.0f };
 
 /* --- Pure readout helpers ------------------------------------------------ */
 
@@ -169,6 +173,20 @@ static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha) 
 
 static void hub_draw_backdrop(const BoardAssets *ba) {
     hub_draw_backdrop_alpha(ba, 168);
+}
+
+/* The Atrium card carries a compressed Spine ladder down its left edge: twelve ticks,
+   the cleared months drawn bright and doubled in weight. It is the one thing on this
+   screen that hints at how much sits behind the other door, and it costs twelve lines. */
+static void hub_draw_spine_ladder(Rectangle panel, int cleared_months) {
+    float x0 = panel.x + 16.0f, x1 = panel.x + 30.0f;
+    float y0 = panel.y + 74.0f, span = panel.height - 148.0f;
+    for (int m = 0; m < 12; m++) {
+        float y = floorf(y0 + span * (float)m / 11.0f);
+        int lit = (m < cleared_months);
+        DrawLineEx((Vector2){ x0, y }, (Vector2){ x1, y }, lit ? 2.0f : 1.0f,
+                   lit ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    }
 }
 
 static void hub_draw_button(Rectangle r, const char *label, int fsz, Vector2 vm) {
@@ -329,57 +347,52 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_co
     /* Left Card: CAMPAIGN */
     DrawRectangleRec(k_main_left_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_left_panel, COLOR_PHOSPHOR_DIM);
-    hub_draw_centered(font_title, "PANCRATIUM CAMPAIGN", 370.0f, 170.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
-    DrawLine(148, 204, 592, 204, COLOR_PHOSPHOR_DIM);
+    hub_draw_centered(font_title, "PANCRATIUM CAMPAIGN", 370.0f, 252.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
+    DrawLine(148, 286, 592, 286, COLOR_PHOSPHOR_DIM);
 
-    Rectangle camp_stat_box = { 148.0f, 220.0f, 444.0f, 60.0f };
+    Rectangle camp_stat_box = { 148.0f, 298.0f, 444.0f, 60.0f };
     DrawRectangleRec(camp_stat_box, (Color){ 4, 8, 10, 210 });
     DrawRectangleLinesEx(camp_stat_box, 1.0f, COLOR_PHOSPHOR_DIM);
     snprintf(line1, sizeof(line1), "UNLOCKED SECTORS %02d/12  |  COINS %02d/36", sectors, coins);
-    hub_draw_centered(font_body, line1, 370.0f, 228.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_body, line1, 370.0f, 306.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
     if (is_deus) {
         snprintf(line2, sizeof(line2), "DEUS SUPREMUS ACTIVE  //  YAKUZA 15S");
-        hub_draw_centered(font_body, line2, 370.0f, 254.0f, 15.0f, 1.0f, COLOR_RED);
+        hub_draw_centered(font_body, line2, 370.0f, 332.0f, 15.0f, 1.0f, COLOR_RED);
     } else {
         snprintf(line2, sizeof(line2), "RULESET: %s  //  %d ROUNDS",
                  s ? hub_ruleset_label(s->ruleset) : "KK-ADD-10", rounds);
-        hub_draw_centered(font_body, line2, 370.0f, 254.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        hub_draw_centered(font_body, line2, 370.0f, 332.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     }
 
-    hub_draw_text_snapped(font_body, "Challenge 12 biomechanical sector entities.", 152.0f, 304.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    hub_draw_text_snapped(font_body, "Earn Bronze, Silver, and Gold clearance coins", 152.0f, 332.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
-    hub_draw_text_snapped(font_body, "to unlock deeper sectors and review replays.", 152.0f, 358.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
     hub_draw_button(k_main_campaign_btn, "CAMPAIGN", 20, vm);
 
     /* Right Card: ATRIUM PLEX */
     DrawRectangleRec(k_main_right_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_right_panel, COLOR_PHOSPHOR_DIM);
-    hub_draw_centered(font_title, "ATRIUM PLEX", 910.0f, 170.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
-    DrawLine(688, 204, 1132, 204, COLOR_PHOSPHOR_DIM);
+    hub_draw_centered(font_title, "ATRIUM PLEX", 940.0f, 252.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
+    DrawLine(718, 286, 1132, 286, COLOR_PHOSPHOR_DIM);
+    hub_draw_spine_ladder(k_main_right_panel, (spine_count > 0) ? spine_count / 4 : 0);
 
-    Rectangle plex_stat_box = { 688.0f, 220.0f, 444.0f, 60.0f };
+    Rectangle plex_stat_box = { 718.0f, 298.0f, 414.0f, 60.0f };
     DrawRectangleRec(plex_stat_box, (Color){ 4, 8, 10, 210 });
     DrawRectangleLinesEx(plex_stat_box, 1.0f, COLOR_PHOSPHOR_DIM);
     if (spine_count >= 0) {
         int clamped_spine = (spine_count > 48) ? 48 : spine_count;
         snprintf(line1, sizeof(line1), "SPINE %02d/48", clamped_spine);
-        hub_draw_centered(font_body, line1, 910.0f, 228.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        hub_draw_centered(font_body, line1, 925.0f, 306.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
         if (clamped_spine == 0) {
             hub_draw_centered(font_body, "[ NEW PLAYERS  //  TUTORIALS START HERE ]",
-                              910.0f, 254.0f, 15.0f, 1.0f, COLOR_AMBER);
+                              925.0f, 332.0f, 15.0f, 1.0f, COLOR_AMBER);
         } else {
             hub_draw_centered(font_body, "TUTORIALS  |  SPEEDCOIN  |  ACTION CARD  |  STORY",
-                              910.0f, 254.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                              925.0f, 332.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         }
     } else {
-        hub_draw_centered(font_body, "NEURAL CORTEX ARCHIVE", 910.0f, 228.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        hub_draw_centered(font_body, "NEURAL CORTEX ARCHIVE", 925.0f, 306.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
         hub_draw_centered(font_body, "TUTORIALS  |  SPEEDCOIN  |  ACTION CARD  |  STORY",
-                          910.0f, 254.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                          925.0f, 332.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     }
 
-    hub_draw_text_snapped(font_body, "48-card Spine progression and Story archive.", 692.0f, 304.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    hub_draw_text_snapped(font_body, "Includes Koi-Koi Tutorials, Speedcoin,", 692.0f, 332.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
-    hub_draw_text_snapped(font_body, "Action Card Audio FX, and Sparring Training.", 692.0f, 358.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
     hub_draw_button(k_main_atrium_btn, "ATRIUM PLEX", 20, vm);
 
     /* Footer Back Button */
@@ -415,6 +428,11 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
 
     DrawRectangleRec(k_camp_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_camp_panel, COLOR_PHOSPHOR_DIM);
+    /* Double frame marks the campaign as the finite, tournament side of the game; the
+       Atrium card answers with its lit Spine ladder. Same vocabulary, opposite signals. */
+    DrawRectangleLinesEx((Rectangle){ k_camp_panel.x + 7.0f, k_camp_panel.y + 7.0f,
+                                      k_camp_panel.width - 14.0f, k_camp_panel.height - 14.0f },
+                         1.0f, COLOR_PHOSPHOR);
 
     hub_draw_centered(font_title, "PANCRATIUM CAMPAIGN", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
     DrawLine(320, 160, 960, 160, COLOR_PHOSPHOR_DIM);
@@ -433,14 +451,15 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
 
     hub_draw_button(k_camp_select_btn, "CAMPAIGN", 20, vm);
     hub_draw_button(k_camp_stats_btn, "RECORDS & STATS", 20, vm);
+    hub_draw_button(k_camp_options_btn, "SYSTEM OPTIONS", 20, vm);
 
     DrawRectangleRec(k_camp_deus_box, (Color){ 4, 8, 10, 210 });
     ui_draw_panel_border(k_camp_deus_box, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     hub_draw_centered(font_title, is_deus ? "DEUS MODE: ON" : "DEUS MODE: OFF",
-                      640.0f, 427.0f, 17.0f, 1.3f, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
+                      640.0f, 443.0f, 17.0f, 1.3f, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     const char *deus_hint = !is_deus ? "CLICK TO ACTIVATE // SESSION ONLY" :
                             ui_hub_deus_snapshot_is_valid() ? "CLICK TO DEACTIVATE" : "OFF DISABLED // USE OPTIONS";
-    hub_draw_centered(font_body, deus_hint, 640.0f, 454.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    hub_draw_centered(font_body, deus_hint, 640.0f, 468.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
 
     hub_draw_button(k_camp_back_btn, "BACK", 20, vm);
 }
@@ -462,6 +481,10 @@ HubAction ui_hub_handle_campaign_click(const GameSettings *s, Vector2 vm, HubBut
     if (CheckCollisionPointRec(vm, k_camp_stats_btn)) {
         hub_record_hit(out_hit, k_camp_stats_btn, "RECORDS & STATS", 20);
         return HUB_ACT_GOTO_STATS;
+    }
+    if (CheckCollisionPointRec(vm, k_camp_options_btn)) {
+        hub_record_hit(out_hit, k_camp_options_btn, "SYSTEM OPTIONS", 20);
+        return HUB_ACT_CAMPAIGN_OPTIONS;
     }
     if (CheckCollisionPointRec(vm, k_camp_back_btn)) {
         hub_record_hit(out_hit, k_camp_back_btn, "BACK", 20);

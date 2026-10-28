@@ -1790,7 +1790,32 @@ The board guides are drawn only while the tutorial is active, and
 `plexus_tutorial_allowed_hand_card()` returns −1 outside the two play steps, which
 the input handler treats as "no restriction".
 
-### 10.5 Story beats and per-card protocols
+### 10.5 The hub screens (`ui_hub.c`)
+
+`SCREEN_START` is the brand line and three buttons; `SCREEN_HUB_MAIN` is the mode
+select, and its two cards are deliberately minimal: a title, one data strip, one
+button. No prose under the strip — three lines of description per card made the
+cards 390 px tall and pushed the footer `BACK` out of the visual centre. Cards are
+`{120, 230, 500, 248}` and `{660, 230, 500, 248}`, buttons `y 402`, footer `BACK`
+`{510, 594, 260, 48}`.
+
+The two doors are signalled differently on purpose. **Campaign** is the finite,
+tournament side, so its page gets a double frame (an inner 1 px rectangle 7 px in)
+and its own `SYSTEM OPTIONS` button that returns to `SCREEN_HUB_CAMPAIGN` via
+`options_return_screen`. **Atrium Plex** answers in mode select with
+`hub_draw_spine_ladder()`: twelve ticks down the card's left edge, one per month,
+bright and doubled in weight once cleared (`spine_count / 4`), and the card's text
+block is shifted right to make room for them. Everything about the Atrium reads as
+depth — ladder, spine counter, the loading card on entry — while Campaign reads as a
+bracket.
+
+`HUB_ACT_QUIT` is not a click-to-exit: it calls
+`start_transition(SCREEN_START, TRANSACT_QUIT, 0)`, so the ordinary fade plays, the
+card loader holds with a `-decoupled-` caption under the card, and the process exits
+at the end of the hold (`quit_requested`). `draw_loading_card()` takes a `caption`
+argument for exactly this; every other caller passes `NULL`.
+
+### 10.6 Story beats and per-card protocols
 
 `k_story_beats[48]` holds one `StoryBeat` per spine card, indexed by
 `card_id = month * 4 + slot`, and is the only place story text lives

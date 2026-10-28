@@ -12,6 +12,7 @@ typedef enum {
     HUB_ACT_BACK_TO_TITLE,
     HUB_ACT_OPEN_CAMPAIGN_OVERLAY,
     HUB_ACT_GOTO_STATS,
+    HUB_ACT_CAMPAIGN_OPTIONS,   /* Campaign page -> the system Options screen */
     HUB_ACT_BACK_TO_MAIN_HUB,
     HUB_ACT_TITLE_START_GAME,
     HUB_ACT_TITLE_OPTIONS,
