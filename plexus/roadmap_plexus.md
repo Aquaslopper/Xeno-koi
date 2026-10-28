@@ -79,7 +79,9 @@
 
 ---
 
-## Phase 5 — Atrium Plex Story *(Later)*
+## Phase 5 — Atrium Plex Story *(Started)*
 
-- [ ] **Deferred Until Gameplay & Hub Are Solid:**
+- [x] **First slice landed (28 October 2026):** all 48 cards have spine-briefing story text, and 14 cards (all of Month 02 plus each of Months 03-12's FACE card) launch a real one-round **story protocol** with a frozen keeper transmission, reusing the Month 01 tutorial state machine (`PROTO_*` steps, `s_tut_card_id >= 4`) instead of a second match path. Cards without a transmission keep the beta instant-clear.
+- [ ] **Still deferred until gameplay & hub are solid:**
   - Introduce the non-linear biomechanical story sequences (`Sequence 00` intro + monthly fragments archived in `LOGFILE`) after Phases 1–4 are verified.
+  - Planned in [`plexus/roadmap_story.md`](roadmap_story.md): the four existing text surfaces and their measured budgets, the SIGNAL / INTRUSION / TRACE beat unit per card, the cast already present in `g_opponents[]`, the per-card mask additions to `plexsave.txt`, and the staged rollout (text beats → paged story screen → scripted protocol games → 12 monthly stills).

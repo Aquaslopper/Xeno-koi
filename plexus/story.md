@@ -1,7 +1,7 @@
 # ATRIUM PLEX — Narrative & Art Progression (`story.md`)
 
 > **Purpose:** Living story and art-direction notebook for **ATRIUM PLEX** (*The Plexus*).  
-> **Companion Files:** [`plexus/roadmap_plexus.md`](roadmap_plexus.md) · [`plexus/training_games.md`](training_games.md)
+> **Companion Files:** [`plexus/roadmap_story.md`](roadmap_story.md) (production plan) · [`plexus/roadmap_plexus.md`](roadmap_plexus.md) · [`plexus/training_games.md`](training_games.md)
 
 ---
 

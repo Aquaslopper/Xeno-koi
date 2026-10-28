@@ -1021,12 +1021,12 @@ Both fonts are loaded with mipmaps and set to trilinear (`audiowide.ttf`) and bi
 `LoadFontEx`, and every draw afterwards is a bitmap resize by `font_size / baseSize` —
 `LoadFontData` stores `advanceX` as an `int` rounded at `baseSize`, and `MeasureTextEx`
 rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 px to
-56 px, so one `baseSize` per face is always a compromise.
+176 px, so one `baseSize` per face is always a compromise.
 
 | Face | File | `baseSize` | Drawn at | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 56 px | 0.24× – 1.17× |
-| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 28 px | 0.52× – 1.08× |
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 176 px | 0.24× – 3.67× |
+| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 34 px | 0.52× – 1.31× |
 | `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
 
 The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
@@ -1481,8 +1481,11 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 136 px on y 72 and
-`HANAFUDA: ACOUSTICA APEXUS` at 26 px on y 220 in the soft wine-red `{224,136,146}`.
+The active title screen shows `[XENO / KOI]` at 176 px on y 60 and
+`HANAFUDA: ACOUSTICA APEXUS` at 34 px on y 248 (spacing 4.0, measured 541 px wide) in the
+soft wine-red `{224,136,146}`. raylib treats a draw `y` as the top of the line box, which is
+exactly `font_size` tall, so the title box ends at 236 and the subtitle box runs 248–282 —
+12 px apart, and clear of the first button at y 374.
 Its three buttons are `CONTINUE`
 (or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.
@@ -1773,6 +1776,62 @@ The panels are `{280, 150, 720, 380}`, except the Koi-Koi panel, which is
 The board guides are drawn only while the tutorial is active, and
 `plexus_tutorial_allowed_hand_card()` returns −1 outside the two play steps, which
 the input handler treats as "no restriction".
+
+### 10.5 Story beats and per-card protocols
+
+`k_story_beats[48]` holds one `StoryBeat` per spine card, indexed by
+`card_id = month * 4 + slot`, and is the only place story text lives
+(planned in `plexus/roadmap_story.md`):
+
+```c
+typedef struct {
+    const char *signal[3];    /* spine briefing body lines                */
+    const char *intrusion[6]; /* keeper voice, one frozen panel           */
+    const char *trace[6];     /* vessel voice, [0] becomes the log line   */
+} StoryBeat;
+```
+
+The briefing reads `signal[]`: months 02–12 put all three lines in `line1..3`,
+while Month 01 keeps its tutorial title and description on `line1..2` and shows
+`signal[0]` alone on `line3`. `trace[0]` is written into the MATCHES logfile
+entry when a protocol card is cleared. Text is ASCII only (all three faces load
+codepoints 32–126) and no line wraps or clips, so the budgets in
+`plexus/roadmap_story.md` §5 are load-bearing.
+
+A card whose `intrusion[0]` is non-NULL is a **story protocol**: clicking `START`
+deals a real round on the player's ruleset and opens one frozen keeper panel
+before play. `story_beat_has_protocol()` is the single test; every other card keeps
+the beta instant-clear path. Fourteen cards qualify today — all four of Month 02,
+and each of Months 03–12's FACE card (`slot 0`).
+
+Protocols ride the tutorial state machine rather than a parallel one. Three extra
+`TutorialStep` values carry them, and `s_tut_card_id >= 4` is the discriminator
+that keeps every Month 01 branch untouched:
+
+```
+PROTO_WAIT_DEAL      engine_start_round() has dealt; waiting for the board to settle
+PROTO_PANEL_STORY    frozen: keeper transmission, [CONTINUE] unfreezes
+PROTO_PLAY           ordinary play until the round ends
+```
+
+`plexus_tutorial_setup_round()` gives protocols `total_rounds = 1` with `dealer = 0`
+and pins `current_player = 0` after the lucky check, so the transmission always
+lands before the CPU moves. `PROTO_PANEL_STORY` is in `tut_step_is_frozen()`, so
+the existing gates (`plexus_tutorial_panel_open()`, the `tut_frozen` early return in
+the GAME branch, the panel draw at `ui_main.c`) work unchanged; its rect is
+`{280, 150, 720, 380}`, the same as the default tutorial panel. Finishing the round
+runs `plexus_tutorial_finish_match()`, which marks the card, flips the next slot and
+now writes a card-aware log title (`PROTOCOL CLEARED` above `cid == 4`).
+
+Because protocols are tutorial-active, they deliberately skip what a campaign match
+gets: no replay record, no campaign stats, no clearance coins, no Deus ruleset
+override, and speedbar/audio telemetry is isolated by `tut_save_telemetry()` /
+`tut_restore_telemetry()`.
+
+The contributor rules that keep this from growing a second engine — one table, one
+protocol test, one state machine, ASCII-only text, branch order above the generic
+`>= 4` path — are written out in `AGENTS.md` under "Atrium Plex story beats and
+story protocols". Read that before adding a story card.
 
 ---
 
