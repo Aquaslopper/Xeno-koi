@@ -1793,23 +1793,29 @@ the input handler treats as "no restriction".
 ### 10.5 The hub screens (`ui_hub.c`)
 
 `SCREEN_START` is the brand line and three buttons; `SCREEN_HUB_MAIN` is the mode
-select, and its two cards are deliberately minimal: a title, one data strip, one
-button. No prose under the strip — three lines of description per card made the
-cards 390 px tall and pushed the footer `BACK` out of the visual centre. Cards are
-`{120, 230, 500, 248}` and `{660, 230, 500, 248}`, buttons `y 402`, footer `BACK`
+select, and each of its two cards is deliberately minimal: **one data strip and one
+button, nothing else**. There is no card heading, because the heading said the same
+name the button says and the name appeared twice on every card. The name lives on the
+button only, in plain uppercase: `PANCRATIUM CAMPAIGN` (18 px, `{154, 366, 312, 48}`)
+and `ATRIUM PLEX` (22 px, `{586, 366, 540, 48}`). Prose was removed earlier for the
+same reason — three lines of description per card had made the cards 390 px tall.
+
+Both cards sit on one band `y 256`, `h 178`, share the button row `y 366`, and are
+weighted differently on purpose. **Campaign** is the slim one: `{130, 256, 360, 178}`,
+one 1 px dim frame, strip `{154, 276, 312, 58}`. **Atrium Plex** is the heavier door:
+`{530, 256, 620, 178}`, a bright 2 px frame plus an inner hairline 7 px in, strip
+`{586, 276, 540, 58}` indented past the ladder column. `hub_draw_spine_ladder()` runs
+twelve ticks down the Atrium card's left edge, one per month, bright and doubled in
+weight once cleared (`spine_count / 4`), inset 24 px top and bottom. Footer `BACK` is
 `{510, 594, 260, 48}`.
 
-The two doors are signalled differently on purpose. **Campaign** is the finite,
-tournament side, so its page gets a double frame (an inner 1 px rectangle 7 px in)
-and its own `SYSTEM OPTIONS` button that returns to `SCREEN_HUB_CAMPAIGN` via
-`options_return_screen`. **Atrium Plex** answers in mode select with
-`hub_draw_spine_ladder()`: twelve ticks down the card's left edge, one per month,
-bright and doubled in weight once cleared (`spine_count / 4`), and the card's text
-block is shifted right to make room for them. Everything about the Atrium reads as
-depth — ladder, spine counter, the loading card on entry — while Campaign reads as a
-bracket.
+The same vocabulary is used with opposite signals elsewhere: the **campaign page**
+(`SCREEN_HUB_CAMPAIGN`) keeps its own double frame as the finite tournament side and
+its own `SYSTEM OPTIONS` button that returns here via `options_return_screen`.
+Everything about the Atrium reads as depth — ladder, spine counter, the loading card
+on entry — while Campaign reads as a bracket.
 
-`HUB_ACT_QUIT` is not a click-to-exit: it calls
+`HUB_ACT_TITLE_QUIT` is not a click-to-exit: it calls
 `start_transition(SCREEN_START, TRANSACT_QUIT, 0)`, so the ordinary fade plays, the
 card loader holds with a `-decoupled-` caption under the card, and the process exits
 at the end of the hold (`quit_requested`). `draw_loading_card()` takes a `caption`

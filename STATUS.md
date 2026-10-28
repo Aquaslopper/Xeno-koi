@@ -1,11 +1,21 @@
-> **Development handoff (last updated 28 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 29 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 28 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
+**Last updated: 29 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues.
 
 ## Status Summary
 ## Latest completed work
+
+### Mode select: one name per card, Atrium as the heavier door (29 October 2026)
+
+- **Duplicate labels removed.** Every mode-select card said its name twice, once as a card heading and once as the button label. The headings and their dividers are gone; the name now lives on the button only, plain uppercase: `PANCRATIUM CAMPAIGN` (18 px) and `ATRIUM PLEX` (22 px). Nothing else was added to fill the space.
+- **Smaller, aligned pair.** The cards went from `500x248` each to a shared band: Campaign `{130,256,360,178}`, Atrium `{530,256,620,178}`. Both use the same 20 px inset, the same 58 px strip, and the same button row at `y 366`, so the two cards read as one unit instead of two boxes. Footer `BACK` is unchanged at `{510,594,260,48}`; the content block is centred between it and the header.
+- **Atrium is the heavier door** (owner choice, variant B): a wider card, a bright 2 px frame with an inner hairline 7 px in, and the twelve-tick Spine ladder down its left edge, now inset 24 px top and bottom so it spans the strip and the button rather than floating. Campaign keeps a single dim frame. The campaign *page* keeps its own double frame - it marks the finite tournament side there, and the two screens are never on screen together.
+- Strip text was shortened to fit the narrower cards: `SECTORS 03/12   //   COINS 07/36`, `KK-ADD-10   //   2 ROUNDS` (or `DEUS SUPREMUS   //   YAKUZA 15S` in red), and `SPINE 21/48` over the tutorial line. All measured against the shipped TTFs; the widest line is 349 px in a 540 px strip.
+- **Verified:** `tools/tests_guard.sh`, `tests/test_table_ui.sh` (with `RAYLIB_SRC` pointed at the 5.0 headers), `python3 tools/gen_wiki_tables.py --check`, `git diff --check`, and `-std=c99 -O2 -Wall -Wextra -Werror -fsyntax-only` on `src/ui_hub.c`.
+- **Not verified:** the live run - no display or Raylib library here, so the layout is reconstructed in `mode_select_mockup.png` from the shipped coordinates and fonts.
+- **Touched:** `src/ui_hub.c`, `LEARN_THE_CODE.md` (§10.5), `STATUS.md`, `mode_select_mockup.png`. **Deliberately did not touch:** `src/ui_main.c`, `src/ui_hub.h`, the campaign page layout, `src/ui_screens.c`, `tests/`, `tools/`, rules/scoring, and the Atrium Plex screen itself.
 
 ### Hub pass: quit transition, leaner mode select, campaign options (28 October 2026)
 
