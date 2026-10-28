@@ -22,18 +22,18 @@ uniform float lightEnabled;
 uniform float flashAmount;
 
 const float ASPECT       = 1.7777778;
-const float BEAM_WIDTH   = 0.18;   // beam half-width, screen-height units
-const float WALK_STEP    = 26.0;   // seconds between random anchors
+const float BEAM_WIDTH   = 0.28;   // beam half-width, screen-height units
+const float WALK_STEP    = 96.0;   // seconds between random anchors
 const float SPIN_RATE    = 0.012;  // rad/s, one turn per ~8.7 min
 const float LIGHT_HEIGHT = 0.55;
-const float MASK_LO      = 0.01;   // normal-map alpha gate: which areas may light
-const float MASK_HI      = 0.05;
-const float BLACK_LO     = 0.014;  // art-luminance gate: keeps true black black
+const float MASK_LO      = 0.00;   // normal-map alpha gate: which areas may light
+const float MASK_HI      = 0.12;
+const float BLACK_LO     = 0.044;  // art-luminance gate: keeps true black black
 const float BLACK_HI     = 0.065;
 const float REST_LEVEL   = 1.0;    // resting beam brightness, independent of thunder
-const float DIFF_GAIN    = 6.0;    // wrapped diffuse strength
+const float DIFF_GAIN    = 1.0;    // wrapped diffuse strength
 const float SPEC_GAIN    = 1.5;
-const float SPEC_POWER   = 24.0;
+const float SPEC_POWER   = 12.0;
 
 vec3 bgMovingLights(vec3 base, vec2 uv)
 {
