@@ -1419,10 +1419,25 @@ static void update_draw_frame(void) {
                         }
                     }
 
+                    /* The dealership owns who may act. It lets the previous event
+                       settle first (ignoring the artificial beat, so travel and beat
+                       overlap rather than stack), and then arrival IS the permission.
+                       Speedcoin has no opposing turn, so it keeps its own rhythm.
+                       Action Card is covered by owner decision (29 Oct 2026).
+                       See Dealership.md. */
+                    dealership_set_active(!plexus_speedcoin_is_active() &&
+                                          !replay_pb_active());
+                    if (g.phase == PHASE_DEAL || g.phase == PHASE_DEALER_SELECT)
+                        dealership_reset(g.dealer == 0 ? DL_PLAYER : DL_CPU);
+                    dealership_update(dt, dealership_station_for(&g),
+                                      !badge_freezing && !motion_is_reflowing(&g) &&
+                                      !anim_is_blocking(&anim) && !cinematic_is_active());
+
                     if (!badge_freezing && ac_table && !replay_pb_active() &&
                         g.phase == PHASE_TURN_HAND && !g.has_pending &&
                         (!anim.active || anim.type == ANIM_CPU_THINK || anim.type == ANIM_BANNER) &&
-                        !cinematic_is_active() && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f) {
+                        !cinematic_is_active() && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f &&
+                        dealership_unlocked()) {
                         int sym = action_card_take_pending_symbol();
                         if (sym >= 0) {
                             if (drag.on && drag.moved && drag.idx >= 0 && drag.idx < g.hand_count[0] && !anim.active) {
@@ -1437,19 +1452,6 @@ static void update_draw_frame(void) {
 
                     int board_busy = badge_freezing || (event_beat_timer > 0.0f) ||
                                      motion_is_reflowing(&g) || anim_is_blocking(&anim);
-                    /* The dealership owns who may act. It lets the previous event
-                       settle first (ignoring the artificial beat, so travel and beat
-                       overlap rather than stack), and then arrival IS the permission.
-                       Speedcoin has no opposing turn and Action Card's pacing is
-                       frozen, so both keep their own rhythm. See Dealership.md. */
-                    dealership_set_active(!plexus_speedcoin_is_active() &&
-                                          !plexus_action_card_is_active() &&
-                                          !replay_pb_active());
-                    if (g.phase == PHASE_DEAL || g.phase == PHASE_DEALER_SELECT)
-                        dealership_reset(g.dealer == 0 ? DL_PLAYER : DL_CPU);
-                    dealership_update(dt, dealership_station_for(&g),
-                                      !badge_freezing && !motion_is_reflowing(&g) &&
-                                      !anim_is_blocking(&anim) && !cinematic_is_active());
                     int input_unlocked = !board_busy && !cinematic_is_active() && dealership_unlocked();
                     Difficulty active_diff = plexus_tutorial_is_active() ? DIFFICULTY_EASY : settings.difficulty;
 

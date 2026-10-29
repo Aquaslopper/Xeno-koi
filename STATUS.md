@@ -33,6 +33,18 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Owner: Action Card is covered by the Dealership too (29 October 2026)
+
+- **Instruction:** *"action card has to be included"* - one correction to the entry below, which had excluded the mode.
+- **This is the explicit owner instruction the Action Card freeze requires.** The freeze forbids an agent changing the mode on its own; it does not forbid the owner changing it. Nothing in `src/ui_action.{c,h}` was touched, and `./tools/action_guard.sh` still passes with all 12 influence points intact.
+- **Changed:** `dealership_set_active()` no longer excludes Action Card (`src/ui_main.c`); the token's update now runs *before* the mode's badge-event trigger so that trigger reads this frame's state; and the badge-event trigger gained `&& dealership_unlocked()`, because a badge event starting before the marker arrives is exactly the thing the token exists to prevent.
+- **Why it does not cost the mode any pace:** `settled` already includes `badge_freezing`, so the token cannot depart in the middle of a badge event. It travels inside the window the mode already spends settling and arranges its arrival as the release, rather than adding a pause on top.
+- **Docs moved with the code:** `Dealership.md` §5 and §6 now state the mode is covered by owner decision, and explicitly warn a future reader not to re-derive the exclusion from the `df4f6d7` caution - coverage is not permission to tune. `AGENTS.md` carries the same one-line carve-out.
+- **Still a report, not a to-do:** if the mode's pace reads wrong under the token, it gets reported to the owner. The dealership covering a frozen mode does not make the mode fair game.
+- **Verified:** `./build.sh test` exit 0 (tests lock, Action Card guard 12 points, 500-match suite, table UI, music/settings/Options); `-fsyntax-only` at `-Wall -Wextra` clean for every `src/*.c`. Not verified: the feel, which needs a display.
+- **Touched:** `src/ui_main.c`, `Dealership.md`, `AGENTS.md`, `STATUS.md`.
+
+
 ### The Dealership: one travelling token owns the table rhythm (29 October 2026)
 
 - **Instruction:** a visible marker that travels current player -> deck -> CPU -> deck -> player, where **arrival at a station is the permission** for that station's event, and the token does not leave until that event has completely finished.

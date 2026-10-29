@@ -124,6 +124,7 @@ Three places consult `dealership_unlocked()`:
 | player input (`input_unlocked`) | the player cannot act until the token is at `DL_PLAYER` |
 | the CPU think/fly block | the CPU cannot think until the token is at `DL_CPU` |
 | the stock-fly start in `PHASE_TURN_DRAW` | the deck cannot deal until the token is at `DL_DECK` |
+| the Action Card badge-event trigger | a badge event cannot start until the token is at that player's station |
 
 Everything else stays as it was. Choice overlays (`PHASE_HAND_CHOICE`,
 `PHASE_DRAW_CHOICE`) resolve at the station that owns them, so a choice never
@@ -142,13 +143,23 @@ does not exist, and its premise is speed. Injecting a 100 ms gate into a reactio
 test would sabotage the mode it decorates. (`trigger_cpu_step_beat()` already
 excluded Speedcoin for the same reason.)
 
-**Not active — `Action Card`.** The mode alternates turns, so structurally the
-token fits, but its rhythm is tied to the meter and the reverb envelope, and
-added gating delay there is precisely what broke its audio timing before
-(`df4f6d7`: *"revert unrequested turn-pacing delays breaking reverb/meter
-timing"*). The mode is frozen by owner decision. This is a **report, not a
-to-do**: if the dealership should ever cover Action Card, the owner says so, and
-only then.
+**Active — `Action Card`, by owner decision (29 October 2026): *"action card has
+to be included."*** An earlier draft of this document excluded the mode; that
+exclusion is reversed and must not be re-derived from the caution below.
+
+The caution still stands as a constraint, not as a reason to exclude:
+
+- The mode is frozen by the owner. Covering it with the dealership is *not*
+  permission to tune it. If its pace reads wrong under the token, that is
+  **reported**, not adjusted.
+- Its rhythm is tied to the meter and the reverb envelope. Added gating delay
+  there broke the audio/meter timing once before (`df4f6d7`: *"revert
+  unrequested turn-pacing delays breaking reverb/meter timing"*), which is why
+  `settled` includes `badge_freezing`: the token never departs in the middle of a
+  badge event, so the envelope and the meter keep their own timing and the token
+  waits for them rather than the reverse.
+- The token therefore adds no delay of its own to Action Card. It travels inside
+  the window the mode already spends settling, and its arrival is the release.
 
 **Not active — replay playback**, which paces itself from the recording.
 
