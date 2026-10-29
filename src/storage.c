@@ -551,6 +551,7 @@ void storage_load_settings(GameSettings *s) {
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
     s->cleared_mask = 0;
+    s->table_design = 0;
 
     char path[512];
     get_app_path("settings.txt", path, sizeof(path));
@@ -635,6 +636,9 @@ void storage_load_settings(GameSettings *s) {
             } else if (strcmp(k, "cleared_mask") == 0) {
                 unsigned long long cm = strtoull(v, NULL, 10);
                 s->cleared_mask = cm;
+            } else if (strcmp(k, "table_design") == 0) {
+                int td = atoi(v);
+                if (td >= 0 && td < TABLE_DESIGN_COUNT) s->table_design = td;
             }
         }
     }
@@ -692,11 +696,13 @@ void storage_save_settings(const GameSettings *s) {
              "gamma=%.2f\n"
              "unlocked_opponents=%d\n"
              "current_opponent=%d\n"
-             "cleared_mask=%llu\n",
+             "cleared_mask=%llu\n"
+             "table_design=%d\n",
              s->music_folder, s->rounds, diff_str, s->master_timer, rule_str, s->background,
              s->bgm_volume, s->sfx_volume, s->effect_chorus, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
              s->fullscreen, s->bloom, s->crt_filter, s->gamma,
-             s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask);
+             s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask,
+             s->table_design);
     safe_write_text("settings.txt", buf);
 }
 

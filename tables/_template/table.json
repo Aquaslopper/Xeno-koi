@@ -1,0 +1,53 @@
+{
+  "_README": [
+    "Manifest for one table: `python3 tools/table_art.py build tables/<name>/table.json`.",
+    "Copy this file to tables/<name>/table.json and fill it in. Every number comes from tables/anchors.json.",
+    "raw/, final/ and preview/ default to subfolders of THIS file's folder - nothing is written elsewhere.",
+    "The build prints unit / final size / interior / target / status and exits non-zero on any MISMATCH.",
+    "A unit whose open interior is not exactly `rect` within 2 px is a MISMATCH - that check is the point."
+  ],
+
+  "design": "",
+  "_design": "optional; defaults to the folder name, e.g. table_city",
+
+  "_backdrop": "change this: assets/<this table's backdrop>.jpg - see tables/anchors.json assets_available",
+  "backdrop": "assets/city.jpg",
+
+  "units": [
+    {
+      "_note": "a casing around a group of rects. rect = interior = the game's rect; border = (L,T,R,B) drawn OUTSIDE it.",
+      "_budget": "must not exceed the free space in tables/anchors.md on any side",
+      "file": "city-frame-block",
+      "rect": [255, 196],
+      "border": [12, 12, 44, 12],
+      "place": [[12, 12], [12, 508]]
+    }
+  ],
+
+  "rails": [
+    {
+      "_note": "an internal seam, cut from a unit's own bottom rail. Drawn AFTER the units or the casing covers it.",
+      "from": "city-frame-block",
+      "size": [255, 8],
+      "place": [[12, 40], [12, 670]]
+    }
+  ],
+
+  "cards": [
+    {
+      "_note": "a bezel drawn INSIDE the card rect, one file per card size. kind: field | hand | cpu",
+      "file": "city-card-frame",
+      "size": [76, 124],
+      "border": 6,
+      "kind": "field"
+    }
+  ],
+
+  "decor": [
+    {
+      "_note": "art that is not a frame: edge brackets, ornaments. box = [x, y, w, h] on the canvas.",
+      "file": "city-edge-bracket",
+      "box": [0, 176, 78, 372]
+    }
+  ]
+}

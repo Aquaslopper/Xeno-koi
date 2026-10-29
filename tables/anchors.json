@@ -1,0 +1,564 @@
+{
+ "_about": "Every rectangle and every rule a table design may draw into or rely on, taken from src/ and never from a mockup or a screenshot. x/y/w/h are virtual canvas px on the 1280x720 canvas. 'src' is the line the number was read from. Anything under 'frozen' may not move.",
+ "canvas": {
+  "w": 1280,
+  "h": 720,
+  "src": "src/ui_theme.h:45-46"
+ },
+ "card_sizes": {
+  "field": {
+   "w": 76,
+   "h": 124,
+   "src": "src/ui_theme.h:54-55"
+  },
+  "hand": {
+   "w": 88,
+   "h": 143,
+   "src": "src/ui_theme.h:51-52"
+  },
+  "cpu": {
+   "w": 56,
+   "h": 91,
+   "src": "src/ui_theme.h:58-59"
+  },
+  "mini": {
+   "w": 23.324,
+   "h": 36.652,
+   "src": "src/ui_theme.h:61"
+  },
+  "choice": {
+   "w": 176,
+   "h": 286,
+   "src": "src/ui_theme.h"
+  },
+  "_note": "shared by every mode including the frozen Action Card mode: treat as fixed"
+ },
+ "rects": {
+  "cpu_score_box": {
+   "rect": [
+    12,
+    12,
+    255,
+    30
+   ],
+   "src": "src/ui_board.c:975"
+  },
+  "you_score_box": {
+   "rect": [
+    12,
+    678,
+    255,
+    30
+   ],
+   "src": "src/ui_board.c:976"
+  },
+  "capture_lanes_cpu": {
+   "rect": [
+    12,
+    46,
+    255,
+    37.4
+   ],
+   "count": 4,
+   "pitch": 41.4,
+   "src": "src/ui_board.c:983, :752, ui_theme.h:62-63"
+  },
+  "capture_lanes_player": {
+   "rect": [
+    12,
+    508,
+    255,
+    37.4
+   ],
+   "count": 4,
+   "pitch": 41.4,
+   "src": "src/ui_board.c:985"
+  },
+  "stock": {
+   "rect": [
+    330,
+    262,
+    76,
+    124
+   ],
+   "src": "src/ui_board.c:696, :1005"
+  },
+  "stock_count": {
+   "text_at": [
+    356,
+    392
+   ],
+   "src": "src/ui_board.c:1017"
+  },
+  "status_line": {
+   "text_at": [
+    710,
+    529
+   ],
+   "align": "centre",
+   "size": 18,
+   "src": "src/ui_board_status.c:73-81"
+  },
+  "turn_timer": {
+   "text_at": [
+    640,
+    505
+   ],
+   "align": "centre",
+   "size": 22,
+   "src": "src/ui_board.c:1122-1130"
+  },
+  "rnd_panel": {
+   "rect": [
+    1160,
+    12,
+    112,
+    66
+   ],
+   "src": "src/ui_combos.c:44"
+  },
+  "cpu_combos": {
+   "rect": [
+    1160,
+    88,
+    112,
+    218
+   ],
+   "src": "src/ui_combos.c:29-31"
+  },
+  "your_combos": {
+   "rect": [
+    1160,
+    316,
+    112,
+    218
+   ],
+   "src": "src/ui_combos.c:29-31"
+  },
+  "pause": {
+   "rect": [
+    1160,
+    560,
+    112,
+    40
+   ],
+   "src": "src/ui_board.c:1184"
+  },
+  "restart": {
+   "rect": [
+    1160,
+    610,
+    112,
+    40
+   ],
+   "src": "src/ui_board.c:1186"
+  },
+  "field_box": {
+   "rect": [
+    430,
+    132,
+    650,
+    400
+   ],
+   "src": "src/ui_theme.h:72-75"
+  },
+  "cpu_hand": {
+   "y": 12,
+   "step": 62,
+   "centre_x": 710,
+   "src": "src/ui_board.c:992-996"
+  },
+  "player_hand": {
+   "y": 566,
+   "y_hover": 552,
+   "step": 96,
+   "centre_x": 710,
+   "src": "src/ui_board.c:526-529"
+  }
+ },
+ "field_slots": {
+  "cols": 8,
+  "primary": 16,
+  "total": 24,
+  "primary_rect": {
+   "x": "434 + col*81",
+   "y_row0": 170,
+   "y_row1": 310,
+   "w": 76,
+   "h": 124
+  },
+  "overflow_rect": {
+   "x": "434 + col*81 + 12",
+   "y_row0": 184,
+   "y_row1": 324,
+   "col": "2 + (i & 3)"
+  },
+  "src": "src/ui_board.c:543-573",
+  "_note": "sticky slots; claim order in k_table_slot_order[] src/ui_board.c:553-558; dealt by month then centred, src/ui_board.c:575-603"
+ },
+ "chokepoints": {
+  "panel_border": {
+   "fn": "ui_draw_panel_border()",
+   "file": "src/ui_theme.c:583",
+   "call_sites": 76,
+   "_note": "already frames every panel in the game at its exact rect, inside it. The cheapest place for a metal look."
+  },
+  "card_face": {
+   "fn": "board_draw_card()",
+   "file": "src/ui_board.c:715",
+   "_note": "1 px edge line today; all modes"
+  },
+  "card_back": {
+   "fn": "board_draw_card_back()",
+   "file": "src/ui_board.c:728"
+  },
+  "card_glow": {
+   "fn": "board_draw_card_glow()",
+   "file": "src/ui_board.c:737"
+  },
+  "palette": {
+   "struct": "TerminalTheme g_theme",
+   "file": "src/ui_theme.h:5-14",
+   "_note": "today: green/amber/teal/crimson/violet, theme_set() cycles 5"
+  },
+  "panel_fill": {
+   "macro": "COLOR_PANEL_BG",
+   "file": "src/ui_theme.h:38",
+   "value": "black @ 178 alpha"
+  }
+ },
+ "frozen": {
+  "action_card_stock": {
+   "rect": [
+    330,
+    262
+   ],
+   "src": "src/ui_action.c:548",
+   "why": "hash-guarded file; must keep the same anchor"
+  },
+  "action_card_meter": {
+   "rect": [
+    414,
+    170,
+    14,
+    264
+   ],
+   "src": "src/ui_action.c:760",
+   "why": "hash-guarded file; sits 16 px left of FIELD_X"
+  },
+  "guard_manifest": {
+   "file": "tools/action_guard.manifest",
+   "why": "12 lines outside ui_action.* must stay verbatim; 4 of them inside board_draw_table()"
+  },
+  "tutorial_ghost_hand": {
+   "src": "src/ui_plexus.c:4482",
+   "_note": "hardcodes an 8-card hand (board_get_hand_card_rect(i, 8, 0))"
+  }
+ },
+ "free_space": {
+  "left_column_between_halves": {
+   "rect": [
+    0,
+    208,
+    267,
+    300
+   ],
+   "_note": "CPU lanes end 207.6, player lanes start 508 -> 300 px tall, full left column width. This is the only place a spine/connector band fits.",
+   "src": "derived: ui_board.c:983 + :985"
+  },
+  "right_column_below_restart": {
+   "rect": [
+    1160,
+    650,
+    112,
+    70
+   ],
+   "src": "derived"
+  },
+  "between_status_and_hand": {
+   "rect": [
+    0,
+    542,
+    1280,
+    24
+   ],
+   "src": "derived"
+  },
+  "middle_band_left_of_field": {
+   "rect": [
+    267,
+    208,
+    163,
+    300
+   ],
+   "_note": "holds the stock at 330,262",
+   "src": "derived"
+  }
+ },
+ "budgets": {
+  "capture_lane": {
+   "height": 37.4,
+   "gap": 4.0,
+   "label_inset": 4,
+   "src": "src/ui_theme.h:63, src/ui_board.c:752, :772",
+   "verdict": "a frame INSIDE a lane eats the label; a frame AROUND a lane collides with the next lane. Per-lane frames are impossible; frame the group."
+  },
+  "combo_panel": {
+   "label_inset": 8,
+   "src": "src/ui_combos.c:59",
+   "verdict": "8 px is the maximum border inside; the panel has 80 px of free space on its LEFT"
+  },
+  "right_column_free_space": {
+   "left": 80,
+   "right": 8,
+   "top": 12,
+   "bottom": 26,
+   "verdict": "a uniform border is forced down to 8 px by the right edge. Use an ASYMMETRIC border (thick inside, thin at the canvas edge)."
+  },
+  "left_column_free_space": {
+   "left": 12,
+   "right": 163,
+   "top": 12,
+   "bottom": 12
+  },
+  "deck_free_space": {
+   "left": 63,
+   "right": 24,
+   "top": 54,
+   "bottom": 98
+  },
+  "left_column_seam": {
+   "score_box_bottom": 42,
+   "lane_b_start": 46,
+   "lane_p_end": 669.6,
+   "you_score_top": 678,
+   "verdict": "8 px rails at y 40 and y 670 separate the score strip from the lanes; rails must be drawn AFTER the block frame or the casing covers them"
+  }
+ },
+ "field_painting_the_truth": {
+  "_why": "Two different field layouts exist in the repo and only one is live. Three wasted rounds came from compositing onto a figure drawn with the dead one.",
+  "live": {
+   "fn": "table_slot_rect()",
+   "src": "src/ui_board.c:560-573",
+   "grid": "8 cols x 2 rows, primary slots 0..15, overflow 16..23",
+   "rect_row0": "x = 434 + col*81, y = 170, 76 x 124",
+   "rect_row1": "x = 434 + col*81, y = 310, 76 x 124",
+   "overflow": "x = 434 + col*81 + 12, y = 184 / 324, col = 2 + (i & 3)",
+   "painter": "board_draw_table(), src/ui_board.c:1033-1038 -> motion_set_target(cid, slot, 0.22s)",
+   "claim_order": "k_table_slot_order[] src/ui_board.c:553-558"
+  },
+  "dead": {
+   "fn": "board_field_slot_xy()",
+   "src": "src/board_layout.c:16-28",
+   "status": "no callers. Only reachable via board_get_field_card_rect() (src/ui_board.c:531), which also has no callers.",
+   "numbers": "step 96, two rows y 170 / 310, centred in 430..1080"
+  },
+  "dead_in_repo_figure": {
+   "file": "tools/make_board_figure.py",
+   "src": "line 28 + 111 field_slots()",
+   "problem": "it draws the README's 1:1 table figure with board_field_slot_xy(), so docs/assets/readme/table-map.png shows field cards 96 px apart on a grid where the game actually puts them 81 px apart. Anything composited onto that figure looks misaligned even when it is not.",
+   "knock_on": "the README section 'The table, to scale' and its legend inherit the same error"
+  }
+ },
+ "dealing": {
+  "sort": "board_field_sort_slots() sorts the opening field by month (src/board_layout.c:5-14, still used at src/ui_board.c:590)",
+  "split": "top = (n+1)/2, bottom = n - top  (src/ui_board.c:592-594)",
+  "centre": "c0 = (8 - top)/2, c1 = (8 - bottom)/2 -> 8 cards land in columns 2..5, 14 cards in 0..6, 16 cards full",
+  "sticky": "after the deal a card keeps its slot; a capture frees it in place; an unmatched card claims an empty slot",
+  "card_ids": "id = (month-1)*4 + slot, 0..47 (src/cards.h:20). Month 1 = ids 0..3. A dealer-select demo that deals ids {0,4,8,12,16,20,24,28} shows four DIFFERENT cards, not four January ones."
+ },
+ "card_rects": {
+  "field": {
+   "size": [
+    76,
+    124
+   ],
+   "slots": "(434 + col*81, 170 | 310)"
+  },
+  "hand": {
+   "size": [
+    88,
+    143
+   ],
+   "step": 96,
+   "centre_x": 710,
+   "y": 566,
+   "y_hover": 552
+  },
+  "cpu": {
+   "size": [
+    56,
+    91
+   ],
+   "step": 62,
+   "centre_x": 710,
+   "y": 12
+  },
+  "choice": {
+   "size": [
+    176,
+    286
+   ],
+   "src": "src/ui_theme.h"
+  },
+  "mini": {
+   "size": [
+    23.324,
+    36.652
+   ],
+   "src": "src/ui_theme.h:61"
+  },
+  "_note": "atlas cell is 176 x 286 (assets/atlas.png is 2112 x 1144 = 12 x 4 cells), so any card rect is a downscale of the same cell and a bezel can be drawn per size"
+ },
+ "composite_rules": {
+  "_why": "how to build a preview that cannot lie to you",
+  "base": "draw the base yourself at 1280x720: back.png at 56x91 step 62 for the CPU hand, table_slot_rect() slots with atlas cells for the field, 88x143 step 96 for the hand",
+  "do_not_use": "docs/assets/readme/table-map.png (dead geometry, see field_painting_the_truth)",
+  "check": "one preview on the real backdrop (assets/<name>.jpg) and one on a flat dark canvas; if a frame looks right on one and wrong on the other, the base is suspect, not the frame"
+ },
+ "assets_available": {
+  "backdrops": {
+   "files": [
+    "harvest.jpg",
+    "hole.jpg",
+    "arctic.jpg",
+    "castle.jpg",
+    "city.jpg",
+    "deus.png",
+    "face.jpg",
+    "realm.jpg"
+   ],
+   "size": "1280x720",
+   "indices": "0..7 as listed in src/ui_screens.c:326, 5 = Deus",
+   "note": "nine tables = these eight plus the Deus backdrop"
+  },
+  "atlas": {
+   "file": "assets/atlas.png",
+   "size": [
+    2112,
+    1144
+   ],
+   "cells": "12 x 4 of 176 x 286"
+  },
+  "card_back": {
+   "file": "assets/back.png",
+   "size": [
+    1024,
+    1536
+   ]
+  },
+  "fonts": [
+   "audiowide.ttf (font_title)",
+   "play.ttf (font_body)",
+   "saira_condensed.ttf",
+   "small_font.ttf"
+  ],
+  "absent": "no frame, border, bezel or panel texture ships. A metal look is either drawn procedurally in ui_draw_panel_border() or generated as a 9-slice asset."
+ },
+ "fills": {
+  "_why": "What the game actually paints at rest, which is not the same as the rect list. A composite that skips these looks wrong even when every frame is placed correctly.",
+  "panel_bg": {
+   "macro": "COLOR_PANEL_BG",
+   "src": "src/ui_theme.h:38",
+   "value": "black, alpha 178"
+  },
+  "info_box": {
+   "rects": [
+    [
+     12,
+     12,
+     255,
+     30
+    ],
+    [
+     12,
+     678,
+     255,
+     30
+    ]
+   ],
+   "alpha": "112 idle / 205 active",
+   "src": "src/ui_board_status.c:23-28",
+   "_note": "the only 255x30 strips; when idle they also get ui_draw_panel_border INSIDE the rect"
+  },
+  "lane": {
+   "rects": "12, 46+t*41.4 and 12, 508+t*41.4, 255 x 37.4",
+   "count": 4,
+   "alpha": 178,
+   "src": "src/ui_board.c:752-754"
+  },
+  "combo_panel": {
+   "rects": [
+    [
+     1160,
+     12,
+     112,
+     66
+    ],
+    [
+     1160,
+     88,
+     112,
+     218
+    ],
+    [
+     1160,
+     316,
+     112,
+     218
+    ]
+   ],
+   "alpha": 178,
+   "src": "src/ui_combos.c:44-57"
+  },
+  "buttons": {
+   "rects": [
+    [
+     1160,
+     560,
+     112,
+     40
+    ],
+    [
+     1160,
+     610,
+     112,
+     40
+    ]
+   ],
+   "alpha": 178,
+   "src": "src/ui_board.c:1184,1186"
+  },
+  "field": {
+   "fill": null,
+   "src": "src/ui_board.c:695",
+   "_note": "board_get_field_rect() is a bbox only - nothing is painted there. Cards sit straight on the backdrop, so any field panel is new art and will change the look"
+  },
+  "gap_score_to_lane": {
+   "px": 4,
+   "src": "42 vs 46"
+  },
+  "gap_lane_pitch": {
+   "px": 4,
+   "src": "CAPTURE_PANEL_H + 4.0f, src/ui_board.c:752"
+  }
+ },
+ "lane_mini": {
+  "size": [
+   17.324,
+   30.652
+  ],
+  "src": "src/ui_board.c:775",
+  "count_x0": 54,
+  "step_max": 24,
+  "step_rule": "step = min(24, (255 - 54 - 17.324) / (count - 1)); 0 when count <= 1",
+  "label": "\"B 0\"..\"P 0\" at 16, y+8.5, font 20, spacing 1.4, src/ui_board.c:771",
+  "verdict": "a mini is 17 x 31 with a 20 px label beside it - far too small for a bezel"
+ },
+ "atlas_variants": {
+  "default": "assets/atlas.png, 2112x1144, cell 176x286, src/ui_board.c:723",
+  "deus": "assets/atlas_deus.png, same grid, used when settings.difficulty == DIFFICULTY_DEUS, src/ui_board.c:723",
+  "cell_index": "cell_x = (cid >> 2) * 176, cell_y = (cid & 3) * 286, src/ui_board.c:722",
+  "back": "assets/back.png 1024x1536 stretched to any card rect, src/ui_board.c:729-731"
+ }
+}
