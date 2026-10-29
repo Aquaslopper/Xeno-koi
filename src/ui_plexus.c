@@ -309,7 +309,7 @@ static const Rectangle k_match_filter_rects[5] = {
     { 834.0f, 122.0f, 140.0f, 32.0f }  /* TRAINING */
 };
 static const char * const k_match_filter_labels[5] = {
-    "ALL", "SPINE", "SPEEDCOIN", "ACTION CARD", "TRAINING"
+    "ALL", "STORY", "SPEEDCOIN", "ACTION CARD", "TRAINING"
 };
 static const Rectangle k_match_scroll_up_rect   = { 934.0f, 204.0f, 40.0f, 32.0f };
 static const Rectangle k_match_scroll_down_rect = { 934.0f, 566.0f, 40.0f, 32.0f };
@@ -654,7 +654,7 @@ void plexus_load(void) {
             } else if (strstr(p[0], "TRAINING // SESSION COMPLETE")) {
                 plexus_match_log_push(MLOG_TRAINING, "TRAINING", p[1], p[2]);
             } else if (strstr(p[0], "CARD COMPLETED") || strstr(p[0], "TUTORIAL CARD")) {
-                plexus_match_log_push(MLOG_SPINE, "SPINE", p[1], p[2]);
+                plexus_match_log_push(MLOG_SPINE, "STORY", p[1], p[2]);
             }
             continue;
         }
@@ -1490,11 +1490,11 @@ static const StoryChapterDoc k_story_chapters[12] = {
     },
     {
         "SEQ 06 // CRIMSON PEONY & BUTTERFLY PULSE",
-        "Midpoint of the twelve-month conditioning spine.",
+        "Midpoint of the twelve-month conditioning arc.",
         "Neural latency drops as pattern recognition",
         "fuses with involuntary reflex.",
         "Story dossier slot reserved for Month 06 prose",
-        "and mid-spine cutscene archive.",
+        "and mid-story cutscene archive.",
         "Halfway to the vessel's inner sanctum."
     },
     {
@@ -1544,12 +1544,12 @@ static const StoryChapterDoc k_story_chapters[12] = {
     },
     {
         "SEQ 12 // PAULOWNIA PHOENIX // APEX SEAL",
-        "Twelfth and final stratum of the Standard Spine.",
+        "Twelfth and final stratum of the Standard story.",
         "Illuminating the 48th card completes initial",
         "conditioning and unseals the DEUS ATLAS.",
         "Story dossier slot reserved for Month 12 finale",
-        "and hardcore second-spine awakening.",
-        "Beyond 48/48 waits the monochrome Deus Spine."
+        "and hardcore second-pass awakening.",
+        "Beyond 48/48 waits the monochrome Deus Pass."
     }
 };
 
@@ -1955,7 +1955,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
         snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: STD %d/4  |  DEUS %d/4  //  [ARCHIVE READY]",
                  m_cards_std, m_cards_deus);
     } else {
-        snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: %d / 4 SPINE CARDS CLEARED  //  [REREADABLE]",
+        snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: %d / 4 STORY CARDS CLEARED  //  [REREADABLE]",
                  m_cards_std);
     }
     draw_text_snapped(font_title, media_ln, tx, doc.y + 286.0f, 14.0f, 1.1f, COLOR_PHOSPHOR);
@@ -2151,7 +2151,7 @@ static void draw_logfile_matches_tab(Vector2 vm) {
         snprintf(sum_txt, sizeof(sum_txt), "TRAINING ARCHIVE  //  %d SESSIONS  (%dW - %dL)  |  BEST: %d PTS",
                  s_tr_runs, s_tr_wins, s_tr_losses, s_tr_best_score);
     } else if (s_match_filter == MLOG_SPINE) {
-        snprintf(sum_txt, sizeof(sum_txt), "SPINE COMPLETIONS  //  STANDARD %02d/48  |  DEUS %02d/48",
+        snprintf(sum_txt, sizeof(sum_txt), "STORY COMPLETIONS  //  STANDARD %02d/48  |  DEUS %02d/48",
                  count_mask_cards(s_finished_cards_mask), count_mask_cards(s_deus_finished_cards_mask));
     } else {
         snprintf(sum_txt, sizeof(sum_txt), "ALL PLEX RUNS  //  TOTAL %dW - %dL  |  %d LOGGED",
@@ -2176,7 +2176,7 @@ static void draw_logfile_matches_tab(Vector2 vm) {
         DrawRectangleRec(empty, PLEXUS_SUBBOX_BG);
         ui_draw_panel_border(empty, COLOR_PHOSPHOR_DIM);
         const char *e1 = "NO COMPLETED MATCHES RECORDED IN THIS CATEGORY YET.";
-        const char *e2 = "Finish a Spine card, Speedcoin run, Action Card match, or Training session.";
+        const char *e2 = "Finish a story card, Speedcoin run, Action Card match, or Training session.";
         Vector2 s1 = MeasureTextEx(font_title, e1, 16.0f, 1.2f);
         Vector2 s2 = MeasureTextEx(font_body,  e2, 16.5f, 1.1f);
         draw_text_snapped(font_title, e1, empty.x + (empty.width - s1.x) * 0.5f, 376.0f, 16.0f, 1.2f, COLOR_PHOSPHOR);
@@ -2228,7 +2228,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
     if (deus_open) {
         snprintf(deus_lbl, sizeof(deus_lbl), "DEUS ATLAS [%02d/48]", deus_done);
         draw_plexus_btn(k_atlas_deus_btn_rect, deus_lbl, 13, vm, s_atlas_view_deus == 1);
-        const char *sp_lbl = is_deus_spine_active() ? "SPINE: DEUS HARDCORE" : "SPINE: STANDARD PASS";
+        const char *sp_lbl = is_deus_spine_active() ? "STORY: DEUS HARDCORE" : "STORY: STANDARD PASS";
         draw_plexus_btn(k_atlas_spine_btn_rect, sp_lbl, 13, vm, is_deus_spine_active());
     } else {
         draw_plexus_locked_btn(k_atlas_deus_btn_rect,  "DEUS ATLAS [LOCKED]", 13);
@@ -2409,14 +2409,14 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     if (active_done >= 48) {
         if (is_deus_spine_active()) {
             snprintf(dir_txt, sizeof(dir_txt),
-                     "DIRECTIVE // DEUS HARDCORE SPINE 48/48 COMPLETE  --  CONVERGENCE ACHIEVED");
+                     "DIRECTIVE // DEUS HARDCORE STORY 48/48 COMPLETE  --  CONVERGENCE ACHIEVED");
         } else {
             snprintf(dir_txt, sizeof(dir_txt),
-                     "DIRECTIVE // STANDARD SPINE 48/48 COMPLETE  --  DEUS PASS READY IN [ATLAS]");
+                     "DIRECTIVE // STANDARD STORY 48/48 COMPLETE  --  DEUS PASS READY IN [ATLAS]");
         }
     } else if (is_month_completed(s_selected_month) && s_selected_month + 1 < 12) {
         snprintf(dir_txt, sizeof(dir_txt),
-                 "DIRECTIVE // %sMONTH %02d COMPLETE  --  PRESS [NEXT] ABOVE SPINE FOR MONTH %02d",
+                 "DIRECTIVE // %sMONTH %02d COMPLETE  --  PRESS [NEXT] ABOVE THE CARDS FOR MONTH %02d",
                  is_deus_spine_active() ? "DEUS " : "", s_selected_month + 1, s_selected_month + 2);
     } else {
         int sl = highest_unlocked_slot(s_selected_month);
@@ -2667,7 +2667,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                     line2 = bt->signal[1] ? bt->signal[1] : "";
                     line3 = bt->signal[2] ? bt->signal[2] : "";
                 } else {
-                    line1 = is_deus_spine_active() ? "HARDCORE DEUS SPINE  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
+                    line1 = is_deus_spine_active() ? "HARDCORE DEUS PASS  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
                     line2 = "";
                     line3 = "";
                 }
@@ -3193,7 +3193,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                      s_selected_month + 1, (cid % 4) + 1);
             if (month_done && !deus_pass && count_mask_cards(s_finished_cards_mask) >= 48) {
                 snprintf(detail, sizeof(detail),
-                         "Standard Atlas 48/48 complete! Hardcore DEUS Spine Pass unlocked in [ATLAS].");
+                         "Standard Atlas 48/48 complete! Hardcore DEUS Pass unlocked in [ATLAS].");
             } else if (month_done && deus_pass && count_mask_cards(s_deus_finished_cards_mask) >= 48) {
                 snprintf(detail, sizeof(detail),
                          "Hardcore Deus Atlas 48/48 complete! Full monochrome convergence achieved.");
@@ -3205,15 +3205,15 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                          "Month 08 complete -- ACTION CARD module unlocked & [NEXT] ready for Month 09.");
             } else if (month_done && s_selected_month + 1 < 12) {
                 snprintf(detail, sizeof(detail),
-                         "All 4 cards of Month %02d cleared -- press [NEXT] above the Spine.",
+                         "All 4 cards of Month %02d cleared -- press [NEXT] above the cards.",
                          s_selected_month + 1);
             } else {
                 snprintf(detail, sizeof(detail),
-                         "%sAtlas %02d/48 illuminated -- next Spine card unlocked above.",
+                         "%sAtlas %02d/48 illuminated -- next story card unlocked above.",
                          deus_pass ? "Deus " : "Standard ",
                          count_mask_cards(active_spine_mask()));
             }
-            plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE", title, detail);
+            plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY", title, detail);
         }
         plexus_save();
         if (out_clicked) *out_clicked = 1;
@@ -3423,7 +3423,7 @@ void plexus_action_card_finish_match(const GameState *g) {
                 stage_spine_flip(0, 0, 0.35f);
             }
             if (!was_done) {
-                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE",
+                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY",
                                       "[01-RP Poetry] TUTORIAL 03 CLEARED",
                                       "Action Card Audio Effect protocol finished -- Card 1 unlocked at apex.");
             }
@@ -4164,16 +4164,16 @@ void plexus_tutorial_finish_match(void) {
 
     if (!was_done) {
         char title[88];
-        const char *detail = "Standard Koi-Koi rules conditioning finished -- Card 3 unlocked on Spine.";
+        const char *detail = "Standard Koi-Koi rules conditioning finished -- Card 3 unlocked.";
         const StoryBeat *bt = story_beat(cid);
         if (cid >= 4) {
             snprintf(title, sizeof(title), "[%s] PROTOCOL CLEARED", CARDS[cid].name);
             if (bt && bt->trace[0]) detail = bt->trace[0];
-            else detail = "Story protocol finished -- next Spine card unlocked.";
+            else detail = "Story protocol finished -- next story card unlocked.";
         } else {
             snprintf(title, sizeof(title), "[%s] TUTORIAL 01 CLEARED", CARDS[cid].name);
         }
-        plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE", title, detail);
+        plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY", title, detail);
     }
     plexus_save();
 }
@@ -4355,9 +4355,9 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
                 stage_spine_flip(0, 1, 0.35f);
             }
             if (!was_done) {
-                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS SPINE" : "SPINE",
+                plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY",
                                       "[01-P1 Plain] TUTORIAL 02 CLEARED",
-                                      "Speedcoin Saturation protocol finished -- Card 2 unlocked on Spine.");
+                                      "Speedcoin Saturation protocol finished -- Card 2 unlocked.");
             }
         }
         s_tut_active = 0;
