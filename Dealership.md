@@ -26,6 +26,11 @@ The token fixes exactly that. Every event gets a visible actor and a visible
 arrival, and the same object that shows where the action is also guarantees that
 nothing else acts:
 
+- **No dealership, no movement.** The token is not one more condition next to the
+  others — it is *the* key. Nothing that changes the game state runs unless
+  `dealership_unlocked()` is true. Every bypass in `src/ui_main.c` is audited in
+  §5 and each one may bypass `board_busy` (so a choice stays clickable during
+  capture hitlag) but never the token.
 - **Arrival is permission.** An event may not begin until the token has arrived
   at that event's station.
 - **Departure waits for completion.** The token may not leave a station until
@@ -125,6 +130,16 @@ Three places consult `dealership_unlocked()`:
 | the CPU think/fly block | the CPU cannot think until the token is at `DL_CPU` |
 | the stock-fly start in `PHASE_TURN_DRAW` | the deck cannot deal until the token is at `DL_DECK` |
 | the Action Card badge-event trigger | a badge event cannot start until the token is at that player's station |
+| the hand-choice click, and a live drag | neither may resolve an engine call without the token at the player's station |
+
+**On the freeze.** A badge event sets `badge_freezing`, and while it is 1 nothing
+moves — the token stays put, and no gate needs to know about the freeze, because
+`settled` is false and the token simply holds. The gate on the badge trigger is
+therefore not about the frozen state: it is about the instant *before* it, where
+`badge_freezing` is still 0 and the badge is about to fire. Without that gate a
+badge could start while the marker was still in flight, which is movement before
+arrival — the one thing the token exists to forbid. Once the freeze is on, the
+marker's job is already done and there is nothing left to care about.
 
 Everything else stays as it was. Choice overlays (`PHASE_HAND_CHOICE`,
 `PHASE_DRAW_CHOICE`) resolve at the station that owns them, so a choice never

@@ -1587,8 +1587,13 @@ static void update_draw_frame(void) {
                     if (g.current_player != 0 || (g.phase != PHASE_TURN_HAND && g.phase != PHASE_HAND_CHOICE)) human_turn_started = 0;
 
                     int drag_live = drag.on && !badge_freezing && g.phase == PHASE_TURN_HAND &&
-                                    !anim_is_blocking(&anim) && !cinematic_is_active();
-                    if (g.current_player == 0 && (input_unlocked || drag_live || (g.phase == PHASE_HAND_CHOICE && !badge_freezing))) {
+                                    !anim_is_blocking(&anim) && !cinematic_is_active() &&
+                                    dealership_unlocked();
+                    /* No dealership, no movement: both bypasses below still require the
+                       token to have arrived. They bypass board_busy (so a choice stays
+                       clickable during capture hitlag), not the token. */
+                    if (g.current_player == 0 && (input_unlocked || drag_live ||
+                        (g.phase == PHASE_HAND_CHOICE && !badge_freezing && dealership_unlocked()))) {
                         if (g.phase == PHASE_TURN_HAND) {
                             if (input_unlocked && !plexus_tutorial_is_active() && !plexus_speedcoin_is_active() &&
                                 (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS)) {
@@ -1654,7 +1659,8 @@ static void update_draw_frame(void) {
                                 }
                             }
                         }
-                        else if (g.phase == PHASE_HAND_CHOICE && !badge_freezing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                        else if (g.phase == PHASE_HAND_CHOICE && !badge_freezing && dealership_unlocked() &&
+                                 IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
                             if (res == 1) {
                                 Vector2 hp = board_get_card_field_pos(&g, tid);

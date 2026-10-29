@@ -33,6 +33,18 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### The token is the key, not a condition: two bypasses closed (29 October 2026)
+
+- **Instruction:** *"only if dealership = movement unlocked; if no dealership = no movement."* The token is the sole authority, not one more `&&` in a chain.
+- **Audited every path that can change game state** (`engine_play_hand`, `engine_reveal_stock`, `engine_pick_hand_choice`, `engine_cancel_hand_choice`, `engine_pick_draw_choice`, CPU think/fly, the stock fly, the badge trigger): ten were already gated, **two were not**.
+- **Hole 1 - hand-choice click:** `else if (g.phase == PHASE_HAND_CHOICE && !badge_freezing && IsMouseButtonPressed(...))` called `engine_pick_hand_choice()` with no token check, and its outer condition let `PHASE_HAND_CHOICE` enter while bypassing `board_busy` too. It held in practice only because a choice can only be entered with the token already parked at the player's station - correct by coincidence, not by construction.
+- **Hole 2 - a live drag:** `drag_live` did not consult the token, so a drag could keep updating the board after the token left the player station.
+- **Fixed both** with `dealership_unlocked()`. The bypasses still bypass `board_busy` (deliberately - a choice must stay clickable during the 0.15 s capture hitlag), they may never bypass the token.
+- **On the freeze, the owner is right and it needs no code:** once `badge_freezing` is 1 nothing moves and the token simply holds, because `settled` is false. The gate on the *trigger* is not about the frozen state - at that instant `badge_freezing` is still 0 and the badge is about to fire; without the gate a badge could start while the marker was in flight. Recorded in `Dealership.md` §1 and §5 so nobody "simplifies" it away.
+- **Verified:** `./build.sh test` exit 0 (tests lock, Action Card guard 12 points, 500-match suite, table UI, music/settings/Options); `-fsyntax-only` clean at `-Wall -Wextra`. Not verified: the feel, which needs a display.
+- **Touched:** `src/ui_main.c`, `Dealership.md`, `STATUS.md`.
+
+
 ### Owner: Action Card is covered by the Dealership too (29 October 2026)
 
 - **Instruction:** *"action card has to be included"* - one correction to the entry below, which had excluded the mode.
