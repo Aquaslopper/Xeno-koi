@@ -1025,20 +1025,19 @@ rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 p
 
 | Face | File | `baseSize` | Drawn at | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 56 px | 0.24× – 1.17× |
-| `font_display` | `audiowide.ttf` | **176** | 176 px only | 1.00× |
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 176 px | 0.24× – 3.67× |
 | `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 34 px | 0.52× – 1.31× |
 | `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
 
-`font_display` exists because the 176 px `[XENO / KOI]` brand line was the one place the
-single-face compromise showed: a 3.67× bitmap stretch of the 48 px master reads as soft no
-matter what filter is set. It is rasterised at the size it is drawn at, so the glyphs are 1:1
-and only the canvas-to-window scale touches them. It is safe precisely because
-`ui_hub_draw_title()` passes it to `hub_draw_centered()`, which measures and draws with the
-same `Font` object; the metric hazard that blocked a general font LOD below is measuring with
-one face and drawing with the other, and no call site does that for this face. It is not a
-general "big text" face: at the 30–56 px headers it would be a 0.17×–0.32× downscale, which is
-worse than the 1.17× it replaces. One `Font` per draw size, each used only at that size.
+There is deliberately **no** second `font_display` face. One existed for a few days: an
+Audiowide rasterisation at 176 px so the `[XENO / KOI]` brand line could be drawn 1:1 instead
+of stretched 3.67× from the 48 px master. It made the brand line sharp, and it cost a whole
+extra atlas — 94 padded glyphs at that size need 1024×1024, i.e. ~4 MB of RGBA plus mipmaps
+(~5.4 MB) of VRAM and ~1.4 MB of glyph bitmaps in RAM — to sharpen one line of text on one
+screen. The owner weighed it and chose the smaller build: the brand line is drawn at 176 px
+from the shared 48 px face again and is very slightly softer. Do not reintroduce a per-size
+face without that trade being agreed, and note the metric hazard that killed the general font
+LOD below: measuring with one face and drawing with another.
 
 The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
 **0.12× downscale of a 96 px master**, so the month buttons and every hub button label were
@@ -2051,34 +2050,37 @@ Each theme is a `TerminalTheme` of eight `Color`s: `base`, `dim`, `text_info`,
 ### 12.1b Text flares and the contour cache
 
 `ui_theme_draw_text_flares()` traces glyph outlines once per glyph and caches them in
-`s_glyph_contours[96]`, keyed **per entry** by the source texture id and `baseSize`. It used to
-be keyed globally, which assumed one face was traceable at a time; the title screen breaks that
-assumption in a single frame, since the 176 px brand line is traced alongside 15 px button
-labels. `MAX_TRACE_DIM` must cover the tallest glyph *bitmap* it is asked to trace — 160 for
-Audiowide at 176 px, where `j` is 135 px tall and the brackets 128 px. Anything larger than the
-limit is skipped silently, so a flared draw at a new size needs a look at that constant.
+`s_glyph_contours[96]`, keyed **per entry** by the source texture id and `baseSize`.
 
-The outline walk buffers (`raw`, `tmp`, `cum`) are 2048 steps, not 1024. A single letter at
-176 px can run past a thousand boundary steps; at the old size the walk stopped mid-glyph and
-the mote path cut straight across the letter, which is why the brand line could look like it
-had no dots at all on some glyphs.
+**Where they are allowed to draw: hovered buttons, nowhere else.** There are exactly three call
+sites, all inside a button's hover test — `hub_draw_button()` in `ui_hub.c`, `draw_btn()` in
+`ui_screens.c`, and `draw_plexus_btn()` in `ui_plexus.c` (`hov` only: an `|| active` gate used
+to leave the selected Plex tab glowing permanently). Headings, the title brand line, the
+`ATRIUM PLEX` line on the match result and every other centred draw have none. They are a button
+affordance, not decoration; if one is wanted somewhere else, that is a design decision, not a
+free side effect of an existing helper.
 
-The motes are **two effects on one clock**:
+The motes are one effect on a fixed clock: the idle cycle plus the hover shine. There is no
+music-driven pulse and no size-driven density. Both were tried and removed: the pulse
+(`ui_theme_set_text_flare_pulse`, fed from the music stream and applied as
+`shine = 0.35 * shine + 0.75 * pulse` with `speed_mult = 1 + 1.1 * pulse`) and the per-size
+boost (faces above 60 px got 5/3 motes instead of 3/2 at 1.3× speed). On one 176 px line they
+read as a pleasant ride; spread across every heading and button on every screen, at up to 3.4×
+the intended speed with every mote flaring in sync, they read as a shimmer on top of the text
+and hurt to look at. Speed is `(12 + h % 21) * 0.80` px/s, ~9.6–26 px/s, deliberately gentle.
 
-- the idle cycle and the hover shine, unchanged;
-- `ui_theme_set_text_flare_pulse(level)`, a 0..1 music level that brightens every mote
-  (`shine = 0.35 * shine + 0.75 * pulse`) and speeds the travel
-  (`speed_mult = 1 + 1.1 * pulse`). It defaults to 0, so any caller that does not set it
-  behaves exactly as before. `src/ui_main.c` sets it once per frame from
-  `action_card_music_pulse()`, which is the smoothed level of the live music stream — the menu
-  plays the same match streams, so the title's dots ride the track. It reads 0 whenever no
-  music is playing.
+`MAX_TRACE_DIM` must cover the tallest glyph *bitmap* it is asked to trace. It is 128, which is
+ample for the only face in use (shared Audiowide at 48 px base: tallest glyph `j` at 38 px).
+The check `gw > MAX_TRACE_DIM || gh > MAX_TRACE_DIM` skips larger glyphs **silently** — the
+entry is cached with `loop_count = 0`, the text draws normally and simply never gets motes — so
+tracing a much larger face again means raising this constant and its comment together. Sizing
+it from the font's real metrics is the only way to get it right; the number that matters is the
+rasterised bitmap box, `ceil(x1*scale) - floor(x0*scale)`, not the advance width.
 
-Faces drawn above 60 px also get a higher mote count per outline (5 / 3 instead of 3 / 2) and a
-1.3x travel speed, because three dots on an 18 px label and on a 176 px letter do not read as
-the same effect. The brand line draws with `font_display`, so its flare gate has to accept both
-title faces — `hub_font_has_motes()` in `ui_hub.c` does; a `font_title`-only test silently
-drops the flares.
+The walk buffers (`raw`, `tmp`, `cum`) are 1024 steps, sized for a 48 px face. If a much larger
+face is ever traced, they have to grow with `MAX_TRACE_DIM`; at 176 px a single letter can run
+past a thousand boundary steps, and an undersized buffer stops the walk mid-glyph so the mote
+path cuts straight across the letter.
 
 ### 12.2 Panel flares
 

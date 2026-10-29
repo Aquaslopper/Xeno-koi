@@ -1051,7 +1051,8 @@ static void draw_plexus_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, i
     Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - (float)fsz) * 0.5f) };
     DrawTextEx(font_title, txt, pos, (float)fsz, 1.2f, col);
-    if (hov || active) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
+    /* Hover only: an `|| active` gate left the selected tab glowing permanently. */
+    if (hov) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
 }
 
 static void draw_plexus_locked_btn(Rectangle r, const char *txt, int fsz) {

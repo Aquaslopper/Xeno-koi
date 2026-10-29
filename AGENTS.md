@@ -47,6 +47,7 @@ Deus Supremus is open to everyone on purpose. DEUS_UNLOCKED_FOR_TESTING in src/c
 KK-ADD-10 is the maintainer's own house rule, taken from an earlier game. It is the recommended first rule set for beginners. It is expected to change, so keep docs/rulesets/kk-add-10.md and the generated tables in step with src/rules.c.
 The handoff stays in the repo unchanged for history. Do not edit or delete the PDF.
 tests/ is locked (tools/tests_guard.sh + tools/tests_guard.manifest). Do not add new test files or update tools/tests_guard.manifest unless the maintainer explicitly asks for a new test.
+Glyph motes are a hover-only button affordance. ui_theme_draw_text_flares() has exactly three call sites, each behind a button hover test (hub_draw_button, draw_btn, draw_plexus_btn). Do not add motes to headings, the title brand line, centred text or anything drawn on a non-hovered element, and do not re-add a music pulse or a per-size density/speed boost - all three were built, looked over the top in play and removed on the maintainer's instruction. There is one Audiowide face (font_title at base 48); a second 176 px face existed briefly and was removed because a 1024x1024 atlas (~4 MB VRAM + mipmaps) is too much to pay for one line of text.
 
 Changing rules, cards, or opponents
 Do all of these in the same change:

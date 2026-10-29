@@ -36,7 +36,6 @@
 
 Font font_title;    // Audiowide for titles, headers, and button labels
 Font font_body;     // Play for data, options, HUD, and supporting text
-Font font_display;  // Audiowide at title-screen size; only the 176 px brand line uses it
 Font small_font;    // Legacy alias for modules that still use the old name
 GameSettings settings;
 
@@ -658,7 +657,6 @@ static void draw_round_result_extras(const GameState *gs, Vector2 vm) {
         Vector2 ts = MeasureTextEx(font_title, "ATRIUM PLEX", 20.0f, 1.2f);
         Vector2 pos = { floorf(btn.x + (btn.width - ts.x) * 0.5f), floorf(btn.y + (btn.height - 20.0f) * 0.5f) };
         DrawTextEx(font_title, "ATRIUM PLEX", pos, 20.0f, 1.2f, COLOR_PHOSPHOR);
-        if (hov) ui_theme_draw_text_flares(font_title, "ATRIUM PLEX", pos, 20.0f, 1.2f, COLOR_PHOSPHOR);
     }
     int mp = speed_bar_total();
     int show_sc = (gs->ruleset == RULESET_KK_ADD_10) && (mp > 0);
@@ -857,9 +855,6 @@ static void update_draw_frame(void) {
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
     action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt);
-    /* One level drives every glyph mote on the frame, so the title's dots ride the beat
-       instead of running on a fixed clock. 0 when nothing is playing. */
-    ui_theme_set_text_flare_pulse(action_card_music_pulse());
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -2043,26 +2038,10 @@ int main(int argc, char **argv) {
     const int title_base = 48;
     const int body_base = 26;
 
-    /* One extra Audiowide rasterisation at the title screen's own draw size.
-       A texture is only resampled by font_size / baseSize, so the 176 px brand line was a
-       3.67x stretch of the 48 px master and read as soft. This face is drawn at exactly the
-       size it is rasterised at, so it is 1:1 and only the canvas-to-window scale touches it.
-       It is safe to have two faces of one family because ui_hub_draw_title() hands this Font
-       to hub_draw_centered(), which both measures and draws with the object it is given -- the
-       mix that would misalign text is measuring with one face and drawing with the other, and
-       no call site does that here. Do NOT swap font_title for this anywhere else: at 11.5-56 px
-       it would be a hard downscale, which is what the low title_base exists to avoid. */
-    const int display_base = 176;
-
     font_title = LoadFontEx("assets/audiowide.ttf", title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
     else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
-
-    font_display = LoadFontEx("assets/audiowide.ttf", display_base, NULL, 0);
-    if (!IsFontReady(font_display)) font_display = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), display_base, NULL, 0);
-    if (!IsFontReady(font_display)) font_display = font_title;  /* fall back to the shared face */
-    else { GenTextureMipmaps(&font_display.texture); SetTextureFilter(font_display.texture, TEXTURE_FILTER_TRILINEAR); }
 
     int body_cps[97];
     for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
@@ -2105,8 +2084,6 @@ int main(int argc, char **argv) {
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
-    if (font_display.texture.id != font_title.texture.id &&
-        font_display.texture.id != GetFontDefault().texture.id) UnloadFont(font_display);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
     plexus_unload_assets();
