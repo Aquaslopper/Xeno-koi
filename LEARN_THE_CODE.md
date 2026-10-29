@@ -1494,14 +1494,15 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 140.8 px on y 91 and
+The active title screen shows `[XENO / KOI]` at 140.8 px on y 96 and
 `HANAFUDA: ACOUSTICA APEXUS` at 37.4 px on y 248 (spacing 4.0, measured 656 px wide, drawn
 twice 0.9 px apart to fake a bold weight — no bold face ships) in the soft wine-red
 `{224,136,146}`. raylib treats a draw `y` as the top of the line box, which is exactly
 `font_size` tall, but the *ink* sits inside that box, so the gap the eye reads is not the gap
 between the boxes: Audiowide's `[XENO / KOI]` at 140.8 px has ink from +24.9 to +155.6 below
 its draw y, and Play at 37.4 px starts +10.4 below its own, which puts the two ink blocks
-11.8 px apart and the subtitle's ink ending at 283, clear of the first button at y 374. Those
+**6.8 px** apart - the gap is exactly `102.8 - y`, so `y = 96` is the whole tuning
+surface - and the subtitle's ink ending at 283, clear of the first button at y 374. Those
 ink offsets are the numbers to move when either size changes: box arithmetic says the lines
 are 23 px apart, and the smaller the brand gets the wider that lie becomes.
 Its three buttons are `CONTINUE`
@@ -1718,11 +1719,37 @@ Content is unlocked by completing *every* earlier month, not by a counter.
 |---|---|
 | month arrows | `{1096, 60, 48, 30}` up, `{1096, 610, 48, 30}` down |
 | four cards | `{1092, 102, 56, 88}`, `{1092, 228, …}`, `{1092, 354, …}`, `{1092, 496, …}` |
-| briefing | `{516, 82, 540, 250}` |
-| start | `{896, 348, 160, 48}` |
-| tabs | `{64, 644, 156, 48}`, `{246, 644, 152, 48}`, `{428, 644, 170, 48}`, `{624, 644, 170, 48}`, `{820, 644, 170, 48}` |
+| screen title | `THE ATRIUM PLEX` at `(64, 22)`, 18 px, with a rule at y 52 |
+| briefing | `{516, 82, 540, 196}` |
+| action row | `{516, 302, 160, 48}` / `{706, 302, 160, 48}` / `{896, 302, 160, 48}` |
+| settings drawer | `{516, 362, 540, 222}` (ACTION CARD + TRAINING only) |
+| tabs | six `{158, 44}` buttons at y 648, x `101 285 469 653 837 1021` |
 
-The five tabs are `SAVE & BACK`, `LOGFILE`, `SPEEDCOIN`, `ACTION CARD`, `TRAINING`.
+`START` is always the last slot of the action row and `SETTINGS` always the middle
+one; the first slot is `HISCORE` on `ACTION CARD`, and on `SPEEDCOIN` - which has
+nothing to configure - `HISCORE` takes the middle slot. Every tab therefore fills the
+row from the right and none of them leaves a hole in it.
+
+The briefing card is 196 tall rather than 250 because its copy ends 172 px below the
+card's top: the rest was dead space inside the frame. The action row follows it up from
+348 to 302 to keep the 24 px gap the old pair had, and the settings drawer from 408 to
+362, which puts its bottom edge at **584** - exactly the bottom of the fourth spine card,
+so the middle and right columns now end on the same line. Every coordinate inside
+`draw_mode_settings_panel()` and `handle_mode_settings_click()` is written as
+`k_mode_cfg_rect.y + N` for that reason: the drawer used to be 22 absolute y values, so
+moving it meant finding all 22 twice. Its **width is at its limit**:
+`MONTH 01 // JANUARY [TUTORIAL]` draws 502 px across a 496 px inner width, and the
+longest speedcoin line 521 px, so nothing can be gained by shrinking it and the copy
+was trimmed instead (`-10s/miss…`, `Use SETTINGS to configure…`, `Press START to
+launch a KK-ADD-10 match.`). Text still draws past the frame if a longer string is
+added - `DrawTextEx` does not clip.
+
+The bottom bar is six identical `158 x 44` buttons on a 26 px gutter, centred as one
+block. It used to be six different sizes (156/152/170/170/170/196), which made
+`OPTION` look fatter than `LOGFILE` for no reason other than its label.
+
+The six tabs are `SAVE & BACK`, `LOGFILE`, `SPEEDCOIN`, `ACTION CARD`, `TRAINING`,
+`OPTION`.
 `is_bottom_btn_unlocked()` gates only two of them:
 
 ```c
@@ -1732,6 +1759,26 @@ return 1;                                              /* 0, 1 and 4 always */
 ```
 
 `SAVE & BACK` calls `storage_save_all()` and `start_transition(SCREEN_START, 0, 0)`.
+
+**Prologue reveal.** The one-time intro wall (`draw_intro_story_screen()`) reveals four
+blocks at `PLEXUS_INTRO_L1_AT … L4_AT` (0.25 / 1.05 / 1.85 / 2.65 s) over
+`L_FADE` 1.10 s each, with the closing block on 1.45 s. `PLEXUS_INTRO_BTN_DELAY` is
+**derived** from the last of those (`L4_AT + L4_FADE + 0.35` = 4.45 s), so the
+`CONTINUE` button cannot appear before the text has finished; the click handler and
+`plexus_intro_accept_key()` both read the same constant. It used to appear at 2.65 s,
+while the closing line was still ramping up under it.
+
+**Briefing glow.** The card lights up when its copy changes (a hash of all five lines).
+It holds full brightness for `PLEXUS_BRIEFING_HOLD` 0.90 s and then fades over
+2.6 s; the old single decay of 1.15/s was gone in 0.87 s, before the eye reached the
+card.
+
+**HISCORE board.** `HISCORE` on `SPEEDCOIN` and `ACTION CARD` opens a modal overlay
+(`draw_plexus_hiscore_overlay()`, box `{320, 118, 640, 474}`). It is a read-out and not
+a new record: speedcoin reads the persisted top-8 ranklist, `ACTION CARD` reads the
+`MLOG_ACTION_CARD` rows of the match log, so the board adds no save fields. The overlay
+owns the mouse while open - `CLOSE`, a click outside, or `plexus_close_subpanel()`
+(ESC / right-click) dismisses it, and nothing underneath can be hit through it.
 The month names are `JANUARY // PINE` through `DECEMBER // PAULOWNIA`; the
 selected slot starts at 3 (the fourth card), which is the tutorial card.
 
