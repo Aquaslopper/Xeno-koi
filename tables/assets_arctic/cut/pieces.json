@@ -1,0 +1,79 @@
+{
+  "source": "tables/assets_arctic/arctic.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "name": "left_column",
+      "file": "left_column.png",
+      "rect": [
+        0,
+        0,
+        458,
+        1080
+      ],
+      "size": [
+        458,
+        1080
+      ]
+    },
+    {
+      "name": "card_row_cpu",
+      "file": "card_row_cpu.png",
+      "rect": [
+        459,
+        0,
+        1712,
+        180
+      ],
+      "size": [
+        1253,
+        180
+      ]
+    },
+    {
+      "name": "deck",
+      "file": "deck.png",
+      "rect": [
+        459,
+        181,
+        700,
+        789
+      ],
+      "size": [
+        241,
+        608
+      ]
+    },
+    {
+      "name": "hand_and_status",
+      "file": "hand_and_status.png",
+      "rect": [
+        459,
+        790,
+        1712,
+        1080
+      ],
+      "size": [
+        1253,
+        290
+      ]
+    },
+    {
+      "name": "right_column",
+      "file": "right_column.png",
+      "rect": [
+        1712,
+        0,
+        1920,
+        1080
+      ],
+      "size": [
+        208,
+        1080
+      ]
+    }
+  ]
+}
