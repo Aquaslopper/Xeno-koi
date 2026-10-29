@@ -27,6 +27,7 @@
 #include "ui_taunt.h"
 #include "ui_speed.h"
 #include "ui_action.h"
+#include "ui_dealership.h"
 #include "replay.h"
 #include "ui_replay.h"
 
@@ -95,6 +96,22 @@ static float smooth01(float x) {
 
 static void prepare_campaign_overlay(void) {
     campaign_preset_selected = (settings.difficulty == DIFFICULTY_DEUS);
+}
+
+/* Which station owns the event this phase is waiting on. The deck is a station
+   of its own because the draw is the only event with no player as its cause. */
+static int dealership_station_for(const GameState *g) {
+    switch (g->phase) {
+        case PHASE_TURN_HAND:
+        case PHASE_HAND_CHOICE:
+        case PHASE_DECIDE:
+            return (g->current_player == 0) ? DL_PLAYER : DL_CPU;
+        case PHASE_TURN_DRAW:
+        case PHASE_DRAW_CHOICE:
+            return DL_DECK;
+        default:
+            return DL_NONE;
+    }
 }
 
 static void start_transition(ScreenState target, int action, int track) {
@@ -1402,10 +1419,25 @@ static void update_draw_frame(void) {
                         }
                     }
 
+                    /* The dealership owns who may act. It lets the previous event
+                       settle first (ignoring the artificial beat, so travel and beat
+                       overlap rather than stack), and then arrival IS the permission.
+                       Speedcoin has no opposing turn, so it keeps its own rhythm.
+                       Action Card is covered by owner decision (29 Oct 2026).
+                       See Dealership.md. */
+                    dealership_set_active(!plexus_speedcoin_is_active() &&
+                                          !replay_pb_active());
+                    if (g.phase == PHASE_DEAL || g.phase == PHASE_DEALER_SELECT)
+                        dealership_reset(g.dealer == 0 ? DL_PLAYER : DL_CPU);
+                    dealership_update(dt, dealership_station_for(&g),
+                                      !badge_freezing && !motion_is_reflowing(&g) &&
+                                      !anim_is_blocking(&anim) && !cinematic_is_active());
+
                     if (!badge_freezing && ac_table && !replay_pb_active() &&
                         g.phase == PHASE_TURN_HAND && !g.has_pending &&
                         (!anim.active || anim.type == ANIM_CPU_THINK || anim.type == ANIM_BANNER) &&
-                        !cinematic_is_active() && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f) {
+                        !cinematic_is_active() && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f &&
+                        dealership_unlocked()) {
                         int sym = action_card_take_pending_symbol();
                         if (sym >= 0) {
                             if (drag.on && drag.moved && drag.idx >= 0 && drag.idx < g.hand_count[0] && !anim.active) {
@@ -1420,7 +1452,7 @@ static void update_draw_frame(void) {
 
                     int board_busy = badge_freezing || (event_beat_timer > 0.0f) ||
                                      motion_is_reflowing(&g) || anim_is_blocking(&anim);
-                    int input_unlocked = !board_busy && !cinematic_is_active();
+                    int input_unlocked = !board_busy && !cinematic_is_active() && dealership_unlocked();
                     Difficulty active_diff = plexus_tutorial_is_active() ? DIFFICULTY_EASY : settings.difficulty;
 
                     /* KK-ADD-10 speed minigame: the bottom-right timer bar */
@@ -1467,7 +1499,8 @@ static void update_draw_frame(void) {
                             if (g.last_captured_count > 0) play_match_capture_sfx();
                             else trigger_cpu_step_beat(0.09f);
                             trigger_event_beat((g.last_captured_count > 0) ? 0.36f : 0.30f);
-                        } else if (!badge_freezing && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f) {
+                        } else if (!badge_freezing && !motion_is_reflowing(&g) && event_beat_timer <= 0.0f &&
+                                   dealership_unlocked()) {
                             if (anim.active && anim.type == ANIM_CPU_THINK && anim.elapsed >= anim.duration) {
                                 anim.active = 0; int card, target;
                                 ai_choose_hand(&g, active_diff, &ai_rng, &card, &target);
@@ -1499,7 +1532,7 @@ static void update_draw_frame(void) {
                                 else if (prev_player == 1 || g.current_player == 1) trigger_cpu_step_beat(0.09f);
                                 trigger_event_beat((g.last_captured_count > 0) ? 0.38f : 0.30f);
                             }
-                        } else if (!anim.active && !board_busy) {
+                        } else if (!anim.active && !board_busy && dealership_unlocked()) {
                             if (plexus_speedcoin_is_active() && speed_mode_reverse_deck()) {
                                 int rev_cid = -1;
                                 Vector2 from_pos = { 710.0f, 240.0f };
@@ -1554,8 +1587,13 @@ static void update_draw_frame(void) {
                     if (g.current_player != 0 || (g.phase != PHASE_TURN_HAND && g.phase != PHASE_HAND_CHOICE)) human_turn_started = 0;
 
                     int drag_live = drag.on && !badge_freezing && g.phase == PHASE_TURN_HAND &&
-                                    !anim_is_blocking(&anim) && !cinematic_is_active();
-                    if (g.current_player == 0 && (input_unlocked || drag_live || (g.phase == PHASE_HAND_CHOICE && !badge_freezing))) {
+                                    !anim_is_blocking(&anim) && !cinematic_is_active() &&
+                                    dealership_unlocked();
+                    /* No dealership, no movement: both bypasses below still require the
+                       token to have arrived. They bypass board_busy (so a choice stays
+                       clickable during capture hitlag), not the token. */
+                    if (g.current_player == 0 && (input_unlocked || drag_live ||
+                        (g.phase == PHASE_HAND_CHOICE && !badge_freezing && dealership_unlocked()))) {
                         if (g.phase == PHASE_TURN_HAND) {
                             if (input_unlocked && !plexus_tutorial_is_active() && !plexus_speedcoin_is_active() &&
                                 (settings.difficulty == DIFFICULTY_MASTER || settings.difficulty == DIFFICULTY_DEUS)) {
@@ -1621,7 +1659,8 @@ static void update_draw_frame(void) {
                                 }
                             }
                         }
-                        else if (g.phase == PHASE_HAND_CHOICE && !badge_freezing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                        else if (g.phase == PHASE_HAND_CHOICE && !badge_freezing && dealership_unlocked() &&
+                                 IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                             int tid; int res = screens_check_choice_click(&g, vm, 1, &tid);
                             if (res == 1) {
                                 Vector2 hp = board_get_card_field_pos(&g, tid);
@@ -1879,6 +1918,7 @@ static void update_draw_frame(void) {
                          replay_running ? (replay_pb_difficulty() == DIFFICULTY_EASY)
                                         : (plexus_tutorial_is_active() || settings.difficulty == DIFFICULTY_EASY),
                          replay_running, status);
+        dealership_draw();
         if (!replay_pb_active()) {
             input_draw_selection(&g, &drag);
             plexus_tutorial_draw_board_guides(&assets, &g);

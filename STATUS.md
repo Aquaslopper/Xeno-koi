@@ -33,6 +33,55 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Owner tuning pass on the dealership token: bigger, trailing, glows in motion (29 October 2026)
+
+- **Instruction:** *"1. dealership needs a trail, 50ms are fast, so give it a trail 2. make the dealership bigger at least 50% bigger 3. when it moves let it glow."* Judged on the owner's display, which is the only place this can be judged.
+- **Size:** ring 5 -> **8** (60 %), core 1.5 -> **2.6**, `D` 9 pt -> **14 pt**. The old marker was small enough to be mistaken for a cursor.
+- **Trail:** 12 ghosts over 140 ms -> **28 ghosts over 280 ms**, brighter (`150 * life^2`), wider, plus a soft halo on the freshest eight. Two samples are pushed per travelling frame: a 50 ms leg is about three frames at 60 Hz, so one sample per frame drew beads instead of a streak. This is what makes the 50 ms transfer read as movement rather than a jump.
+- **Movement glow:** a new eased `glow` value (18/s in, 7/s out) drives a third wide bloom, widens the base discs and pushes the ring toward full white while travelling, then settles on arrival instead of snapping. No idle pulse, no spin — the only animation is the one tied to movement.
+- **Appearance only:** nothing in the gate path changed. `dealership_update()` gained trail samples and the glow easing; `dealership_unlocked()` and the station logic are untouched, so a resize or a trail change cannot move a gate. Recorded in `Dealership.md` §9 so the tuning surface is written down.
+- **Verified:** `-fsyntax-only` clean at `-Wall -Wextra`; `./build.sh test` exit 0; the 160-run real-loop sweep was re-run after the change and the token still produced **0 locked-state violations**. Not verified: how it looks - that is the owner's screen, and these numbers are the only thing that changed.
+- **Touched:** `src/ui_dealership.c`, `Dealership.md`, `STATUS.md`. **Not touched:** `src/ui_dealership.h` (no API change), `src/ui_main.c`, `src/ui_action.{c,h}`, `tests/`, `tools/action_guard.*`, `docs/`.
+
+
+### The token is the key, not a condition: two bypasses closed (29 October 2026)
+
+- **Instruction:** *"only if dealership = movement unlocked; if no dealership = no movement."* The token is the sole authority, not one more `&&` in a chain.
+- **Audited every path that can change game state** (`engine_play_hand`, `engine_reveal_stock`, `engine_pick_hand_choice`, `engine_cancel_hand_choice`, `engine_pick_draw_choice`, CPU think/fly, the stock fly, the badge trigger): ten were already gated, **two were not**.
+- **Hole 1 - hand-choice click:** `else if (g.phase == PHASE_HAND_CHOICE && !badge_freezing && IsMouseButtonPressed(...))` called `engine_pick_hand_choice()` with no token check, and its outer condition let `PHASE_HAND_CHOICE` enter while bypassing `board_busy` too. It held in practice only because a choice can only be entered with the token already parked at the player's station - correct by coincidence, not by construction.
+- **Hole 2 - a live drag:** `drag_live` did not consult the token, so a drag could keep updating the board after the token left the player station.
+- **Fixed both** with `dealership_unlocked()`. The bypasses still bypass `board_busy` (deliberately - a choice must stay clickable during the 0.15 s capture hitlag), they may never bypass the token.
+- **On the freeze, the owner is right and it needs no code:** once `badge_freezing` is 1 nothing moves and the token simply holds, because `settled` is false. The gate on the *trigger* is not about the frozen state - at that instant `badge_freezing` is still 0 and the badge is about to fire; without the gate a badge could start while the marker was in flight. Recorded in `Dealership.md` §1 and §5 so nobody "simplifies" it away.
+- **Verified:** `./build.sh test` exit 0 (tests lock, Action Card guard 12 points, 500-match suite, table UI, music/settings/Options); `-fsyntax-only` clean at `-Wall -Wextra`. Not verified: the feel, which needs a display.
+- **Touched:** `src/ui_main.c`, `Dealership.md`, `STATUS.md`.
+
+
+### Owner: Action Card is covered by the Dealership too (29 October 2026)
+
+- **Instruction:** *"action card has to be included"* - one correction to the entry below, which had excluded the mode.
+- **This is the explicit owner instruction the Action Card freeze requires.** The freeze forbids an agent changing the mode on its own; it does not forbid the owner changing it. Nothing in `src/ui_action.{c,h}` was touched, and `./tools/action_guard.sh` still passes with all 12 influence points intact.
+- **Changed:** `dealership_set_active()` no longer excludes Action Card (`src/ui_main.c`); the token's update now runs *before* the mode's badge-event trigger so that trigger reads this frame's state; and the badge-event trigger gained `&& dealership_unlocked()`, because a badge event starting before the marker arrives is exactly the thing the token exists to prevent.
+- **Why it does not cost the mode any pace:** `settled` already includes `badge_freezing`, so the token cannot depart in the middle of a badge event. It travels inside the window the mode already spends settling and arranges its arrival as the release, rather than adding a pause on top.
+- **Docs moved with the code:** `Dealership.md` §5 and §6 now state the mode is covered by owner decision, and explicitly warn a future reader not to re-derive the exclusion from the `df4f6d7` caution - coverage is not permission to tune. `AGENTS.md` carries the same one-line carve-out.
+- **Still a report, not a to-do:** if the mode's pace reads wrong under the token, it gets reported to the owner. The dealership covering a frozen mode does not make the mode fair game.
+- **Verified:** `./build.sh test` exit 0 (tests lock, Action Card guard 12 points, 500-match suite, table UI, music/settings/Options); `-fsyntax-only` at `-Wall -Wextra` clean for every `src/*.c`. Not verified: the feel, which needs a display.
+- **Touched:** `src/ui_main.c`, `Dealership.md`, `AGENTS.md`, `STATUS.md`.
+
+
+### The Dealership: one travelling token owns the table rhythm (29 October 2026)
+
+- **Instruction:** a visible marker that travels current player -> deck -> CPU -> deck -> player, where **arrival at a station is the permission** for that station's event, and the token does not leave until that event has completely finished.
+- **Specification:** `Dealership.md` at the repo root. That file owns the system - the route, the stations, the timing, the state derivation, the gates and the scope. It is the only place the rhythm is described; this entry is a pointer, not a second copy.
+- **Built:** `src/ui_dealership.{h,c}` - engine-free on purpose, it knows stations, a position and a `dt`. Vertical run down the left margin at `(279,693)` / `(286,324)` / `(279,27)`, taken from the real HUD rects. Two 50 ms legs per transfer = 100 ms, integrated from `dt`.
+- **The deck is a station, not a pipe:** the draw is the only event with no player as its cause, so the deck must be seen to deal it. One token serves both draws because one hand deals the stock for both players - that is why the badge is a `D` and why it does not change per player.
+- **Wired in `src/ui_main.c`:** `dealership_station_for()` derives the station from the engine phase (no second copy of turn state); player input, the CPU think block and the stock-fly start each consult `dealership_unlocked()`; the token is drawn over the table.
+- **Deliberately overlapping, not stacking:** `settled` excludes `event_beat_timer`, so travel and the existing beat run concurrently and the wait is `max(beat, travel)`, not `beat + travel`. Ripping the old beat out is a separate pacing change and was not done here.
+- **Speedcoin excluded:** solo, timed, `current_player = 0` always, so there is no CPU station and a 100 ms gate would sabotage a reaction test. **Action Card excluded and untouched** - its rhythm is tied to the meter/reverb envelope and added pacing there broke it once already (`df4f6d7`). That stays a report, per the freeze.
+- **Verified:** `./build.sh test` exit 0 (tests lock, Action Card guard 12 points, 500-match engine suite, table UI, music/settings/Options); `-fsyntax-only` sweep of all 26 `src/*.c` at `-Wall -Wextra` with zero warnings - the desktop binary is not linked in this sandbox, so the game itself was not run.
+- **Not verified:** the feel. No test asserts the rhythm reads well; that is a display judgement, and `tests/` is locked so none was added.
+- **Touched:** `Dealership.md` (new), `src/ui_dealership.h` (new), `src/ui_dealership.c` (new), `src/ui_main.c`, `STATUS.md`. **Did not touch:** `src/ui_action.{c,h}`, `src/engine.*`, `src/ui_plexus.c`, `src/storage.*`, `tests/`, `tools/action_guard.*`, `docs/`.
+
+
 ### Owner: the CPU step beat no longer applies to Action Card; an untested claim is marked as such (29 October 2026)
 
 - **Owner edit, folded in and guarded:** `trigger_cpu_step_beat()` in `src/ui_main.c` now excludes the mode as well as Speedcoin - `if (!plexus_speedcoin_is_active() && !plexus_action_card_is_active() && sec > event_beat_timer)`. The mode keeps its CPU think time (`get_think_duration()`, `0.40 / 0.30 / 0.20`) and still waits for `motion_is_reflowing()`/`anim_is_blocking()`; what it no longer gets is the extra 90-120 ms inter-step pause. The larger `trigger_event_beat()` pauses (0.24-0.55 s) were **not** changed - option 2 was left to the owner.
