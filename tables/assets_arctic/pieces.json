@@ -1,0 +1,196 @@
+{
+ "_about": "Pieces cut from arctic.png by tools/table_slice.py. box = px in the source artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; target = the game rect the piece belongs to, from tables/anchors.json.",
+ "source": "arctic.png",
+ "clean": "arctic_clean.png",
+ "scale": 1.5,
+ "pieces": [
+  {
+   "file": "01-player-block+cpu-block.png",
+   "box": [
+    0,
+    0,
+    463,
+    1080
+   ],
+   "canvas_box": [
+    0.0,
+    0.0,
+    308.7,
+    720.0
+   ],
+   "place": [
+    0,
+    0
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "player-block+cpu-block",
+   "target": [
+    12,
+    12,
+    255,
+    696
+   ],
+   "areas": [
+    "player-block",
+    "cpu-block"
+   ]
+  },
+  {
+   "file": "02-cpu-hand.png",
+   "box": [
+    673,
+    0,
+    1452,
+    194
+   ],
+   "canvas_box": [
+    448.7,
+    0.0,
+    968.0,
+    129.3
+   ],
+   "place": [
+    449,
+    0
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "cpu-hand",
+   "target": [
+    465,
+    12,
+    490,
+    91
+   ],
+   "areas": [
+    "cpu-hand"
+   ]
+  },
+  {
+   "file": "03-right-column.png",
+   "box": [
+    1697,
+    0,
+    1920,
+    834
+   ],
+   "canvas_box": [
+    1131.3,
+    0.0,
+    1280.0,
+    556.0
+   ],
+   "place": [
+    1131,
+    0
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "right-column",
+   "target": [
+    1160,
+    12,
+    112,
+    522
+   ],
+   "areas": [
+    "right-column"
+   ]
+  },
+  {
+   "file": "04-stock.png",
+   "box": [
+    463,
+    344,
+    647,
+    661
+   ],
+   "canvas_box": [
+    308.7,
+    229.3,
+    431.3,
+    440.7
+   ],
+   "place": [
+    309,
+    229
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "stock",
+   "target": [
+    330,
+    262,
+    76,
+    148
+   ],
+   "areas": [
+    "stock"
+   ]
+  },
+  {
+   "file": "05-player-hand.png",
+   "box": [
+    463,
+    775,
+    1649,
+    1080
+   ],
+   "canvas_box": [
+    308.7,
+    516.7,
+    1099.3,
+    720.0
+   ],
+   "place": [
+    309,
+    517
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "player-hand",
+   "target": [
+    330,
+    566,
+    760,
+    143
+   ],
+   "areas": [
+    "player-hand"
+   ]
+  },
+  {
+   "file": "06-buttons.png",
+   "box": [
+    1699,
+    834,
+    1920,
+    1020
+   ],
+   "canvas_box": [
+    1132.7,
+    556.0,
+    1280.0,
+    680.0
+   ],
+   "place": [
+    1133,
+    556
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "buttons",
+   "target": [
+    1160,
+    560,
+    112,
+    90
+   ],
+   "areas": [
+    "buttons"
+   ]
+  }
+ ],
+ "coverage": {
+  "ink_px": 972268,
+  "owned_px": 972504,
+  "lost_px": 0,
+  "recompose_max_diff": 0,
+  "recompose_px_off": 0
+ }
+}

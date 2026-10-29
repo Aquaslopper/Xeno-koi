@@ -1,0 +1,226 @@
+{
+ "_about": "Pieces cut from city.png by tools/table_slice.py. box = px in the source artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; target = the game rect the piece belongs to, from tables/anchors.json.",
+ "source": "city.png",
+ "clean": "city_clean.png",
+ "scale": 1.5,
+ "pieces": [
+  {
+   "file": "01-cpu-block.png",
+   "box": [
+    0,
+    0,
+    457,
+    374
+   ],
+   "canvas_box": [
+    0.0,
+    0.0,
+    304.7,
+    249.3
+   ],
+   "place": [
+    0,
+    0
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "cpu-block",
+   "target": [
+    12,
+    12,
+    255,
+    196
+   ],
+   "areas": [
+    "cpu-block"
+   ]
+  },
+  {
+   "file": "02-cpu-hand.png",
+   "box": [
+    622,
+    0,
+    1576,
+    209
+   ],
+   "canvas_box": [
+    414.7,
+    0.0,
+    1050.7,
+    139.3
+   ],
+   "place": [
+    415,
+    0
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "cpu-hand",
+   "target": [
+    465,
+    12,
+    490,
+    91
+   ],
+   "areas": [
+    "cpu-hand"
+   ]
+  },
+  {
+   "file": "03-right-column.png",
+   "box": [
+    1685,
+    0,
+    1920,
+    813
+   ],
+   "canvas_box": [
+    1123.3,
+    0.0,
+    1280.0,
+    542.0
+   ],
+   "place": [
+    1123,
+    0
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "right-column",
+   "target": [
+    1160,
+    12,
+    112,
+    522
+   ],
+   "areas": [
+    "right-column"
+   ]
+  },
+  {
+   "file": "04-stock.png",
+   "box": [
+    457,
+    329,
+    657,
+    637
+   ],
+   "canvas_box": [
+    304.7,
+    219.3,
+    438.0,
+    424.7
+   ],
+   "place": [
+    305,
+    219
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "stock",
+   "target": [
+    330,
+    262,
+    76,
+    148
+   ],
+   "areas": [
+    "stock"
+   ]
+  },
+  {
+   "file": "05-player-block.png",
+   "box": [
+    0,
+    704,
+    496,
+    1080
+   ],
+   "canvas_box": [
+    0.0,
+    469.3,
+    330.7,
+    720.0
+   ],
+   "place": [
+    0,
+    469
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "player-block",
+   "target": [
+    12,
+    508,
+    255,
+    200
+   ],
+   "areas": [
+    "player-block"
+   ]
+  },
+  {
+   "file": "06-player-hand+status.png",
+   "box": [
+    516,
+    792,
+    1532,
+    963
+   ],
+   "canvas_box": [
+    344.0,
+    528.0,
+    1021.3,
+    642.0
+   ],
+   "place": [
+    344,
+    528
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "player-hand+status",
+   "target": [
+    330,
+    518,
+    760,
+    191
+   ],
+   "areas": [
+    "player-hand",
+    "status"
+   ]
+  },
+  {
+   "file": "07-buttons.png",
+   "box": [
+    1674,
+    829,
+    1920,
+    1029
+   ],
+   "canvas_box": [
+    1116.0,
+    552.7,
+    1280.0,
+    686.0
+   ],
+   "place": [
+    1116,
+    553
+   ],
+   "scale": 0.6666666666666666,
+   "target_name": "buttons",
+   "target": [
+    1160,
+    560,
+    112,
+    90
+   ],
+   "areas": [
+    "buttons"
+   ]
+  }
+ ],
+ "coverage": {
+  "ink_px": 702287,
+  "owned_px": 705922,
+  "lost_px": 0,
+  "recompose_max_diff": 0,
+  "recompose_px_off": 0
+ }
+}
