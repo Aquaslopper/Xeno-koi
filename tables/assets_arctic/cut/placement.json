@@ -28,10 +28,11 @@
     },
     {
       "file": "lower_hand.png",
-      "x": 442,
-      "y": 767,
-      "width": 1215,
-      "height": 313
+      "x": 293,
+      "y": 735,
+      "width": 1513,
+      "height": 345,
+      "note": "Resized from the original to approximately 132 x 214 px card openings; card pitch also increased. lower_hand_original.png retains source geometry."
     },
     {
       "file": "right_column.png",
