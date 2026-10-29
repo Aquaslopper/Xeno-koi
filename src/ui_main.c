@@ -436,8 +436,17 @@ static void begin_new_match(int trk) {
     event_beat_timer = 0.0f; prev_round_phase = PHASE_NONE;
     overlay_alpha = 0.0f; last_overlay_phase = PHASE_NONE; last_overlay_paused = 0;
     uint32_t match_seed = (uint32_t)time(NULL) ^ (uint32_t)(frame_count * 2654435761u);
-    int init_rounds = (plexus_tutorial_is_active() && plexus_action_card_is_active()) ? 3 : settings.rounds;
-    engine_init(&g, plexus_action_card_is_active() ? RULESET_KK_ADD_10 : settings.ruleset, init_rounds, match_seed);
+    /* ACTION CARD IS KK-ADD-10 ONLY. Its minipoints, speed bar, dual meters and badge
+       logic are all KK-ADD-10-specific, so the ruleset is not a setting here: it is fixed.
+       The mode must never inherit a campaign ruleset, the Deus -> Yakuza override above, or
+       an Options change. Both sides are pinned to the constant - the engine is initialised
+       on it, and settings is overwritten with it - so nothing that reads settings.ruleset
+       can disagree with the engine. Change this only if the owner says the mode changes
+       ruleset (see AGENTS.md, Action Card lockdown). */
+    int ac_mode = plexus_action_card_is_active();
+    if (ac_mode) settings.ruleset = RULESET_KK_ADD_10;
+    int init_rounds = (plexus_tutorial_is_active() && ac_mode) ? 3 : settings.rounds;
+    engine_init(&g, ac_mode ? RULESET_KK_ADD_10 : settings.ruleset, init_rounds, match_seed);
     if (plexus_speedcoin_is_active()) {
         g.rng_state = match_seed ? match_seed : 1u;
         plexus_speedcoin_setup_wave(&g, 1);

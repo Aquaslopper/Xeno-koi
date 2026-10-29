@@ -33,19 +33,33 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Action Card is KK-ADD-10 only, now enforced in the code and pinned twice (29 October 2026)
+
+- **Instruction:** "action card is only KK ADD 10, please make it so." It already was, in effect - `ui_plexus.c:991` forces the mode's synced `settings.ruleset`, and the engine was initialised on the constant. What was missing was that the rule was *implied* in two places rather than stated once.
+- **Reported first, because it matters:** nothing else in the code can hand the mode another ruleset. `grep` for `settings.ruleset` shows only the Deus block, the engine init, `replay_rec_begin` (which the mode skips), and the Deus session snapshot. The Action Card drawer has no ruleset control at all - only Training has `tr_cfg_ruleset`.
+- **Changed, `begin_new_match()` in `src/ui_main.c`:** the two call sites now share one `ac_mode` flag and both sides are pinned to the constant - the engine is initialised on `RULESET_KK_ADD_10` **and** `settings.ruleset` is overwritten with it, so no reader of the settings can ever disagree with the engine. The ruleset rule is now stated in one comment above them instead of being inferred from a ternary. **Behaviour is unchanged** - `plexus_sync_match_settings()` already wrote `KK-ADD-10` before this line ran; the change closes the gap rather than altering a match.
+- **Not touched:** the Deus block at `ui_main.c:429`. It is the other half of the lock - it stops the campaign's Deus to Yakuza rewrite from reaching the mode - and it stays as the nested guard it was, because moving `!ac_mode` into the outer condition would also stop Deus from setting background 5 / theme 5, which is a behaviour change nobody asked for.
+- **Guard moved with the code, in the same commit:** the manifest row for the old `engine_init` line is replaced by two rows (the settings overwrite and the new init), so the lockdown now pins **12** influence points instead of 11. The guard correctly failed between the code edit and the manifest edit - that is the mechanism working.
+- **Docs moved with it:** `AGENTS.md` now carries the ruleset invariant next to the freeze ("do not make it configurable"), and the `STATUS.md` lockdown table gained the new row and lost its now-wrong "`ui_main.c:440`" label.
+- **Verified:** `./tools/action_guard.sh` -> ok (2 frozen files, 12 influence points); `--report` shows the three ruleset lines at `ui_main.c:429/447/449`. `RAYLIB_SRC=/tmp/raylib-hdr/src ./build.sh test` -> exit 0 (tests lock, the guard, 500-match engine suite, Koi-Koi trigger 0 failures, table UI suite, music/settings/Options checks). `python3 tools/gen_wiki_tables.py --check` and `git diff --check` clean.
+- **Not verified:** nothing was played. No display here, so "the mode still starts on KK-ADD-10 and looks identical" is reasoned from the code path, not seen; and `tests/` is locked, so no new test asserts the invariant - the guard is the enforcement.
+- **Touched:** `src/ui_main.c`, `tools/action_guard.manifest`, `AGENTS.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_action.{c,h}`, `src/ui_plexus.c` (the existing `KK-ADD-10` sync line already does its half), the Deus unlock flags, `tests/`, `tools/action_guard.sh`.
+
+
 ### Action Card mode frozen; its full influence surface reported (29 October 2026)
 
 - **Instruction:** after a second unrequested wiring into the Action Card mode in one day, the owner locked the mode. No agent may change any of its code, and **anything that can influence it must be reported, not touched** - explicitly including code that makes the CPU play slower.
 - **Frozen, hash-locked:** `src/ui_action.c` and `src/ui_action.h`, by SHA-256 in `tools/action_guard.sha256`. `./tools/action_guard.sh` compares them byte for byte; any edit fails.
-- **Pinned influence points, 11 of them, in shared files that legitimately change for other reasons** (`tools/action_guard.manifest`, each line must exist verbatim exactly once):
+- **Pinned influence points, 12 of them, in shared files that legitimately change for other reasons** (`tools/action_guard.manifest`, each line must exist verbatim exactly once):
   | Where | What it does to the mode |
   |---|---|
   | `ui_board.c:851` | envelope reset gate - a Plex match must not inherit the previous meter |
   | `ui_board.c:894` | freeze gate - the meter envelope stops while a badge event is paused |
   | `ui_board.c:926` | peak clamp - caps the meter at 85% of the S-curve (`0.53222625`) |
   | `ui_board.c:937` | meter input - the right-hand meter is fed from the reverb envelope |
-  | `ui_main.c:429` | ruleset lock - keeps the mode on `KK-ADD-10` instead of the campaign Yakuza override |
-  | `ui_main.c:440` | match start - Action Card matches always initialise on `KK-ADD-10` |
+  | `ui_main.c:429` | Deus override guard - keeps the campaign's Deus to Yakuza rewrite off the mode |
+  | `ui_main.c:447` | ruleset lock - the mode overwrites the shared settings with `KK-ADD-10` |
+  | `ui_main.c:449` | match start - Action Card matches always initialise on `KK-ADD-10` |
   | `ui_main.c:466` | **CPU pacing** - `get_think_duration()`, shared with every mode |
   | `ui_main.c:479` | **CPU step beat** - 90-120 ms inter-step pause; excluded for Speedcoin, **NOT** for Action Card |
   | `ui_plexus.c:155` | difficulty source - the mode's own setting, defaults to Easy |
@@ -54,9 +68,9 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 - **Enforcement, four layers:** `./tools/action_guard.sh` (also called by `build.sh test`, so every agent's suite run trips it); `CODEOWNERS` requires owner review on the mode and the guard; `.github/workflows/guard-protected.yml` gained an `action_card` path filter that **fails any non-owner PR** touching `src/ui_action.*` or `tools/action_guard.*`; and `AGENTS.md` carries the owner decision in prose with the report-don't-fix instruction.
 - **Found while auditing - CPU pacing has been churned five times in four days**, and the mode has been riding all of it because `trigger_cpu_step_beat()` excludes Speedcoin but not Action Card: `2ef43be` (25 Oct) raised think time to `0.52 / 0.36 / 0.24` as "global event breathing room"; `df4f6d7` (26 Oct) **reverted it as "unrequested turn-pacing delays breaking reverb/meter timing"** to `0.40 / 0.25 / 0.15`; `987d976` (27 Oct) took it to a flat `0.15` and flattened flight time to `0.40`; `b7ceb7b` (28 Oct) set the current `0.40 / 0.30 / 0.20` and dropped the separate flight function. Every one of those changed how Action Card plays, none of them was about Action Card.
 - **Doc error corrected:** this file described `0.52 / 0.36 / 0.24` as the shipped think duration in the 26 October entry. It has not been that since `df4f6d7`; the stale wording is annotated rather than rewritten, because it is exactly the sentence an agent would "restore".
-- **Verified:** `./tools/action_guard.sh` → ok (2 frozen files, 11 influence points). Negative tests run and cleaned up: appending a line to `src/ui_action.c` → **exit 1** with the frozen-mode banner; setting the think duration back to `0.52 / 0.36 / 0.24` → **exit 1** naming `src/ui_main.c` and the exact line; restoring both → **exit 0**. `RAYLIB_SRC=/tmp/raylib-hdr/src ./build.sh test` → **exit 0**, now including the guard, with the full table UI suite. `guard-protected.yml` parses as valid YAML and its filter list now reads `rules, settings, cards_atlas, wiki, core_mechanic, tests_lock, action_card`. `python3 tools/gen_wiki_tables.py --check` and `git diff --check` clean.
+- **Verified:** `./tools/action_guard.sh` → ok (2 frozen files, 12 influence points). Negative tests run and cleaned up: appending a line to `src/ui_action.c` → **exit 1** with the frozen-mode banner; setting the think duration back to `0.52 / 0.36 / 0.24` → **exit 1** naming `src/ui_main.c` and the exact line; restoring both → **exit 0**. `RAYLIB_SRC=/tmp/raylib-hdr/src ./build.sh test` → **exit 0**, now including the guard, with the full table UI suite. `guard-protected.yml` parses as valid YAML and its filter list now reads `rules, settings, cards_atlas, wiki, core_mechanic, tests_lock, action_card`. `python3 tools/gen_wiki_tables.py --check` and `git diff --check` clean.
 - **Not verified:** the GitHub-side behaviour (`CODEOWNERS` review requirement and the workflow's non-owner failure) cannot be exercised from this sandbox; it is wired but unproven until the next non-owner PR touches the mode.
-- **Touched:** `tools/action_guard.sh`, `tools/action_guard.manifest`, `tools/action_guard.sha256` (all new), `build.sh`, `.github/CODEOWNERS`, `.github/workflows/guard-protected.yml`, `AGENTS.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_action.c`, `src/ui_action.h`, and every one of the 11 pinned influence lines - they are frozen, and this entry only records them.
+- **Touched:** `tools/action_guard.sh`, `tools/action_guard.manifest`, `tools/action_guard.sha256` (all new), `build.sh`, `.github/CODEOWNERS`, `.github/workflows/guard-protected.yml`, `AGENTS.md`, `STATUS.md`. **Deliberately did not touch:** `src/ui_action.c`, `src/ui_action.h`, and every one of the 12 pinned influence lines - they are frozen, and this entry only records them.
 
 
 ### Text flares walked back to hovered buttons; the second title face removed (29 October 2026)
