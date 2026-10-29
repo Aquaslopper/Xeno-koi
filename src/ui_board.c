@@ -740,7 +740,7 @@ void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
 }
 
 static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int player, float start_y, float flash_alpha) {
-    static const char *const labels[4] = { "B", "A", "R", "P" };
+    static const char *const labels[4] = { "BRIGHT", "ANIMAL", "RIBBON", "PLAIN" };
     float card_w = MINI_CARD_W - 6.0f, card_h = MINI_CARD_H - 6.0f;
     int lanes[4][48], counts[4] = { 0, 0, 0, 0 }, cup = 0, cap_n = g->captured_count[player];
     for (int i = 0; i < cap_n; i++) {
@@ -750,26 +750,20 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
     }
     for (int t = 0; t < 4; t++) {
         float y = start_y + t * (CAPTURE_PANEL_H + 4.0f), card_y = y + (CAPTURE_PANEL_H - card_h) / 2.0f;
-        Rectangle lr = { 12.0f, y, CAPTURE_PANEL_W, CAPTURE_PANEL_H };
-        DrawRectangleRec(lr, COLOR_PANEL_BG);
-        if (flash_alpha > 0.001f) {
-            Color fill_glow = COLOR_PHOSPHOR;
-            fill_glow.a = (unsigned char)(70.0f * flash_alpha);
-            DrawRectangleRec(lr, fill_glow);
-            ui_theme_set_panel_flare_glow(lr, flash_alpha);
-        }
-        ui_draw_panel_border(lr, (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-        if (flash_alpha > 0.001f) {
-            Color ring = COLOR_PHOSPHOR;
-            ring.a = (unsigned char)(255.0f * flash_alpha);
-            DrawRectangleLinesEx(lr, 2.0f, ring);
-            Color outer = COLOR_PHOSPHOR;
-            outer.a = (unsigned char)(150.0f * flash_alpha);
-            DrawRectangleLinesEx((Rectangle){ lr.x - 2.0f, lr.y - 2.0f, lr.width + 4.0f, lr.height + 4.0f }, 1.5f, outer);
-        }
         int count = counts[t];
-        const char *cnt_str = TextFormat((t == 1 && cup) ? "%s %d*" : "%s %d", labels[t], count);
-        draw_text_ex_snapped(font_body, cnt_str, (Vector2){ 16.0f, y + 8.5f }, 20.0f, 1.4f, COLOR_TEXT_INFO);
+        Color name_col = (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
+        draw_text_ex_snapped(font_body, labels[t], (Vector2){ 16.0f, y + 4.0f }, 10.5f, 0.8f, name_col);
+        draw_text_ex_snapped(font_title, TextFormat((t == 1 && cup) ? "%d*" : "%d", count),
+                             (Vector2){ 16.0f, y + 17.0f }, 14.0f, 0.8f,
+                             (flash_alpha > 0.001f) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
+        if (flash_alpha > 0.001f) {
+            Color accent = COLOR_PHOSPHOR;
+            accent.a = (unsigned char)(150.0f + 105.0f * flash_alpha);
+            DrawLineEx((Vector2){ 12.0f, y + 5.0f }, (Vector2){ 12.0f, y + 32.0f }, 2.0f, accent);
+        }
+        Color rule = COLOR_PHOSPHOR_DIM;
+        rule.a = 42;
+        DrawLine(12, (int)(y + CAPTURE_PANEL_H), (int)(12.0f + CAPTURE_PANEL_W), (int)(y + CAPTURE_PANEL_H), rule);
         float step = (count > 1) ? fminf(24.0f, (CAPTURE_PANEL_W - 54.0f - card_w) / (count - 1)) : 0.0f;
         for (int c = 0; c < count; c++) {
             int cid = lanes[t][c];
@@ -1181,11 +1175,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     combos_draw_sidebar(g);
 
     Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
-    DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);
     draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
-    DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
-    /* A replay cannot be restarted: the second button ends it instead. */
+    DrawLine(1184, 596, 1248, 596, COLOR_PHOSPHOR_DIM);
+    /* A replay cannot be restarted: the second label ends it instead. */
     draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+    DrawLine(1184, 646, 1248, 646, COLOR_PHOSPHOR_DIM);
 
     /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
     if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();

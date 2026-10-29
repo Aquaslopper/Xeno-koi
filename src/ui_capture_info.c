@@ -121,12 +121,8 @@ void capture_info_draw(const BoardAssets *ba) {
     /* Highlight the exact hovered mini-card in its capture lane stack. */
     board_draw_card_glow(s_hovered_bounds, 1.0f);
 
-    /* Fixed left-column panel aligned 1:1 with all capture boxes (x=12, w=255, 4px gap above y=508). */
-    Rectangle panel = capture_info_panel_rect();
-    Color bg = COLOR_PANEL_BG;
-    bg.a = 235;
-    DrawRectangleRec(panel, bg);
-    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
+    /* Preserve the established hover-region geometry without painting a container. */
+    DrawRectangleRec(capture_info_panel_rect(), (Color){ 0, 0, 0, 0 });
 
     /* Crisp full-resolution card preview on the left (106 x 172 matches 176:286 card ratio). */
     Rectangle card_rect = { 22.0f, 318.0f, 106.0f, 172.0f };

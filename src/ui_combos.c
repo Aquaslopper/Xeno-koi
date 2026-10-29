@@ -41,35 +41,36 @@ int combos_panel_hit(Vector2 mouse) {
 void combos_draw_sidebar(const GameState *g) {
     int sc_mode = speed_mode_is_active();
     const char *mode_name = sc_mode ? "SPEEDCOIN" : ruleset_names[g->ruleset];
-    Rectangle mode = { 1160, 12, 112, 66 };
-    DrawRectangleRec(mode, COLOR_PANEL_BG);
-    ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
+    Color rule = COLOR_PHOSPHOR_DIM;
+    rule.a = 90;
     label(sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
-                  : TextFormat("RND %d/%d", g->current_round, g->total_rounds),
-          1168, 20, 96, 16, COLOR_PHOSPHOR);
-    float size = 16;
-    while (size > 12 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 96) size--;
-    label(mode_name, 1168, 47, 96, size, COLOR_TEXT_INFO);
+                  : TextFormat("ROUND %d / %d", g->current_round, g->total_rounds),
+          1168, 15, 96, 14, COLOR_PHOSPHOR);
+    float size = 14;
+    while (size > 11 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 104) size--;
+    label(mode_name, 1168, 39, 96, size, COLOR_TEXT_INFO);
+    DrawLine(1168, 72, 1264, 72, rule);
     for (int p = 1; p >= 0; p--) {
         if (sc_mode && p == 1) continue;
         ScoreResult s = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         Rectangle r = combos_panel_rect(p);
-        DrawRectangleRec(r, COLOR_PANEL_BG);
-        ui_draw_panel_border(r, COLOR_PHOSPHOR);
-        label(p ? "CPU COMBOS" : "YOUR COMBOS", r.x + 8, r.y + 8, 96, 13, COLOR_PHOSPHOR);
-        label(TextFormat("Base: %d", s.base_points), r.x + 8, r.y + 29, 96, 16, COLOR_TEXT_INFO);
-        label(sc_mode ? TextFormat("Award: %d", calculate_award(s.base_points, 0, 0))
-                      : TextFormat("Koi: x%d", koi_caller_multiplier(g->koi_called[p])),
-              r.x + 8, r.y + 49, 96, 14, COLOR_TEXT_INFO_DIM);
+        label(p ? "OPPONENT" : "YOUR SETS", r.x + 8, r.y + 4, 96, 11, COLOR_PHOSPHOR);
+        label(TextFormat("%d", s.base_points), r.x + 8, r.y + 20, 54, 23, COLOR_TEXT_INFO);
+        label(sc_mode ? TextFormat("BANK %d", calculate_award(s.base_points, 0, 0))
+                      : TextFormat("KOI x%d", koi_caller_multiplier(g->koi_called[p])),
+              r.x + 48, r.y + 28, 56, 11, COLOR_TEXT_INFO_DIM);
+        DrawLine((int)r.x + 4, (int)r.y + 53, (int)r.x + (int)r.width - 4, (int)r.y + 53, rule);
         int count = s.yaku_count < 4 ? s.yaku_count : 4;
         for (int i = 0; i < count; i++) {
-            float y = r.y + 73 + i * 29;
-            label(s.yakus[i].name, r.x + 8, y, 96, 13, COLOR_TEXT_INFO);
-            label(TextFormat("%d pts", s.yakus[i].points), r.x + 8, y + 14, 96, 12, COLOR_TEXT_INFO_DIM);
+            float y = r.y + 63 + i * 31;
+            label(s.yakus[i].name, r.x + 8, y, 72, 12, COLOR_TEXT_INFO);
+            label(TextFormat("%d", s.yakus[i].points), r.x + 84, y, 20, 12, COLOR_PHOSPHOR);
+            if (i + 1 < count) DrawLine((int)r.x + 4, (int)y + 23, (int)r.x + (int)r.width - 4, (int)y + 23, rule);
         }
-        if (!count) label("No combos yet", r.x + 8, r.y + 78, 96, 13, COLOR_TEXT_INFO_DIM);
-        label(s.yaku_count > 4 ? TextFormat("+%d / VIEW ALL", s.yaku_count - 4) : "CLICK TO VIEW",
-              r.x + 8, r.y + 197, 96, 12, COLOR_PHOSPHOR);
+        if (!count) label("No sets yet", r.x + 8, r.y + 72, 96, 12, COLOR_TEXT_INFO_DIM);
+        DrawLine((int)r.x + 4, (int)r.y + 189, (int)r.x + (int)r.width - 4, (int)r.y + 189, rule);
+        label(s.yaku_count > 4 ? TextFormat("+%d  OPEN >", s.yaku_count - 4) : "OPEN DETAILS >",
+              r.x + 8, r.y + 198, 96, 10.5f, COLOR_PHOSPHOR);
     }
 }
 

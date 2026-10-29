@@ -21,53 +21,25 @@ static void draw_centered_text(Font font, const char *text, float center_x, floa
 }
 
 void board_draw_info_box(Rectangle box, const char *text, int is_active, float flash_alpha) {
-    Color panel = COLOR_PANEL_BG;
-    panel.a = is_active ? 205 : 112;
-    DrawRectangleRec(box, panel);
+    Color label = is_active ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM;
+    float text_size = 16.0f;
+    float max_width = box.width - 12.0f;
+    float measured = MeasureTextEx(font_body, text, text_size, 1.0f).x;
+    if (measured > max_width && measured > 0.0f) text_size *= max_width / measured;
+    draw_text_ex_snapped(font_body, text,
+        (Vector2){ box.x + 8.0f, box.y + (box.height - text_size) * 0.5f },
+        text_size, 1.0f, label);
 
-    Color label = is_active ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
-    if (!is_active) {
-        Color border = COLOR_PHOSPHOR_DIM;
-        border.a = 145;
-        label.a = 165;
-        ui_draw_panel_border(box, border);
-    } else {
-        float breathe = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
-        float glow_alpha = 0.5f + 0.5f * breathe;
-
-        Color ring_inner = COLOR_PHOSPHOR;
-        ring_inner.a = (unsigned char)(255.0f * glow_alpha);
-        DrawRectangleLinesEx(box, 2.5f, ring_inner);
-
-        Color ring_outer = COLOR_PHOSPHOR;
-        ring_outer.a = (unsigned char)(140.0f * glow_alpha);
-        DrawRectangleLinesEx((Rectangle){ box.x - 3.0f, box.y - 3.0f, box.width + 6.0f, box.height + 6.0f }, 2.0f, ring_outer);
-
-        if (flash_alpha > 0.001f) {
-            Color flash = COLOR_PHOSPHOR;
-            flash.a = (unsigned char)(255.0f * flash_alpha);
-            DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 3.0f, flash);
-        }
-        ui_theme_draw_panel_flares(box);
-
-        Rectangle tag = { box.x + box.width - 31.0f, box.y + 5.0f, 25.0f, box.height - 10.0f };
-        Color badge = COLOR_PHOSPHOR;
-        badge.a = (unsigned char)(190.0f + 65.0f * breathe);
-        DrawRectangleRec(tag, badge);
-        draw_text_ex_snapped(font_title, ">>", (Vector2){ tag.x + 4.0f, tag.y + 2.0f }, 14.0f, 0.8f, (Color){ 0, 0, 0, 255 });
+    /* Turn ownership is an editorial accent, not a glowing box around the score. */
+    if (is_active) {
+        Color accent = COLOR_PHOSPHOR;
+        accent.a = (unsigned char)(150.0f + 105.0f * fmaxf(0.0f, fminf(1.0f, flash_alpha)));
+        DrawLineEx((Vector2){ box.x + 1.0f, box.y + 5.0f },
+                   (Vector2){ box.x + 1.0f, box.y + box.height - 5.0f }, 2.0f, accent);
+        DrawLineEx((Vector2){ box.x + 4.0f, box.y + box.height - 2.0f },
+                   (Vector2){ box.x + 44.0f + 30.0f * flash_alpha, box.y + box.height - 2.0f },
+                   1.5f, accent);
     }
-
-    int font_size = 16;
-    int text_x = (int)box.x + 6;
-    float max_width = box.width - (is_active ? 45.0f : 12.0f);
-    float w16 = MeasureTextEx(font_body, text, 16.0f, 1.0f).x;
-    if (w16 > max_width && w16 > 0.0f) {
-        font_size = (int)(16.0f * (max_width / w16));
-        if (font_size < 12) font_size = 12;
-    }
-    int text_y = (int)box.y + ((int)box.height - font_size) / 2;
-    draw_text_ex_snapped(font_body, text, (Vector2){ (float)text_x, (float)text_y },
-               (float)font_size, 1.0f, label);
 }
 
 void board_draw_status_message(const char *text) {
