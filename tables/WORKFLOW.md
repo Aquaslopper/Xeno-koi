@@ -13,10 +13,27 @@ that first: every number below it is then suspect.
 
 ---
 
+## First: an example is not evidence (paid for twice)
+
+The owner shows pictures to say *"like this, roughly"*. Those are **examples**. They are not the
+game, not a spec, and not a measurement:
+
+- an example is read for the **idea** — metal instead of wireframe, capsules instead of rectangles,
+  panels connected instead of floating
+- an example is **never** read for a number, a position, or a claim about what the code does today
+- "the game does not look like this example" is **not** a finding. Of course it doesn't. The example
+  is the thing we are walking toward, and it was never a picture of the build
+
+If a question needs a fact, the answer is in `src/` or in `tables/anchors.json` — never in
+`tables/refs/`. Treating an example as evidence has cost two rounds and one reading of the owner's
+intent; do not make it three. See `refs/README.md` for the four words kept apart
+(example / reference / the game / the design).
+
 ## The three rules
 
-1. **The mockup is a picture of a design. The layout is what `src/` already draws.** Anchors come
-   from code, never from a mockup and never from a screenshot.
+1. **An example is a picture of a direction. The layout is what `src/` already draws.** Anchors come
+   from code, never from an example, a mockup or a screenshot — those show you what to aim at, not
+   where anything is.
 2. **Measure all four sides, not one.** A frame's thickness is decided by the tightest free space
    around it, and panels next to each other must end up with comparable weight or one looks broken.
 3. **Assert, don't eyeball.** A frame counts as placed when its open interior equals the game's
@@ -141,6 +158,12 @@ Card mode is hash-frozen and shares both draw functions.
     before touching a shared draw function.
 14. **No bezel art ships.** `assets/` has no frame, border or panel texture, so a metal look is
     either procedural in the border function or a new 9-slice asset.
+15. **An example treated as evidence — twice.** The owner sent stylised mockups to show the
+    direction. The first time they were read as a layout to copy (mockup pixels as spec, trap 1
+    again); the second time as a claim about the current build ("this is not a plain render, so
+    something is off"). Both are wrong in the same way: **an example is inspiration, and its layout
+    is the layout of whatever example the generator was fed.** Read them for the idea, never for a
+    number, a position or a statement about the code. `tables/refs/README.md`.
 
 ---
 

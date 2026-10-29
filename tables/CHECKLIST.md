@@ -13,6 +13,9 @@ because an early "yes" that is really a "no" invalidates everything under it.
       **on all four sides**
 - [ ] I decided the layer: **runtime restyle** (change the draw function, gets every rect exactly) or
       **stamped art** (a PNG at an anchor). A plain rectangle is always runtime.
+- [ ] I am not treating an **example** as evidence: nothing I am about to assert came from a mockup
+      (`tables/refs/`), and if a mockup's layout disagrees with `src/`, `src/` is right and the mockup
+      is an example
 - [ ] I know what the game already paints there (`anchors.json → fills`): black @ 178, info strips
       112 idle / 205 active, and **nothing at all** behind the field
 

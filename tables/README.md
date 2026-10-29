@@ -22,6 +22,7 @@ tools that keep both honest. Open `table-to-scale.png` first.
 | `WORKFLOW.md` | **the procedure** — 8 steps, then 14 traps with the numbers that caused them |
 | `CHECKLIST.md` | the gate to run before showing anyone a table |
 | `TABLE_TEMPLATE.md` | copy this to `NN-<name>.md` to start a design |
+| `refs/` | **examples** — inspiration only, never a measurement (read `refs/README.md`) |
 | `designs/_schema.json` | manifest format for `tools/table_art.py build` (art units, rails, bezels) |
 | `build.sh` | one command: anchors check + redraw map + redraw palettes |
 
@@ -52,7 +53,11 @@ one definition of where a card is.
 2. **Measure all four sides** of a panel before choosing a border. Uniform borders come out thin.
 3. **Assert, don't eyeball**: the open interior of a frame equals the target rect ±2 px, checked in
    code, and the preview sits on live geometry.
-4. **Never composite on `docs/assets/readme/table-map.png`.** That figure is drawn with
+4. **An example is not evidence.** Pictures in `refs/` show a direction; they never state a number,
+   a position, or what the build does today. "The game doesn't look like the example" is not a
+   finding — it is the point of the example. Facts come from `src/` and `anchors.json`. See
+   `refs/README.md`, and trap 15 in `WORKFLOW.md`.
+5. **Never composite on `docs/assets/readme/table-map.png`.** That figure is drawn with
    `board_field_slot_xy()`, which has no callers; the live field is `table_slot_rect()`, 81 px pitch
    against the figure's 96. Use `base.png`. Details in `anchors.md`.
 
