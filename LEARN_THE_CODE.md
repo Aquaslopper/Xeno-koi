@@ -1021,12 +1021,12 @@ Both fonts are loaded with mipmaps and set to trilinear (`audiowide.ttf`) and bi
 `LoadFontEx`, and every draw afterwards is a bitmap resize by `font_size / baseSize` —
 `LoadFontData` stores `advanceX` as an `int` rounded at `baseSize`, and `MeasureTextEx`
 rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 px to
-176 px, so one `baseSize` per face is always a compromise.
+140.8 px, so one `baseSize` per face is always a compromise.
 
 | Face | File | `baseSize` | Drawn at | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 176 px | 0.24× – 3.67× |
-| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 34 px | 0.52× – 1.31× |
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 140.8 px | 0.24× – 2.93× |
+| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 37.4 px | 0.52× – 1.44× |
 | `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
 
 There is deliberately **no** second `font_display` face. One existed for a few days: an
@@ -1034,8 +1034,9 @@ Audiowide rasterisation at 176 px so the `[XENO / KOI]` brand line could be draw
 of stretched 3.67× from the 48 px master. It made the brand line sharp, and it cost a whole
 extra atlas — 94 padded glyphs at that size need 1024×1024, i.e. ~4 MB of RGBA plus mipmaps
 (~5.4 MB) of VRAM and ~1.4 MB of glyph bitmaps in RAM — to sharpen one line of text on one
-screen. The owner weighed it and chose the smaller build: the brand line is drawn at 176 px
-from the shared 48 px face again and is very slightly softer. Do not reintroduce a per-size
+screen. The owner weighed it and chose the smaller build: the brand line is drawn from the shared
+48 px face again (176 px at the time, 140.8 px since the 29 October 2026 resize) and is very
+slightly softer. Do not reintroduce a per-size
 face without that trade being agreed, and note the metric hazard that killed the general font
 LOD below: measuring with one face and drawing with another.
 
@@ -1493,11 +1494,16 @@ background with a 95 alpha. The similarly named `screens_draw_start()` in
 
 ### 9.1 Start
 
-The active title screen shows `[XENO / KOI]` at 176 px on y 60 and
-`HANAFUDA: ACOUSTICA APEXUS` at 34 px on y 248 (spacing 4.0, measured 541 px wide) in the
-soft wine-red `{224,136,146}`. raylib treats a draw `y` as the top of the line box, which is
-exactly `font_size` tall, so the title box ends at 236 and the subtitle box runs 248–282 —
-12 px apart, and clear of the first button at y 374.
+The active title screen shows `[XENO / KOI]` at 140.8 px on y 91 and
+`HANAFUDA: ACOUSTICA APEXUS` at 37.4 px on y 248 (spacing 4.0, measured 656 px wide, drawn
+twice 0.9 px apart to fake a bold weight — no bold face ships) in the soft wine-red
+`{224,136,146}`. raylib treats a draw `y` as the top of the line box, which is exactly
+`font_size` tall, but the *ink* sits inside that box, so the gap the eye reads is not the gap
+between the boxes: Audiowide's `[XENO / KOI]` at 140.8 px has ink from +24.9 to +155.6 below
+its draw y, and Play at 37.4 px starts +10.4 below its own, which puts the two ink blocks
+11.8 px apart and the subtitle's ink ending at 283, clear of the first button at y 374. Those
+ink offsets are the numbers to move when either size changes: box arithmetic says the lines
+are 23 px apart, and the smaller the brand gets the wider that lie becomes.
 Its three buttons are `CONTINUE`
 (or `START GAME` when there is no active profile), `OPTION`, and `QUIT`.
 `ALL FILES SAVED` is drawn at y 675 while `saved_timer > 0`.
@@ -1792,26 +1798,39 @@ the input handler treats as "no restriction".
 ### 10.5 The hub screens (`ui_hub.c`)
 
 `SCREEN_START` is the brand line and three buttons; `SCREEN_HUB_MAIN` is the mode
-select, and each of its two cards is deliberately minimal: **one data strip and one
-button, nothing else**. There is no card heading, because the heading said the same
+select, and each of its two cards is deliberately minimal: **one framed button and the copy
+above it, nothing else**. There is no card heading, because the heading said the same
 name the button says. The name lives on the button only, in plain uppercase:
 `PANCRATIUM` and `ATRIUM PLEX`.
 
 The two cards are built the **same way and differ only in width**, so the screen reads as
-one system of doors: same band, same 24 px inset, same 58 px strip, same 48 px button row,
-same single 1 px frame, same 20 px button label.
+one system of doors: same band, same 24 px inset, same 58 px of copy above the button, same
+48 px button row, same single 1 px frame, same 20 px button label.
+
+**The copy above each button used to live in its own framed 58 px strip** (`{154, 276, 272, 58}`
+and `{506, 276, 620, 58}`), which is why the boxes and their two constants
+(`k_main_campaign_box`, `k_main_atrium_box`) are gone as of 29 October 2026: a second frame
+inside a frame bought no legibility and capped the copy at 15–16 px to keep it inside the
+smaller box. With the frame removed the copy is drawn straight onto the card and is bigger.
 
 | | Pancratium | Atrium Plex |
 |---|---|---|
 | panel | `{130, 256, 320, 178}` | `{482, 256, 668, 178}` |
-| strip | `{154, 276, 272, 58}` | `{506, 276, 620, 58}` |
 | button | `{154, 366, 272, 48}` | `{506, 366, 620, 48}` |
-| strip line 1 | `SECTORS nn/12   //   COINS nn/36` | a two-line description |
-| strip line 2 | rotating combat line | |
+| copy above it | 2 lines, 17 pt and 16 pt | 2 lines, 19 pt |
+| line 1 | `SECTORS nn/12   //   COINS nn/36` | `A monastic vault for the calibration of tactical reflexes` |
+| line 2 | rotating combat line | `and the accumulation of theater dossiers.` |
+
+**Fit margins are the constraint here, not taste.** The Pancratium copies are centred on
+x 290 inside a 320 px panel, which leaves 14 px each side for the widest string
+(`SECTORS…` measures 291.5 px at 17 pt with spacing 1.1; it was 273.3 px at 16 pt, already
+wider than the 272 px strip it used to sit in). Widening the panel or shortening that line is
+what has to happen before it grows again — do not just raise the point size. The Atrium copy
+draws 516 px and 395 px in a 668 px panel at 19 pt, so it has room.
 
 Footer `BACK` is `{510, 594, 260, 48}`.
 
-The Pancratium strip's second line is the only moving copy on the screen. `hub_draw_combat_line()`
+The Pancratium card's second line is the only moving copy on the screen. `hub_draw_combat_line()`
 prints one line from `GameStats`, switching every 5 s:
 
 | slot | line |

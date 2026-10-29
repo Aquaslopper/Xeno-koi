@@ -69,13 +69,13 @@ static const char *const k_profile_action_labels[5] = {
 };
 
 
-/* Mode select: one data strip and one button per card, no heading (the button carries the
-   name), and both cards are built the same way - same inset, same strip, same button row -
-   so only their width differs. Pancratium is the short door and Atrium the long one. */
+/* Mode select: one button per card plus the copy above it, no heading (the button carries
+   the name), and both cards are built the same way - same inset, same
+   copy/button/back rows - so only their width differs. Pancratium is the short door and
+   Atrium the long one. The copy is drawn straight on the card: it used to sit in a second
+   framed strip of its own, which capped it at 15-16 px for no gain. */
 static const Rectangle k_main_left_panel    = { 130.0f, 256.0f, 320.0f, 178.0f };
 static const Rectangle k_main_right_panel   = { 482.0f, 256.0f, 668.0f, 178.0f };
-static const Rectangle k_main_campaign_box  = { 154.0f, 276.0f, 272.0f,  58.0f };
-static const Rectangle k_main_atrium_box    = { 506.0f, 276.0f, 620.0f,  58.0f };
 static const Rectangle k_main_campaign_btn  = { 154.0f, 366.0f, 272.0f,  48.0f };
 static const Rectangle k_main_atrium_btn    = { 506.0f, 366.0f, 620.0f,  48.0f };
 static const Rectangle k_main_back_btn      = { 510.0f, 594.0f, 260.0f,  48.0f };
@@ -194,12 +194,33 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
 
 /* --- Title Screen (SCREEN_START) ----------------------------------------- */
 
+/* No bold face ships with this repo - all four TTFs are weight 400 - so the
+   subtitle's weight is synthesised: the line is drawn twice with a sub-pixel
+   horizontal offset. At 37 px a 0.9 px offset thickens the stems without
+   visibly doubling the edges, and the centring accounts for the extra 0.9 px
+   so the line stays optically centred. */
+static void hub_draw_centered_bold(Font font, const char *text, float cx, float y,
+                                   float fsz, float sp, Color col) {
+    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    float x = floorf(cx - (ts.x + 0.9f) * 0.5f);
+    DrawTextEx(font, text, (Vector2){ x, floorf(y) }, fsz, sp, col);
+    DrawTextEx(font, text, (Vector2){ x + 0.9f, floorf(y) }, fsz, sp, col);
+}
+
 void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile) {
     const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     hub_draw_backdrop_alpha(ba, 95);
     Color wine_red = { 224, 136, 146, 255 };
-    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 60.0f, 176.0f, 3.0f, COLOR_PHOSPHOR);
-    hub_draw_centered(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 248.0f, 34.0f, 4.0f, wine_red);
+    /* Owner pass, 29 October 2026. 140.8 = 176 * 0.8 (brand 20 % smaller) and
+       37.4 = 34 * 1.1 (subtitle 10 % bigger). The brand's y is ink-to-ink, not an
+       em box: at 140.8 px its ink runs +24.9 .. +155.6 below its y, and the
+       subtitle's ink starts +10.4 below its own y at 248, so y = 91 leaves ~12 px
+       of real space between them. At the old 176 px the same pair was ~3 px apart,
+       which is why shrinking alone opened a hole; the brand comes back down to
+       close it. Smaller also means less upscaling from the 48 px master (3.67x ->
+       2.93x), so the line is slightly sharper as a side effect. */
+    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 91.0f, 140.8f, 3.0f, COLOR_PHOSPHOR);
+    hub_draw_centered_bold(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 248.0f, 37.4f, 4.0f, wine_red);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
@@ -312,7 +333,7 @@ HubAction ui_hub_handle_profile_manager_click(Vector2 vm, HubButtonHit *out_hit,
     return HUB_ACT_NONE;
 }
 
-/* The third line of the Pancratium strip is the only moving copy on this screen: one
+/* The second line of the Pancratium card is the only moving copy on this screen: one
    combat line at a time, rotated every few seconds, so the card answers "what have I done
    in here" without a wall of text. Same GameStats the result and stats screens read. */
 static void hub_draw_combat_line(const GameStats *st, float cx, float y) {
@@ -344,7 +365,7 @@ static void hub_draw_combat_line(const GameStats *st, float cx, float y) {
         }
         txt = line;
     }
-    hub_draw_centered(font_body, txt, cx, y, 14.0f, 1.0f, col);
+    hub_draw_centered(font_body, txt, cx, y, 16.0f, 1.0f, col);
 }
 
 /* --- Main Game Hub (SCREEN_HUB_MAIN) ------------------------------------- */
@@ -364,15 +385,16 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, const GameSt
     /* Left Card: CAMPAIGN -- slim, one frame. */
     DrawRectangleRec(k_main_left_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_left_panel, COLOR_PHOSPHOR_DIM);
-    DrawRectangleRec(k_main_campaign_box, (Color){ 4, 8, 10, 210 });
-    DrawRectangleLinesEx(k_main_campaign_box, 1.0f, COLOR_PHOSPHOR_DIM);
+    /* The card holds the button and nothing else framed. The copy above it used to
+       sit in its own 58 px box, which bought no legibility and cost the text the
+       room to grow; the box and its two constants are gone (owner, 29 Oct 2026). */
     snprintf(line1, sizeof(line1), "SECTORS %02d/12   //   COINS %02d/36", sectors, coins);
-    hub_draw_centered(font_body, line1, 290.0f, 283.0f, 16.0f, 1.1f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_body, line1, 290.0f, 286.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
     /* Deus is a session-long warning, so it outranks the rotating combat line. */
     if (is_deus) {
-        hub_draw_centered(font_body, "DEUS SUPREMUS ACTIVE", 290.0f, 308.0f, 14.0f, 1.0f, COLOR_RED);
+        hub_draw_centered(font_body, "DEUS SUPREMUS ACTIVE", 290.0f, 314.0f, 16.0f, 1.0f, COLOR_RED);
     } else {
-        hub_draw_combat_line(st, 290.0f, 308.0f);
+        hub_draw_combat_line(st, 290.0f, 314.0f);
     }
 
     hub_draw_button(k_main_campaign_btn, "PANCRATIUM", 20, vm);
@@ -382,12 +404,14 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, const GameSt
     DrawRectangleRec(k_main_right_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_right_panel, COLOR_PHOSPHOR_DIM);
 
-    DrawRectangleRec(k_main_atrium_box, (Color){ 4, 8, 10, 210 });
-    DrawRectangleLinesEx(k_main_atrium_box, 1.0f, COLOR_PHOSPHOR_DIM);
+    /* Same as the left card: no box around the copy. 15 px was the smallest
+       body text on the screen and this card is the widest surface in the game
+       (620 px of button), so it goes to 19 px - it still fits with room to
+       spare (516 px and 395 px drawn). */
     hub_draw_centered(font_body, "A monastic vault for the calibration of tactical reflexes",
-                      816.0f, 287.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                      816.0f, 285.0f, 19.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     hub_draw_centered(font_body, "and the accumulation of theater dossiers.",
-                      816.0f, 310.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                      816.0f, 313.0f, 19.0f, 1.0f, COLOR_TEXT_INFO_DIM);
 
     hub_draw_button(k_main_atrium_btn, "ATRIUM PLEX", 20, vm);
 
