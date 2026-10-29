@@ -62,9 +62,12 @@ jobs:
             tests_lock:
               - 'tests/**'
               - 'tools/tests_guard.*'
+            action_card:
+              - 'src/ui_action.*'
+              - 'tools/action_guard.*'
       - name: Build summary
         id: summary
-        if: steps.filter.outputs.rules == 'true' || steps.filter.outputs.settings == 'true' || steps.filter.outputs.cards_atlas == 'true' || steps.filter.outputs.wiki == 'true' || steps.filter.outputs.core_mechanic == 'true' || steps.filter.outputs.tests_lock == 'true'
+        if: steps.filter.outputs.rules == 'true' || steps.filter.outputs.settings == 'true' || steps.filter.outputs.cards_atlas == 'true' || steps.filter.outputs.wiki == 'true' || steps.filter.outputs.core_mechanic == 'true' || steps.filter.outputs.tests_lock == 'true' || steps.filter.outputs.action_card == 'true'
         run: |
           echo "protected=true" >> $GITHUB_OUTPUT
           {
@@ -75,6 +78,7 @@ jobs:
             if [ "${{ steps.filter.outputs.wiki }}" == "true" ]; then echo "**Wiki:**"; echo '```'; echo "${{ steps.filter.outputs.wiki_files }}"; echo '```'; fi
             if [ "${{ steps.filter.outputs.core_mechanic }}" == "true" ]; then echo "**Core:**"; echo '```'; echo "${{ steps.filter.outputs.core_mechanic_files }}"; echo '```'; fi
             if [ "${{ steps.filter.outputs.tests_lock }}" == "true" ]; then echo "**Tests (locked without owner approval):**"; echo '```'; echo "${{ steps.filter.outputs.tests_lock_files }}"; echo '```'; fi
+            if [ "${{ steps.filter.outputs.action_card }}" == "true" ]; then echo "**ACTION CARD MODE (frozen by owner decision - do not touch, report only):**"; echo '```'; echo "${{ steps.filter.outputs.action_card_files }}"; echo '```'; fi
           } > /tmp/body.md
       - name: Comment
         if: steps.summary.outputs.protected == 'true' && github.actor != 'Aquaslopper' && (github.event_name == 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository)
