@@ -820,6 +820,39 @@ static void draw_speedcoin_clock_panel(void) {
                        r.x + r.width * 0.5f, r.y + 170.0f, 13.0f, 0.6f, COLOR_PHOSPHOR_DIM);
 }
 
+static void draw_table_biomech_frame(void) {
+    static const Vector2 crown[] = {
+        { 298, 74 }, { 337, 34 }, { 404, 12 }, { 487, 18 }, { 563, 39 },
+        { 640, 23 }, { 710, 8 }, { 780, 23 }, { 857, 39 }, { 933, 18 },
+        { 1016, 12 }, { 1083, 34 }, { 1142, 74 }
+    };
+    static const Vector2 left[] = {
+        { 298, 74 }, { 290, 190 }, { 296, 300 }, { 288, 410 },
+        { 296, 530 }, { 314, 642 }, { 350, 690 }
+    };
+    static const Vector2 right[] = {
+        { 1142, 74 }, { 1150, 190 }, { 1144, 300 }, { 1152, 410 },
+        { 1144, 530 }, { 1126, 642 }, { 1090, 690 }
+    };
+    static const Vector2 foot[] = {
+        { 350, 690 }, { 470, 712 }, { 585, 706 }, { 710, 716 },
+        { 835, 706 }, { 950, 712 }, { 1090, 690 }
+    };
+    for (int i = 0; i < (int)(sizeof(crown) / sizeof(crown[0])) - 1; i++)
+        ui_draw_organic_rib(crown[i], crown[i + 1], 3.8f, COLOR_PHOSPHOR_DIM);
+    for (int i = 0; i < (int)(sizeof(left) / sizeof(left[0])) - 1; i++)
+        ui_draw_organic_rib(left[i], left[i + 1], 4.2f, COLOR_PHOSPHOR_DIM);
+    for (int i = 0; i < (int)(sizeof(right) / sizeof(right[0])) - 1; i++)
+        ui_draw_organic_rib(right[i], right[i + 1], 4.2f, COLOR_PHOSPHOR_DIM);
+    for (int i = 0; i < (int)(sizeof(foot) / sizeof(foot[0])) - 1; i++)
+        ui_draw_organic_rib(foot[i], foot[i + 1], 2.8f, COLOR_PHOSPHOR_DIM);
+
+    ui_draw_organic_rib((Vector2){ 363, 28 }, (Vector2){ 375, 55 }, 2.0f, COLOR_PHOSPHOR);
+    ui_draw_organic_rib((Vector2){ 917, 28 }, (Vector2){ 905, 55 }, 2.0f, COLOR_PHOSPHOR);
+    ui_draw_organic_rib((Vector2){ 303, 328 }, (Vector2){ 323, 347 }, 2.2f, COLOR_PHOSPHOR);
+    ui_draw_organic_rib((Vector2){ 1137, 328 }, (Vector2){ 1117, 347 }, 2.2f, COLOR_PHOSPHOR);
+}
+
 void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState *anim,
                       int hovered_hand_idx, int dragging_idx, Vector2 drag_pos,
                       int easy_mode, int replay_mode, const char *status_msg) {
@@ -957,6 +990,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     DrawRectangle(0, 0, 1280, 720, COLOR_TABLE_DIM);
     DrawRectangleGradientV(0, 380, 1280, 340, (Color){ 5, 5, 5, 0 }, (Color){ 5, 5, 5, 65 });
     ash_draw_and_update(frame_dt);
+    draw_table_biomech_frame();
 
     /* 2. Left Column */
     static int s_last_active_turn = -1;

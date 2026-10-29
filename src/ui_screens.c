@@ -316,8 +316,8 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
 
     draw_section_header("DISPLAY & SOUND", 56.0f);
     const char *cnames[6] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET", "DARK" };
-    if (is_deus) draw_locked_row(96.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
-    else draw_selector_row(96.0f, "Terminal Color:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
+    if (is_deus) draw_locked_row(96.0f, "UI Accent:", "[ DARK (LOCKED) ]");
+    else draw_selector_row(96.0f, "UI Accent:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
 
     const char *bg_names[8] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City", "5: Deus", "6: Face", "7: Realm" };
     Vector2 bg_vm = is_deus ? (Vector2){ -1.0f, -1.0f } : vm;

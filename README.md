@@ -1,4 +1,4 @@
-<img src="docs/assets/readme/hero.jpg" alt="[XENO / KOI] Biomechanical Edition — the game's own start screen: teal CRT lettering under a dark arch, over Giger-style biomechanical art of a face merged with the architecture." width="1280" />
+<img src="docs/assets/readme/hero.jpg" alt="Earlier title-screen capture: teal terminal lettering under a dark arch, over biomechanical art of a face merged with the architecture." width="1280" />
 
 <a href="https://aquaslopper.github.io/Xeno-koi/play/"><img src="docs/assets/readme/btn-play.png" alt="Play in the browser" width="32%" /></a>&nbsp;
 <a href="https://aquaslopper.github.io/Xeno-koi/how-to-play/"><img src="docs/assets/readme/btn-rulebook.png" alt="Read the rulebook" width="32%" /></a>&nbsp;
@@ -19,9 +19,9 @@ Everything above is explained with real card pictures in the rulebook: **[How to
 
 ## Screenshots
 
-<img width="1920" height="1080" src="docs/assets/screenshots/ingame.webp" alt="The opening of a KK-ADD-10 round: eight cards in each hand, eight on the field, 24 in the stock, and one player card raised for selection inside the teal CRT interface." />
+<img width="1920" height="1080" src="docs/assets/screenshots/ingame.webp" alt="Earlier gameplay capture, before the warm biomechanical UI reskin: the opening of a KK-ADD-10 round, with eight cards in each hand, eight on the field, 24 in the stock, and one player card raised inside the teal CRT interface." />
 
-<img width="1920" height="1080" src="docs/assets/screenshots/ingame2.webp" alt="A KK-ADD-10 round in progress: both players have cards in their capture lanes, the player's remaining hand sits along the bottom, and capture particles drift above the field." />
+<img width="1920" height="1080" src="docs/assets/screenshots/ingame2.webp" alt="Earlier gameplay capture, before the warm biomechanical UI reskin: a KK-ADD-10 round in progress, with cards in both capture lanes and the player's remaining hand along the bottom." />
 
 ## Where to read what
 
@@ -38,7 +38,7 @@ Everything above is explained with real card pictures in the rulebook: **[How to
 
 ## Overview
 
-**Xeno Koi** is a digital adaptation of the traditional Japanese card game Koi-Koi, wrapped in a dark, HR Giger-inspired biomechanical aesthetic and a 1979 CRT terminal UI.
+**Xeno Koi** is a digital adaptation of the traditional Japanese card game Koi-Koi, set in a dark biomechanical world with an organic bone-and-bronze interface. The CRT scanline filter is optional and off by default.
 
 Designed for both casual play and hardcore competitive strategy, the engine features multiple rule variations, smooth physics-based card interactions, and an atmospheric audiovisual presentation.
 

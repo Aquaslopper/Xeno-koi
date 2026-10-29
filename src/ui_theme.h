@@ -25,6 +25,7 @@ void ui_theme_draw_panel_flares_keyed(Rectangle r, int key);
 void ui_theme_set_panel_flare_glow(Rectangle r, float glow);
 void ui_theme_set_global_flare_boost(float glow_floor, float speed_mult);
 void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float font_size, float spacing, Color col);
+void ui_draw_organic_rib(Vector2 a, Vector2 b, float width, Color accent);
 void ui_draw_panel_border(Rectangle r, Color border_color);
 
 #define COLOR_PHOSPHOR       (g_theme.base)
@@ -36,7 +37,7 @@ void ui_draw_panel_border(Rectangle r, Color border_color);
 
 #define COLOR_AMBER          (Color){ 0xFF, 0xB0, 0x00, 0xFF }
 #define COLOR_RED            (Color){ 0xFF, 0x40, 0x40, 0xFF }
-#define COLOR_PANEL_BG       (Color){ 0, 0, 0, 178 }           /* 70% alpha */
+#define COLOR_PANEL_BG       (Color){ 12, 8, 7, 205 }          /* warm, near-opaque charcoal */
 #define COLOR_OVERLAY_BG     (Color){ 0, 0, 0, 220 }           /* heavy dimming */
 #define COLOR_TABLE_DIM      (Color){ 0, 0, 0, 38 }            /* 15% alpha table wash */
 

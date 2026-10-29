@@ -745,7 +745,7 @@ unlocked_opponents, current_opponent, cleared_mask
 | `ruleset` | `RULESET_KK_ADD_10` | `effect_bass` | 0.0 |
 | `background` | 0 | `effect_reverb` | 0.50 |
 | `anim_speed` | 0 | `bloom` | 1 |
-| `terminal_color` | 2 | `crt_filter` | 2 |
+| `terminal_color` | 1 | `crt_filter` | 0 |
 | `gamma` | 1.00 | `fullscreen` | 0 |
 | `unlocked_opponents` | 1 | `current_opponent` | 0 |
 | `cleared_mask` | 0 | `music_folder` | empty |
@@ -1290,6 +1290,12 @@ y 380 and 720. The same shader is used by every menu that draws a background
 `screens_draw_credits`, `screens_draw_match_result`) through
 `draw_bg_if_loaded()`, with `flashAmount` fixed at 0.
 
+`draw_table_biomech_frame()` overlays a warm rib contour after the dim and ash passes,
+before the HUD and cards. `ui_draw_panel_border()` draws broken, bone-like seams instead
+of a uniform rectangle; geometry and hit regions stay unchanged. Fresh settings now use
+the warm AMBER UI accent and default the optional CRT filter to OFF; saved preferences
+still take precedence.
+
 Eight backgrounds are loaded from `assets/harvest.jpg`, `hole.jpg`, `arctic.jpg`,
 `castle.jpg`, `city.jpg`, `deus.png`, `face.jpg`, `realm.jpg`, with matching
 `*_normal.png` maps at bilinear filtering and clamp wrapping.
@@ -1520,7 +1526,7 @@ the label at x 300 and the control starting at x 650:
 | 128 | Ruleset | `<` / `>` with a colour-coded value box `{694,128,172,26}` |
 | 206 | Difficulty | `<` `{650,206,40,26}`, value `{694,206,172,26}`, `>` `{870,206,40,26}` |
 | 242 | Master/Deus timer | `15 SEC` `{650,242,128,26}`, `30 SEC` `{782,242,128,26}` |
-| 320 | Terminal Color | `<` / value / `>` in the same three rectangles |
+| 320 | UI Accent | `<` / value / `>` in the same three rectangles |
 | 356 | Background | `<` `{650,356,36,26}`, value `{690,356,130,26}`, `>` `{824,356,36,26}`, preview `{864,356,46,26}` |
 | 392 | Anim Speed | `SLOW` `{650,392,84,26}`, `NORMAL` `{738,…}`, `FAST` `{826,…}` |
 | 428 | BGM Volume | slider track `{688,433,184,16}`, `-` `{650,428,34,26}`, `+` `{876,428,34,26}` |

@@ -33,6 +33,15 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Non-CRT biomechanical UI pass (29 October 2026)
+
+- **Direction:** implemented the selected warm, organic interface concept without changing screen geometry or input regions.
+- **Panels and table:** shared panel edges now use broken bone-like seams; the gameplay table gets a ribbed perimeter frame, warm near-opaque panel fills, and the default accent is muted amber.
+- **CRT:** fresh settings default the scanline filter to OFF. The optional setting remains available, and saved preferences are preserved.
+- **Documentation:** README describes the non-CRT direction and labels the existing hand-captured screenshots as pre-reskin; the architecture map records the new draw order and defaults.
+- **Verified:** `RAYLIB_SRC=/tmp/raylib-5.5/src ./build.sh test` passed, including the 500-match engine suite, table UI, Options/audio input checks, and both guards. `gcc -std=c99 -O2 -Wall -Wextra -Werror -Isrc -I/tmp/raylib-5.5/src -fsyntax-only src/*.c` passed; `git diff --check`, `python3 tools/make_readme_art.py --check`, and `python3 tools/make_board_figure.py --check` passed.
+- **Not verified:** in-game appearance, because this sandbox has no live graphics display. Screenshots remain the earlier captures and must be recaptured in a running build.
+
 ### Atrium Plex pass, and the title comes down again (29 October 2026)
 
 Walking the game path into the story; every item below is the owner's, in the order they walked it.

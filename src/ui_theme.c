@@ -4,13 +4,13 @@
 #include <math.h>
 
 TerminalTheme g_theme = {
-    2, "TEAL",
-    { 100, 240, 255, 255 },
-    { 45, 175, 195, 255 },
-    { 242, 253, 255, 255 },
-    { 200, 232, 240, 255 },
-    { 100, 240, 255, 10 },
-    { 11, 43, 48, 230 }
+    1, "AMBER",
+    { 214, 170, 116, 255 },
+    { 126, 87, 53, 255 },
+    { 242, 226, 202, 255 },
+    { 190, 164, 132, 255 },
+    { 214, 170, 116, 10 },
+    { 31, 22, 13, 230 }
 };
 
 TerminalTheme theme_get(int id) {
@@ -18,10 +18,10 @@ TerminalTheme theme_get(int id) {
     if (id == 1) {
         t.id = 1;
         t.name = "AMBER";
-        t.base = (Color){ 255, 200, 80, 255 };
-        t.dim  = (Color){ 195, 140, 45, 255 };
-        t.text_info = (Color){ 255, 250, 240, 255 };
-        t.text_info_dim = (Color){ 238, 220, 195, 255 };
+        t.base = (Color){ 214, 170, 116, 255 };
+        t.dim  = (Color){ 126, 87, 53, 255 };
+        t.text_info = (Color){ 242, 226, 202, 255 };
+        t.text_info_dim = (Color){ 190, 164, 132, 255 };
     } else if (id == 2) {
         t.id = 2;
         t.name = "TEAL";
@@ -346,7 +346,8 @@ static void panel_flares_draw(Rectangle r, int key) {
         }
         if (glow_floor > shine) shine = glow_floor;
         unsigned char alpha = (unsigned char)(22.0f + 200.0f * shine);
-        Color flare = (Color){ 255, 255, 255, alpha };
+        Color flare = COLOR_TEXT_INFO;
+        flare.a = alpha;
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
                           0.9f + 0.3f * shine, flare);
     }
@@ -580,25 +581,51 @@ void ui_theme_draw_text_flares(Font font, const char *text, Vector2 pos, float f
     }
 }
 
+void ui_draw_organic_rib(Vector2 a, Vector2 b, float width, Color accent) {
+    float dx = b.x - a.x, dy = b.y - a.y;
+    float len = sqrtf(dx * dx + dy * dy);
+    if (width <= 0.0f || len < 0.1f) return;
+
+    Color shadow = (Color){ 13, 8, 6, 210 };
+    Color body = accent;
+    body.a = (unsigned char)((unsigned int)accent.a * 210u / 255u);
+    Color highlight = g_theme.text_info;
+    highlight.a = (unsigned char)((unsigned int)accent.a * 150u / 255u);
+    DrawLineEx(a, b, width + 2.4f, shadow);
+    DrawLineEx(a, b, width, body);
+    float ox = -dy / len, oy = dx / len;
+    DrawLineEx((Vector2){ a.x + ox, a.y + oy }, (Vector2){ b.x + ox, b.y + oy },
+               fmaxf(0.65f, width * 0.22f), highlight);
+}
+
 void ui_draw_panel_border(Rectangle r, Color border_color) {
     if (r.width <= 2.0f || r.height <= 2.0f) return;
-    int rx = (int)r.x, ry = (int)r.y, rw = (int)r.width, rh = (int)r.height;
-
-    /* 1. Base border stroke */
-    DrawRectangleLinesEx(r, 1.0f, border_color);
-
-    /* 2. Subtle center highlight on top & bottom lines (drawn in default alpha blend
-          to avoid BeginBlendMode/EndBlendMode render-batch flushes per panel). */
-    int half_w = rw >> 1;
-    if (half_w > 0) {
-        Color c_mid = (Color){ 255, 255, 255, 18 };
-        Color c_edge = (Color){ 255, 255, 255, 0 };
-        DrawRectangleGradientH(rx, ry, half_w, 1, c_edge, c_mid);
-        DrawRectangleGradientH(rx + half_w, ry, rw - half_w, 1, c_mid, c_edge);
-        DrawRectangleGradientH(rx, ry + rh - 1, half_w, 1, c_edge, c_mid);
-        DrawRectangleGradientH(rx + half_w, ry + rh - 1, rw - half_w, 1, c_mid, c_edge);
+    float x = (float)(int)r.x, y = (float)(int)r.y;
+    float w = (float)(int)r.width, h = (float)(int)r.height;
+    float cut = fminf(12.0f, fminf(w, h) * 0.22f);
+    if (cut < 2.0f) {
+        DrawRectangleLinesEx(r, 1.0f, border_color);
+        return;
     }
 
-    /* 3. Each bordered box gets its own three-to-five perimeter dots. */
-    panel_flares_draw((Rectangle){ (float)rx, (float)ry, (float)rw, (float)rh }, 0);
+    /* Broken, bone-like seams replace the uniform neon rectangle. */
+    ui_draw_organic_rib((Vector2){ x + cut, y + 1 }, (Vector2){ x + w * 0.40f, y + 1 }, 1.0f, border_color);
+    ui_draw_organic_rib((Vector2){ x + w * 0.62f, y + 1 }, (Vector2){ x + w - cut, y + 1 }, 1.0f, border_color);
+    ui_draw_organic_rib((Vector2){ x + cut, y + h - 1 }, (Vector2){ x + w * 0.36f, y + h - 1 }, 1.0f, border_color);
+    ui_draw_organic_rib((Vector2){ x + w * 0.64f, y + h - 1 }, (Vector2){ x + w - cut, y + h - 1 }, 1.0f, border_color);
+    ui_draw_organic_rib((Vector2){ x + 1, y + cut }, (Vector2){ x + 1, y + h * 0.40f }, 0.9f, border_color);
+    ui_draw_organic_rib((Vector2){ x + 1, y + h * 0.62f }, (Vector2){ x + 1, y + h - cut }, 0.9f, border_color);
+    ui_draw_organic_rib((Vector2){ x + w - 1, y + cut }, (Vector2){ x + w - 1, y + h * 0.37f }, 0.9f, border_color);
+    ui_draw_organic_rib((Vector2){ x + w - 1, y + h * 0.63f }, (Vector2){ x + w - 1, y + h - cut }, 0.9f, border_color);
+
+    ui_draw_organic_rib((Vector2){ x + 1, y + cut }, (Vector2){ x + cut, y + 1 }, 1.6f, border_color);
+    ui_draw_organic_rib((Vector2){ x + w - 1, y + cut }, (Vector2){ x + w - cut, y + 1 }, 1.6f, border_color);
+    ui_draw_organic_rib((Vector2){ x + 1, y + h - cut }, (Vector2){ x + cut, y + h - 1 }, 1.6f, border_color);
+    ui_draw_organic_rib((Vector2){ x + w - 1, y + h - cut }, (Vector2){ x + w - cut, y + h - 1 }, 1.6f, border_color);
+
+    if (w > 72.0f && h > 42.0f) {
+        ui_draw_organic_rib((Vector2){ x + cut, y + 2 }, (Vector2){ x + cut + 8, y + 8 }, 0.8f, border_color);
+        ui_draw_organic_rib((Vector2){ x + w - cut, y + h - 2 }, (Vector2){ x + w - cut - 8, y + h - 8 }, 0.8f, border_color);
+    }
+    panel_flares_draw((Rectangle){ x, y, w, h }, 0);
 }

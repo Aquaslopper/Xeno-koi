@@ -543,10 +543,10 @@ void storage_load_settings(GameSettings *s) {
     s->effect_bass = 0.0f;
     s->effect_reverb = 0.50f;
     s->anim_speed = 0;
-    s->terminal_color = 2;
+    s->terminal_color = 1;
     s->fullscreen = 0;
     s->bloom = 1;
-    s->crt_filter = 2;
+    s->crt_filter = 0;
     s->gamma = 1.00f;
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
