@@ -4,18 +4,15 @@
 
 ---
 
-## Story and the Atrium Plex
+## The Atrium Plex
 
-- **Every card speaks.** All 48 cards now carry a passage on the briefing panel in the
-  vessel's voice — three lines each, except the four Month 01 tutorials, which keep their
-  instructional text and get one line underneath it.
-- **Story protocols.** Fourteen cards deal a real round before they clear: you play it on
-  your ruleset, a keeper transmission opens across the table, and the sector completes
-  when you close it.
+- **Cards clear by playing.** A card used to complete on a single click; fourteen of them
+  now deal a real round on your ruleset first and only clear once that round is over.
+- **Briefing panel.** The middle panel now updates per card, and the card list, the briefing
+  and the action row sit on one grid.
 - **The logfile was rebuilt** into four tabs — `STORY`, `TRAINING`, `MATCHES`, `ATLAS` —
-  with the twelve monthly documents, live telemetry, every run you have played, and the
-  card atlas with its inspector and achievements. The second, hardcore pass gets its own
-  atlas.
+  with live telemetry, every run you have played, and the card atlas with its inspector and
+  achievements. The hardcore second pass gets its own atlas.
 - **Plex records are Plex records.** Campaign numbers were being printed in five places
   inside the Atrium Plex; all five now read Plex data. A Pancratium win no longer appears
   as a Plex win, and Plex runs no longer appear in the campaign record.
