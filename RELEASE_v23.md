@@ -1,65 +1,45 @@
-# Changes since v22
+# XENO / KOI — Version 23
 
-27–29 October 2026. Everything below is a net value change or a net code change in the
-tree between the `v22` tag and `main`.
+**Changes since Version 22**
 
 ---
 
-## `assets/depth_fog.fs` — background light
+### Atmosphere
 
-- Light position: the fixed left-to-right drift (`0.08 + 0.84 * (0.5 - 0.5*cos`) is replaced
-  by a position that steps to a new random point every 10 s and circles it
-  (`lightUV = 0.5 + 0.42*(cos/sin)` with a per-step phase nudge).
-- Beam spin: `time * 0.215` -> `time * 0.09`.
-- Beam reach: a directional `beamReach` term replaced the radial `reach` in the beam sum;
-  radius `0.90` -> `0.80`.
-- Beam strength: `layers *= 1.0 + 0.40`.
-- `flashGain` base: `1.0` -> `0.60`.
-- Fog density: `* 0.80` clamped to `0.55` -> `* 0.50` clamped to `0.35`.
-- Ambient vignette block: removed.
-- Final output: `blended * vignette` -> `blended * 0.8`.
-- New `normalMask = smoothstep(0.02, 0.12, map.a)` gating `lightAdd`.
+The background light no longer drifts on a fixed left-to-right track. It now wanders to a
+new position every ten seconds and circles it, so the chamber is lit differently each time
+you look up. Beam reach, beam strength and fog density were retuned around it, and the
+ambient vignette was removed so the scene is no longer darkened at the edges.
 
-## `src/ui_board.c` — table
+Lightning is shorter and sharper: the flash now lasts a quarter of a second instead of a
+full second, with a shorter hold and a slower fade.
 
-- `ASH_COUNT` 155 -> 100, `ASH_BURST_MAX` 420 -> 260.
-- Ash wind: added a constant `+30.0` sideways drift.
-- Ash particle life: `0.85` -> `0.95` base.
-- Ember heat: `EMBER_KICK_CAP` 0.10 -> 0.08, `EMBER_KICK_KOI` 0.30 -> 0.10,
-  `EMBER_DECAY` 0.08 -> 0.06, `EMBER_HOT` 0.52 -> 0.50, `EMBER_MIN` 0.07 -> 0.08,
-  `EMBER_SMOOTH_ATK` 0.12 -> 0.22, `EMBER_SIZE_BONUS` 0.16 -> 0.12.
-- Impact glow on a moving card while it flies: `0.8` -> `0.4`.
-- Thunder: `thunder_flash` 1.0 -> 0.25, `thunder_hold` 1.50 -> 0.50, flash decay
-  constant `0.80` -> `1.00`.
-- Reverb envelope driven from the table: per-capture gain `0.10` -> `0.09`,
-  hold `2.00` -> `4.10` (and only re-armed below 0.85), decay `1.5` -> `0.4` per second,
-  smoothing `0.10` -> `0.70` and `0.19` -> `0.14`.
-- Peak hold: a full-strength peak is capped, held 4.10 s, then forced back to 0.85.
+The ash field carries fewer particles, but they live longer and drift steadily sideways
+instead of hanging in place.
 
-## `src/ui_audio.c` — reverb
+Embers build up more slowly and cool down more slowly. A single capture now warms the field
+gently rather than igniting it, and heat carries further into a round.
 
-- Right-channel comb lengths: `1147,1229,1307,1399,1459,1523,1597,1657` ->
-  `1126,1204,1292,1370,1436,1502,1574,1631` (now matched to the left).
-- Right-channel allpass lengths: `577,461,359,251` -> `561,446,341,231`.
-- Room size: `0.65 + 1.55*room` -> `0.65 + 1.85*room`.
-- Diffusion: `0.50 + 0.15*room` -> `0.25 + 0.10*room`.
-- Pre-delay: `220 + 1980*room` (5–50 ms) -> fixed `1102.5` (~25 ms).
+### Sound
 
-## `src/ui_theme.c` — panel flare
+The room reverb was rebuilt around you. The space is wider, the pre-delay is fixed at about
+25 ms, and the left and right channels now use matched comb and allpass spacing, which
+removes the metallic edge at high settings.
 
-- Flare alpha: `22 + 233*shine` -> `22 + 200*shine`.
-- Flare width: `0.7 + 0.4*shine` -> `0.9 + 0.3*shine`.
+A capture holds its tail for about four seconds instead of two, and lets go gently instead
+of falling away. A peak that reaches full strength is now capped: it stays up for four
+seconds, then settles back to 85%, so a stacked round can no longer leave the room pinned
+at maximum.
 
-## `src/ui_main.c` — pacing
+### Motion
 
-- Card flight duration: `0.40` -> `0.60`.
-- CPU think duration: fixed `0.15` -> `0.40 / 0.30 / 0.20` by difficulty.
-- `trigger_event_beat` multiplier: initial `0.0` -> `1.0` (the beat was being multiplied
-  to zero).
-- `trigger_cpu_step_beat` now also skips while the action-card mode is active.
+Cards take 0.6 s to fly instead of 0.4 s, so captures read as movement rather than a jump.
 
-## Also changed
+The CPU now thinks for 0.40, 0.30 or 0.20 seconds depending on difficulty, where every
+difficulty previously paused for the same 0.15 s.
 
-- `src/campaign.c`: comment on `DEUS_UNLOCKED_FOR_TESTING`.
-- `build.sh`, `tools/`, `.github/`: contributor tooling.
-- Docs: `LEARN_THE_CODE.md`, `AGENTS.md`, `STATUS.md`, `Dealership.md`, `plexus/*`.
+The inter-step beat is fixed: it was being multiplied to zero and never played.
+
+### Interface
+
+Panel flares are slightly wider and a little calmer in peak brightness.
