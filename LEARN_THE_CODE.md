@@ -1903,6 +1903,43 @@ protocol test, one state machine, ASCII-only text, branch order above the generi
 `>= 4` path — are written out in `AGENTS.md` under "Atrium Plex story beats and
 story protocols". Read that before adding a story card.
 
+### 10.7 The Plex's own record (no campaign data)
+
+The two modes keep separate saves: the Pancratium writes `profiles/stats.txt`
+through `storage_record_match()`, the Plex writes `profiles/plexsave.txt` through
+`plexus_save()`. They used to share more than that in *display*: five sites in
+`ui_plexus.c` printed `GameStats` — the Pancratium career record — inside the Atrium,
+so campaign wins appeared as Plex totals. All five now read Plex data only, and
+`ui_plexus.c` contains **no `st->` access at all**; the `const GameStats *st` in the
+public signatures is kept because `ui_main.c` passes it, and the functions mark it
+`(void)st` (the atlas tab has done that since before this cleanup).
+
+| site | before | now |
+|---|---|---|
+| `draw_logfile_stats_box()` | record line `st->matches_won + s_ac_wins`, `st->koi_calls_you` | `[nn/48] [TR W-L] [SC runs] [AC W-L]` |
+| `draw_logfile_training_tab()` | `CAREER + PLEX`, campaign win streak, favourite yaku, peak round, `AI PLAYSTYLES n/12` | `PLEX RECORD`, `PERFECT SERIE`, `CARDS CLEARED`, `PEAK SCORING TR/AC`, `SPEEDCOIN HI` |
+| `draw_logfile_matches_tab()` | `ALL COMPLETED MATCHES & RUNS` = campaign + Plex | `ALL PLEX RUNS` = Plex only |
+| `plexus_draw_training_result()` right panel | heading `OVERALL STATS`, six `GameStats` lines | heading `PLEX ARCHIVE`, six Plex lines |
+| `plexus_draw_training_result()` left panel | unchanged, session-scoped (`g` only) | unchanged |
+
+Everything the panels now show is already in `plexsave.txt`:
+`s_tr_runs/wins/losses/best_score/rounds_total`, `s_ac_runs/wins/losses/best_score`,
+`s_sc_runs/s_sc_best_wave/s_sc_ranks[]`, `s_finished_cards_mask`,
+`s_deus_finished_cards_mask`, plus the speedbar/audio telemetry.
+
+The one deliberate remaining tie is the **training opponent list**, which is still
+capped by `get_unlocked_camp_opponents()` (i.e. Pancratium `unlocked_opponents`), on
+the owner's instruction. Note for whoever reads the achievements list: the Plex
+achievement `SECTOR HUNTER (12/12 RIVALS)` is also keyed to that campaign unlock, so
+it is a second, smaller tie — left alone deliberately, not overlooked.
+
+What is *not* a leak: to run its own matches the Plex borrows the shared
+`GameSettings` struct (`snapshot_campaign_settings()` / `plexus_sync_match_settings()`
+/ `plexus_restore_match_settings()`, `ui_plexus.c` ~958-1030). That is the engine's
+single config struct, not a save file; `save_current_profile()` restores before
+writing, so `settings.txt` never receives Plex values. Any new Plex screen should
+still read its data from `plexus_save()`'s own fields rather than from `GameStats`.
+
 ---
 
 ## 11. Input and motion (`ui_input.c`, `ui_motion.c`, `ui_anim.c`)

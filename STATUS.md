@@ -7,6 +7,22 @@
 ## Status Summary
 ## Latest completed work
 
+### Atrium Plex: the campaign record removed from the Plex (29 October 2026)
+
+- **Reported:** the Pancratium's numbers were showing up inside the Atrium Plex even though the two modes keep separate saves. The saves are in fact separate (`profiles/stats.txt` vs `profiles/plexsave.txt`); the leak was in five *display* sites that read `GameStats` and printed it as Plex data.
+- **Fixed, all five:**
+  - the shared stats box's record line now reads `[nn/48] [TR W-L] [SC runs] [AC W-L]` instead of adding campaign wins to Plex wins;
+  - the training tab's third box lost `CAREER + PLEX`, the campaign win streak, favourite yaku and campaign peak round, and gained `PLEX RECORD`, `PERFECT SERIE`, `CARDS CLEARED`, `PEAK SCORING TR/AC` and `SPEEDCOIN HI`;
+  - the match-log summary now says `ALL PLEX RUNS` and totals Plex runs only;
+  - the training result's right panel is retitled `PLEX ARCHIVE // INNER RECORDS` and filled from `plexsave.txt`;
+  - the atlas tab already ignored `GameStats`.
+- **Result:** `src/ui_plexus.c` now contains no `st->` access at all. The `const GameStats *st` parameters stay in the public signatures because `ui_main.c` passes them; the functions mark them `(void)st`.
+- **Kept, on instruction:** the training opponent list is still capped by Pancratium unlocks - that is the one agreed tie. Also noted, not changed: the Plex achievement `SECTOR HUNTER (12/12 RIVALS)` is keyed to the same campaign unlock, so it is a second, smaller tie that needs an owner decision.
+- **Not a leak, recorded so it is not "fixed" later:** the Plex borrows the shared `GameSettings` struct to run its matches (snapshot/sync/restore, `ui_plexus.c` ~958-1030). That is the engine's single config struct, not a save; `save_current_profile()` restores it before writing, so `settings.txt` never receives Plex values.
+- **Verified:** `tools/tests_guard.sh`, `tests/test_table_ui.sh`, `python3 tools/gen_wiki_tables.py --check`, `git diff --check`, and `-std=c99 -O2 -Wall -Wextra -Werror -fsyntax-only` on `src/ui_plexus.c`, `src/ui_main.c`, `src/ui_hub.c`, `src/ui_theme.c`, `src/ui_action.c`. Every new line was measured against the shipped Play face and fits its box (widest 355 px of 436).
+- **Not verified:** the live run - no display or Raylib library here, so the five screens were not looked at on a monitor.
+- **Touched:** `src/ui_plexus.c`, `LEARN_THE_CODE.md` (new 10.7), `AGENTS.md`, `STATUS.md`. **Deliberately did not touch:** `src/storage.c`, the save-file format, `stats.txt` itself, the Pancratium screens, the training opponent gate, the achievements list, `tests/` and `tools/`.
+
 ### Mode select: one system of doors, live combat read-out, title dots on the music (29 October 2026)
 
 - **Title dots were gone, and did not follow the music.** Two separate causes. The brand line draws with `font_display` (the 176 px Audiowide rasterisation), but the flare gate in `hub_draw_centered()` only accepted `font_title`, so the motes were never drawn on it; it now accepts both title faces. And the contour walk buffers were 1024 steps, which a 176 px letter can exceed - the walk stopped mid-glyph and the mote path cut across the letter. They are 2048 now.

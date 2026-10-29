@@ -1379,7 +1379,10 @@ static void draw_spine_card_face(const BoardAssets *ba, int card_id, Rectangle d
     }
 }
 
-static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
+/* Plex-only by design: every number in this box comes from plexsave.txt or from the
+   Plex's own telemetry. It used to add GameStats (the Pancratium career record) into the
+   record line, which is how campaign wins ended up printed inside the Atrium. */
+static void draw_logfile_stats_box(Rectangle box) {
     DrawRectangleRec(box, PLEXUS_SUBBOX_BG);
     ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
 
@@ -1417,14 +1420,8 @@ static void draw_logfile_stats_box(const GameStats *st, Rectangle box) {
     } else {
         snprintf(row4, sizeof(row4), "AUDIO FX    :  %.0f%% PEAK  [%.1fs / %d]", aud_peak, aud_hold, aud_trig);
     }
-    if (st) {
-        snprintf(row5, sizeof(row5), "[%02d/48] [%dW-%dL] [KOI-%d] [SC-%d] [AC-%d]",
-                 done_cards, st->matches_won + s_ac_wins, st->matches_lost + s_ac_losses,
-                 st->koi_calls_you, s_sc_runs, s_ac_runs);
-    } else {
-        snprintf(row5, sizeof(row5), "[%02d/48] [%dW-%dL] [KOI-0] [SC-%d] [AC-%d]",
-                 done_cards, s_ac_wins, s_ac_losses, s_sc_runs, s_ac_runs);
-    }
+    snprintf(row5, sizeof(row5), "[%02d/48] [TR %dW-%dL] [SC %d] [AC %dW-%dL]",
+             done_cards, s_tr_wins, s_tr_losses, s_sc_runs, s_ac_wins, s_ac_losses);
 
     float lx = box.x + 14.0f;
     draw_text_snapped(font_body, row1, lx, box.y +  44.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
@@ -1996,7 +1993,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
                       tx, doc.y + 440.0f, 15.0f, 1.05f, COLOR_PHOSPHOR_DIM);
 }
 
-static void draw_logfile_training_tab(const GameStats *st) {
+static void draw_logfile_training_tab(void) {
     Rectangle b_spd  = { 254.0f, 122.0f, 352.0f, 228.0f };
     Rectangle b_aud  = { 622.0f, 122.0f, 352.0f, 228.0f };
     Rectangle b_comb = { 254.0f, 360.0f, 720.0f, 244.0f };
@@ -2070,10 +2067,7 @@ static void draw_logfile_training_tab(const GameStats *st) {
     DrawLine(614, (int)b_comb.y + 42, 614, (int)(b_comb.y + b_comb.height - 14.0f), COLOR_PHOSPHOR_DIM);
 
     int sc_hi = (s_sc_rank_count > 0) ? s_sc_ranks[0].score : 0;
-    int c_won = st ? st->matches_won : 0, c_lost = st ? st->matches_lost : 0;
-    int koi_u = st ? st->koi_calls_you : 0, koi_c = st ? st->koi_calls_cpu : 0;
-    int hi_rd = st ? st->highest_round_score : 0, hi_aw = st ? st->best_award : 0;
-    const char *fav_combo = st ? storage_get_favorite_combo(st) : "None";
+    int plex_w = s_tr_wins + s_ac_wins, plex_l = s_tr_losses + s_ac_losses;
 
     draw_text_snapped(font_body,
                       TextFormat("TRAINING RUNS : %d (%dW-%dL / %d RDS)",
@@ -2092,23 +2086,23 @@ static void draw_logfile_training_tab(const GameStats *st) {
                                  s_ac_wins, s_ac_losses, s_ac_best_score, s_ac_runs),
                       bx, b_comb.y + 142.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
     draw_text_snapped(font_body,
-                      TextFormat("CAREER + PLEX : %dW-%dL | KOI %d/%d",
-                                 c_won + s_ac_wins, c_lost + s_ac_losses, koi_u, koi_c),
+                      TextFormat("PLEX RECORD   : %dW-%dL (%d RUNS)", plex_w, plex_l, s_tr_runs + s_ac_runs),
                       bx, b_comb.y + 174.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
     draw_text_snapped(font_body,
-                      TextFormat("WIN STREAK    : BEST x%d (NOW x%d)",
-                                 st ? st->best_streak : 0, st ? st->current_streak : 0),
+                      TextFormat("PERFECT SERIE : BEST x%d", best_strk),
                       bx, b_comb.y + 206.0f, 16.5f, 1.1f, COLOR_TEXT_INFO_DIM);
 
     float cx = 628.0f;
     draw_text_snapped(font_body,
-                      TextFormat("FAVORITE YAKU : %s", fav_combo),
+                      TextFormat("CARDS CLEARED : %02d/48 | DEUS %02d/48",
+                                 count_mask_cards(s_finished_cards_mask),
+                                 count_mask_cards(s_deus_finished_cards_mask)),
                       cx, b_comb.y + 46.0f, 16.5f, 1.1f, COLOR_PHOSPHOR);
     draw_text_snapped(font_body,
-                      TextFormat("PEAK SCORING  : RD %d | WIN %d PTS", hi_rd, hi_aw),
+                      TextFormat("PEAK SCORING  : TR %d | AC %d PTS", s_tr_best_score, s_ac_best_score),
                       cx, b_comb.y + 78.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
     draw_text_snapped(font_body,
-                      TextFormat("AI PLAYSTYLES : %d / 12 UNLOCKED", get_unlocked_camp_opponents()),
+                      TextFormat("SPEEDCOIN HI  : %d PTS [W-%02d]", sc_hi, s_sc_best_wave),
                       cx, b_comb.y + 110.0f, 16.5f, 1.1f, COLOR_TEXT_INFO);
 
     Rectangle drill_box = { 628.0f, b_comb.y + 140.0f, 330.0f, 90.0f };
@@ -2129,7 +2123,7 @@ static int collect_filtered_matches(int *out_indices, int max_out) {
     return n;
 }
 
-static void draw_logfile_matches_tab(const GameStats *st, Vector2 vm) {
+static void draw_logfile_matches_tab(Vector2 vm) {
     for (int f = 0; f < 5; f++) {
         draw_plexus_btn(k_match_filter_rects[f], k_match_filter_labels[f], 13, vm, s_match_filter == f);
     }
@@ -2159,9 +2153,8 @@ static void draw_logfile_matches_tab(const GameStats *st, Vector2 vm) {
         snprintf(sum_txt, sizeof(sum_txt), "SPINE COMPLETIONS  //  STANDARD %02d/48  |  DEUS %02d/48",
                  count_mask_cards(s_finished_cards_mask), count_mask_cards(s_deus_finished_cards_mask));
     } else {
-        int cw = st ? st->matches_won : 0, cl = st ? st->matches_lost : 0;
-        snprintf(sum_txt, sizeof(sum_txt), "ALL COMPLETED MATCHES & RUNS  //  TOTAL %dW - %dL  |  %d LOGGED",
-                 cw + s_ac_wins + s_tr_wins, cl + s_ac_losses + s_tr_losses, f_cnt);
+        snprintf(sum_txt, sizeof(sum_txt), "ALL PLEX RUNS  //  TOTAL %dW - %dL  |  %d LOGGED",
+                 s_ac_wins + s_tr_wins, s_ac_losses + s_tr_losses, f_cnt);
     }
     draw_text_snapped(font_body, sum_txt, sbar.x + 12.0f, sbar.y + 6.0f, 16.0f, 1.1f, COLOR_PHOSPHOR);
 
@@ -2444,9 +2437,9 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     if (s_log_subtab == LOG_TAB_STORY) {
         draw_logfile_story_tab(vm);
     } else if (s_log_subtab == LOG_TAB_TRAINING) {
-        draw_logfile_training_tab(st);
+        draw_logfile_training_tab();
     } else if (s_log_subtab == LOG_TAB_MATCHES) {
-        draw_logfile_matches_tab(st, vm);
+        draw_logfile_matches_tab(vm);
     } else {
         draw_logfile_atlas_tab(ba, st, vm);
     }
@@ -3341,10 +3334,10 @@ void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, cons
     DrawRectangleRec(rtop, PLEXUS_PANEL_BG); ui_draw_panel_border(rtop, COLOR_PHOSPHOR);
     draw_text_snapped(font_title, "TRAINING SESSION  //  STATS", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine(116, 118, 608, 118, COLOR_PHOSPHOR_DIM);
-    draw_text_snapped(font_title, "OVERALL STATS  //  ARCHIVE", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "PLEX ARCHIVE  //  INNER RECORDS", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine(672, 118, 1164, 118, COLOR_PHOSPHOR_DIM);
 
-    int rw = 0, rl = 0, rd = 0, hi_you = 0, hi_cpu = 0, y_tot = 0, top_y = -1, top_yv = 0, fav_y = -1, fav_yv = 0;
+    int rw = 0, rl = 0, rd = 0, hi_you = 0, hi_cpu = 0, y_tot = 0, top_y = -1, top_yv = 0;
     int lc = g ? ((g->ledger_count > 12) ? 12 : g->ledger_count) : 0, mp = speed_bar_total();
     for (int i = 0; i < lc; i++) {
         int w = g->ledger[i].winner, aw = g->ledger[i].award;
@@ -3354,7 +3347,6 @@ void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, cons
     }
     for (int y = 0; y < YAKU_COUNT; y++) {
         if (g) { y_tot += g->human_yaku_counts[y]; if (g->human_yaku_counts[y] > top_yv) { top_yv = g->human_yaku_counts[y]; top_y = y; } }
-        if (st && st->yaku_counts[y] > fav_yv) { fav_yv = st->yaku_counts[y]; fav_y = y; }
     }
     const char *r_nm = !g ? "--" : (g->ruleset == RULESET_FUDAWIKI) ? "FUDAWIKI" : (g->ruleset == RULESET_KK_ADD_10) ? "KK-ADD-10" :
                        (g->ruleset == RULESET_TOURNAMENT) ? "TOURNAMENT" : (g->ruleset == RULESET_YAKUZA) ? "YAKUZA" : "NINTENDO";
@@ -3378,18 +3370,20 @@ void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, cons
                           118.0f + (float)(i / 6) * 246.0f, 382.0f + (float)(i % 6) * 32.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
     }
 
-    int mp_cnt = st ? st->matches_played : 0;
-    float wr = (mp_cnt > 0) ? ((float)st->matches_won / (float)mp_cnt * 100.0f) : 0.0f;
-    draw_text_snapped(font_body, TextFormat("MATCHES       :  %d  (%dW / %dL / %dD  --  %.1f%%)", mp_cnt, st ? st->matches_won : 0, st ? st->matches_lost : 0, st ? st->matches_drawn : 0, wr), 674.0f, 128.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, TextFormat("CAREER ROUNDS :  YOU %d  |  CPU %d", st ? st->rounds_won_you : 0, st ? st->rounds_won_cpu : 0), 674.0f, 158.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, TextFormat("TOTAL POINTS  :  FOR %d  |  AGAINST %d", st ? st->points_for : 0, st ? st->points_against : 0), 674.0f, 188.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
-    draw_text_snapped(font_body, TextFormat("BEST RECORDS  :  ROUND %d PTS  |  WIN %d PTS", st ? st->highest_round_score : 0, st ? st->best_award : 0), 674.0f, 218.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, TextFormat("KOI & STREAK  :  YOU %d / CPU %d  |  MAX x%d (NOW x%d)", st ? st->koi_calls_you : 0, st ? st->koi_calls_cpu : 0, st ? st->best_streak : 0, st ? st->current_streak : 0), 674.0f, 248.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    draw_text_snapped(font_body, TextFormat("DIFF & COMBO  :  E:%d H:%d M:%d  |  %s", st ? st->easy_matches : 0, st ? st->hard_matches : 0, st ? st->master_matches : 0, (fav_y >= 0) ? k_yaku_names[fav_y] : "NONE"), 674.0f, 278.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+    /* Plex-only archive. This panel used to print GameStats - the Pancratium career record -
+       under the heading "OVERALL STATS", which read as if the Atrium owned those matches. */
+    int sc_top = (s_sc_rank_count > 0) ? s_sc_ranks[0].score : 0;
+    draw_text_snapped(font_body, TextFormat("TRAINING      :  %d RUNS  (%dW / %dL)", s_tr_runs, s_tr_wins, s_tr_losses), 674.0f, 128.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("TRAINING BEST :  %d PTS  |  %d ROUNDS", s_tr_best_score, s_tr_rounds_total), 674.0f, 158.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("ACTION CARD   :  %d RUNS  (%dW / %dL)", s_ac_runs, s_ac_wins, s_ac_losses), 674.0f, 188.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_body, TextFormat("ACTION BEST   :  %d PTS", s_ac_best_score), 674.0f, 218.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("SPEEDCOIN     :  HI %d  [W-%02d / %d RUNS]", sc_top, s_sc_best_wave, s_sc_runs), 674.0f, 248.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
+    draw_text_snapped(font_body, TextFormat("CARDS CLEARED :  %02d/48  |  DEUS %02d/48", count_finished_cards(), count_mask_cards(s_deus_finished_cards_mask)), 674.0f, 278.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
 
-    draw_logfile_stats_box(st, (Rectangle){ 656.0f, 398.0f, 524.0f, 208.0f });
+    draw_logfile_stats_box((Rectangle){ 656.0f, 398.0f, 524.0f, 208.0f });
     draw_plexus_btn(k_tr_exit_plex_rect, "ATRIUM PLEX", 18, vm, 0);
     (void)ba;
+    (void)st;   /* the result screen no longer borrows the Pancratium career record */
 }
 
 static const Rectangle k_ac_play_again_rect = { 360.0f, 632.0f, 260.0f, 50.0f };
@@ -3577,9 +3571,10 @@ void plexus_draw_action_card_result(const BoardAssets *ba, const GameState *g, c
         }
     }
 
-    draw_logfile_stats_box(st, (Rectangle){ 656.0f, 398.0f, 524.0f, 208.0f });
+    draw_logfile_stats_box((Rectangle){ 656.0f, 398.0f, 524.0f, 208.0f });
     draw_plexus_btn(k_ac_play_again_rect, "PLAY AGAIN", 18, vm, 0);
     draw_plexus_btn(k_ac_back_plex_rect,  "ATRIUM PLEX", 18, vm, 0);
+    (void)st;
 }
 
 ScreenAction plexus_handle_action_card_result_click(Vector2 vm, int *out_clicked) {
@@ -4511,11 +4506,12 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
 
     /* Right Bottom Sub-Box: Exact Logfile Stats Box */
     Rectangle log_stats_r = { 656.0f, 394.0f, 464.0f, 208.0f };
-    draw_logfile_stats_box(st, log_stats_r);
+    draw_logfile_stats_box(log_stats_r);
 
     draw_plexus_btn(k_sc_play_again_rect, "PLAY AGAIN", 18, vm, 0);
     draw_plexus_btn(k_sc_back_plex_rect,  "ATRIUM PLEX", 18, vm, 0);
     (void)ba;
+    (void)st;
 }
 
 ScreenAction plexus_handle_speedcoin_result_click(Vector2 vm, int *out_clicked) {
