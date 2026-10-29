@@ -33,6 +33,20 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### The Dealership: one travelling token owns the table rhythm (29 October 2026)
+
+- **Instruction:** a visible marker that travels current player -> deck -> CPU -> deck -> player, where **arrival at a station is the permission** for that station's event, and the token does not leave until that event has completely finished.
+- **Specification:** `Dealership.md` at the repo root. That file owns the system - the route, the stations, the timing, the state derivation, the gates and the scope. It is the only place the rhythm is described; this entry is a pointer, not a second copy.
+- **Built:** `src/ui_dealership.{h,c}` - engine-free on purpose, it knows stations, a position and a `dt`. Vertical run down the left margin at `(279,693)` / `(286,324)` / `(279,27)`, taken from the real HUD rects. Two 50 ms legs per transfer = 100 ms, integrated from `dt`.
+- **The deck is a station, not a pipe:** the draw is the only event with no player as its cause, so the deck must be seen to deal it. One token serves both draws because one hand deals the stock for both players - that is why the badge is a `D` and why it does not change per player.
+- **Wired in `src/ui_main.c`:** `dealership_station_for()` derives the station from the engine phase (no second copy of turn state); player input, the CPU think block and the stock-fly start each consult `dealership_unlocked()`; the token is drawn over the table.
+- **Deliberately overlapping, not stacking:** `settled` excludes `event_beat_timer`, so travel and the existing beat run concurrently and the wait is `max(beat, travel)`, not `beat + travel`. Ripping the old beat out is a separate pacing change and was not done here.
+- **Speedcoin excluded:** solo, timed, `current_player = 0` always, so there is no CPU station and a 100 ms gate would sabotage a reaction test. **Action Card excluded and untouched** - its rhythm is tied to the meter/reverb envelope and added pacing there broke it once already (`df4f6d7`). That stays a report, per the freeze.
+- **Verified:** `./build.sh test` exit 0 (tests lock, Action Card guard 12 points, 500-match engine suite, table UI, music/settings/Options); `-fsyntax-only` sweep of all 26 `src/*.c` at `-Wall -Wextra` with zero warnings - the desktop binary is not linked in this sandbox, so the game itself was not run.
+- **Not verified:** the feel. No test asserts the rhythm reads well; that is a display judgement, and `tests/` is locked so none was added.
+- **Touched:** `Dealership.md` (new), `src/ui_dealership.h` (new), `src/ui_dealership.c` (new), `src/ui_main.c`, `STATUS.md`. **Did not touch:** `src/ui_action.{c,h}`, `src/engine.*`, `src/ui_plexus.c`, `src/storage.*`, `tests/`, `tools/action_guard.*`, `docs/`.
+
+
 ### Owner: the CPU step beat no longer applies to Action Card; an untested claim is marked as such (29 October 2026)
 
 - **Owner edit, folded in and guarded:** `trigger_cpu_step_beat()` in `src/ui_main.c` now excludes the mode as well as Speedcoin - `if (!plexus_speedcoin_is_active() && !plexus_action_card_is_active() && sec > event_beat_timer)`. The mode keeps its CPU think time (`get_think_duration()`, `0.40 / 0.30 / 0.20`) and still waits for `motion_is_reflowing()`/`anim_is_blocking()`; what it no longer gets is the extra 90-120 ms inter-step pause. The larger `trigger_event_beat()` pauses (0.24-0.55 s) were **not** changed - option 2 was left to the owner.
