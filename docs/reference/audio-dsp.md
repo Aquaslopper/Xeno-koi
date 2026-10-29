@@ -1,8 +1,6 @@
 # Action audio: design and verification
 
-Player controls are on [Options page 2](modes.md#action-card-audio-effects). This note distinguishes measured DSP behavior from live listening, which still needs a desktop playtest.
 
-> **22 October 2026 strength follow-ups:** at the maintainer's request, only the chorus return amplitude is doubled (+100%, +6.0206 dB of generated Side), and the bass slider now spans **0 to +20 dB** (midpoint +10 dB). The existing chorus curve, modulation, routing, filter and limiter remain unchanged. These are not whole-music gain increases. The bass follow-up's current 96 kHz regression failure is documented below; its test threshold was not relaxed.
 
 ## Signal path and safety
 
