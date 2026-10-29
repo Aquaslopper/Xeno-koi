@@ -2,3 +2,7 @@
 replays/
 # MkDocs build output (AGENTS.md: never commit it).
 site/
+
+# python tooling caches
+__pycache__/
+*.pyc

@@ -1,0 +1,50 @@
+{
+  "_README": [
+    "Schema for a table design manifest, read by `python3 tools/table_art.py build tables/designs/<name>.json`.",
+    "Copy this file to <name>.json and fill it in. Every number comes from tables/anchors.json.",
+    "The build prints a table of unit / final size / interior / target / status and exits non-zero on any MISMATCH.",
+    "A unit whose open interior is not exactly `rect` within 2 px is a MISMATCH - that check is the whole point.",
+    "raw files are generator output in assets/tables/<design>/raw/<file>.png; final/ and preview/ are derived."
+  ],
+  "design": "example",
+  "backdrop": "assets/city.jpg",
+  "raw": "assets/tables/example/raw",
+
+  "units": [
+    {
+      "_note": "a casing around a group of rects. rect = the interior = the game's rect; border = (L, T, R, B) drawn OUTSIDE it.",
+      "_budget": "must not exceed the free space in anchors.json -> free_space, on any side",
+      "file": "example-frame-block",
+      "rect": [255, 196],
+      "border": [12, 12, 44, 12],
+      "place": [[12, 12], [12, 508]]
+    }
+  ],
+
+  "rails": [
+    {
+      "_note": "an internal seam, cut from a unit's own bottom rail. Drawn AFTER the units, or the casing covers it.",
+      "from": "example-frame-block",
+      "size": [255, 8],
+      "place": [[12, 40], [12, 670]]
+    }
+  ],
+
+  "cards": [
+    {
+      "_note": "a bezel drawn INSIDE the card rect, one file per card size. kind: field | hand | cpu",
+      "file": "example-card-frame",
+      "size": [76, 124],
+      "border": 6,
+      "kind": "field"
+    }
+  ],
+
+  "decor": [
+    {
+      "_note": "art that is not a frame: edge brackets, ornaments. box = [x, y, w, h] on the canvas.",
+      "file": "example-edge-bracket",
+      "box": [0, 176, 78, 372]
+    }
+  ]
+}
