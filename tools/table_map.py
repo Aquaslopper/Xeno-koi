@@ -2,7 +2,7 @@
 """Generators for tables/ - everything in that folder that is derived, is derived from here.
 
     python3 tools/table_map.py figure     -> tables/table-to-scale.png   (1:1 map + legend)
-    python3 tools/table_map.py svg        -> tables/table-to-scale.svg   (same, vector)
+    python3 tools/table_map.py svg        -> tables/table-to-scale.svg   (same, vector, on demand)
     python3 tools/table_map.py base       -> tables/base.png             (composite base)
     python3 tools/table_map.py base --backdrop city -> tables/base-city.png
     python3 tools/table_map.py palettes   -> tables/palettes.{png,json}
@@ -537,7 +537,7 @@ if __name__ == "__main__":
         bd = sys.argv[sys.argv.index("--backdrop") + 1]
 
     if mode in ("figure", "all"):
-        figure(os.path.join(TAB, "table-to-scale.png"), os.path.join(TAB, "table-to-scale.svg"))
+        figure(os.path.join(TAB, "table-to-scale.png"))
     if mode == "svg":
         write_svg(os.path.join(TAB, "table-to-scale.svg"))
     if mode == "base":
