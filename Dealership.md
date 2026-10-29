@@ -212,14 +212,31 @@ behaves exactly as before.
 
 ## 9. Look
 
-- A hairline ring, radius 5, white at ~82 % alpha; a small bright core.
-- Two wide, very faint discs behind it as glow (alpha 16 and 26) — transparent,
-  never a filled white blob.
-- A `D` in the body face at 9 pt, centred, near-white.
-- A trail of up to 12 ghosts over 140 ms, shrinking and fading quadratically.
-- No spin, no pulse, no bounce. It is a marker, not an effect. (Body metaphors
-  and decorative motion were removed from this project before; do not add them
-  back here.)
+Tuned on the owner's display, 29 October 2026. All sizes below are radius in the
+1280x720 logical space and all of them scale by `pulse = 1 + 0.35 * glow`.
+
+- **Size.** Hairline ring at radius **8** (was 5), bright core **2.6** (was 1.5),
+  `D` at **14 pt** (was 9). The marker reads at a glance from across the table;
+  the previous one was small enough to be mistaken for a cursor.
+- **Trail.** Up to **28** ghosts living **280 ms** (`DL_TRAIL_LIFE`), radius
+  `2.2 + 5.0 * life`, alpha `150 * life^2`, and a wide soft halo on the freshest
+  eight so the head of the trail bleeds. Two samples are pushed per travelling
+  frame, because a 50 ms leg is only about three frames at 60 Hz and one sample
+  per frame would draw beads instead of a streak. The trail is why the leg reads
+  as movement rather than as a jump — it is not decoration, it is the thing that
+  makes a 50 ms transfer legible.
+- **Movement glow.** `glow` eases toward 1 while travelling (rate 18/s) and back
+  to 0 after arrival (rate 7/s), so departure lights up and arrival settles
+  instead of snapping. While lit it adds a third, much wider bloom (radius
+  `34 * glow`), widens the two base discs, and pushes the ring toward full white.
+- Glow stays transparent throughout — never a filled white blob.
+- No spin, no bounce, no idle pulse. The only animation is the one tied to
+  movement. (Body metaphors and decorative motion were removed from this project
+  before; do not add them back here.)
+
+These numbers, `DL_TRAIL_MAX`, `DL_TRAIL_LIFE` and the rates above are the whole
+tuning surface for the token's appearance. Nothing in section 4 or 5 depends on
+them: resizing the marker or changing the trail cannot move a gate.
 
 ---
 

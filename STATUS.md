@@ -33,6 +33,17 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Owner tuning pass on the dealership token: bigger, trailing, glows in motion (29 October 2026)
+
+- **Instruction:** *"1. dealership needs a trail, 50ms are fast, so give it a trail 2. make the dealership bigger at least 50% bigger 3. when it moves let it glow."* Judged on the owner's display, which is the only place this can be judged.
+- **Size:** ring 5 -> **8** (60 %), core 1.5 -> **2.6**, `D` 9 pt -> **14 pt**. The old marker was small enough to be mistaken for a cursor.
+- **Trail:** 12 ghosts over 140 ms -> **28 ghosts over 280 ms**, brighter (`150 * life^2`), wider, plus a soft halo on the freshest eight. Two samples are pushed per travelling frame: a 50 ms leg is about three frames at 60 Hz, so one sample per frame drew beads instead of a streak. This is what makes the 50 ms transfer read as movement rather than a jump.
+- **Movement glow:** a new eased `glow` value (18/s in, 7/s out) drives a third wide bloom, widens the base discs and pushes the ring toward full white while travelling, then settles on arrival instead of snapping. No idle pulse, no spin — the only animation is the one tied to movement.
+- **Appearance only:** nothing in the gate path changed. `dealership_update()` gained trail samples and the glow easing; `dealership_unlocked()` and the station logic are untouched, so a resize or a trail change cannot move a gate. Recorded in `Dealership.md` §9 so the tuning surface is written down.
+- **Verified:** `-fsyntax-only` clean at `-Wall -Wextra`; `./build.sh test` exit 0; the 160-run real-loop sweep was re-run after the change and the token still produced **0 locked-state violations**. Not verified: how it looks - that is the owner's screen, and these numbers are the only thing that changed.
+- **Touched:** `src/ui_dealership.c`, `Dealership.md`, `STATUS.md`. **Not touched:** `src/ui_dealership.h` (no API change), `src/ui_main.c`, `src/ui_action.{c,h}`, `tests/`, `tools/action_guard.*`, `docs/`.
+
+
 ### The token is the key, not a condition: two bypasses closed (29 October 2026)
 
 - **Instruction:** *"only if dealership = movement unlocked; if no dealership = no movement."* The token is the sole authority, not one more `&&` in a chain.
