@@ -19,18 +19,21 @@ everything under it.
 - [ ] metal opaque, cavities alpha 0, interior cleared hard; 40–55 % opaque
 - [ ] every moving card size framed: 76×124, 88×143, 56×91 (not the 17×31 minis)
 
-**Porting and testing (only stage that touches `src/`)**
-- [ ] ported as beta so it can be picked in the Pancratium and played
-- [ ] a real round played: deal, capture, call, drag, pause, restart
-- [ ] everything that broke is in `live-test.md` — symptom, where, expected — not in my head
-- [ ] guards run: `./build.sh test`, `./tools/action_guard.sh --report`
-
 **Verifying**
 - [ ] `table_art.py build` ends `0 mismatch(es)`
 - [ ] previews on `base.png` (never `table-map.png`), at the real pitch (81 / 96 / 62)
+      — or, for a runtime-only look, the beta port is the preview and this line is marked N/A
 - [ ] one preview on the real backdrop and one on flat canvas, both looked at
 - [ ] I can quote the measured fact behind every claim ("opaque x 21..54", not "it's on the edge")
 - [ ] anything assumed is labelled assumed
+
+**Porting and testing (only stage that touches `src/`)**
+- [ ] the port contract is decided, not improvised: how this table is selected in-game
+      (`WORKFLOW.md` open decision 6)
+- [ ] ported as beta so it can actually be picked and played
+- [ ] the owner played a real round — deal, capture, call, drag, pause, restart — or it is stated
+      that nobody has
+- [ ] everything that broke is in `live-test.md` — symptom, where, expected — not in my head
 
 **Presenting**
 - [ ] previews are standalone files in the repo, and the main one is presented

@@ -10,6 +10,7 @@
   "design": "",
   "_design": "optional; defaults to the folder name, e.g. table_city",
 
+  "_backdrop": "change this: assets/<this table's backdrop>.jpg - see tables/anchors.json assets_available",
   "backdrop": "assets/city.jpg",
 
   "units": [

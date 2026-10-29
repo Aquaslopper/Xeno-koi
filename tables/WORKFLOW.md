@@ -73,20 +73,24 @@ round. The loop, and where each stage writes:
    Output goes to `tables/table_<name>/raw/`, never edited in place.
 6. **Cut out** — solid silhouette, not soft alpha. `python3 tools/table_art.py cut|build` implements
    this whole step; do not rewrite it in a scratch script. `./tables/build.sh table_<name>` builds the
-   table's `table.json` and writes `final/` + `preview/` into that table's folder. Seed `max>26` → 13 px close → fill enclosed
-   blobs <90 px → 0.7 px feather → grade to the sampled palette → **clear the interior to alpha 0**
-   (a render keeps a wash that darkens the game's text). Sanity: 40–55 % fully opaque.
+   table's `table.json` and writes `final/` + `preview/` into that table's folder. The recipe:
+   seed `max>26` → 13 px close → fill enclosed blobs <90 px → 0.7 px feather → grade to the sampled
+   palette → **clear the interior to alpha 0** (a render keeps a wash that darkens the game's text).
+   Sanity: 40–55 % fully opaque.
 7. **Compose on live geometry.** `./tables/build.sh base <name>` → `tables/table_<name>/base.png`.
-   Never
-   composite on `docs/assets/readme/table-map.png` (dead 96 px layout). `table_art.py build` prints
+   Never composite on `docs/assets/readme/table-map.png` (dead 96 px layout). `table_art.py build` prints
    unit / final / interior / target / status and must end `0 mismatch(es)`.
 8. **Verify.** One preview on the real backdrop **and** one on a flat canvas; both looked at, at the
    real pitch. `./build.sh test`, `git diff --check`, `CHECKLIST.md` ticked. If step 3 chose runtime,
    it is a code change: `./tools/action_guard.sh --report` too, because the Action Card mode is
    hash-frozen.
-9. **Beta port, then live test.** Port the table into the game so it can be selected and played, play
-   a real round, and write what happened into the table's `live-test.md`. Anything that broke goes
-   back to step 3 as a new work list. A table is forged when a live round found nothing left to fix.
+9. **Beta port, then live test.** A port is three things: the forged assets copied from
+   `table_<name>/final/` into `assets/`, the drawing wired through the chokepoints of step 3, and a
+   way to select this table in-game (open decision 6). `final/` stays the source of truth; `assets/`
+   only ever holds a copy. Then **the owner plays** — the forge's job is to make that test possible
+   and to write down what it found, verbatim, in the table's `live-test.md`: build, what was played,
+   what broke as symptom → where → expected, verdict, next action. Anything that broke goes back to
+   step 3 as the new work list. A table is forged when a live round found nothing left to fix.
 
 ## The traps, in the order they were hit
 
@@ -127,3 +131,9 @@ round. The loop, and where each stage writes:
 4. **Palette** — a `TerminalTheme` entry (today `theme_set()` cycles 5 while Options lists 6 names) or
    a separate `table_design` field in `GameSettings`.
 5. **Nine tables** — one layout, nine palettes and casing profiles, or bespoke ornament per backdrop.
+6. **The port contract** — how a table becomes selectable for a beta test, which is the one thing the
+   forge needs from `src/` that does not exist yet. Option A: one `table_design` field in
+   `GameSettings`, defaulting to the forged table, no UI — enough to play it, nothing to explain.
+   Option B: the field plus a selector on the Pancratium screen (`campaign.c:121`). Option A is the
+   cheaper first port; B is what the owner asked for eventually. Decide before the first port, not
+   during it.

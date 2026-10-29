@@ -17,7 +17,7 @@ tables/
   base.png             composite base, live geometry, flat  generated
   palettes.png/.json   the 8 backdrops, sampled             generated
 
-  table_city/                              one table
+  table_city/                              one table — spec only, not ported
     README.md      the spec
     live-test.md   every beta port and what happened live (empty so far)
     refs/          city-example-01.jpg, city-example-02.jpg    direction, not evidence
@@ -44,6 +44,16 @@ python3 tools/table_map.py check   # only the drift check (exit 1 on drift)
 `tools/table_map.py` owns geometry (map, base, palettes). `tools/table_art.py` owns art (cut-out,
 asymmetric borders, card bezels, rails) and writes `final/` + `preview/` inside the table's own
 folder — one definition of where a card is, and never a second copy.
+
+## The tables
+
+| folder | backdrop | state |
+|---|---|---|
+| `table_city/` | city (4) | spec + examples. No art, not ported, no live test |
+
+A table's folder is only listed here once the folder exists; the state is the short truth
+(`spec` → `beta ported` → `forged` → `abandoned`), and its detail lives in that folder's `README.md`
+and `live-test.md`.
 
 ## The forge loop
 

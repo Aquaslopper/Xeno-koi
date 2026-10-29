@@ -19,6 +19,10 @@ tables/table_<name>/
 The folder is created **when the table is started** — `cp -r tables/_template tables/table_<name>` —
 and never scaffolded ahead of time. An empty folder is not a plan.
 
+If the table turns out to be a **runtime-only** restyle (step 3), delete `table.json`, `raw/` and
+`final/`: the look then lives in the draw functions, `live-test.md` is its record, and the beta port
+is its preview.
+
 Status: **spec / pass N / done.** `src/` touched: yes/no.
 
 Backdrop `assets/<name>.jpg`, index **N** of
@@ -53,6 +57,11 @@ shapes, how panels connect, the weight of the metal.
 
 Fixed: no per-lane frame; score strips split from the lanes by 8 px rails at y 40 / y 670, drawn
 after the casing; connectors on the canvas edge.
+
+## Live test
+
+The owner plays the beta port and the findings are written into `live-test.md` in this folder —
+symptom, where, expected. Not in chat, not in memory: in the file, or the next pass rebuilds the fault.
 
 ## Layer
 
