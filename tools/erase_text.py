@@ -139,6 +139,44 @@ CASTLE_REGIONS = [
     ('restart',      (1728, 944, 1880, 978), 'bright', 95, 'right'),
 ]
 
+CITY_POOLS = {
+    'left':   (140, 95, 400, 120),      # clean face inside a lane plate
+    'right':  (1740, 300, 1850, 400),   # empty middle of the combos panel
+    'deck':   (520, 300, 600, 430),     # deck card face, above DECK
+    'status': (900, 868, 1150, 878),    # clean span under the banner text
+}
+
+# brass capitals on near-black plates: a plain luma threshold splits them
+CITY_REGIONS = [
+    ('cpu_score',    (56, 18, 470, 72),      'bright', 72, 'left'),
+    ('you_score',    (34, 1000, 470, 1064),  'bright', 72, 'left'),
+    ('lane1',        (56, 84, 200, 132),     'bright', 72, 'left'),
+    ('lane2',        (56, 151, 200, 199),    'bright', 72, 'left'),
+    ('lane3',        (56, 218, 200, 266),    'bright', 72, 'left'),
+    ('lane4',        (56, 285, 200, 333),    'bright', 72, 'left'),
+    ('lane5',        (56, 726, 200, 786),    'bright', 72, 'left'),
+    ('lane6',        (56, 793, 200, 853),    'bright', 72, 'left'),
+    ('lane7',        (56, 860, 200, 920),    'bright', 72, 'left'),
+    ('lane8',        (56, 927, 200, 987),    'bright', 72, 'left'),
+    ('deck_vert',    (578, 482, 598, 552),   'bright', 100, 'deck'),
+    ('deck_count',   (528, 582, 572, 612),   'bright', 100, 'deck'),
+    ('status',       (742, 838, 1360, 884),  'bright', 72, 'status'),
+    ('rnd',          (1712, 22, 1906, 72),   'bright', 72, 'right'),
+    ('kk',           (1712, 74, 1906, 120),  'bright', 72, 'right'),
+    ('cpu_combos',   (1714, 152, 1902, 194), 'bright', 72, 'right'),
+    ('cpu_base',     (1714, 196, 1902, 228), 'bright', 72, 'right'),
+    ('cpu_koi',      (1714, 230, 1902, 262), 'bright', 72, 'right'),
+    ('cpu_nocomb',   (1714, 272, 1902, 310), 'bright', 72, 'right'),
+    ('cpu_click',    (1714, 412, 1906, 450), 'bright', 72, 'right'),
+    ('your_combos',  (1714, 486, 1902, 526), 'bright', 72, 'right'),
+    ('your_base',    (1714, 524, 1902, 558), 'bright', 72, 'right'),
+    ('your_koi',     (1714, 558, 1902, 592), 'bright', 72, 'right'),
+    ('your_nocomb',  (1714, 602, 1902, 640), 'bright', 72, 'right'),
+    ('you_click',    (1714, 746, 1906, 784), 'bright', 72, 'right'),
+    ('pause',        (1714, 860, 1906, 900), 'bright', 72, 'right'),
+    ('restart',      (1714, 946, 1906, 990), 'bright', 72, 'right'),
+]
+
 TABLES = {
     'hole':    dict(pools=HOLE_POOLS,   regions=HOLE_REGIONS,   dilate=3, ring=8,
                     method='inpaint'),
@@ -146,10 +184,13 @@ TABLES = {
                     method='inpaint'),
     'castle':  dict(pools=CASTLE_POOLS, regions=CASTLE_REGIONS, dilate=3, ring=8,
                     method='inpaint'),
+    'city':    dict(pools=CITY_POOLS, regions=CITY_REGIONS, dilate=3, ring=8,
+                    method='inpaint'),
 }
 
 AREA_MIN, AREA_MAX = 6, 2500
 H_MIN, H_MAX = 2, 48
+W_MAX = 60          # one letter is never wider than this, frame lines are
 GRAIN_MAX = 30.0
 SEED = 20261029
 
@@ -175,8 +216,11 @@ def glyph_mask(sub_rgb, sub_lum, mode, param):
     keep = np.zeros_like(m)
     for i in range(1, n):
         x, y, w, h, ar = st[i]
-        edge = x <= 0 or y <= 0 or x + w >= ww or y + h >= hh
-        if AREA_MIN <= ar <= AREA_MAX and H_MIN <= h <= H_MAX and not edge:
+        # a glyph is never clamped by the window: the windows are drawn with
+        # clearance, so anything touching an edge is scenery or a neighbour
+        blocked = x < 2 or y < 2 or x + w > ww - 2 or y + h > hh - 2
+        if (AREA_MIN <= ar <= AREA_MAX and H_MIN <= h <= H_MAX
+                and w <= W_MAX and not blocked):
             keep |= (lab == i).astype(np.uint8)
     return keep
 

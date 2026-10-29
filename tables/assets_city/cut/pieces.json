@@ -1,0 +1,107 @@
+{
+  "source": "tables/assets_city/city.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "name": "left_top",
+      "file": "left_top.png",
+      "rect": [
+        0,
+        0,
+        464,
+        357
+      ],
+      "size": [
+        464,
+        357
+      ]
+    },
+    {
+      "name": "left_bottom",
+      "file": "left_bottom.png",
+      "rect": [
+        0,
+        718,
+        490,
+        1080
+      ],
+      "size": [
+        490,
+        362
+      ]
+    },
+    {
+      "name": "deck",
+      "file": "deck.png",
+      "rect": [
+        464,
+        345,
+        650,
+        630
+      ],
+      "size": [
+        186,
+        285
+      ]
+    },
+    {
+      "name": "card_row_cpu",
+      "file": "card_row_cpu.png",
+      "rect": [
+        464,
+        0,
+        1686,
+        194
+      ],
+      "size": [
+        1222,
+        194
+      ]
+    },
+    {
+      "name": "status_bar",
+      "file": "status_bar.png",
+      "rect": [
+        464,
+        806,
+        1686,
+        947
+      ],
+      "size": [
+        1222,
+        141
+      ]
+    },
+    {
+      "name": "card_row_you",
+      "file": "card_row_you.png",
+      "rect": [
+        500,
+        1008,
+        1686,
+        1080
+      ],
+      "size": [
+        1186,
+        72
+      ]
+    },
+    {
+      "name": "right_column",
+      "file": "right_column.png",
+      "rect": [
+        1686,
+        0,
+        1920,
+        1080
+      ],
+      "size": [
+        234,
+        1080
+      ]
+    }
+  ]
+}

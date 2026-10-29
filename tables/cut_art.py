@@ -35,6 +35,15 @@ PIECES = {
         ('status_bar',    (614, 692, 1675, 824)),  # turn banner
         ('card_row_you',  (476, 824, 1675, 1080)),  # your hand, 8 card slots
     ],
+    'city': [
+        ('left_top',      (0, 0, 464, 357)),        # CPU plaque + B/A/R/P rows
+        ('left_bottom',   (0, 718, 490, 1080)),     # B/A/R/P rows + YOU SCORE plaque
+        ('deck',          (464, 345, 650, 630)),    # deck card + count bubble
+        ('card_row_cpu',  (464, 0, 1686, 194)),     # CPU hand, 8 slots
+        ('status_bar',    (464, 806, 1686, 947)),   # turn banner
+        ('card_row_you',  (500, 1008, 1686, 1080)),  # your hand, 8 slots
+        ('right_column',  (1686, 0, 1920, 1080)),   # RND/KK, combos, pause, restart
+    ],
     'castle': [
         ('left_column',    (0, 0, 446, 1080)),     # CPU plaque, B/A/R/P, player plaque
         ('card_row_cpu',   (450, 0, 1696, 185)),   # CPU hand, 7 slots
@@ -76,20 +85,24 @@ def main():
         im = Image.open(src).convert('RGBA')
         L = lum(im)
         W, H = im.size
+        art = L > 8
         manifest = {'source': f'tables/assets_{table}/{table}.png',
                     'canvas': [W, H], 'pieces': []}
         print(f'{table}: {W}x{H}')
         for name, (x0, y0, x1, y1) in PIECES[table]:
             x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
-            edges = {
-                'top':    L[y0, x0:x1].max() if y0 > 0 else 0.0,
-                'bottom': L[y1 - 1, x0:x1].max() if y1 < H else 0.0,
-                'left':   L[y0:y1, x0].max() if x0 > 0 else 0.0,
-                'right':  L[y0:y1, x1 - 1].max() if x1 < W else 0.0,
-            }
-            bad = {k: float(v) for k, v in edges.items() if v > 8}
-            if bad:
-                raise SystemExit(f'  {name}: cut would slice art at {bad}')
+            # a cut is only safe if no art continues across it
+            slices = {}
+            if y0 > 0 and (art[y0, x0:x1] & art[y0 - 1, x0:x1]).any():
+                slices['top'] = float(L[y0, x0:x1].max())
+            if y1 < H and (art[y1 - 1, x0:x1] & art[y1, x0:x1]).any():
+                slices['bottom'] = float(L[y1 - 1, x0:x1].max())
+            if x0 > 0 and (art[y0:y1, x0] & art[y0:y1, x0 - 1]).any():
+                slices['left'] = float(L[y0:y1, x0].max())
+            if x1 < W and (art[y0:y1, x1 - 1] & art[y0:y1, x1]).any():
+                slices['right'] = float(L[y0:y1, x1 - 1].max())
+            if slices:
+                raise SystemExit(f'  {name}: cut would slice art at {slices}')
             piece = im.crop((x0, y0, x1, y1))
             piece.save(os.path.join(out, name + '.png'))
             manifest['pieces'].append({'name': name, 'file': name + '.png',
@@ -104,6 +117,17 @@ def main():
             for n, r in HOLE_EMPTY:
                 assert L[r[1]:r[3], r[0]:r[2]].max() < 8, n
             print(f'  (+{len(HOLE_EMPTY)} empty grid cells, no art, not written)')
+
+        # every art pixel must land in exactly one piece
+        covered = np.zeros((H, W), bool)
+        for p in manifest['pieces']:
+            x0, y0, x1, y1 = p['rect']
+            covered[y0:y1, x0:x1] = True
+        lost = art & ~covered
+        if lost.any():
+            ys, xs = np.where(lost)
+            raise SystemExit(f'  {int(lost.sum())} art px outside every piece, '
+                             f'e.g. ({xs[0]},{ys[0]})')
 
         # prove the pieces reproduce the canvas
         rebuilt = Image.new('RGBA', (W, H), (0, 0, 0, 255))
