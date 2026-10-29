@@ -1,7 +1,6 @@
 {
- "_about": "Pieces cut from city.png by tools/table_slice.py. box = px in the source artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; target = the game rect the piece belongs to, from tables/anchors.json.",
- "source": "city.png",
- "clean": "city_clean.png",
+ "_about": "Pieces cut from city_clean.png by tools/table_slice.py. A piece is a plain crop of the source - no pixel is changed. box = px in the artwork (1920x1080, 1.5x the 1280x720 canvas); place = where it goes on the canvas; target = the game rect it belongs to, from tables/anchors.json.",
+ "source": "city_clean.png",
  "scale": 1.5,
  "pieces": [
   {
@@ -9,13 +8,13 @@
    "box": [
     0,
     0,
-    457,
+    463,
     374
    ],
    "canvas_box": [
     0.0,
     0.0,
-    304.7,
+    308.7,
     249.3
    ],
    "place": [
@@ -67,13 +66,13 @@
   {
    "file": "03-right-column.png",
    "box": [
-    1685,
+    1684,
     0,
     1920,
     813
    ],
    "canvas_box": [
-    1123.3,
+    1122.7,
     0.0,
     1280.0,
     542.0
@@ -97,19 +96,19 @@
   {
    "file": "04-stock.png",
    "box": [
-    457,
+    449,
     329,
     657,
     637
    ],
    "canvas_box": [
-    304.7,
+    299.3,
     219.3,
     438.0,
     424.7
    ],
    "place": [
-    305,
+    299,
     219
    ],
    "scale": 0.6666666666666666,
@@ -128,19 +127,19 @@
    "file": "05-player-block.png",
    "box": [
     0,
-    704,
-    496,
+    702,
+    497,
     1080
    ],
    "canvas_box": [
     0.0,
-    469.3,
-    330.7,
+    468.0,
+    331.3,
     720.0
    ],
    "place": [
     0,
-    469
+    468
    ],
    "scale": 0.6666666666666666,
    "target_name": "player-block",
@@ -157,20 +156,20 @@
   {
    "file": "06-player-hand+status.png",
    "box": [
-    516,
-    792,
-    1532,
-    963
+    505,
+    791,
+    1544,
+    964
    ],
    "canvas_box": [
-    344.0,
-    528.0,
-    1021.3,
-    642.0
+    336.7,
+    527.3,
+    1029.3,
+    642.7
    ],
    "place": [
-    344,
-    528
+    337,
+    527
    ],
    "scale": 0.6666666666666666,
    "target_name": "player-hand+status",
@@ -188,20 +187,20 @@
   {
    "file": "07-buttons.png",
    "box": [
-    1674,
-    829,
+    1671,
+    828,
     1920,
     1029
    ],
    "canvas_box": [
-    1116.0,
-    552.7,
+    1114.0,
+    552.0,
     1280.0,
     686.0
    ],
    "place": [
-    1116,
-    553
+    1114,
+    552
    ],
    "scale": 0.6666666666666666,
    "target_name": "buttons",
@@ -216,11 +215,8 @@
    ]
   }
  ],
- "coverage": {
-  "ink_px": 702287,
-  "owned_px": 705922,
-  "lost_px": 0,
-  "recompose_max_diff": 0,
-  "recompose_px_off": 0
+ "lossless": {
+  "px_outside_pieces": 0,
+  "piece_vs_source_max_diff": 0
  }
 }

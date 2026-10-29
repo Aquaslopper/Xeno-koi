@@ -1,7 +1,6 @@
 {
- "_about": "Pieces cut from arctic.png by tools/table_slice.py. box = px in the source artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; target = the game rect the piece belongs to, from tables/anchors.json.",
- "source": "arctic.png",
- "clean": "arctic_clean.png",
+ "_about": "Pieces cut from arctic_clean.png by tools/table_slice.py. A piece is a plain crop of the source - no pixel is changed. box = px in the artwork (1920x1080, 1.5x the 1280x720 canvas); place = where it goes on the canvas; target = the game rect it belongs to, from tables/anchors.json.",
+ "source": "arctic_clean.png",
  "scale": 1.5,
  "pieces": [
   {
@@ -9,13 +8,13 @@
    "box": [
     0,
     0,
-    463,
+    461,
     1080
    ],
    "canvas_box": [
     0.0,
     0.0,
-    308.7,
+    307.3,
     720.0
    ],
    "place": [
@@ -38,19 +37,19 @@
   {
    "file": "02-cpu-hand.png",
    "box": [
-    673,
+    672,
     0,
     1452,
     194
    ],
    "canvas_box": [
-    448.7,
+    448.0,
     0.0,
     968.0,
     129.3
    ],
    "place": [
-    449,
+    448,
     0
    ],
    "scale": 0.6666666666666666,
@@ -98,19 +97,19 @@
   {
    "file": "04-stock.png",
    "box": [
-    463,
+    445,
     344,
     647,
     661
    ],
    "canvas_box": [
-    308.7,
+    296.7,
     229.3,
     431.3,
     440.7
    ],
    "place": [
-    309,
+    297,
     229
    ],
    "scale": 0.6666666666666666,
@@ -128,19 +127,19 @@
   {
    "file": "05-player-hand.png",
    "box": [
-    463,
+    456,
     775,
     1649,
     1080
    ],
    "canvas_box": [
-    308.7,
+    304.0,
     516.7,
     1099.3,
     720.0
    ],
    "place": [
-    309,
+    304,
     517
    ],
    "scale": 0.6666666666666666,
@@ -159,19 +158,19 @@
    "file": "06-buttons.png",
    "box": [
     1699,
-    834,
+    820,
     1920,
     1020
    ],
    "canvas_box": [
     1132.7,
-    556.0,
+    546.7,
     1280.0,
     680.0
    ],
    "place": [
     1133,
-    556
+    547
    ],
    "scale": 0.6666666666666666,
    "target_name": "buttons",
@@ -186,11 +185,8 @@
    ]
   }
  ],
- "coverage": {
-  "ink_px": 972268,
-  "owned_px": 972504,
-  "lost_px": 0,
-  "recompose_max_diff": 0,
-  "recompose_px_off": 0
+ "lossless": {
+  "px_outside_pieces": 0,
+  "piece_vs_source_max_diff": 0
  }
 }

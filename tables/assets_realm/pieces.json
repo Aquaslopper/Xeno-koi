@@ -1,7 +1,6 @@
 {
- "_about": "Pieces cut from realm.png by tools/table_slice.py. box = px in the source artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; target = the game rect the piece belongs to, from tables/anchors.json.",
+ "_about": "Pieces cut from realm.png by tools/table_slice.py. A piece is a plain crop of the source - no pixel is changed. box = px in the artwork (1920x1080, 1.5x the 1280x720 canvas); place = where it goes on the canvas; target = the game rect it belongs to, from tables/anchors.json.",
  "source": "realm.png",
- "clean": "realm_clean.png",
  "scale": 1.5,
  "pieces": [
   {
@@ -40,13 +39,13 @@
    "box": [
     640,
     3,
-    1511,
+    1512,
     204
    ],
    "canvas_box": [
     426.7,
     2.0,
-    1007.3,
+    1008.0,
     136.0
    ],
    "place": [
@@ -159,14 +158,14 @@
    "file": "06-status.png",
    "box": [
     688,
-    776,
-    1380,
+    775,
+    1398,
     839
    ],
    "canvas_box": [
     458.7,
-    517.3,
-    920.0,
+    516.7,
+    932.0,
     559.3
    ],
    "place": [
@@ -191,13 +190,13 @@
     1687,
     821,
     1920,
-    1060
+    1076
    ],
    "canvas_box": [
     1124.7,
     547.3,
     1280.0,
-    706.7
+    717.3
    ],
    "place": [
     1125,
@@ -216,11 +215,8 @@
    ]
   }
  ],
- "coverage": {
-  "ink_px": 986768,
-  "owned_px": 987059,
-  "lost_px": 0,
-  "recompose_max_diff": 16,
-  "recompose_px_off": 9
+ "lossless": {
+  "px_outside_pieces": 0,
+  "piece_vs_source_max_diff": 0
  }
 }

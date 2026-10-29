@@ -55,43 +55,48 @@ A table's folder is only listed here once the folder exists; the state is the sh
 (`spec` → `beta ported` → `forged` → `abandoned`), and its detail lives in that folder's `README.md`
 and `live-test.md`.
 
-## Cleaning and cutting the artwork
+## Cutting an artwork into placeable pieces
 
 Each `assets_<name>/` (and `assetes_castle/`) holds the full-table render at 1920 × 1080 — the
-1280 × 720 canvas at 1.5×. Two steps turn one of those into something placeable, both in
-`tools/table_slice.py`:
+1280 × 720 canvas at 1.5×. One image cannot be placed: a panel has to stand alone to be put down at
+its own rect. `tools/table_slice.py` does exactly that one job — **it crops, and it never changes a
+pixel.**
 
 ```sh
-python3 tools/table_slice.py tables/assets_city     # clean + cut, with a report
-python3 tools/table_slice.py --all                  # every asset folder
-python3 tools/table_slice.py tables/assets_city --pad 24   # more breathing room
+python3 tools/table_slice.py tables/assets_city           # cut one folder, with a report
+python3 tools/table_slice.py --all                        # every asset folder
+python3 tools/table_slice.py --all --pad 24               # more breathing room
 ```
 
-It writes, inside the folder it was given and nowhere else:
+Writes, inside the folder it was given and nowhere else:
 
 ```
-<name>_clean.png    the whole artwork, its baked-in text removed, same size as the source
-pieces/NN-<area>.png  one piece per game area, padded, transparent
-pieces.json         every piece's box in the source, its canvas placement, the rect it belongs to
-preview/pieces.png  contact sheet of the pieces
-preview/placed.png  the pieces put back at their own positions on the real backdrop
+pieces/NN-<area>.png   one piece per area — a verbatim crop of the source
+pieces.json            each piece's box, where it goes, the rect it belongs to
+preview/pieces.png     contact sheet of the pieces
+preview/placed.png     the pieces put back at 1:1.5 on the real backdrop
 ```
 
-Three things it asserts instead of eyeballing:
+What decides a cut:
 
-- **the text is gone, the metal is not.** A glyph is a small bright mark over dark metal; bigger
-  and brighter things (frames, cables, rivet clusters) fail the size test and stay. The emptied
-  glyph is filled from the metal around it, not blurred — a blur puts the glyph back into its own
-  hole. It never erases where the panel is bright, so nothing bright gets eaten.
-- **no piece takes a neighbour's pixels, and none are left over.** `pieces.json` reports
-  `lost_px: 0`.
-- **the pieces rebuild the artwork.** `recompose_max_diff: 0`, i.e. pasting them back at their own
-  boxes gives the cleaned original pixel for pixel. A cut that does not rebuild cannot be placed.
+- **only the game's own area edges** (`tables/anchors.json`) — the x and y where a panel starts or
+  ends. The gap between two cards in a row is not an edge, so a row of cards stays one piece instead
+  of being sliced card by card into pieces with no rect to belong to.
+- **never tight around the art.** Each piece is padded outward into the empty space around it
+  (16 px by default), and the padding stops at any other art, so the outer ornament stays inside
+  the piece and no piece drags a neighbour's art along.
+- **nothing is shaved and nothing is dropped.** A box is clipped to the panel's solid pixels, then
+  every remaining soft-fringe pixel (alpha 1..24) is attached to the nearest piece.
 
-Cuts run only on the game's own area edges (`tables/anchors.json`), never tight around the art: a
-piece keeps the art's outer ornament plus padding into the empty space around it, so nothing reads
-as chopped when it is scaled into place. A gap between two cards in a row is **not** an area edge
-and is not a cut — that would leave a piece with no rect to belong to.
+Two checks, printed per folder, neither of them an opinion:
+
+- `px_outside_pieces: 0` — every pixel of the art that carries any alpha is inside a piece;
+- `piece_vs_source_max_diff: 0` — each piece equals the same rectangle of the source, pixel for
+  pixel. No filtering, no re-colouring, no inpainting.
+
+The tool writes `pieces/`, `preview/` and `pieces.json`; it never rewrites `<name>.png`. The
+`_clean.png` files (text already removed, where it has been) are left exactly as they are, and are
+what gets cut when they exist.
 
 ## The forge loop
 

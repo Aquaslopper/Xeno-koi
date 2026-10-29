@@ -1,7 +1,6 @@
 {
- "_about": "Pieces cut from face.png by tools/table_slice.py. box = px in the source artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; target = the game rect the piece belongs to, from tables/anchors.json.",
+ "_about": "Pieces cut from face.png by tools/table_slice.py. A piece is a plain crop of the source - no pixel is changed. box = px in the artwork (1920x1080, 1.5x the 1280x720 canvas); place = where it goes on the canvas; target = the game rect it belongs to, from tables/anchors.json.",
  "source": "face.png",
- "clean": "face_clean.png",
  "scale": 1.5,
  "pieces": [
   {
@@ -37,19 +36,19 @@
   {
    "file": "02-cpu-hand.png",
    "box": [
-    672,
+    671,
     0,
     1456,
     200
    ],
    "canvas_box": [
-    448.0,
+    447.3,
     0.0,
     970.7,
     133.3
    ],
    "place": [
-    448,
+    447,
     0
    ],
    "scale": 0.6666666666666666,
@@ -67,19 +66,19 @@
   {
    "file": "03-right-column.png",
    "box": [
-    1693,
+    1691,
     1,
     1920,
-    139
+    831
    ],
    "canvas_box": [
-    1128.7,
+    1127.3,
     0.7,
     1280.0,
-    92.7
+    554.0
    ],
    "place": [
-    1129,
+    1127,
     1
    ],
    "scale": 0.6666666666666666,
@@ -95,51 +94,21 @@
    ]
   },
   {
-   "file": "04-right-column-2.png",
+   "file": "04-stock.png",
    "box": [
-    1692,
-    140,
-    1920,
-    831
-   ],
-   "canvas_box": [
-    1128.0,
-    93.3,
-    1280.0,
-    554.0
-   ],
-   "place": [
-    1128,
-    93
-   ],
-   "scale": 0.6666666666666666,
-   "target_name": "right-column",
-   "target": [
-    1160,
-    12,
-    112,
-    522
-   ],
-   "areas": [
-    "right-column"
-   ]
-  },
-  {
-   "file": "05-stock.png",
-   "box": [
-    447,
-    353,
-    635,
+    446,
+    352,
+    636,
     667
    ],
    "canvas_box": [
-    298.0,
-    235.3,
-    423.3,
+    297.3,
+    234.7,
+    424.0,
     444.7
    ],
    "place": [
-    298,
+    297,
     235
    ],
    "scale": 0.6666666666666666,
@@ -155,7 +124,7 @@
    ]
   },
   {
-   "file": "06-player-block.png",
+   "file": "05-player-block.png",
    "box": [
     0,
     726,
@@ -185,21 +154,21 @@
    ]
   },
   {
-   "file": "07-player-hand.png",
+   "file": "06-player-hand.png",
    "box": [
-    438,
+    433,
     763,
     1654,
     1080
    ],
    "canvas_box": [
-    292.0,
+    288.7,
     508.7,
     1102.7,
     720.0
    ],
    "place": [
-    292,
+    289,
     509
    ],
    "scale": 0.6666666666666666,
@@ -215,22 +184,22 @@
    ]
   },
   {
-   "file": "08-buttons.png",
+   "file": "07-buttons.png",
    "box": [
     1690,
-    831,
+    818,
     1920,
     1017
    ],
    "canvas_box": [
     1126.7,
-    554.0,
+    545.3,
     1280.0,
     678.0
    ],
    "place": [
     1127,
-    554
+    545
    ],
    "scale": 0.6666666666666666,
    "target_name": "buttons",
@@ -245,11 +214,8 @@
    ]
   }
  ],
- "coverage": {
-  "ink_px": 935446,
-  "owned_px": 936420,
-  "lost_px": 0,
-  "recompose_max_diff": 255,
-  "recompose_px_off": 1
+ "lossless": {
+  "px_outside_pieces": 0,
+  "piece_vs_source_max_diff": 0
  }
 }

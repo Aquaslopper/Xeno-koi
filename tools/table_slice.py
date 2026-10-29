@@ -1,156 +1,80 @@
 #!/usr/bin/env python3
-"""Clean a table artwork's baked-in text and cut it into one piece per area.
+"""Cut a table artwork into one piece per area, so each area can be placed on its own.
 
-The `tables/assets_*/` and `tables/assetes_castle/` folders hold the full-table artwork at 1.5x the
-1280x720 canvas. Two things are wrong with a raw render, and this tool fixes exactly those:
+The `tables/assets_*/` and `tables/assetes_castle/` folders hold the full-table artwork at 1920x1080
+- the 1280x720 canvas at 1.5x. One image cannot be placed: a panel has to stand alone to be put
+down at its own rect. This tool does exactly one thing - it crops. **It never changes a pixel.**
+Every piece is a plain rectangle of the source, so the art that comes out is the art that went in.
 
-  1. **Text.** The render has the game's own labels baked in ("CPU SCORE: 0", "PAUSE", the status
-     line, ...). The game draws those itself, so a baked copy lands underneath it and doubles.
-     `cleantext()` removes glyphs and leaves the metal untouched.
-  2. **One image is not placeable.** A panel has to be cut out to be put down at its own rect, and the
-     cut has to keep breathing room around the art - cropping to the tight bbox shaves the outer
-     ornament and the piece then reads as chopped when it is put down. `pieces()` cuts on the game's
-     own area edges and pads each piece outward while the strip around it is still empty, so no
-     piece takes a pixel that belongs to its neighbour.
+What decides a cut:
 
-    python3 tools/table_slice.py tables/assets_city            # clean + cut, report
-    python3 tools/table_slice.py tables/assets_city --pad 20   # wider breathing room
-    python3 tools/table_slice.py --all                         # every asset folder
+  * only the game's own area edges (`tables/anchors.json`) - the x and y where a panel starts or
+    ends. The gap between two cards in a row is not an edge: cutting there would leave a piece
+    with no rect to belong to, so a row of cards stays one piece.
+  * never tight around the art. Each piece is padded outward into the empty space around it
+    (default 16 px, `--pad`), and the padding never crosses into a neighbouring piece's ink. The
+    outer ornament therefore stays inside the piece instead of being shaved off at the boundary.
+  * a piece is only ever as big as it has to be: a block that spans several areas stays one piece
+    if those areas are drawn as one casing (city's left block), and is split when they are not.
 
-Writes, inside the folder it was given - nothing anywhere else:
+    python3 tools/table_slice.py tables/assets_city      # cut one folder
+    python3 tools/table_slice.py --all                   # every asset folder
+    python3 tools/table_slice.py --all --pad 24          # wider breathing room
 
-    <name>_clean.png        the whole artwork, text gone, same size as the source
-    pieces/NN-<area>.png    one piece per area, padded, transparent
-    pieces.json             every piece's box in the source, its canvas box, the game rect it belongs to
-    preview/pieces.png      contact sheet of the pieces (the picture to look at)
-    preview/placed.png      the pieces put back at their own positions on the real backdrop
+Writes, inside the folder it was given and nowhere else:
 
-A piece's box is never tighter than its art and never wider than the empty gap to the next piece.
+    pieces/NN-<area>.png   one piece per area - a crop, nothing else
+    pieces.json            each piece's box in the source, where it goes, the rect it belongs to
+    preview/pieces.png     contact sheet of the pieces
+    preview/placed.png     the pieces put back at 1:1.5 on the real backdrop
+
+It ends with a check, not an opinion: pasting every piece back at its own box must reproduce the
+source image. `pieces.json` -> `recompose_max_diff` must be 0.
 """
 import json
 import os
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage as ndi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-# The artwork is rendered at 1.5x the 1280x720 canvas (1920x1080).
+# The artwork is rendered at 1.5x the 1280x720 canvas.
 SCALE = 1.5
 
-# The areas a table is made of, in canvas px, taken from tables/anchors.json - never from a picture.
-# A piece may cover more than one of these (city's left block is score + four lanes in one casing);
-# what a piece belongs to is decided by how much of each area its box covers, below.
-AREAS = {
-    "cpu-block": (12, 12, 255, 196),          # score strip + four CPU lanes
-    "cpu-score": (12, 12, 255, 30),           # only used when the artwork splits them
-    "cpu-lanes": (12, 46, 255, 162),
-    "player-block": (12, 508, 255, 200),      # four player lanes + you score strip
-    "field": (430, 132, 650, 400),            # no art in the renders: cards sit on the backdrop
-    "stock": (330, 262, 76, 148),
-    "right-column": (1160, 12, 112, 522),     # round + ruleset, CPU combos, your combos
-    "round-panel": (1160, 12, 112, 66),
-    "cpu-combos": (1160, 88, 112, 218),
-    "your-combos": (1160, 316, 112, 218),
-    "buttons": (1160, 560, 112, 90),          # PAUSE / RESTART
-    "status": (480, 518, 460, 34),            # the turn line's banner
-    "cpu-hand": (465, 12, 490, 91),
-    "player-hand": (330, 566, 760, 143),
-}
+# The areas a table is made of, in canvas px, from tables/anchors.json - never from a picture.
+GROUPS = [
+    ("cpu-block", (12, 12, 255, 196)),        # score strip + four CPU lanes
+    ("cpu-hand", (465, 12, 490, 91)),
+    ("stock", (330, 262, 76, 148)),
+    ("player-block", (12, 508, 255, 200)),    # four player lanes + you score strip
+    ("player-hand", (330, 566, 760, 143)),
+    ("status", (480, 518, 460, 34)),          # the turn line's banner
+    ("right-column", (1160, 12, 112, 522)),   # round + CPU combos + your combos
+    ("buttons", (1160, 560, 112, 90)),        # PAUSE / RESTART
+]
+GROUP_RECT = dict(GROUPS)
 
-# Text removal. Every number here was chosen against the six renders in the repo.
-BG_R, BRIGHT, OVER_BG = 21, 52, 15      # background median radius, minimum glyph brightness, contrast
-MAX_AREA, MAX_SPAN = 2600, 74           # a glyph is small; a rivet cluster or a cable is not
-DARK_BG = 105                           # only erase where the thing behind it is dark metal
-FILL_RADIUS = 10                        # px: the median window an emptied glyph is filled from
-ERASE_SLACK = 3                         # px: a glyph's anti-aliased rim and its dark outline
+PAD = 16              # px of empty space kept around the art, in source px
+MIN_INK = 24          # alpha above which a pixel counts as art
+MIN_PIECE = 1200      # px of ink below which a block is a speck, not an area
+SHEET = 0.45          # a block covering this much of the canvas is a joined sheet, not a panel
 
 
-def lum_of(rgb):
-    return rgb[..., :3].astype(np.float32).mean(axis=2)
+# ---------------------------------------------------------------- reading the art
+def ink_of(im):
+    return np.asarray(im)[..., 3] > MIN_INK
 
 
-def fill_from_around(im, erase):
-    """Fill the erased pixels with the metal around them, and nothing else.
-
-    A blur pulls the glyph back into its own hole; a median does not, because the ink is a small
-    minority of any window wider than a stroke. The window is 21 px - wider than a glyph is thick,
-    narrow enough that the frame next to it is still outvoted.
-    """
-    a = np.asarray(im).astype(np.float32)
-    rgb, alpha = a[..., :3], a[..., 3]
-    k = 2 * FILL_RADIUS + 1
-    fill_rgb = np.dstack([
-        np.asarray(Image.fromarray(np.clip(rgb[..., c], 0, 255).astype(np.uint8))
-                   .filter(ImageFilter.MedianFilter(k)), dtype=np.float32) for c in range(3)])
-    fill_a = np.asarray(Image.fromarray(np.clip(alpha, 0, 255).astype(np.uint8))
-                        .filter(ImageFilter.MedianFilter(k)), dtype=np.float32)
-    out = np.where(erase[..., None], fill_rgb, rgb)
-    al = np.where(erase, fill_a, alpha)
-    return Image.fromarray(np.dstack([np.clip(out, 0, 255), np.clip(al, 0, 255)]).astype(np.uint8), "RGBA")
-
-
-def cleantext(im, verbose=False):
-    """Erase baked-in glyphs, keep every pixel of metal.
-
-    A glyph is a small, bright mark on dark metal: brighter than a median of its own 21 px window -
-    wide enough to ignore a 4 px stroke - and only a few tens of pixels big. Anything larger (a
-    frame, a cable, a rivet cluster) fails the size test and is kept, which is how the ornaments
-    survive a pass meant to delete text.
-    """
-    a = np.asarray(im).astype(np.float32)
-    rgb, alpha = a[..., :3], a[..., 3]
-    lum = lum_of(rgb)
-    bg = np.asarray(Image.fromarray(np.clip(lum, 0, 255).astype(np.uint8))
-                   .filter(ImageFilter.MedianFilter(BG_R)), dtype=np.float32)
-
-    cand = (lum > bg + OVER_BG) & (lum > BRIGHT) & (alpha > 40) & (bg < DARK_BG)
-    lab, n = ndi.label(cand, structure=np.ones((3, 3)))
-    if n == 0:
-        return im, 0
-    idx = np.arange(1, n + 1)
-    area = ndi.sum(cand, lab, idx)
-    keep = np.zeros(n + 1, bool)
-    for i, sl in enumerate(ndi.find_objects(lab)):
-        if sl is None:
-            continue
-        h = sl[0].stop - sl[0].start
-        w = sl[1].stop - sl[1].start
-        if area[i] <= MAX_AREA and h <= MAX_SPAN and w <= MAX_SPAN:
-            keep[i + 1] = True
-    erase = keep[lab]
-    if verbose:
-        print(f"    text: {int(keep.sum())} marks, {int(erase.sum())} px")
-    if not erase.any():
-        return im, 0
-
-    # A glyph's own holes (the counter of an O, a gap in a stroke) go with it, and so does the rim:
-    # the anti-aliased edge and the dark outline sit up to three pixels outside the bright core.
-    erase = ndi.binary_fill_holes(erase)
-    r = ERASE_SLACK
-    yy, xx = np.mgrid[-r:r + 1, -r:r + 1]
-    erase = ndi.binary_dilation(erase, (yy * yy + xx * xx) <= r * r)
-    out = fill_from_around(im, erase)
-    return out, int(erase.sum())
-
-
-# ---------------------------------------------------------------- pieces
 def area_edges():
-    """Every x and y where a game area starts or ends, in artwork px.
-
-    These are the only places a cut is allowed to run: the game draws a panel at each of these
-    rects, so a seam there can be put back together exactly. The gap between two cards in a row is
-    not an edge - cutting there would leave a piece with no rect to belong to.
-    """
+    """Every x and y where a game area starts or ends, in artwork px."""
     xs, ys = set(), set()
-    for (x, y, w, h) in AREAS.values():
-        for v in (x, x + w):
-            xs.add(round(v * SCALE))
-        for v in (y, y + h):
-            ys.add(round(v * SCALE))
+    for (x, y, w, h) in GROUP_RECT.values():
+        xs.update(round(v * SCALE) for v in (x, x + w))
+        ys.update(round(v * SCALE) for v in (y, y + h))
     return xs, ys
 
 
@@ -159,6 +83,7 @@ def on_edge(a, b, edges, tol=6):
 
 
 def runs(flags, run=4):
+    """Runs of at least `run` True values -> [(start, stop)]."""
     out, start = [], None
     for i, f in enumerate(flags):
         if f and start is None:
@@ -173,11 +98,11 @@ def runs(flags, run=4):
 
 
 def split_gaps(sub, xs, ys, frac=0.02, run=4, origin=(0, 0)):
-    """Split a block on the empty bands that lie on a game area edge.
+    """Split a block on the empty bands that sit on a game area edge.
 
-    A band counts as a gap when at most `frac` of its length has any ink, for at least `run` rows
-    (or columns), and its middle sits on an edge from `area_edges()`. Where two panels touch there
-    is no gap and they stay one piece - cutting there would slice the casing the art is made of.
+    A band counts only when almost none of it has ink (`frac`) and its middle is on an edge from
+    `area_edges()`. Where two panels touch there is no band and they stay one piece - cutting
+    there would slice the casing the art is made of.
     """
     h, w = sub.shape
     ox, oy = origin
@@ -199,30 +124,16 @@ def split_gaps(sub, xs, ys, frac=0.02, run=4, origin=(0, 0)):
     return boxes
 
 
-MIN_PIECE = 1200                       # px of own ink below which a cut piece is a stray, not an area
-
-GROUPS = [
-    ("cpu-block", (12, 12, 255, 196)),
-    ("cpu-hand", (465, 12, 490, 91)),
-    ("stock", (330, 262, 76, 148)),
-    ("player-block", (12, 508, 255, 200)),
-    ("player-hand", (330, 566, 760, 143)),
-    ("status", (480, 518, 460, 34)),
-    ("right-column", (1160, 12, 112, 522)),
-    ("buttons", (1160, 560, 112, 90)),
-]
-
-
 def group_index(shape):
-    """Every pixel -> the nearest game area group, as a label image (1..len(GROUPS)).
+    """Every pixel -> the nearest game area, as a label image (1..len(GROUPS)).
 
-    Used for art that is one connected sheet (realm's panels are joined by cables): such a sheet
-    cannot be placed at any rect until it is divided, and dividing by nearest area is the cut that
-    loses the least - each piece still holds exactly the art that belongs to its own panel.
+    Needed only for art that is one connected sheet (realm: its panels are joined by cables). Such
+    a sheet cannot be placed at any rect until it is divided, and dividing it by nearest area is
+    the cut that keeps each piece holding the art of its own panel.
     """
     h, w = shape
     gy, gx = np.mgrid[0:h, 0:w]
-    best = np.full(shape, np.inf, dtype=np.float64)
+    best = np.full(shape, np.inf)
     lab = np.zeros(shape, np.uint8)
     for i, (_, (x, y, rw, rh)) in enumerate(GROUPS, start=1):
         x0, y0, x1, y1 = x * SCALE, y * SCALE, (x + rw) * SCALE, (y + rh) * SCALE
@@ -235,15 +146,11 @@ def group_index(shape):
     return lab
 
 
-def blocks_of(mask, min_area=60):
-    """The artwork's own blocks, each with the pixels it actually owns.
-
-    Returns (box, own) pairs, where `own` is the full-size mask of that one block - needed because
-    a block's rectangle can enclose a neighbour (realm's sheet spans the whole canvas).
-    """
+def blocks_of(mask, min_area=MIN_INK):
+    """The artwork's own blocks as (box, own-mask), split on the game's area edges."""
     xs, ys = area_edges()
     m = ndi.binary_closing(mask, structure=np.ones((5, 5))) | mask
-    lab, n = ndi.label(m, structure=np.ones((3, 3)))
+    lab, _ = ndi.label(m, structure=np.ones((3, 3)))
     out = []
     for i, sl in enumerate(ndi.find_objects(lab), start=1):
         if sl is None:
@@ -261,50 +168,80 @@ def blocks_of(mask, min_area=60):
     return out
 
 
-def pieces(im, pad=16, min_area=60, verbose=False):
-    """Cut the artwork into one piece per game area.
+def box_gap(a, b):
+    dx = max(0, max(a[0], b[0]) - min(a[2], b[2]))
+    dy = max(0, max(a[1], b[1]) - min(a[3], b[3]))
+    return dx * dx + dy * dy
 
-    1. the artwork's own blocks, split only on the game's area edges;
-    2. a block still covering half the canvas (realm: its panels are joined by cables) is divided
-       between the areas by nearest-area, because no gap exists to cut on and a sheet that covers
-       everything cannot be placed at any rect;
-    3. blocks with the same area are joined back together - a row of cards drawn as separate
-       objects is still one row, and the empty gaps between them are not an area edge;
-    4. a speck too small to be an area is given to the nearest piece, so no art is dropped;
-    5. every piece is clipped to its own ink and padded into empty space.
+
+def pad_box(box, ink, pad, w, h):
+    """Grow a box outward into empty space - the breathing room the art needs.
+
+    Stops at ink, so a piece never swallows a neighbour's ornament and no art is drawn twice.
     """
-    mask = np.asarray(im.split()[3]) > 24
-    lab = group_index(mask.shape)
+    x0, y0, x1, y1 = box
+
+    def free(a, b, c, d):
+        return not ink[a:b, c:d].any()
+
+    while y0 > 0 and box[1] - y0 < pad and free(y0 - 1, y0, x0, x1):
+        y0 -= 1
+    while y1 < h and y1 - box[3] < pad and free(y1, y1 + 1, x0, x1):
+        y1 += 1
+    while x0 > 0 and box[0] - x0 < pad and free(y0, y1, x0 - 1, x0):
+        x0 -= 1
+    while x1 < w and x1 - box[2] < pad and free(y0, y1, x1, x1 + 1):
+        x1 += 1
+    return [x0, y0, x1, y1]
+
+
+def target_rect(names):
+    """The canvas rect a piece belongs to: its own areas, joined if it holds more than one."""
+    rs = [GROUP_RECT[n] for n in names]
+    x0, y0 = min(r[0] for r in rs), min(r[1] for r in rs)
+    x1 = max(r[0] + r[2] for r in rs)
+    y1 = max(r[1] + r[3] for r in rs)
+    return [x0, y0, x1 - x0, y1 - y0]
+
+
+# ---------------------------------------------------------------- cutting
+def pieces(im, pad=PAD):
+    """One piece per area. Crops only - the pixels are never touched.
+
+    The cut is lossless by construction: every pixel that carries any alpha ends up inside exactly
+    one piece's rectangle, and each piece is written by cropping the source. The last step in
+    `run()` proves it by pasting them all back and comparing with the original.
+    """
+    ink = ink_of(im)                      # what a panel is drawn from: alpha > 24
+    every = np.asarray(im)[..., 3] > 0    # everything that carries any art at all
+    lab = group_index(ink.shape)
     whole = float(im.width * im.height)
 
-    # -- 1 and 2: blocks, big sheets divided by area
+    # 1. the blocks the artwork is drawn as, and any joined sheet divided by nearest area
     blocks = []
-    for (x0, y0, x1, y1), own in blocks_of(mask, min_area):
-        if (x1 - x0) * (y1 - y0) < 0.45 * whole:
+    for (x0, y0, x1, y1), own in blocks_of(ink):
+        if (x1 - x0) * (y1 - y0) < SHEET * whole:
             blocks.append(([x0, y0, x1, y1], own))
             continue
-        sliced = lab[y0:y1, x0:x1]
+        sub = lab[y0:y1, x0:x1]
         for i in range(1, len(GROUPS) + 1):
-            sel = own[y0:y1, x0:x1] & (sliced == i)
-            if sel.sum() < min_area:
+            sel = own[y0:y1, x0:x1] & (sub == i)
+            if sel.sum() < MIN_PIECE:
                 continue
             ys_i, xs_i = np.where(sel)
-            box = [x0 + int(xs_i.min()), y0 + int(ys_i.min()),
-                   x0 + int(xs_i.max()) + 1, y0 + int(ys_i.max()) + 1]
-            piece = np.zeros_like(mask)
+            piece = np.zeros_like(ink)
             piece[y0:y1, x0:x1] = sel
-            blocks.append((box, piece))
+            blocks.append(([x0 + int(xs_i.min()), y0 + int(ys_i.min()),
+                            x0 + int(xs_i.max()) + 1, y0 + int(ys_i.max()) + 1], piece))
 
-    # -- 3: join blocks that belong to the same area
-    primary = []
-    for box, own in blocks:
-        hist = np.bincount(lab[own].ravel(), minlength=len(GROUPS) + 1)[1:]
-        primary.append(int(np.argmax(hist)) + 1)
+    # 2. join blocks that are the same area, unless the joined box would hold another area's art
+    primary = [int(np.argmax(np.bincount(lab[o].ravel(), minlength=len(GROUPS) + 1)[1:])) + 1
+               for _, o in blocks]
     merged, used = [], [False] * len(blocks)
     for i in range(len(blocks)):
         if used[i]:
             continue
-        box, ownmask = list(blocks[i][0]), blocks[i][1].copy()
+        box, own = list(blocks[i][0]), blocks[i][1].copy()
         used[i] = True
         changed = True
         while changed:
@@ -314,137 +251,78 @@ def pieces(im, pad=16, min_area=60, verbose=False):
                     continue
                 u = [min(box[0], blocks[j][0][0]), min(box[1], blocks[j][0][1]),
                      max(box[2], blocks[j][0][2]), max(box[3], blocks[j][0][3])]
-                # joining is only allowed when the joined box holds no other area's ink
-                foreign = mask[u[1]:u[3], u[0]:u[2]] & ~(ownmask | blocks[j][1])[u[1]:u[3], u[0]:u[2]]
+                foreign = ink[u[1]:u[3], u[0]:u[2]] & ~(own | blocks[j][1])[u[1]:u[3], u[0]:u[2]]
                 if foreign.any():
                     continue
-                box, ownmask = u, ownmask | blocks[j][1]
+                box, own = u, own | blocks[j][1]
                 used[j] = True
                 changed = True
-        merged.append([box, ownmask])
+        merged.append([box, own])
 
-    # -- 4: a speck is not an area - give it to the nearest piece that is
-    big = [k for k, (b, o) in enumerate(merged) if o.sum() >= MIN_PIECE]
+    # 3. a speck is not an area: it belongs to the piece beside it
+    big = [k for k, (_, o) in enumerate(merged) if o.sum() >= MIN_PIECE]
     drop = set()
-    for k, (box, ownmask) in enumerate(merged):
+    for k, (box, own) in enumerate(merged):
         if k in big or not big:
             continue
-        j = min(big, key=lambda j: _box_gap(merged[j][0], box))
+        j = min(big, key=lambda j: box_gap(merged[j][0], box))
         b, o = merged[j]
         merged[j][0] = [min(b[0], box[0]), min(b[1], box[1]), max(b[2], box[2]), max(b[3], box[3])]
-        merged[j][1] = o | ownmask
+        merged[j][1] = o | own
         drop.add(k)
     merged = [m for k, m in enumerate(merged) if k not in drop]
 
-    # -- 3b: no ink may be left over. Anything the split could not keep (a 2 px strip on the canvas
-    # edge) joins the piece that owns its game area, so every pixel lands in exactly one piece.
-    owned = np.zeros_like(mask)
-    for _, o in merged:
-        owned |= o
-    leftover = mask & ~owned
-    if leftover.any():
-        per_group = {}
-        for j, (_, o) in enumerate(merged):
-            hist = np.bincount(lab[o].ravel(), minlength=len(GROUPS) + 1)[1:]
-            per_group.setdefault(int(np.argmax(hist)) + 1, j)
-        lab_l, _ = ndi.label(leftover, structure=np.ones((3, 3)))
-        for i, sl in enumerate(ndi.find_objects(lab_l), start=1):
-            if sl is None:
-                continue
-            comp = np.zeros_like(mask)
-            comp[sl] = (lab_l[sl] == i)
-            own_g = int(np.argmax(np.bincount(lab[comp].ravel(), minlength=len(GROUPS) + 1)[1:])) + 1
-            j = per_group.get(own_g)
-            if j is None:
-                ys_i, xs_i = np.where(comp)
-                cb = [int(xs_i.min()), int(ys_i.min()), int(xs_i.max()) + 1, int(ys_i.max()) + 1]
-                j = _nearest_piece(merged, cb)
-            b, o = merged[j]
-            merged[j][1] = o | comp
-
-    # -- 5: clip to own ink (a box may enclose a neighbour's art), then pad into empty space
+    # 4. clip a box to the ink it actually holds (a box may enclose a neighbour's art), keeping the
+    #    box name of the area its ink belongs to
     clipped = []
-    for box, ownmask in merged:
+    for box, own in merged:
         x0, y0, x1, y1 = box
-        while x1 - x0 > 2 and not ownmask[y0:y1, x0].any():
+        while x1 - x0 > 2 and not own[y0:y1, x0].any():
             x0 += 1
-        while x1 - x0 > 2 and not ownmask[y0:y1, x1 - 1].any():
+        while x1 - x0 > 2 and not own[y0:y1, x1 - 1].any():
             x1 -= 1
-        while y1 - y0 > 2 and not ownmask[y0, x0:x1].any():
+        while y1 - y0 > 2 and not own[y0, x0:x1].any():
             y0 += 1
-        while y1 - y0 > 2 and not ownmask[y1 - 1, x0:x1].any():
+        while y1 - y0 > 2 and not own[y1 - 1, x0:x1].any():
             y1 -= 1
-        clipped.append(([x0, y0, x1, y1], ownmask))
-
-    taken = mask.copy()
-    out = []
-    for box, ownmask in sorted(clipped, key=lambda b: (round(b[0][1] / 150), b[0][0])):
-        box = pad_box(list(box), taken, pad, im.width, im.height)
-        taken[box[1]:box[3], box[0]:box[2]] = True
-        hist = np.bincount(lab[ownmask].ravel(), minlength=len(GROUPS) + 1)[1:]
+        hist = np.bincount(lab[own].ravel(), minlength=len(GROUPS) + 1)[1:]
         share = hist / max(1, hist.sum())
         names = [GROUPS[k][0] for k in np.argsort(-share) if share[k] >= 0.12]
         if not names:
             names = [GROUPS[int(np.argmax(hist))][0]]
-        out.append({"box": box, "own": ownmask, "groups": names})
+        clipped.append({"box": [x0, y0, x1, y1], "names": names})
+
+    # 5. a box is clipped to alpha > 24, but a panel's soft fringe (alpha 1..24) sits outside that
+    #    and would be shaved off. Every such pixel goes to the nearest box, so the pieces together
+    #    hold every pixel that carries colour: nothing lost, nothing shaved at a boundary.
+    cover = np.zeros_like(ink)
+    for p in clipped:
+        b = p["box"]
+        cover[b[1]:b[3], b[0]:b[2]] = True
+    leftover = every & ~cover
+    if leftover.any():
+        lab_l, _ = ndi.label(leftover, structure=np.ones((3, 3)))
+        for i, sl in enumerate(ndi.find_objects(lab_l), start=1):
+            if sl is None:
+                continue
+            ys_i, xs_i = np.where(lab_l[sl] == i)
+            cb = [sl[1].start + int(xs_i.min()), sl[0].start + int(ys_i.min()),
+                  sl[1].start + int(xs_i.max()) + 1, sl[0].start + int(ys_i.max()) + 1]
+            j = min(range(len(clipped)), key=lambda j: box_gap(clipped[j]["box"], cb))
+            b = clipped[j]["box"]
+            clipped[j]["box"] = [min(b[0], cb[0]), min(b[1], cb[1]),
+                                 max(b[2], cb[2]), max(b[3], cb[3])]
+
+    # 6. the breathing room: grow each box into empty space, stopping at any other art
+    out = []
+    for p in clipped:
+        out.append({"box": pad_box(list(p["box"]), every, pad, im.width, im.height),
+                    "groups": p["names"]})
+    out.sort(key=lambda p: (round(p["box"][1] / 150), p["box"][0]))
     return out
 
 
-def _nearest_piece(merged, box):
-    """Which piece a leftover belongs to: the nearest one, and on a tie the one it runs alongside.
-
-    A 2 px strip on the canvas edge can be the same distance from two panels; taking the first
-    would drag a whole column out of shape, so the panel it actually continues wins.
-    """
-    def overlap(a, b):
-        ox = min(a[2], b[2]) - max(a[0], b[0])
-        oy = min(a[3], b[3]) - max(a[1], b[1])
-        return max(0, ox) + max(0, oy)
-
-    return min(range(len(merged)),
-               key=lambda j: (_box_gap(merged[j][0], box), -overlap(merged[j][0], box)))
-
-
-def _box_gap(a, b):
-    """Distance between two boxes (0 if they touch) - used to attach a stray to its neighbour."""
-    dx = max(0, max(a[0], b[0]) - min(a[2], b[2]))
-    dy = max(0, max(a[1], b[1]) - min(a[3], b[3]))
-    return dx * dx + dy * dy
-
-
-def pad_box(box, taken, pad, canvas_w, canvas_h):
-    """Grow a box outward while it is still empty space - the breathing room the art needs.
-
-    `taken` is every ink pixel plus every box already claimed: a piece never grows into a
-    neighbour, so nothing is drawn twice and no panel loses a pixel to the piece next door.
-    """
-    x0, y0, x1, y1 = box
-
-    def free(a, b, c, d):
-        return not taken[a:b, c:d].any()
-
-    while y0 > 0 and box[1] - y0 < pad and free(y0 - 1, y0, x0, x1):
-        y0 -= 1
-    while y1 < canvas_h and y1 - box[3] < pad and free(y1, y1 + 1, x0, x1):
-        y1 += 1
-    while x0 > 0 and box[0] - x0 < pad and free(y0, y1, x0 - 1, x0):
-        x0 -= 1
-    while x1 < canvas_w and x1 - box[2] < pad and free(y0, y1, x1, x1 + 1):
-        x1 += 1
-    return [x0, y0, x1, y1]
-
-
-def target_rect(names):
-    """The canvas rect a piece is placed on: its own areas, joined if it holds more than one."""
-    rs = [dict(GROUPS)[n] for n in names]
-    x0 = min(r[0] for r in rs)
-    y0 = min(r[1] for r in rs)
-    x1 = max(r[0] + r[2] for r in rs)
-    y1 = max(r[1] + r[3] for r in rs)
-    return [x0, y0, x1 - x0, y1 - y0]
-
-
-# ---------------------------------------------------------------- reporting
+# ---------------------------------------------------------------- previews and the check
 def contact_sheet(records, path, cell=(360, 240)):
     cols = 4
     rows = (len(records) + cols - 1) // cols
@@ -471,55 +349,49 @@ def contact_sheet(records, path, cell=(360, 240)):
 
 
 def compose(records, backdrop, path):
-    """Put every piece back where it came from, at 1/1.5 scale, on the real backdrop.
-
-    This is the check that a cut is usable: if the pieces do not rebuild the artwork, they cannot
-    be placed on the table either. Placement is exact - the piece's own box, scaled once - not a
-    stretch to fit a rect, because stretching is what makes a panel read wrong.
-    """
+    """Put every piece back at its own position, 1:1.5, on the real backdrop."""
     canvas = Image.new("RGBA", (1280, 720), (8, 8, 10, 255))
     if backdrop and os.path.exists(backdrop):
-        bd = Image.open(backdrop).convert("RGB").resize((1280, 720), Image.LANCZOS)
-        canvas.paste(bd, (0, 0))
+        canvas.paste(Image.open(backdrop).convert("RGB").resize((1280, 720), Image.LANCZOS), (0, 0))
     for r in records:
         im = Image.open(r["_path"]).convert("RGBA")
         im = im.resize((max(1, round(im.width / SCALE)), max(1, round(im.height / SCALE))),
                        Image.LANCZOS)
         canvas.alpha_composite(im, (round(r["box"][0] / SCALE), round(r["box"][1] / SCALE)))
     canvas.convert("RGB").save(path)
-    return canvas
 
 
-def verify(clean, records):
-    """Rebuild the artwork from its pieces, at source size, and compare with the cleaned original.
+def verify(source, records, cover):
+    """Prove the cut is lossless, two ways - neither of them an opinion.
 
-    Done at 1:1 rather than on the canvas so the result is about the cut and not about the
-    resampler: a piece that drops a pixel, takes a neighbour's, or is cropped appears here as a
-    non-zero difference. Returns (worst channel difference, pixels off by more than 2).
+    1. **coverage**: every pixel of the source that carries any alpha lies inside at least one
+       piece's box, so no part of the art is left behind or shaved off at a boundary;
+    2. **verbatim**: each piece is compared with the same rectangle of the source, pixel for pixel,
+       so a piece is a crop and nothing else - no filtering, no re-colouring, no inpainting.
+    Returns (coverage px lost, worst channel difference inside a piece).
     """
-    canvas = Image.new("RGBA", clean.size, (0, 0, 0, 0))
+    every = np.asarray(source)[..., 3] > 0
+    lost = int((every & ~cover).sum())
+    worst = 0
     for r in records:
-        canvas.alpha_composite(Image.open(r["_path"]).convert("RGBA"), (r["box"][0], r["box"][1]))
-    a = np.asarray(canvas).astype(np.int16)
-    b = np.asarray(clean).astype(np.int16)
-    diff = np.abs(a - b).max(axis=2)
-    return int(diff.max()), int((diff > 2).sum())
+        piece = np.asarray(Image.open(r["_path"]).convert("RGBA")).astype(np.int16)
+        ref = np.asarray(source.crop(tuple(r["box"]))).astype(np.int16)
+        worst = max(worst, int(np.abs(piece - ref).max()))
+    return lost, worst
 
 
 # ---------------------------------------------------------------- per folder
-def run(folder, pad=16):
+def run(folder, pad=PAD):
     folder = os.path.abspath(folder)
     name = os.path.basename(folder).replace("assetes_", "").replace("assets_", "")
-    src = os.path.join(folder, name + ".png")
+    # cut the text-cleaned artwork where one exists - it is the same artwork, same size
+    clean = os.path.join(folder, name + "_clean.png")
+    src = clean if os.path.exists(clean) else os.path.join(folder, name + ".png")
     if not os.path.exists(src):
-        raise SystemExit(f"no {src}")
+        raise SystemExit(f"no {os.path.join(folder, name + '.png')}")
     im = Image.open(src).convert("RGBA")
     if abs(im.width / im.height - 16 / 9) > 0.01:
         raise SystemExit(f"{src} is not 16:9 - the artwork is the canvas at 1.5x")
-
-    clean, n_erased = cleantext(im, verbose=True)
-    clean_path = os.path.join(folder, name + "_clean.png")
-    clean.save(clean_path)
 
     pdir = os.path.join(folder, "pieces")
     os.makedirs(pdir, exist_ok=True)
@@ -527,78 +399,67 @@ def run(folder, pad=16):
         if f.endswith(".png"):
             os.remove(os.path.join(pdir, f))
 
-    found = pieces(clean, pad=pad)
-    ink = np.asarray(clean.split()[3]) > 24
-    owned = np.zeros_like(ink)
-    for piece in found:
-        owned |= piece["own"]
-    lost = int((ink & ~owned).sum())
+    cut = pieces(im, pad=pad)
+    cover = np.zeros(im.size[::-1], bool)
+    for piece in cut:
+        b = piece["box"]
+        cover[b[1]:b[3], b[0]:b[2]] = True
+
     records, used = [], {}
-    for i, rec in enumerate(found):
-        box, names = rec["box"], rec["groups"]
+    for i, piece in enumerate(cut):
+        box, names = piece["box"], piece["groups"]
         label = "+".join(names)
         used[label] = used.get(label, 0) + 1
         fname = f"{i + 1:02d}-{label}" + (f"-{used[label]}" if used[label] > 1 else "") + ".png"
-        img = clean.crop(tuple(box))
-        keep = rec["own"][box[1]:box[3], box[0]:box[2]] | ~ink[box[1]:box[3], box[0]:box[2]]
-        if not keep.all():                       # a neighbour's art inside this box: not ours to draw
-            arr = np.asarray(img).copy()
-            arr[..., 3] = np.where(keep, arr[..., 3], 0)
-            img = Image.fromarray(arr, "RGBA")
-        img.save(os.path.join(pdir, fname))
+        im.crop(tuple(box)).save(os.path.join(pdir, fname))       # a crop, nothing else
         records.append({"_path": os.path.join(pdir, fname), "file": fname, "box": box,
                         "canvas_box": [round(v / SCALE, 1) for v in box],
-                        "place": [round(box[0] / SCALE), round(box[1] / SCALE)], "scale": 1 / SCALE,
-                        "target_name": label, "target": target_rect(names), "areas": names})
+                        "place": [round(box[0] / SCALE), round(box[1] / SCALE)],
+                        "scale": 1 / SCALE, "target_name": label,
+                        "target": target_rect(names), "areas": names})
 
     pv = os.path.join(folder, "preview")
     os.makedirs(pv, exist_ok=True)
     contact_sheet(records, os.path.join(pv, "pieces.png"))
-    bd = os.path.join(ROOT, "assets", name + ".jpg")
-    compose(records, bd, os.path.join(pv, "placed.png"))
-    max_diff, off = verify(clean, records)
+    compose(records, os.path.join(ROOT, "assets", name + ".jpg"), os.path.join(pv, "placed.png"))
+    lost, worst = verify(im, records, cover)
 
     meta = {
-        "_about": "Pieces cut from " + name + ".png by tools/table_slice.py. box = px in the source "
-                  "artwork (1920x1080, 1.5x the 1280x720 canvas); canvas_box = the same in canvas px; "
-                  "target = the game rect the piece belongs to, from tables/anchors.json.",
-        "source": name + ".png",
-        "clean": name + "_clean.png",
+        "_about": "Pieces cut from " + os.path.basename(src) + " by tools/table_slice.py. A piece is a plain crop "
+                  "of the source - no pixel is changed. box = px in the artwork (1920x1080, 1.5x "
+                  "the 1280x720 canvas); place = where it goes on the canvas; target = the game "
+                  "rect it belongs to, from tables/anchors.json.",
+        "source": os.path.basename(src),
         "scale": SCALE,
         "pieces": [{k: v for k, v in r.items() if not k.startswith("_")} for r in records],
+        "lossless": {"px_outside_pieces": lost, "piece_vs_source_max_diff": worst},
     }
-    meta["coverage"] = {"ink_px": int(ink.sum()), "owned_px": int(owned.sum()), "lost_px": lost,
-                        "recompose_max_diff": max_diff, "recompose_px_off": off}
     json.dump(meta, open(os.path.join(folder, "pieces.json"), "w"), indent=1)
-    if lost:
-        print(f"    WARNING: {lost} ink px belong to no piece", file=sys.stderr)
-    for r in records:
-        cw, ch = r["box"][2] - r["box"][0], r["box"][3] - r["box"][1]
-        tw, th = r["target"][2] * SCALE, r["target"][3] * SCALE
-        if cw > tw * 1.35 or ch > th * 1.35:
-            print(f"    note: {r['file']} is {cw}x{ch} for a {int(tw)}x{int(th)} area",
-                  file=sys.stderr)
-    return records, clean_path
+    return records, lost, worst
 
 
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     args = sys.argv[1:]
-    pad = int(args[args.index("--pad") + 1]) if "--pad" in args else 16
-    folders = (sorted(os.path.join(ROOT, "tables", d) for d in os.listdir(os.path.join(ROOT, "tables"))
-                      if d.startswith(("assets_", "assetes_")))) if "--all" in args else \
-        [a for a in args if not a.startswith("--") and not a.isdigit()]
-    total = 0
+    pad = int(args[args.index("--pad") + 1]) if "--pad" in args else PAD
+    folders = arguments = [a for a in args if not a.startswith("--") and not a.isdigit()]
+    if "--all" in args:
+        folders = sorted(os.path.join(ROOT, "tables", d) for d in os.listdir(os.path.join(ROOT, "tables"))
+                         if d.startswith(("assets_", "assetes_")))
+    total, bad = 0, 0
     for folder in folders:
-        recs, _ = run(folder, pad)
+        recs, lost, worst = run(folder, pad)
         total += len(recs)
-        print(f"{os.path.relpath(folder, ROOT)}: {len(recs)} piece(s), pad {pad}px")
+        ok = lost == 0 and worst == 0
+        bad += not ok
+        print(f"{os.path.relpath(folder, ROOT)}: {len(recs)} piece(s), pad {pad}px, "
+              f"lossless {'yes' if ok else f'NO ({lost} px outside pieces, max diff {worst})'}")
         for r in recs:
-            print(f"   {r['file']:34s} {r['box'][2]-r['box'][0]:4d}x{r['box'][3]-r['box'][1]:<4d}"
+            print(f"   {r['file']:40s} {r['box'][2]-r['box'][0]:4d}x{r['box'][3]-r['box'][1]:<4d}"
                   f" canvas {r['canvas_box']}  -> {r['target_name']}")
-    print(f"{total} piece(s)")
-    return 0
+    print(f"{total} piece(s), {bad} folder(s) not lossless")
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":
