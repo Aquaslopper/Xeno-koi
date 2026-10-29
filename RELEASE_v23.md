@@ -1,77 +1,65 @@
-# XENO / KOI — Version 23
+# Changes since v22
 
-**What changed since Version 22** · 27–29 October 2026
+27–29 October 2026. Everything below is a net value change or a net code change in the
+tree between the `v22` tag and `main`.
 
 ---
 
-## The Atrium Plex
+## `assets/depth_fog.fs` — background light
 
-- **Clearance is earned.** A sector used to open on a single click; fourteen of them now
-  deal a real round on your ruleset first and only clear once that round is over.
-- **The logfile was rebuilt** into four tabs — `STORY`, `TRAINING`, `MATCHES`, `ATLAS` —
-  with live telemetry, every run you have played, the 48-entry atlas with its inspector,
-  and the achievements list. The hardcore second pass gets its own atlas.
-- **Plex records are Plex records.** Campaign numbers were being printed in five places
-  inside the Atrium Plex; all five now read Plex data. A Pancratium win no longer appears
-  as a Plex win, and Plex runs no longer appear in the campaign record.
+- Light position: the fixed left-to-right drift (`0.08 + 0.84 * (0.5 - 0.5*cos`) is replaced
+  by a position that steps to a new random point every 10 s and circles it
+  (`lightUV = 0.5 + 0.42*(cos/sin)` with a per-step phase nudge).
+- Beam spin: `time * 0.215` -> `time * 0.09`.
+- Beam reach: a directional `beamReach` term replaced the radial `reach` in the beam sum;
+  radius `0.90` -> `0.80`.
+- Beam strength: `layers *= 1.0 + 0.40`.
+- `flashGain` base: `1.0` -> `0.60`.
+- Fog density: `* 0.80` clamped to `0.55` -> `* 0.50` clamped to `0.35`.
+- Ambient vignette block: removed.
+- Final output: `blended * vignette` -> `blended * 0.8`.
+- New `normalMask = smoothstep(0.02, 0.12, map.a)` gating `lightAdd`.
 
-## Atmosphere
+## `src/ui_board.c` — table
 
-- **The background light moves.** The beam no longer drifts on a fixed left-to-right line:
-  it wanders between positions while circling, with a stronger core, a tighter falloff and
-  a soft aura instead of hard bands. The ambient vignette over the whole scene is gone.
-- **Flash and ash retuned.** Thunder flash is halved to 0.25 s. The ash field runs fewer,
-  longer-lived particles with a steady sideways drift, and the ember heat was recalibrated
-  so an ordinary capture glows warm and cools slowly instead of jumping straight to full.
+- `ASH_COUNT` 155 -> 100, `ASH_BURST_MAX` 420 -> 260.
+- Ash wind: added a constant `+30.0` sideways drift.
+- Ash particle life: `0.85` -> `0.95` base.
+- Ember heat: `EMBER_KICK_CAP` 0.10 -> 0.08, `EMBER_KICK_KOI` 0.30 -> 0.10,
+  `EMBER_DECAY` 0.08 -> 0.06, `EMBER_HOT` 0.52 -> 0.50, `EMBER_MIN` 0.07 -> 0.08,
+  `EMBER_SMOOTH_ATK` 0.12 -> 0.22, `EMBER_SIZE_BONUS` 0.16 -> 0.12.
+- Impact glow on a moving card while it flies: `0.8` -> `0.4`.
+- Thunder: `thunder_flash` 1.0 -> 0.25, `thunder_hold` 1.50 -> 0.50, flash decay
+  constant `0.80` -> `1.00`.
+- Reverb envelope driven from the table: per-capture gain `0.10` -> `0.09`,
+  hold `2.00` -> `4.10` (and only re-armed below 0.85), decay `1.5` -> `0.4` per second,
+  smoothing `0.10` -> `0.70` and `0.19` -> `0.14`.
+- Peak hold: a full-strength peak is capped, held 4.10 s, then forced back to 0.85.
 
-## Audio
+## `src/ui_audio.c` — reverb
 
-- **The reverb envelope breathes.** A capture holds the tail for about four seconds instead
-  of two, decays at 0.4/s instead of 1.5/s, and the smoothing was slowed so the room opens
-  rather than snaps. A full-strength peak is capped: it stays up for four seconds, then
-  settles to 85%, so a stacked round can no longer leave the tail pinned.
-- **Room and tone.** The reverb slider now covers a wider space, the pre-delay is fixed at
-  about 25 ms, and the right-channel comb and allpass spacing were retuned to match the
-  left, which removes the metallic edge at high settings.
-- **Tighter effect caps.** The action-driven chorus, bass and reverb mix is hard-limited,
-  and the impact glow on a travelling piece is dimmed so it no longer flares over the
-  flight.
+- Right-channel comb lengths: `1147,1229,1307,1399,1459,1523,1597,1657` ->
+  `1126,1204,1292,1370,1436,1502,1574,1631` (now matched to the left).
+- Right-channel allpass lengths: `577,461,359,251` -> `561,446,341,231`.
+- Room size: `0.65 + 1.55*room` -> `0.65 + 1.85*room`.
+- Diffusion: `0.50 + 0.15*room` -> `0.25 + 0.10*room`.
+- Pre-delay: `220 + 1980*room` (5–50 ms) -> fixed `1102.5` (~25 ms).
 
-## Readability
+## `src/ui_theme.c` — panel flare
 
-- **Small text is sharper.** Font rasterisation sizes were lowered across all three faces,
-  so labels are drawn close to their native resolution instead of being stretched up from
-  a large master.
-- **Title screen.** The brand line and the subtitle were re-sized as a pair, the subtitle
-  now sits in a heavier weight, and the two are close together without touching.
-- **Button glow is hover-only.** A selected tab used to glow permanently, which made whole
-  footers look active. The drifting text motes were removed from headings and plain centred
-  text, and now appear only on hovered buttons.
-- **Hearing safety warning** at startup.
+- Flare alpha: `22 + 233*shine` -> `22 + 200*shine`.
+- Flare width: `0.7 + 0.4*shine` -> `0.9 + 0.3*shine`.
 
-## Menus
+## `src/ui_main.c` — pacing
 
-- **Quit runs the loader** with a `-decoupled-` caption instead of closing the window on the
-  click.
-- **Mode select is two doors**, each named once on its button, sharing one grid, one inset
-  and one label size. The twelve decorative ticks down the Atrium panel's edge are gone —
-  they repeated a number the panel already prints.
-- **The Pancratium panel** carries a rotating read-out of your combat record; the Atrium
-  panel states what the vault is for.
-- **Options** is reachable from the campaign page.
-- **Player-facing labels** were cleaned of leftover internal vocabulary, so every screen now
-  says what it is in the game's own words.
-- **Atrium Plex screen.** It now names itself at the top left. Every footer button is the
-  same size on one gutter, the action row is a fixed three-slot grid, the briefing panel was
-  tightened with no empty frame inside it, and new information glows for longer. The opening
-  transmission reveals line by line, and `CONTINUE` only appears once the last line has
-  landed. **HISCORE** boards were added for Speedcoin and the audio-driven mode.
+- Card flight duration: `0.40` -> `0.60`.
+- CPU think duration: fixed `0.15` -> `0.40 / 0.30 / 0.20` by difficulty.
+- `trigger_event_beat` multiplier: initial `0.0` -> `1.0` (the beat was being multiplied
+  to zero).
+- `trigger_cpu_step_beat` now also skips while the action-card mode is active.
 
-## Tables
+## Also changed
 
-- **The Dealership.** A marker travels player → deck → CPU → deck → player down the left
-  margin. Arriving at a station is the permission to act there, and it does not leave until
-  that event has finished, so the table has a visible rhythm instead of an invisible pause.
-  Both two-player modes are covered; Speedcoin is exempt by design.
-- **The audio-driven mode is locked to KK-ADD-10** in a single place in the code rather than
-  inferred in two.
+- `src/campaign.c`: comment on `DEUS_UNLOCKED_FOR_TESTING`.
+- `build.sh`, `tools/`, `.github/`: contributor tooling.
+- Docs: `LEARN_THE_CODE.md`, `AGENTS.md`, `STATUS.md`, `Dealership.md`, `plexus/*`.
