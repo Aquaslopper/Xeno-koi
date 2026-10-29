@@ -1,0 +1,165 @@
+{
+  "source": "assets_hole/hole.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "name": "cpu_panel",
+      "file": "cpu_panel.png",
+      "rect": [
+        0,
+        0,
+        501,
+        345
+      ],
+      "size": [
+        501,
+        345
+      ]
+    },
+    {
+      "name": "card_row_cpu",
+      "file": "card_row_cpu.png",
+      "rect": [
+        501,
+        0,
+        1675,
+        206
+      ],
+      "size": [
+        1174,
+        206
+      ]
+    },
+    {
+      "name": "right_column",
+      "file": "right_column.png",
+      "rect": [
+        1675,
+        0,
+        1920,
+        1080
+      ],
+      "size": [
+        245,
+        1080
+      ]
+    },
+    {
+      "name": "deck",
+      "file": "deck.png",
+      "rect": [
+        357,
+        345,
+        614,
+        692
+      ],
+      "size": [
+        257,
+        347
+      ]
+    },
+    {
+      "name": "player_panel",
+      "file": "player_panel.png",
+      "rect": [
+        0,
+        692,
+        476,
+        1080
+      ],
+      "size": [
+        476,
+        388
+      ]
+    },
+    {
+      "name": "status_bar",
+      "file": "status_bar.png",
+      "rect": [
+        614,
+        692,
+        1675,
+        824
+      ],
+      "size": [
+        1061,
+        132
+      ]
+    },
+    {
+      "name": "card_row_you",
+      "file": "card_row_you.png",
+      "rect": [
+        476,
+        824,
+        1675,
+        1080
+      ],
+      "size": [
+        1199,
+        256
+      ]
+    }
+  ],
+  "empty_cells": [
+    {
+      "name": "empty_top_strip",
+      "file": null,
+      "rect": [
+        501,
+        206,
+        1675,
+        345
+      ],
+      "size": [
+        1174,
+        139
+      ]
+    },
+    {
+      "name": "empty_left_mid",
+      "file": null,
+      "rect": [
+        0,
+        345,
+        357,
+        692
+      ],
+      "size": [
+        357,
+        347
+      ]
+    },
+    {
+      "name": "empty_center",
+      "file": null,
+      "rect": [
+        614,
+        345,
+        1675,
+        692
+      ],
+      "size": [
+        1061,
+        347
+      ]
+    },
+    {
+      "name": "empty_status_left",
+      "file": null,
+      "rect": [
+        476,
+        692,
+        614,
+        824
+      ],
+      "size": [
+        138,
+        132
+      ]
+    }
+  ]
+}
