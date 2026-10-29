@@ -18,6 +18,33 @@ Facts live in `src/` and `anchors.json`.
 | **the game** | what `src/` does at these anchors | everything measured, verified by `./tables/build.sh` |
 | **the design** | what we choose to build | a spec in `designs/`, with numbers and its own checklist run |
 
+## The forge loop
+
+A table is not finished when the preview looks right — it is finished when it has survived a real
+round. The loop, and where each stage writes:
+
+```
+   forge  ─────────────►  beta port  ─────────►  live test  ─────────►  back to the forge
+ tables/table_<name>/     src/, selectable      played, written into      fixes its README
+ spec, raw, final,        in the Pancratium     live-test.md, not memory   and live-test.md
+ preview, table.json      (src/campaign.c:121)
+```
+
+- **The folder is created when the table starts**, never scaffolded ahead: `cp -r tables/_template
+  tables/table_<name>`. An empty folder is not a plan.
+- **A beta port is allowed to be unfinished** — that is what beta means. It exists so the table can be
+  picked in-game and played, because some faults only appear in a real round: a frame under the
+  game's own text, a bezel that is right at rest and wrong mid-flight, a panel erased by a glow.
+- **The Pancratium is the door.** `src/campaign.c:121` draws the picker (`APEX PANCRATIUM CIRCUIT`);
+  the opponent slots are `155 + i·82, 96, 68 × 110`, START MATCH `460, 570, 240 × 48`, BACK
+  `720, 570, 180 × 48`, clearance presets `560 | 730 | 890, 364, ~150 × 26`. A table selector belongs
+  on that screen — the free area inside the detail panel is where it was sketched.
+- **Every live test is written into `live-test.md` in the table's folder**: build, what was tested,
+  what broke (symptom → where → expected), verdict, next action. If it is not in that file, it did
+  not happen, and the next pass will rebuild the same fault.
+- **Porting is the only stage that touches `src/`**, and it goes through the chokepoints, the guard
+  manifest and `./build.sh test`.
+
 ## The three rules
 
 1. **An example shows a direction; the layout is what `src/` already draws.** Anchors come from code.
@@ -28,7 +55,8 @@ Facts live in `src/` and `anchors.json`.
 
 1. **Gate.** `./build.sh test` stays locked until `LEARN_THE_CODE.md`'s six questions are answered
    into `/tmp/ans.txt` and `./build.sh --verify /tmp/ans.txt` passes.
-2. **Folder.** `cp -r tables/_template tables/table_<name>`, then fill in its `README.md`. Open
+2. **Folder, now.** `cp -r tables/_template tables/table_<name>`, then fill in its `README.md`.
+   Created at the moment the table starts, never ahead of time. Open
    `table-to-scale.png`, work from `anchors.json`. A number that is not there gets
    found in `src/` and added — then `./tables/build.sh` proves it still matches. `palettes.png` has
    the colours for all eight backdrops already sampled.
@@ -56,6 +84,9 @@ Facts live in `src/` and `anchors.json`.
    real pitch. `./build.sh test`, `git diff --check`, `CHECKLIST.md` ticked. If step 3 chose runtime,
    it is a code change: `./tools/action_guard.sh --report` too, because the Action Card mode is
    hash-frozen.
+9. **Beta port, then live test.** Port the table into the game so it can be selected and played, play
+   a real round, and write what happened into the table's `live-test.md`. Anything that broke goes
+   back to step 3 as a new work list. A table is forged when a live round found nothing left to fix.
 
 ## The traps, in the order they were hit
 

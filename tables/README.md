@@ -18,15 +18,17 @@ tables/
   palettes.png/.json   the 8 backdrops, sampled             generated
 
   table_city/                              one table
-    README.md   the spec
-    refs/       city-example-01.jpg, city-example-02.jpg   direction, not evidence
-    base.png    composite base on assets/city.jpg          ./tables/build.sh base city
-    table.json  the manifest                               (not written yet — no art)
-    raw/ final/ preview/                                   written by tools/table_art.py
+    README.md      the spec
+    live-test.md   every beta port and what happened live (empty so far)
+    refs/          city-example-01.jpg, city-example-02.jpg    direction, not evidence
+    base.png       composite base on assets/city.jpg           ./tables/build.sh base city
+    table.json     the manifest                                (not written yet — no art)
+    raw/ final/ preview/                                       written by tools/table_art.py
 
-  _template/                               copy to table_<name>/ to start one
-    README.md   the spec template
-    table.json  the manifest template (doubles as its schema)
+  _template/                               cp -r when a table starts — never ahead of time
+    README.md      the spec template
+    table.json     the manifest template (doubles as its schema)
+    live-test.md   the live-test record template
 ```
 
 ## Build
@@ -42,6 +44,19 @@ python3 tools/table_map.py check   # only the drift check (exit 1 on drift)
 `tools/table_map.py` owns geometry (map, base, palettes). `tools/table_art.py` owns art (cut-out,
 asymmetric borders, card bezels, rails) and writes `final/` + `preview/` inside the table's own
 folder — one definition of where a card is, and never a second copy.
+
+## The forge loop
+
+A table is made here and ported into the game, not the other way round:
+
+```
+ forge ─────────► beta port ─────────► live test ─────────► back to the forge
+ tables/table_x/  src/, selectable      written into          fixes its README + live-test.md
+                  in the Pancratium     live-test.md
+```
+
+A table is forged when a real round found nothing left to fix. The Pancratium picker
+(`src/campaign.c:121`) is the door it comes in through. Details in `WORKFLOW.md`.
 
 ## Rules
 

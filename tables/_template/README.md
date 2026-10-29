@@ -6,14 +6,18 @@ written outside its folder.
 
 ```
 tables/table_<name>/
-  README.md     this file: the spec
-  table.json    the manifest `tools/table_art.py` builds from (schema in this template)
-  base.png      composite base on this backdrop      ./tables/build.sh base <name>
-  raw/          generator output, untouched
-  final/        cut out, borders sized, interior == the game's rect
-  preview/      composites + the assertion table
-  refs/         examples of the direction (optional)
+  README.md      this file: the spec
+  table.json     the manifest `tools/table_art.py` builds from (schema in this template)
+  base.png       composite base on this backdrop      ./tables/build.sh base <name>
+  raw/           generator output, untouched
+  final/         cut out, borders sized, interior == the game's rect
+  preview/       composites + the assertion table
+  refs/          examples of the direction (optional)
+  live-test.md   every beta port and what happened in the real game (starts empty)
 ```
+
+The folder is created **when the table is started** — `cp -r tables/_template tables/table_<name>` —
+and never scaffolded ahead of time. An empty folder is not a plan.
 
 Status: **spec / pass N / done.** `src/` touched: yes/no.
 
