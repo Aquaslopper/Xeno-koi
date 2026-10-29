@@ -221,6 +221,12 @@ static void tut_restore_telemetry(int clear_saved) {
 static unsigned int s_last_briefing_hash = 0u;
 static int s_briefing_hash_ready = 0;
 static float s_briefing_glow = 0.0f;
+static float s_briefing_hold = 0.0f;
+
+/* HISCORE board overlay (SPEEDCOIN + ACTION CARD tabs). Purely a read-out of
+   state that already exists - the speedcoin top-8 ranklist and the ACTION CARD
+   rows of the match log - so it adds no save fields and no new persistence. */
+static int s_hiscore_open = 0;
 
 static void commit_viewed_story_months(int keep_month) {
     for (int m = 0; m < 12; m++) {
@@ -264,6 +270,12 @@ static const char * const k_month_short_labels[12] = {
     "09 // SEPTEMBER", "10 // OCTOBER",   "11 // NOVEMBER",  "12 // DECEMBER"
 };
 
+/* The briefing card lights up when its copy changes. It used to decay at 1.15/s
+   (0.87 s), which was gone before the eye reached the card; it now holds full
+   brightness for 0.9 s and then fades over 2.6 s (owner, 29 Oct 2026). */
+#define PLEXUS_BRIEFING_HOLD 0.90f
+#define PLEXUS_BRIEFING_FADE 0.38f
+
 /* Geometry matching plexus/plexus_mockup.png and expanded vertically for un-squished 18px-22px text */
 static const Rectangle k_next_month_rect = { 1072.0f,  54.0f,  96.0f,  34.0f };
 static const Rectangle k_card_rects[4] = {
@@ -272,17 +284,35 @@ static const Rectangle k_card_rects[4] = {
     { 1092.0f, 354.0f, 56.0f, 88.0f },
     { 1092.0f, 496.0f, 56.0f, 88.0f }
 };
-static const Rectangle k_briefing_rect = { 516.0f,  82.0f, 540.0f, 250.0f };
-static const Rectangle k_settings_rect = { 718.0f, 348.0f, 160.0f,  48.0f };
-static const Rectangle k_start_rect    = { 896.0f, 348.0f, 160.0f,  48.0f };
-static const Rectangle k_mode_cfg_rect = { 516.0f, 408.0f, 540.0f, 222.0f };
+/* The briefing card is 196 tall, not 250: its copy ends at +172 and the extra
+   56 px was dead space inside the frame (owner, 29 Oct 2026). The width is at
+   its limit and cannot shrink - "MONTH 01 // JANUARY [TUTORIAL]" already draws
+   502 px across a 496 px inner width, and the longest speedcoin line 521 px. */
+static const Rectangle k_briefing_rect = { 516.0f,  82.0f, 540.0f, 196.0f };
+/* One action row under the card: three 160 px slots on a 30 px gutter, right edge
+   flush with the briefing card. START is always the LAST slot, SETTINGS the middle
+   one; the FIRST slot is HISCORE on the ACTION CARD tab and the middle slot is
+   HISCORE on SPEEDCOIN (it has no settings), so every tab fills from the right and
+   no tab leaves a hole in the row. */
+static const Rectangle k_hiscore_rect  = { 516.0f, 302.0f, 160.0f,  48.0f };
+static const Rectangle k_settings_rect = { 706.0f, 302.0f, 160.0f,  48.0f };
+static const Rectangle k_start_rect    = { 896.0f, 302.0f, 160.0f,  48.0f };
+static const Rectangle k_mode_cfg_rect = { 516.0f, 362.0f, 540.0f, 222.0f };
+/* Six identical buttons on a 26 px gutter, centred as one block: the old row ran
+   156/152/170/170/170/196 wide, so OPTION was 44 px fatter than LOGFILE for no
+   reason but label length, and the row read as six different controls. 158 px is
+   the widest label ("ACTION CARD", 137.6 px at 16 pt) plus 10 px of air, and 44 px
+   of height keeps them lighter than the 48 px action row above. */
+#define PLEXUS_BOTTOM_W 158.0f
+#define PLEXUS_BOTTOM_H  44.0f
+#define PLEXUS_BOTTOM_GAP 26.0f
 static const Rectangle k_bottom_rects[6] = {
-    {   64.0f, 644.0f, 156.0f, 48.0f }, /* SAVE & BACK */
-    {  246.0f, 644.0f, 152.0f, 48.0f }, /* LOGFILE */
-    {  428.0f, 644.0f, 170.0f, 48.0f }, /* SPEEDCOIN */
-    {  624.0f, 644.0f, 170.0f, 48.0f }, /* ACTION CARD */
-    {  820.0f, 644.0f, 170.0f, 48.0f }, /* TRAINING */
-    { 1016.0f, 644.0f, 196.0f, 48.0f }  /* OPTION */
+    { 101.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* SAVE & BACK */
+    { 285.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* LOGFILE */
+    { 469.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* SPEEDCOIN */
+    { 653.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* ACTION CARD */
+    { 837.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* TRAINING */
+    {1021.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }  /* OPTION */
 };
 static const char * const k_bottom_labels[6] = {
     "SAVE & BACK", "LOGFILE", "SPEEDCOIN", "ACTION CARD", "TRAINING", "OPTION"
@@ -602,6 +632,8 @@ void plexus_load(void) {
     speed_mode_stop();
     s_briefing_hash_ready = 0;
     s_briefing_glow = 0.0f;
+    s_briefing_hold = 0.0f;
+    s_hiscore_open = 0;
 
     int drops = 0, best_strk = 0, life_mp = 0, aud_trig = 0, ac_sym = 0, ac_tm = 0;
     float t_sum = 0.0f, c_sum = 0.0f, aud_peak = 0.0f, aud_hold = 0.0f;
@@ -1031,6 +1063,10 @@ Rectangle plexus_get_option_btn_rect(void) {
 }
 
 int plexus_close_subpanel(void) {
+    if (s_hiscore_open) {
+        s_hiscore_open = 0;
+        return 1;
+    }
     if (s_mode_settings_open) {
         s_mode_settings_open = 0;
         plexus_save();
@@ -1156,9 +1192,9 @@ static void draw_mode_settings_panel(Vector2 vm) {
                                           : "TRAINING  //  MATCH SETTINGS";
     draw_text_snapped(font_title, hdr, k_mode_cfg_rect.x + 18.0f, k_mode_cfg_rect.y + 10.0f,
                       16.0f, 1.3f, COLOR_PHOSPHOR);
-    draw_cfg_step_btn((Rectangle){ 1014.0f, 415.0f, 26.0f, 22.0f }, "X", vm, 1);
-    DrawLine((int)k_mode_cfg_rect.x + 18, 442,
-             (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), 442, COLOR_PHOSPHOR_DIM);
+    draw_cfg_step_btn((Rectangle){ 1014.0f, (k_mode_cfg_rect.y + 7.0f), 26.0f, 22.0f }, "X", vm, 1);
+    DrawLine((int)k_mode_cfg_rect.x + 18, (int)(k_mode_cfg_rect.y + 34.0f),
+             (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), (int)(k_mode_cfg_rect.y + 34.0f), COLOR_PHOSPHOR_DIM);
 
     const float lx = 534.0f;
     const Color mast_c = { 255,  70, 70, 255 };
@@ -1167,85 +1203,85 @@ static void draw_mode_settings_panel(Vector2 vm) {
         if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
         Color rfill, rbdr;
         get_ruleset_box_colors(RULESET_KK_ADD_10, &rfill, &rbdr);
-        draw_text_snapped(font_body, "Ruleset:", lx, 455.0f, 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-        draw_cfg_val_box((Rectangle){ 674.0f, 450.0f, 364.0f, 28.0f },
+        draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 47.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 42.0f), 364.0f, 28.0f },
                          "[ KK-ADD-10 (LOCKED) ]", rfill, rbdr, COLOR_TEXT_INFO);
 
-        draw_text_snapped(font_body, "Rounds:", lx, 495.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, 490.0f,  38.0f, 28.0f }, "-", vm, s_ac_cfg_rounds > 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, 490.0f, 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Rounds:", lx, (k_mode_cfg_rect.y + 87.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 82.0f),  38.0f, 28.0f }, "-", vm, s_ac_cfg_rounds > 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 82.0f), 276.0f, 28.0f },
                           TextFormat("%d ROUNDS", s_ac_cfg_rounds), PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, 490.0f,  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 82.0f),  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
 
         Color dc = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_PHOSPHOR;
         const char *d_lbl = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? "MASTER" :
                             (s_ac_cfg_diff == DIFFICULTY_HARD)   ? "HARD" : "EASY";
-        draw_text_snapped(font_body, "Difficulty:", lx, 535.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, 530.0f,  38.0f, 28.0f }, "<", vm, 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, 530.0f, 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Difficulty:", lx, (k_mode_cfg_rect.y + 127.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 122.0f),  38.0f, 28.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 122.0f), 276.0f, 28.0f },
                           d_lbl, PLEXUS_SUBBOX_BG, dc, (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, 530.0f,  38.0f, 28.0f }, ">", vm, 1);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 122.0f),  38.0f, 28.0f }, ">", vm, 1);
 
-        draw_text_snapped(font_body, "Turn Timer:", lx, 575.0f, 17.0f, 1.1f,
+        draw_text_snapped(font_body, "Turn Timer:", lx, (k_mode_cfg_rect.y + 167.0f), 17.0f, 1.1f,
                           (s_ac_cfg_diff == DIFFICULTY_MASTER) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
-            draw_cfg_toggle_chip((Rectangle){ 674.0f, 570.0f, 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
-            draw_cfg_toggle_chip((Rectangle){ 860.0f, 570.0f, 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 860.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
         } else {
-            draw_cfg_val_box((Rectangle){ 674.0f, 570.0f, 364.0f, 28.0f },
+            draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 162.0f), 364.0f, 28.0f },
                              "[ MASTER ONLY ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
         }
 
         draw_text_snapped(font_body, "Saved independently in Atrium Plex (Campaign settings untouched).",
-                          lx, 606.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+                          lx, (k_mode_cfg_rect.y + 198.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     } else {
         if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
-        draw_text_snapped(font_body, "Ruleset:", lx, 453.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 45.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
         Color rf, rb;
         get_ruleset_box_colors(s_tr_cfg_ruleset, &rf, &rb);
-        draw_cfg_step_btn((Rectangle){  674.0f, 448.0f,  38.0f, 28.0f }, "<", vm, 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, 448.0f, 276.0f, 28.0f },
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 40.0f),  38.0f, 28.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 40.0f), 276.0f, 28.0f },
                           ruleset_short_name(s_tr_cfg_ruleset), rf, rb, COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, 448.0f,  38.0f, 28.0f }, ">", vm, 1);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 40.0f),  38.0f, 28.0f }, ">", vm, 1);
 
-        draw_text_snapped(font_body, "Rounds:", lx, 488.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, 483.0f,  38.0f, 28.0f }, "-", vm, s_tr_cfg_rounds > 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, 483.0f, 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Rounds:", lx, (k_mode_cfg_rect.y + 80.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 75.0f),  38.0f, 28.0f }, "-", vm, s_tr_cfg_rounds > 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 75.0f), 276.0f, 28.0f },
                           TextFormat("%d ROUNDS", s_tr_cfg_rounds), PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, 483.0f,  38.0f, 28.0f }, "+", vm, s_tr_cfg_rounds < 12);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 75.0f),  38.0f, 28.0f }, "+", vm, s_tr_cfg_rounds < 12);
 
-        draw_text_snapped(font_body, "Difficulty:", lx, 523.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "Difficulty:", lx, (k_mode_cfg_rect.y + 115.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
         if (s_tr_cfg_diff == DIFFICULTY_MASTER) {
-            draw_cfg_step_btn   ((Rectangle){ 674.0f, 518.0f,  36.0f, 28.0f }, "<", vm, 1);
-            draw_cfg_val_box    ((Rectangle){ 714.0f, 518.0f, 144.0f, 28.0f }, "MASTER", PLEXUS_SUBBOX_BG, mast_c, mast_c);
-            draw_cfg_step_btn   ((Rectangle){ 862.0f, 518.0f,  36.0f, 28.0f }, ">", vm, 1);
-            draw_cfg_toggle_chip((Rectangle){ 906.0f, 518.0f,  63.0f, 28.0f }, "15S", vm, s_tr_cfg_timer == 15, mast_c);
-            draw_cfg_toggle_chip((Rectangle){ 975.0f, 518.0f,  63.0f, 28.0f }, "30S", vm, s_tr_cfg_timer == 30, mast_c);
+            draw_cfg_step_btn   ((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 110.0f),  36.0f, 28.0f }, "<", vm, 1);
+            draw_cfg_val_box    ((Rectangle){ 714.0f, (k_mode_cfg_rect.y + 110.0f), 144.0f, 28.0f }, "MASTER", PLEXUS_SUBBOX_BG, mast_c, mast_c);
+            draw_cfg_step_btn   ((Rectangle){ 862.0f, (k_mode_cfg_rect.y + 110.0f),  36.0f, 28.0f }, ">", vm, 1);
+            draw_cfg_toggle_chip((Rectangle){ 906.0f, (k_mode_cfg_rect.y + 110.0f),  63.0f, 28.0f }, "15S", vm, s_tr_cfg_timer == 15, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 975.0f, (k_mode_cfg_rect.y + 110.0f),  63.0f, 28.0f }, "30S", vm, s_tr_cfg_timer == 30, mast_c);
         } else {
             const char *dl = (s_tr_cfg_diff == DIFFICULTY_HARD) ? "HARD" : "EASY";
-            draw_cfg_step_btn((Rectangle){  674.0f, 518.0f,  38.0f, 28.0f }, "<", vm, 1);
-            draw_cfg_val_box ((Rectangle){  718.0f, 518.0f, 276.0f, 28.0f },
+            draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 110.0f),  38.0f, 28.0f }, "<", vm, 1);
+            draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 110.0f), 276.0f, 28.0f },
                               dl, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-            draw_cfg_step_btn((Rectangle){ 1000.0f, 518.0f,  38.0f, 28.0f }, ">", vm, 1);
+            draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 110.0f),  38.0f, 28.0f }, ">", vm, 1);
         }
 
-        draw_text_snapped(font_body, "Opponent:", lx, 558.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "Opponent:", lx, (k_mode_cfg_rect.y + 150.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
         int unlocked = get_unlocked_camp_opponents();
         int opp = clamped_tr_opponent();
         const Opponent *op = campaign_get_opponent(opp);
         char opp_txt[96];
         snprintf(opp_txt, sizeof(opp_txt), "%s (%s) [%d/%d]",
                  op->name, op->favorite_combo, opp + 1, unlocked);
-        draw_cfg_step_btn((Rectangle){  674.0f, 553.0f,  38.0f, 28.0f }, "<", vm, unlocked > 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, 553.0f, 276.0f, 28.0f },
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 145.0f),  38.0f, 28.0f }, "<", vm, unlocked > 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 145.0f), 276.0f, 28.0f },
                           opp_txt, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, 553.0f,  38.0f, 28.0f }, ">", vm, unlocked > 1);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 145.0f),  38.0f, 28.0f }, ">", vm, unlocked > 1);
 
-        draw_text_snapped(font_body, "Condition:", lx, 593.0f, 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-        draw_cfg_step_btn((Rectangle){  674.0f, 588.0f,  38.0f, 28.0f }, "<", vm, 0);
-        draw_cfg_val_box ((Rectangle){  718.0f, 588.0f, 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Condition:", lx, (k_mode_cfg_rect.y + 185.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 180.0f),  38.0f, 28.0f }, "<", vm, 0);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 180.0f), 276.0f, 28.0f },
                           "[ NONE ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, 588.0f,  38.0f, 28.0f }, ">", vm, 0);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 180.0f),  38.0f, 28.0f }, ">", vm, 0);
     }
 }
 
@@ -1253,7 +1289,7 @@ static int handle_mode_settings_click(Vector2 vm) {
     if (!s_mode_settings_open || (s_active_tab != 3 && s_active_tab != 4)) return 0;
     if (!CheckCollisionPointRec(vm, k_mode_cfg_rect)) return 0;
 
-    if (CheckCollisionPointRec(vm, (Rectangle){ 1014.0f, 415.0f, 26.0f, 22.0f })) {
+    if (CheckCollisionPointRec(vm, (Rectangle){ 1014.0f, (k_mode_cfg_rect.y + 7.0f), 26.0f, 22.0f })) {
         s_mode_settings_open = 0;
         plexus_save();
         return 1;
@@ -1261,25 +1297,25 @@ static int handle_mode_settings_click(Vector2 vm) {
 
     if (s_active_tab == 3) {
         if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 490.0f, 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 82.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
             s_ac_cfg_rounds--; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 490.0f, 38.0f, 28.0f }) && s_ac_cfg_rounds < 12) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 82.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds < 12) {
             s_ac_cfg_rounds++; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 530.0f, 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 122.0f), 38.0f, 28.0f })) {
             s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 2) % 3);
             plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 530.0f, 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 122.0f), 38.0f, 28.0f })) {
             s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 1) % 3);
             plexus_save(); return 1;
         }
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
-            if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 570.0f, 178.0f, 28.0f })) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f })) {
                 s_ac_cfg_timer = 15; plexus_save(); return 1;
             }
-            if (CheckCollisionPointRec(vm, (Rectangle){ 860.0f, 570.0f, 178.0f, 28.0f })) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 860.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f })) {
                 s_ac_cfg_timer = 30; plexus_save(); return 1;
             }
         }
@@ -1288,50 +1324,50 @@ static int handle_mode_settings_click(Vector2 vm) {
 
     /* s_active_tab == 4: TRAINING */
     if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
-    if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 448.0f, 38.0f, 28.0f })) {
+    if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 40.0f), 38.0f, 28.0f })) {
         s_tr_cfg_ruleset = (Ruleset)(((int)s_tr_cfg_ruleset + 4) % 5);
         plexus_save(); return 1;
     }
-    if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 448.0f, 38.0f, 28.0f })) {
+    if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 40.0f), 38.0f, 28.0f })) {
         s_tr_cfg_ruleset = (Ruleset)(((int)s_tr_cfg_ruleset + 1) % 5);
         plexus_save(); return 1;
     }
-    if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 483.0f, 38.0f, 28.0f }) && s_tr_cfg_rounds > 1) {
+    if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 75.0f), 38.0f, 28.0f }) && s_tr_cfg_rounds > 1) {
         s_tr_cfg_rounds--; plexus_save(); return 1;
     }
-    if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 483.0f, 38.0f, 28.0f }) && s_tr_cfg_rounds < 12) {
+    if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 75.0f), 38.0f, 28.0f }) && s_tr_cfg_rounds < 12) {
         s_tr_cfg_rounds++; plexus_save(); return 1;
     }
     if (s_tr_cfg_diff == DIFFICULTY_MASTER) {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 518.0f, 36.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 110.0f), 36.0f, 28.0f })) {
             s_tr_cfg_diff = DIFFICULTY_HARD; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 862.0f, 518.0f, 36.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 862.0f, (k_mode_cfg_rect.y + 110.0f), 36.0f, 28.0f })) {
             s_tr_cfg_diff = DIFFICULTY_EASY; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 906.0f, 518.0f, 63.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 906.0f, (k_mode_cfg_rect.y + 110.0f), 63.0f, 28.0f })) {
             s_tr_cfg_timer = 15; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 975.0f, 518.0f, 63.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 975.0f, (k_mode_cfg_rect.y + 110.0f), 63.0f, 28.0f })) {
             s_tr_cfg_timer = 30; plexus_save(); return 1;
         }
     } else {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 518.0f, 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 110.0f), 38.0f, 28.0f })) {
             s_tr_cfg_diff = (Difficulty)(((int)s_tr_cfg_diff + 2) % 3);
             plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 518.0f, 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 110.0f), 38.0f, 28.0f })) {
             s_tr_cfg_diff = (Difficulty)(((int)s_tr_cfg_diff + 1) % 3);
             plexus_save(); return 1;
         }
     }
     int unlocked = get_unlocked_camp_opponents();
     int opp = clamped_tr_opponent();
-    if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 674.0f, 553.0f, 38.0f, 28.0f })) {
+    if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 38.0f, 28.0f })) {
         s_tr_cfg_opponent = (opp + unlocked - 1) % unlocked;
         plexus_save(); return 1;
     }
-    if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, 553.0f, 38.0f, 28.0f })) {
+    if (unlocked > 1 && CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 145.0f), 38.0f, 28.0f })) {
         s_tr_cfg_opponent = (opp + 1) % unlocked;
         plexus_save(); return 1;
     }
@@ -1935,19 +1971,23 @@ static void draw_logfile_story_tab(Vector2 vm) {
     char tag[96];
     snprintf(tag, sizeof(tag), "LOG %02d/12  //  %s  [%02d/12]",
              m + 1, k_month_names[m], unlocked_docs);
-    draw_text_snapped(font_body,  tag,           tx, doc.y + 14.0f, 15.5f, 1.05f, COLOR_PHOSPHOR);
-    draw_text_snapped(font_title, ch->seq_title, tx, doc.y + 40.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-    DrawLine((int)tx, (int)doc.y + 68, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 68, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_body,  tag,           tx, doc.y + 14.0f, 16.5f, 1.05f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, ch->seq_title, tx, doc.y + 42.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+    DrawLine((int)tx, (int)doc.y + 70, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 70, COLOR_PHOSPHOR_DIM);
 
-    draw_text_snapped(sf, ch->p1, tx, doc.y +  82.0f, 20.5f, 0.9f, COLOR_TEXT_INFO);
-    draw_text_snapped(sf, ch->p2, tx, doc.y + 111.0f, 20.5f, 0.9f, COLOR_TEXT_INFO);
-    draw_text_snapped(sf, ch->p3, tx, doc.y + 140.0f, 20.5f, 0.9f, COLOR_TEXT_INFO);
-    draw_text_snapped(sf, ch->p4, tx, doc.y + 178.0f, 20.5f, 0.9f, COLOR_PHOSPHOR);
-    draw_text_snapped(sf, ch->p5, tx, doc.y + 207.0f, 20.5f, 0.9f, COLOR_TEXT_INFO_DIM);
-    draw_text_snapped(sf, ch->p6, tx, doc.y + 236.0f, 20.5f, 0.9f, COLOR_TEXT_INFO_DIM);
+    /* Body copy 20.5 -> 23 px and the leading goes with it: 23 is the ceiling for
+       this panel, the widest chapter line draws 454 px inside a 478 px column
+       (24 px would be 472 and tip into the frame's inner edge). The reader had a
+       lot of empty paper and small letters at 20.5; this fills it. */
+    draw_text_snapped(sf, ch->p1, tx, doc.y +  86.0f, 23.0f, 0.9f, COLOR_TEXT_INFO);
+    draw_text_snapped(sf, ch->p2, tx, doc.y + 118.0f, 23.0f, 0.9f, COLOR_TEXT_INFO);
+    draw_text_snapped(sf, ch->p3, tx, doc.y + 150.0f, 23.0f, 0.9f, COLOR_TEXT_INFO);
+    draw_text_snapped(sf, ch->p4, tx, doc.y + 190.0f, 23.0f, 0.9f, COLOR_PHOSPHOR);
+    draw_text_snapped(sf, ch->p5, tx, doc.y + 222.0f, 23.0f, 0.9f, COLOR_TEXT_INFO_DIM);
+    draw_text_snapped(sf, ch->p6, tx, doc.y + 254.0f, 23.0f, 0.9f, COLOR_TEXT_INFO_DIM);
 
     /* Live Month Conditioning Dossier + Sequence Media Status */
-    DrawLine((int)tx, (int)doc.y + 274, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 274, COLOR_PHOSPHOR_DIM);
+    DrawLine((int)tx, (int)doc.y + 290, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 290, COLOR_PHOSPHOR_DIM);
     int m_cards_std  = count_mask_cards((s_finished_cards_mask >> (m * 4)) & 0xFULL);
     int m_cards_deus = count_mask_cards((s_deus_finished_cards_mask >> (m * 4)) & 0xFULL);
     char media_ln[96];
@@ -1958,7 +1998,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
         snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: %d / 4 STORY CARDS CLEARED  //  [REREADABLE]",
                  m_cards_std);
     }
-    draw_text_snapped(font_title, media_ln, tx, doc.y + 286.0f, 14.0f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, media_ln, tx, doc.y + 302.0f, 14.0f, 1.1f, COLOR_PHOSPHOR);
 
     /* 4 Spine Card Sub-Nodes for Selected Month (ordered Card 4 -> Card 1 left-to-right) */
     static const int k_slot_order[4] = { 3, 2, 1, 0 };
@@ -1970,7 +2010,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
         for (int p = 3; p > sl; p--) {
             if (!((s_finished_cards_mask >> (m * 4 + p)) & 1ULL)) { std_open = 0; break; }
         }
-        Rectangle nb = { floorf(tx + (float)idx * 121.0f), doc.y + 318.0f, 115.0f, 74.0f };
+        Rectangle nb = { floorf(tx + (float)idx * 121.0f), doc.y + 330.0f, 115.0f, 74.0f };
         DrawRectangleRec(nb, std_done ? (Color){ 10, 26, 22, 230 } : (Color){ 6, 10, 12, 220 });
         DrawRectangleLinesEx(nb, std_done ? 1.5f : 1.0f, std_done ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
 
@@ -1989,9 +2029,9 @@ static void draw_logfile_story_tab(Vector2 vm) {
     const char *foot = (m == 0)
         ? "Tutorials 01-03 & Card 1 stay archived here forever."
         : "Monthly story logs never get overwritten by matches.";
-    draw_text_snapped(font_body, foot, tx, doc.y + 412.0f, 15.0f, 1.05f, COLOR_TEXT_INFO_DIM);
+    draw_text_snapped(font_body, foot, tx, doc.y + 420.0f, 16.0f, 1.05f, COLOR_TEXT_INFO_DIM);
     draw_text_snapped(font_body, "TIP: Click 01-12 or use mouse wheel to reread logs.",
-                      tx, doc.y + 440.0f, 15.0f, 1.05f, COLOR_PHOSPHOR_DIM);
+                      tx, doc.y + 448.0f, 16.0f, 1.05f, COLOR_PHOSPHOR_DIM);
 }
 
 static void draw_logfile_training_tab(void) {
@@ -2446,7 +2486,22 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     }
 }
 
-#define PLEXUS_INTRO_BTN_DELAY  2.65f
+/* The prologue wall reveals line by line and the CONTINUE button does not exist
+   until the last line has finished fading in - it used to appear at 2.65 s while
+   the closing line was still ramping up under it (owner, 29 Oct 2026: "the text
+   reveals itself too fast ... only when the full text is there"). The four line
+   starts are absolute seconds so the schedule is readable in one place, and the
+   button constant is derived from the last of them: it cannot drift out of sync
+   with the text again. */
+#define PLEXUS_INTRO_L1_AT    0.25f
+#define PLEXUS_INTRO_L2_AT    1.05f
+#define PLEXUS_INTRO_L3_AT    1.85f
+#define PLEXUS_INTRO_L4_AT    2.65f
+#define PLEXUS_INTRO_L_FADE   1.10f   /* per-line fade-in, seconds */
+#define PLEXUS_INTRO_L4_FADE  1.45f   /* the closing block is longer, it gets longer */
+#define PLEXUS_INTRO_BTN_HOLD 0.35f   /* beat of silence before the button */
+#define PLEXUS_INTRO_BTN_AT   (PLEXUS_INTRO_L4_AT + PLEXUS_INTRO_L4_FADE + PLEXUS_INTRO_BTN_HOLD)
+#define PLEXUS_INTRO_BTN_DELAY PLEXUS_INTRO_BTN_AT
 #define PLEXUS_INTRO_REVEAL_DUR 0.78f
 static const Rectangle k_intro_continue_rect = { 530.0f, 624.0f, 220.0f, 44.0f };
 
@@ -2484,6 +2539,19 @@ void plexus_set_intro_ui_texture(Texture2D ui_tex) {
 
 static void draw_intro_story_pass(Font sf, float dx, float dy, float a1, float a2, float a3, float a4) {
     float cx = 640.0f + dx;
+    /* The wall of text used to hang in the dark with nothing naming it - the same
+       content is filed in the logfile as TRANSMISSION 00, so the screen now wears
+       that flag. It fades in with the first line and sits above the opening
+       statement, clear of the 184 px line 1. */
+    if (a1 > 0.005f) {
+        Vector2 fs = MeasureTextEx(font_title, "TRANSMISSION 00  //  ATRIUM PLEX ENTRY", 15.0f, 1.6f);
+        draw_text_snapped(font_title, "TRANSMISSION 00  //  ATRIUM PLEX ENTRY",
+                          cx - fs.x * 0.5f, 128.0f + dy, 15.0f, 1.6f,
+                          intro_with_alpha(COLOR_PHOSPHOR_DIM, a1));
+        float half = 260.0f;
+        DrawLine((int)(cx - half), (int)(152.0f + dy), (int)(cx + half), (int)(152.0f + dy),
+                 intro_with_alpha(COLOR_PHOSPHOR_DIM, a1));
+    }
     if (a1 > 0.005f) {
         draw_story_centered(sf, "The mathematics of sequential dependence:",
                             cx, 184.0f + dy, 29.0f, 1.0f, intro_with_alpha(COLOR_TEXT_INFO_DIM, a1));
@@ -2513,10 +2581,10 @@ static void draw_intro_story_pass(Font sf, float dx, float dy, float a1, float a
 
 static void draw_intro_story_screen(Vector2 vm, float timer, float fade_out) {
     Font sf = story_font();
-    float a1 = intro_clamp01((timer - 0.12f) / 0.65f) * fade_out;
-    float a2 = intro_clamp01((timer - 0.45f) / 0.75f) * fade_out;
-    float a3 = intro_clamp01((timer - 0.85f) / 0.70f) * fade_out;
-    float a4 = intro_clamp01((timer - 1.35f) / 0.85f) * fade_out;
+    float a1 = intro_clamp01((timer - PLEXUS_INTRO_L1_AT) / PLEXUS_INTRO_L_FADE) * fade_out;
+    float a2 = intro_clamp01((timer - PLEXUS_INTRO_L2_AT) / PLEXUS_INTRO_L_FADE) * fade_out;
+    float a3 = intro_clamp01((timer - PLEXUS_INTRO_L3_AT) / PLEXUS_INTRO_L_FADE) * fade_out;
+    float a4 = intro_clamp01((timer - PLEXUS_INTRO_L4_AT) / PLEXUS_INTRO_L4_FADE) * fade_out;
 
     if (fade_out < 0.99f && fade_out > 0.01f) {
         float blur = (1.0f - fade_out) * 8.0f;
@@ -2543,12 +2611,111 @@ static void draw_intro_story_screen(Vector2 vm, float timer, float fade_out) {
     }
 }
 
+/* --- HISCORE board (SPEEDCOIN + ACTION CARD) ----------------------------- */
+/* A read-out, not a new record: both tabs already keep their history (the
+   speedcoin top-8 ranklist and the ACTION CARD rows of the match log), so the
+   board shows what is saved instead of adding a second, parallel score table. */
+static const Rectangle k_hiscore_box   = { 320.0f, 118.0f, 640.0f, 474.0f };
+static const Rectangle k_hiscore_close = { 550.0f, 528.0f, 180.0f,  44.0f };
+
+static void draw_plexus_hiscore_overlay(Vector2 vm) {
+    if (!s_hiscore_open) return;
+    /* Only the two modes that own a board can show one; a tab change from under the
+       overlay (keyboard, or a mode losing its unlock) closes it instead of drawing
+       the wrong board. */
+    if (s_active_tab != 2 && s_active_tab != 3) { s_hiscore_open = 0; return; }
+    int ac = (s_active_tab == 3);
+
+    DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 176 });
+    DrawRectangleRec(k_hiscore_box, PLEXUS_PANEL_BG);
+    ui_draw_panel_border(k_hiscore_box, COLOR_PHOSPHOR);
+
+    draw_text_snapped(font_title, ac ? "ACTION CARD  //  HISCORE BOARD" : "SPEEDCOIN  //  HISCORE BOARD",
+                      k_hiscore_box.x + 22.0f, k_hiscore_box.y + 16.0f, 20.0f, 1.4f, COLOR_PHOSPHOR);
+    DrawLine((int)k_hiscore_box.x + 20, (int)k_hiscore_box.y + 48,
+             (int)(k_hiscore_box.x + k_hiscore_box.width - 20.0f), (int)k_hiscore_box.y + 48,
+             COLOR_PHOSPHOR_DIM);
+
+    float x = k_hiscore_box.x + 24.0f;
+
+    if (ac) {
+        draw_text_snapped(font_body, TextFormat("BEST SCORE  %d PTS   //   RUNS %d   //   %dW-%dL",
+                                                s_ac_best_score, s_ac_runs, s_ac_wins, s_ac_losses),
+                          x, k_hiscore_box.y + 62.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        DrawLine((int)x, (int)k_hiscore_box.y + 90,
+                 (int)(k_hiscore_box.x + k_hiscore_box.width - 24.0f), (int)k_hiscore_box.y + 90,
+                 COLOR_PHOSPHOR_DIM);
+
+        /* Five rows: the sixth would run under the CLOSE button at +410. */
+        int row = 0;
+        for (int i = 0; i < s_match_log_count && row < 5; i++) {
+            if (s_match_logs[i].mode != MLOG_ACTION_CARD) continue;
+            float ry = k_hiscore_box.y + 102.0f + (float)row * 56.0f;
+            draw_text_snapped(font_body, s_match_logs[i].title,
+                              x, ry, 15.0f, 1.1f, COLOR_PHOSPHOR);
+            draw_text_snapped(font_body, s_match_logs[i].detail,
+                              x, ry + 22.0f, 14.0f, 1.1f, COLOR_TEXT_INFO_DIM);
+            row++;
+        }
+        if (row == 0) {
+            draw_text_snapped(font_body, "NO ACTION CARD RUNS YET  //  PRESS START TO OPEN THE BOARD.",
+                              x, k_hiscore_box.y + 120.0f, 16.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        } else if (row == 5) {
+            draw_text_snapped(font_body, "OLDER RUNS ARE IN [LOGFILE] > MATCHES > ACTION CARD.",
+                              x, k_hiscore_box.y + 380.0f, 14.0f, 1.05f, COLOR_PHOSPHOR_DIM);
+        }
+    } else {
+        draw_text_snapped(font_body, TextFormat("RUNS %d   //   BEST WAVE W-%02d   //   TOP 8 PERSISTED",
+                                                s_sc_runs, s_sc_best_wave),
+                          x, k_hiscore_box.y + 62.0f, 17.0f, 1.2f, COLOR_TEXT_INFO);
+        /* Columns are drawn one by one at the same offsets the data uses (and at
+           the same 96 / 224 / 306 as the speedcoin result ranklist), so the heading
+           cannot drift out of alignment with the numbers under it. */
+        static const float k_sc_col[3] = { 96.0f, 224.0f, 306.0f };
+        static const char *const k_sc_head[3] = { "SCORE", "WAVE", "COINS" };
+        for (int c2 = 0; c2 < 3; c2++) {
+            draw_text_snapped(font_body, k_sc_head[c2], x + k_sc_col[c2],
+                              k_hiscore_box.y + 94.0f, 13.5f, 1.1f, COLOR_TEXT_INFO_DIM);
+        }
+        draw_text_snapped(font_body, "RANK", x, k_hiscore_box.y + 94.0f, 13.5f, 1.1f, COLOR_TEXT_INFO_DIM);
+
+        for (int i = 0; i < SPEEDCOIN_RANK_MAX; i++) {
+            float ry = k_hiscore_box.y + 122.0f + (float)i * 34.0f;
+            int have = (i < s_sc_rank_count);
+            Color c = have ? ((i == 0) ? COLOR_PHOSPHOR : COLOR_TEXT_INFO) : COLOR_PHOSPHOR_DIM;
+            draw_text_snapped(font_title, TextFormat("#%02d", i + 1), x, ry, 17.0f, 1.1f, c);
+            draw_text_snapped(font_body,
+                              have ? TextFormat("%d PTS", s_sc_ranks[i].score) : "---",
+                              x + k_sc_col[0], ry + 2.0f, 17.0f, 1.1f, c);
+            draw_text_snapped(font_body,
+                              have ? TextFormat("W-%02d", s_sc_ranks[i].waves) : "--",
+                              x + k_sc_col[1], ry + 2.0f, 17.0f, 1.1f, c);
+            draw_text_snapped(font_body,
+                              have ? TextFormat("%d MP", s_sc_ranks[i].coins) : "---",
+                              x + k_sc_col[2], ry + 2.0f, 17.0f, 1.0f, c);
+        }
+    }
+
+    draw_plexus_btn(k_hiscore_close, "CLOSE", 17, vm, 0);
+}
+
 void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     ensure_plexus_assets();
     if (!is_bottom_btn_unlocked(s_active_tab)) s_active_tab = 0;
     float dt = GetFrameTime();
     if (dt < 0.0f) dt = 0.0f;
     if (dt > 0.05f) dt = 0.05f;
+
+    /* 0. Screen Title. The Plex never named itself - it was "the screen with the
+       cards on the right". Top-left is the only free corner (the right column is
+       the spine, the middle is the card). It is skipped while the logfile window is
+       open: that window is an opaque panel starting at x 236, and a title that
+       passed under it would be cut in half. */
+    if (s_active_tab != 1) {
+        draw_text_snapped(font_title, "THE ATRIUM PLEX",
+                          64.0f, 22.0f, 18.0f, 1.6f, COLOR_PHOSPHOR);
+        DrawLine(64, 52, 276, 52, COLOR_PHOSPHOR_DIM);
+    }
 
     /* 2. Right Spine: [NEXT] button (when all 4 cards of month completed) + 4 Month Cards */
     float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 3.8f);
@@ -2690,7 +2857,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                          s_sc_ranks[0].coins, s_sc_best_wave);
                 line2 = sc_line2;
             } else {
-                line2 = "-10s drain/miss; 30 MP Hand 2; 3 misses = Reverse Deck.";
+                line2 = "-10s/miss; 30 MP Hand 2; 3 misses = Reverse Deck.";
             }
             if (drops > 0) {
                 snprintf(sc_line3, sizeof(sc_line3),
@@ -2734,7 +2901,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                          speed_bar_lifetime_minipoints());
                 line3 = sc_line3;
             } else {
-                line3 = "Press START to launch a KK-ADD-10 Action Card match.";
+                line3 = "Press START to launch a KK-ADD-10 match.";
             }
         } else {
             const char *d_name = diff_short_name(s_tr_cfg_diff, s_tr_cfg_timer);
@@ -2746,7 +2913,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                      op->name, op->favorite_combo, get_unlocked_camp_opponents());
             line1 = sc_line1;
             line2 = "Special Condition: NONE   [Training Lore Placeholder]";
-            line3 = "Use SETTINGS below to configure. No campaign awards.";
+            line3 = "Use SETTINGS to configure. No campaign awards.";
         }
 
         unsigned int bh = 2166136261u;
@@ -2761,8 +2928,13 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
         } else if (bh != s_last_briefing_hash) {
             s_last_briefing_hash = bh;
             s_briefing_glow = 1.0f;
+            s_briefing_hold = PLEXUS_BRIEFING_HOLD;
+        } else if (s_briefing_hold > 0.0f) {
+            s_briefing_hold -= dt;
+            s_briefing_glow = 1.0f;
+            if (s_briefing_hold < 0.0f) s_briefing_hold = 0.0f;
         } else if (s_briefing_glow > 0.0f) {
-            s_briefing_glow -= dt * 1.15f;
+            s_briefing_glow -= dt * PLEXUS_BRIEFING_FADE;
             if (s_briefing_glow < 0.0f) s_briefing_glow = 0.0f;
         }
         float bglow = s_briefing_glow * s_briefing_glow * (3.0f - 2.0f * s_briefing_glow);
@@ -2786,18 +2958,23 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                                  1.5f, outer);
         }
 
-        draw_text_snapped(font_title, hdr,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 18.0f, 21.0f, 1.4f, COLOR_PHOSPHOR);
-        DrawLine((int)k_briefing_rect.x + 22, (int)k_briefing_rect.y + 50,
-                 (int)(k_briefing_rect.x + k_briefing_rect.width - 22.0f), (int)k_briefing_rect.y + 50, COLOR_PHOSPHOR_DIM);
-        draw_text_snapped(font_body,  sub,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 64.0f, 19.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_body,  line1, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 108.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 142.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
+        draw_text_snapped(font_title, hdr,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 16.0f, 21.0f, 1.4f, COLOR_PHOSPHOR);
+        DrawLine((int)k_briefing_rect.x + 22, (int)k_briefing_rect.y + 46,
+                 (int)(k_briefing_rect.x + k_briefing_rect.width - 22.0f), (int)k_briefing_rect.y + 46, COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_body,  sub,   k_briefing_rect.x + 22.0f, k_briefing_rect.y + 58.0f, 19.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body,  line1, k_briefing_rect.x + 22.0f, k_briefing_rect.y +  94.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  line2, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 124.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,  line3, k_briefing_rect.x + 22.0f, k_briefing_rect.y + 154.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
 
         int start_locked = (s_active_tab == 0 && !slot_unlocked) ||
                            (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) ||
                            (s_active_tab == 3 && !is_action_card_bottom_unlocked());
-        if (s_active_tab == 3 || s_active_tab == 4) {
+        /* Middle slot: SETTINGS on ACTION CARD and TRAINING, HISCORE on SPEEDCOIN
+           (that mode has nothing to configure). Left slot: HISCORE on ACTION CARD. */
+        if (s_active_tab == 2) {
+            draw_plexus_btn(k_settings_rect, "HISCORE", 18, vm, s_hiscore_open);
+        } else if (s_active_tab == 3 || s_active_tab == 4) {
+            if (s_active_tab == 3) draw_plexus_btn(k_hiscore_rect, "HISCORE", 18, vm, s_hiscore_open);
             if (start_locked) {
                 draw_plexus_locked_btn(k_settings_rect, "SETTINGS", 18);
             } else {
@@ -2946,6 +3123,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
 
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 45 });
     plexus_draw_ui_chrome(ba, st, vm);
+    draw_plexus_hiscore_overlay(vm);
 }
 
 ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
@@ -2965,6 +3143,17 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         return ACT_NONE;
     }
 
+    /* HISCORE board is modal while open: CLOSE or a click outside dismisses it and
+       nothing underneath can be hit through it. */
+    if (s_hiscore_open) {
+        if (CheckCollisionPointRec(vm, k_hiscore_close) ||
+            !CheckCollisionPointRec(vm, k_hiscore_box)) {
+            s_hiscore_open = 0;
+        }
+        if (out_clicked) *out_clicked = 1;
+        return ACT_NONE;
+    }
+
     /* Per-mode Match Settings drawer (Action Card & Training) */
     if (s_mode_settings_open && (s_active_tab == 3 || s_active_tab == 4)) {
         if (handle_mode_settings_click(vm)) {
@@ -2974,6 +3163,16 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (CheckCollisionPointRec(vm, k_mode_cfg_rect)) {
             return ACT_NONE;
         }
+    }
+
+    /* HISCORE board: middle slot on SPEEDCOIN, left slot on ACTION CARD */
+    if ((s_active_tab == 2 && CheckCollisionPointRec(vm, k_settings_rect)) ||
+        (s_active_tab == 3 && CheckCollisionPointRec(vm, k_hiscore_rect))) {
+        if (s_active_tab == 3 && !is_action_card_bottom_unlocked()) return ACT_NONE;
+        s_mode_settings_open = 0;
+        s_hiscore_open = 1;
+        if (out_clicked) *out_clicked = 1;
+        return ACT_NONE;
     }
 
     /* SETTINGS button next to START (only shown on Action Card & Training) */

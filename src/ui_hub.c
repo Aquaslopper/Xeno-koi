@@ -214,12 +214,14 @@ void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int
     /* Owner pass, 29 October 2026. 140.8 = 176 * 0.8 (brand 20 % smaller) and
        37.4 = 34 * 1.1 (subtitle 10 % bigger). The brand's y is ink-to-ink, not an
        em box: at 140.8 px its ink runs +24.9 .. +155.6 below its y, and the
-       subtitle's ink starts +10.4 below its own y at 248, so y = 91 leaves ~12 px
-       of real space between them. At the old 176 px the same pair was ~3 px apart,
-       which is why shrinking alone opened a hole; the brand comes back down to
-       close it. Smaller also means less upscaling from the 48 px master (3.67x ->
-       2.93x), so the line is slightly sharper as a side effect. */
-    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 91.0f, 140.8f, 3.0f, COLOR_PHOSPHOR);
+       subtitle's ink starts +10.4 below its own y at 248, so the visible gap is
+       exactly 102.8 - y. y = 91 left 11.8 px and still read as a hole, so it comes
+       down again to y = 96 for 6.8 px: close enough to touch, far enough not to
+       clip the subtitle's ascenders. At the old 176 px the same pair was ~3 px
+       apart, which is why shrinking alone opened the hole in the first place.
+       Smaller also means less upscaling from the 48 px master (3.67x -> 2.93x),
+       so the line is slightly sharper as a side effect. */
+    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 96.0f, 140.8f, 3.0f, COLOR_PHOSPHOR);
     hub_draw_centered_bold(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 248.0f, 37.4f, 4.0f, wine_red);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
