@@ -6,14 +6,17 @@
 
 ## The story
 
-- **All 48 spine cards now carry story text.** Months 02–12 were placeholders; each sector
-  has its own passage in the vessel's voice on the briefing panel and in the logfile.
+- **Every sector speaks.** All 48 cards carry a beat on the spine briefing in the vessel's
+  voice — three lines each, except the four Month 01 tutorials, which keep their
+  instructional text and get one hook underneath. These are introductions to a sector,
+  not full pages.
 - **Story protocols.** Fourteen cards (all of Month 02, plus each month's face card) now
   deal a real round on your ruleset and open one transmission before the sector clears.
   The remaining cards still use the instant-clear path.
 - **Logfile rebuilt** into four tabs — `STORY`, `TRAINING`, `MATCHES`, `ATLAS` — with the
   twelve monthly documents, live telemetry, every run, and the card atlas with its
-  inspector. The Deus second pass gets its own atlas.
+  inspector. The Deus second pass gets its own atlas. **Month 01's dossier is written;
+  Months 02–12 are titled and framed but still mark the lines where their prose goes.**
 - **Plex records are Plex records.** Campaign numbers were being printed in five places
   inside the Atrium Plex; all five now read Plex data. A Pancratium win no longer shows up
   as a Plex win, and Plex runs no longer appear in the campaign record.
@@ -78,5 +81,8 @@
 ## Known
 
 - **Deus Supremus is open to every player in this build.** Intended for now, not a leftover.
+- **The monthly dossier prose is written for Month 01 only.** Months 02–12 are framed,
+  titled and readable, but each still shows two placeholder lines ("Story dossier slot
+  reserved for Month 02 prose…") where its dossier belongs. Writing them is the next pass.
 - **Story protocols cover 14 of the 48 cards.** The rest clear immediately while the
   remaining sectors are written.
