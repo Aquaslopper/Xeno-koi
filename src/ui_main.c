@@ -34,11 +34,15 @@
 #define IsFontReady(f) ((f).texture.id > 0)
 #endif
 
-Font font_title;  // Audiowide for titles, headers, and button labels
-Font font_body;   // Play for data, options, HUD, and supporting text
-Font small_font;  // Legacy alias for modules that still use the old name
+Font font_title;    // Audiowide for titles, headers, and button labels
+Font font_body;     // Play for data, options, HUD, and supporting text
+Font font_display;  // Audiowide at title-screen size; only the 176 px brand line uses it
+Font small_font;    // Legacy alias for modules that still use the old name
 GameSettings settings;
 
+/* transition_action codes for start_transition(): 1 = begin a match, 2/3 = resume
+   music + result sting, 4 = play the card loader once more and then leave the game. */
+#define TRANSACT_QUIT    4
 #define TRANS_OUT_DUR    1.80f
 #define TRANS_HOLD_DUR   2.20f
 #define STARTUP_WARNING_DUR 5.0f
@@ -234,7 +238,7 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
             action_card_draw_match_result_extras(&g);
         }
     } else if (sc == SCREEN_HUB_MAIN) {
-        ui_hub_draw_main(&assets, &settings, plexus_get_spine_count(), mouse_pos);
+        ui_hub_draw_main(&assets, &settings, &stats, mouse_pos);
     } else if (sc == SCREEN_HUB_OPTIONS) {
         ui_hub_draw_options_menu(&assets, mouse_pos, saved_timer);
     } else if (sc == SCREEN_PROFILE_MANAGER) {
@@ -539,7 +543,9 @@ static void draw_hover_action_label(const char *label, Rectangle bounds) {
     DrawTextEx(font_title, label, (Vector2){ floorf(bounds.x + (bounds.width - ts.x) / 2.0f), floorf(bounds.y + (bounds.height - 18.0f) / 2.0f) }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
-static void draw_loading_card(const BoardAssets *ba, float u) {
+/* `caption` is drawn under the card, fading with it. Only the quit loader uses it
+   ("-decoupled-"); every other caller passes NULL so the card stays wordless. */
+static void draw_loading_card(const BoardAssets *ba, float u, const char *caption) {
     float vis = smooth01(u / 0.20f) * smooth01((1.0f - u) / 0.20f);
     if (vis <= 0.005f) return;
     float wv = sinf(fminf(1.0f, fmaxf(0.0f, u)) * 3.14159265f);
@@ -581,6 +587,13 @@ static void draw_loading_card(const BoardAssets *ba, float u) {
         DrawTexturePro(ba->card_back, lsrc, (Rectangle){ ldst.x, ldst.y + 0.8f, ldst.width, ldst.height }, (Vector2){ 0, 0 }, 0.0f, bleed);
     }
     EndBlendMode();
+    if (caption && caption[0]) {
+        Vector2 cs = MeasureTextEx(font_body, caption, 18.0f, 2.0f);
+        DrawTextEx(font_body, caption,
+                   (Vector2){ floorf(640.0f - cs.x * 0.5f), floorf(cr.y + cr.height + 34.0f) },
+                   18.0f, 2.0f, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b,
+                                         (unsigned char)(255.0f * vis) });
+    }
 }
 
 static void draw_round_end_banner(const GameState *gs, float timer) {
@@ -759,7 +772,7 @@ static void update_draw_frame(void) {
                            24.0f, 1.0f, BLACK);
             }
         } else {
-            draw_loading_card(&assets, startup_timer / duration);
+            draw_loading_card(&assets, startup_timer / duration, NULL);
         }
         EndTextureMode();
         Letterbox l = input_get_letterbox();
@@ -791,6 +804,7 @@ static void update_draw_frame(void) {
         transition_alpha = 1.0f;
         transition_timer += dt;
         if (transition_timer >= TRANS_HOLD_DUR) {
+            if (transition_action == TRANSACT_QUIT) { quit_requested = 1; return; }
             transition_dir = -1; transition_timer = 0.0f; screen = transition_target_screen;
             if (screen != SCREEN_GAME && speed_mode_is_active()) speed_mode_stop();
             if (screen != SCREEN_MATCH_RESULT) {
@@ -843,6 +857,9 @@ static void update_draw_frame(void) {
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
     action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt);
+    /* One level drives every glyph mote on the frame, so the title's dots ride the beat
+       instead of running on a fixed clock. 0 when nothing is playing. */
+    ui_theme_set_text_flare_pulse(action_card_music_pulse());
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -901,9 +918,11 @@ static void update_draw_frame(void) {
                 } else if (hact == HUB_ACT_TITLE_OPTIONS) {
                     start_hub_transition(SCREEN_HUB_OPTIONS, 0, hit.rect, hit.label, hit.font_size);
                 } else if (hact == HUB_ACT_TITLE_QUIT) {
+                    /* Leave the way every other screen change does: fade to black, hold the
+                       card loader with "-decoupled-", then shut down. Closing on the click
+                       read as a crash rather than an exit. */
                     save_current_profile();
-                    quit_requested = 1;
-                    return;
+                    start_transition(SCREEN_START, TRANSACT_QUIT, 0);
                 }
             }
         } else if (screen == SCREEN_HUB_OPTIONS) {
@@ -1025,6 +1044,10 @@ static void update_draw_frame(void) {
                 } else if (hact == HUB_ACT_GOTO_STATS) {
                     stats_return_screen = SCREEN_HUB_CAMPAIGN;
                     start_hub_transition(SCREEN_STATS, 0, hit.rect, hit.label, hit.font_size);
+                } else if (hact == HUB_ACT_CAMPAIGN_OPTIONS) {
+                    options_return_screen = SCREEN_HUB_CAMPAIGN;
+                    hub_reset_opt_page = 1;
+                    start_hub_transition(SCREEN_OPTIONS, 0, hit.rect, hit.label, hit.font_size);
                 } else if (hact == HUB_ACT_BACK_TO_MAIN_HUB) {
                     start_hub_transition(SCREEN_HUB_MAIN, 0, hit.rect, hit.label, hit.font_size);
                 }
@@ -1903,7 +1926,9 @@ static void update_draw_frame(void) {
     if (transition_alpha > 0.0f) {
         BeginTextureMode(canvas);
         DrawRectangle(0, 0, CANVAS_W, CANVAS_H, (Color){ 0, 0, 0, (unsigned char)(fminf(1.0f, fmaxf(0.0f, transition_alpha)) * 255.0f) });
-        if (transition_dir == 2) draw_loading_card(&assets, transition_timer / TRANS_HOLD_DUR);
+        if (transition_dir == 2)
+            draw_loading_card(&assets, transition_timer / TRANS_HOLD_DUR,
+                              (transition_action == TRANSACT_QUIT) ? "-decoupled-" : NULL);
         EndTextureMode();
     }
     /* DEUS timeout banner: big red transparent text, drawn above everything so it
@@ -2018,10 +2043,26 @@ int main(int argc, char **argv) {
     const int title_base = 48;
     const int body_base = 26;
 
+    /* One extra Audiowide rasterisation at the title screen's own draw size.
+       A texture is only resampled by font_size / baseSize, so the 176 px brand line was a
+       3.67x stretch of the 48 px master and read as soft. This face is drawn at exactly the
+       size it is rasterised at, so it is 1:1 and only the canvas-to-window scale touches it.
+       It is safe to have two faces of one family because ui_hub_draw_title() hands this Font
+       to hub_draw_centered(), which both measures and draws with the object it is given -- the
+       mix that would misalign text is measuring with one face and drawing with the other, and
+       no call site does that here. Do NOT swap font_title for this anywhere else: at 11.5-56 px
+       it would be a hard downscale, which is what the low title_base exists to avoid. */
+    const int display_base = 176;
+
     font_title = LoadFontEx("assets/audiowide.ttf", title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), title_base, NULL, 0);
     if (!IsFontReady(font_title)) font_title = GetFontDefault();
     else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
+
+    font_display = LoadFontEx("assets/audiowide.ttf", display_base, NULL, 0);
+    if (!IsFontReady(font_display)) font_display = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), display_base, NULL, 0);
+    if (!IsFontReady(font_display)) font_display = font_title;  /* fall back to the shared face */
+    else { GenTextureMipmaps(&font_display.texture); SetTextureFilter(font_display.texture, TEXTURE_FILTER_TRILINEAR); }
 
     int body_cps[97];
     for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
@@ -2064,6 +2105,8 @@ int main(int argc, char **argv) {
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
+    if (font_display.texture.id != font_title.texture.id &&
+        font_display.texture.id != GetFontDefault().texture.id) UnloadFont(font_display);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
     plexus_unload_assets();

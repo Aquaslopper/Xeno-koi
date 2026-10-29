@@ -5,6 +5,10 @@
 
 extern Font font_title;
 extern Font font_body;
+/* Audiowide rasterised at the title screen's own 176 px draw size (1:1, no bitmap
+   stretch). Declared locally like font_title/font_body; only the brand line below
+   uses it, and it always travels together with its own MeasureTextEx call. */
+extern Font font_display;
 
 /* Deus ON state is derived from settings; only pre-activation values are cached. */
 static StorageDeusSessionSnapshot s_deus_snapshot;
@@ -70,17 +74,23 @@ static const char *const k_profile_action_labels[5] = {
 };
 
 
-static const Rectangle k_main_left_panel    = { 120.0f, 148.0f, 500.0f, 390.0f };
-static const Rectangle k_main_right_panel   = { 660.0f, 148.0f, 500.0f, 390.0f };
-static const Rectangle k_main_campaign_btn  = { 210.0f, 456.0f, 320.0f,  52.0f };
-static const Rectangle k_main_atrium_btn    = { 750.0f, 456.0f, 320.0f,  52.0f };
+/* Mode select: one data strip and one button per card, no heading (the button carries the
+   name), and both cards are built the same way - same inset, same strip, same button row -
+   so only their width differs. Pancratium is the short door and Atrium the long one. */
+static const Rectangle k_main_left_panel    = { 130.0f, 256.0f, 320.0f, 178.0f };
+static const Rectangle k_main_right_panel   = { 482.0f, 256.0f, 668.0f, 178.0f };
+static const Rectangle k_main_campaign_box  = { 154.0f, 276.0f, 272.0f,  58.0f };
+static const Rectangle k_main_atrium_box    = { 506.0f, 276.0f, 620.0f,  58.0f };
+static const Rectangle k_main_campaign_btn  = { 154.0f, 366.0f, 272.0f,  48.0f };
+static const Rectangle k_main_atrium_btn    = { 506.0f, 366.0f, 620.0f,  48.0f };
 static const Rectangle k_main_back_btn      = { 510.0f, 594.0f, 260.0f,  48.0f };
 
 static const Rectangle k_camp_panel         = { 280.0f,  96.0f, 720.0f, 548.0f };
-static const Rectangle k_camp_select_btn    = { 430.0f, 266.0f, 420.0f,  54.0f };
-static const Rectangle k_camp_stats_btn     = { 430.0f, 342.0f, 420.0f,  54.0f };
-static const Rectangle k_camp_deus_box      = { 430.0f, 418.0f, 420.0f,  64.0f };
-static const Rectangle k_camp_back_btn      = { 510.0f, 536.0f, 260.0f,  48.0f };
+static const Rectangle k_camp_select_btn    = { 430.0f, 254.0f, 420.0f,  50.0f };
+static const Rectangle k_camp_stats_btn     = { 430.0f, 314.0f, 420.0f,  50.0f };
+static const Rectangle k_camp_options_btn   = { 430.0f, 374.0f, 420.0f,  50.0f };
+static const Rectangle k_camp_deus_box      = { 430.0f, 434.0f, 420.0f,  56.0f };
+static const Rectangle k_camp_back_btn      = { 510.0f, 536.0f, 260.0f,  46.0f };
 
 /* --- Pure readout helpers ------------------------------------------------ */
 
@@ -127,11 +137,19 @@ static void hub_draw_text_snapped(Font font, const char *text, float x, float y,
     DrawTextEx(font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
 }
 
+/* Both title faces carry glyph motes. The brand line is drawn with font_display (the
+   176 px rasterisation), so a font_title-only test silently dropped its flares. */
+static int hub_font_has_motes(Font f) {
+    if (f.texture.id == 0) return 0;
+    if (font_title.texture.id != 0 && f.texture.id == font_title.texture.id) return 1;
+    return (font_display.texture.id != 0 && f.texture.id == font_display.texture.id);
+}
+
 static void hub_draw_centered(Font font, const char *text, float cx, float y, float fsz, float sp, Color col) {
     Vector2 ts = MeasureTextEx(font, text, fsz, sp);
     Vector2 pos = { floorf(cx - ts.x * 0.5f), floorf(y) };
     DrawTextEx(font, text, pos, fsz, sp, col);
-    if (font.texture.id == font_title.texture.id && fsz >= 26.0f)
+    if (fsz >= 26.0f && hub_font_has_motes(font))
         ui_theme_draw_text_flares(font, text, pos, fsz, sp, col);
 }
 
@@ -193,7 +211,8 @@ void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int
     const char *labels[3] = { has_active_profile ? "CONTINUE" : "START GAME", "OPTION", "QUIT" };
     hub_draw_backdrop_alpha(ba, 95);
     Color wine_red = { 224, 136, 146, 255 };
-    hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 60.0f, 176.0f, 3.0f, COLOR_PHOSPHOR);
+    hub_draw_centered((font_display.texture.id > 0) ? font_display : font_title,
+                      "[XENO / KOI]", 640.0f, 60.0f, 176.0f, 3.0f, COLOR_PHOSPHOR);
     hub_draw_centered(font_body, "HANAFUDA: ACOUSTICA APEXUS", 640.0f, 248.0f, 34.0f, 4.0f, wine_red);
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
@@ -307,74 +326,83 @@ HubAction ui_hub_handle_profile_manager_click(Vector2 vm, HubButtonHit *out_hit,
     return HUB_ACT_NONE;
 }
 
+/* The third line of the Pancratium strip is the only moving copy on this screen: one
+   combat line at a time, rotated every few seconds, so the card answers "what have I done
+   in here" without a wall of text. Same GameStats the result and stats screens read. */
+static void hub_draw_combat_line(const GameStats *st, float cx, float y) {
+    char line[96];
+    const char *txt = "NO MATCHES YET  //  PLAY ONE";
+    Color col = COLOR_AMBER;
+    if (st && st->matches_played > 0) {
+        col = COLOR_TEXT_INFO_DIM;
+        switch ((int)(GetTime() / 5.0f) % 4) {
+            case 0:
+                snprintf(line, sizeof(line), "W %d / L %d   //   STREAK %d",
+                         st->matches_won, st->matches_lost, st->current_streak);
+                break;
+            case 1: {
+                int rate = (st->matches_played > 0)
+                               ? (int)((100.0f * (float)st->matches_won) / (float)st->matches_played)
+                               : 0;
+                snprintf(line, sizeof(line), "WIN RATE %d%%   //   BEST STREAK %d",
+                         rate, st->best_streak);
+                break;
+            }
+            case 2:
+                snprintf(line, sizeof(line), "TOP YAKU  %s", storage_get_favorite_combo(st));
+                break;
+            default:
+                snprintf(line, sizeof(line), "KOI CALLS %d   //   BEST ROUND %d",
+                         st->koi_calls_you, st->highest_round_score);
+                break;
+        }
+        txt = line;
+    }
+    hub_draw_centered(font_body, txt, cx, y, 14.0f, 1.0f, col);
+}
+
 /* --- Main Game Hub (SCREEN_HUB_MAIN) ------------------------------------- */
 
-void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_count, Vector2 vm) {
+void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, const GameStats *st,
+                      Vector2 vm) {
     int sectors = ui_hub_unlocked_sectors(s);
     int coins   = ui_hub_count_coins(s);
-    int rounds  = (s && s->rounds >= 1 && s->rounds <= 12) ? s->rounds : 2;
     int is_deus = (s && s->difficulty == DIFFICULTY_DEUS);
-    char line1[96], line2[96];
+    char line1[96];
 
     hub_draw_backdrop(ba);
 
     hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 36.0f, 44.0f, 2.2f, COLOR_PHOSPHOR);
     hub_draw_centered(font_body, "MAIN TERMINAL  //  MODE SELECT", 640.0f, 92.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
 
-    /* Left Card: CAMPAIGN */
+    /* Left Card: CAMPAIGN -- slim, one frame. */
     DrawRectangleRec(k_main_left_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_left_panel, COLOR_PHOSPHOR_DIM);
-    hub_draw_centered(font_title, "PANCRATIUM CAMPAIGN", 370.0f, 170.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
-    DrawLine(148, 204, 592, 204, COLOR_PHOSPHOR_DIM);
-
-    Rectangle camp_stat_box = { 148.0f, 220.0f, 444.0f, 60.0f };
-    DrawRectangleRec(camp_stat_box, (Color){ 4, 8, 10, 210 });
-    DrawRectangleLinesEx(camp_stat_box, 1.0f, COLOR_PHOSPHOR_DIM);
-    snprintf(line1, sizeof(line1), "UNLOCKED SECTORS %02d/12  |  COINS %02d/36", sectors, coins);
-    hub_draw_centered(font_body, line1, 370.0f, 228.0f, 18.0f, 1.1f, COLOR_PHOSPHOR);
+    DrawRectangleRec(k_main_campaign_box, (Color){ 4, 8, 10, 210 });
+    DrawRectangleLinesEx(k_main_campaign_box, 1.0f, COLOR_PHOSPHOR_DIM);
+    snprintf(line1, sizeof(line1), "SECTORS %02d/12   //   COINS %02d/36", sectors, coins);
+    hub_draw_centered(font_body, line1, 290.0f, 283.0f, 16.0f, 1.1f, COLOR_PHOSPHOR);
+    /* Deus is a session-long warning, so it outranks the rotating combat line. */
     if (is_deus) {
-        snprintf(line2, sizeof(line2), "DEUS SUPREMUS ACTIVE  //  YAKUZA 15S");
-        hub_draw_centered(font_body, line2, 370.0f, 254.0f, 15.0f, 1.0f, COLOR_RED);
+        hub_draw_centered(font_body, "DEUS SUPREMUS ACTIVE", 290.0f, 308.0f, 14.0f, 1.0f, COLOR_RED);
     } else {
-        snprintf(line2, sizeof(line2), "RULESET: %s  //  %d ROUNDS",
-                 s ? hub_ruleset_label(s->ruleset) : "KK-ADD-10", rounds);
-        hub_draw_centered(font_body, line2, 370.0f, 254.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        hub_draw_combat_line(st, 290.0f, 308.0f);
     }
 
-    hub_draw_text_snapped(font_body, "Challenge 12 biomechanical sector entities.", 152.0f, 304.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    hub_draw_text_snapped(font_body, "Earn Bronze, Silver, and Gold clearance coins", 152.0f, 332.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
-    hub_draw_text_snapped(font_body, "to unlock deeper sectors and review replays.", 152.0f, 358.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
-    hub_draw_button(k_main_campaign_btn, "CAMPAIGN", 20, vm);
+    hub_draw_button(k_main_campaign_btn, "PANCRATIUM", 20, vm);
 
-    /* Right Card: ATRIUM PLEX */
+    /* Right Card: ATRIUM PLEX -- same build as the Pancratium card, only longer; the two
+       share one frame style so the screen reads as one system of doors. */
     DrawRectangleRec(k_main_right_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_main_right_panel, COLOR_PHOSPHOR_DIM);
-    hub_draw_centered(font_title, "ATRIUM PLEX", 910.0f, 170.0f, 22.0f, 1.4f, COLOR_PHOSPHOR);
-    DrawLine(688, 204, 1132, 204, COLOR_PHOSPHOR_DIM);
 
-    Rectangle plex_stat_box = { 688.0f, 220.0f, 444.0f, 60.0f };
-    DrawRectangleRec(plex_stat_box, (Color){ 4, 8, 10, 210 });
-    DrawRectangleLinesEx(plex_stat_box, 1.0f, COLOR_PHOSPHOR_DIM);
-    if (spine_count >= 0) {
-        int clamped_spine = (spine_count > 48) ? 48 : spine_count;
-        snprintf(line1, sizeof(line1), "SPINE %02d/48", clamped_spine);
-        hub_draw_centered(font_body, line1, 910.0f, 228.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        if (clamped_spine == 0) {
-            hub_draw_centered(font_body, "[ NEW PLAYERS  //  TUTORIALS START HERE ]",
-                              910.0f, 254.0f, 15.0f, 1.0f, COLOR_AMBER);
-        } else {
-            hub_draw_centered(font_body, "TUTORIALS  |  SPEEDCOIN  |  ACTION CARD  |  STORY",
-                              910.0f, 254.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-        }
-    } else {
-        hub_draw_centered(font_body, "NEURAL CORTEX ARCHIVE", 910.0f, 228.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        hub_draw_centered(font_body, "TUTORIALS  |  SPEEDCOIN  |  ACTION CARD  |  STORY",
-                          910.0f, 254.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-    }
+    DrawRectangleRec(k_main_atrium_box, (Color){ 4, 8, 10, 210 });
+    DrawRectangleLinesEx(k_main_atrium_box, 1.0f, COLOR_PHOSPHOR_DIM);
+    hub_draw_centered(font_body, "A monastic vault for the calibration of tactical reflexes",
+                      816.0f, 287.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    hub_draw_centered(font_body, "and the accumulation of theater dossiers.",
+                      816.0f, 310.0f, 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
 
-    hub_draw_text_snapped(font_body, "48-card Spine progression and Story archive.", 692.0f, 304.0f, 17.0f, 1.1f, COLOR_TEXT_INFO);
-    hub_draw_text_snapped(font_body, "Includes Koi-Koi Tutorials, Speedcoin,", 692.0f, 332.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
-    hub_draw_text_snapped(font_body, "Action Card Audio FX, and Sparring Training.", 692.0f, 358.0f, 17.0f, 1.1f, COLOR_TEXT_INFO_DIM);
     hub_draw_button(k_main_atrium_btn, "ATRIUM PLEX", 20, vm);
 
     /* Footer Back Button */
@@ -383,7 +411,7 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, int spine_co
 
 HubAction ui_hub_handle_main_click(Vector2 vm, HubButtonHit *out_hit) {
     if (CheckCollisionPointRec(vm, k_main_campaign_btn)) {
-        hub_record_hit(out_hit, k_main_campaign_btn, "CAMPAIGN", 20);
+        hub_record_hit(out_hit, k_main_campaign_btn, "PANCRATIUM", 20);
         return HUB_ACT_GOTO_CAMPAIGN_HUB;
     }
     if (CheckCollisionPointRec(vm, k_main_atrium_btn)) {
@@ -408,10 +436,12 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
 
     hub_draw_backdrop(ba);
 
+    /* One frame here too: the double frame was the only thing that made this page a
+       different system from the cards in mode select. */
     DrawRectangleRec(k_camp_panel, COLOR_PANEL_BG);
     ui_draw_panel_border(k_camp_panel, COLOR_PHOSPHOR_DIM);
 
-    hub_draw_centered(font_title, "PANCRATIUM CAMPAIGN", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
+    hub_draw_centered(font_title, "PANCRATIUM", 640.0f, 118.0f, 28.0f, 1.5f, COLOR_PHOSPHOR);
     DrawLine(320, 160, 960, 160, COLOR_PHOSPHOR_DIM);
 
     Rectangle info_box = { 320.0f, 176.0f, 640.0f, 62.0f };
@@ -426,16 +456,17 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
     hub_draw_centered(font_body, line2, 640.0f, 212.0f, 15.0f, 1.0f,
                       is_deus ? COLOR_RED : COLOR_TEXT_INFO_DIM);
 
-    hub_draw_button(k_camp_select_btn, "CAMPAIGN", 20, vm);
+    hub_draw_button(k_camp_select_btn, "APEX PANCRATIUM CIRCUIT", 20, vm);
     hub_draw_button(k_camp_stats_btn, "RECORDS & STATS", 20, vm);
+    hub_draw_button(k_camp_options_btn, "SYSTEM OPTIONS", 20, vm);
 
     DrawRectangleRec(k_camp_deus_box, (Color){ 4, 8, 10, 210 });
     ui_draw_panel_border(k_camp_deus_box, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     hub_draw_centered(font_title, is_deus ? "DEUS MODE: ON" : "DEUS MODE: OFF",
-                      640.0f, 427.0f, 17.0f, 1.3f, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
+                      640.0f, 443.0f, 17.0f, 1.3f, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     const char *deus_hint = !is_deus ? "CLICK TO ACTIVATE // SESSION ONLY" :
                             ui_hub_deus_snapshot_is_valid() ? "CLICK TO DEACTIVATE" : "OFF DISABLED // USE OPTIONS";
-    hub_draw_centered(font_body, deus_hint, 640.0f, 454.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    hub_draw_centered(font_body, deus_hint, 640.0f, 468.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
 
     hub_draw_button(k_camp_back_btn, "BACK", 20, vm);
 }
@@ -451,12 +482,16 @@ HubAction ui_hub_handle_campaign_click(const GameSettings *s, Vector2 vm, HubBut
         return HUB_ACT_DEUS_ACTIVATE;
     }
     if (CheckCollisionPointRec(vm, k_camp_select_btn)) {
-        hub_record_hit(out_hit, k_camp_select_btn, "CAMPAIGN", 20);
+        hub_record_hit(out_hit, k_camp_select_btn, "APEX PANCRATIUM CIRCUIT", 20);
         return HUB_ACT_OPEN_CAMPAIGN_OVERLAY;
     }
     if (CheckCollisionPointRec(vm, k_camp_stats_btn)) {
         hub_record_hit(out_hit, k_camp_stats_btn, "RECORDS & STATS", 20);
         return HUB_ACT_GOTO_STATS;
+    }
+    if (CheckCollisionPointRec(vm, k_camp_options_btn)) {
+        hub_record_hit(out_hit, k_camp_options_btn, "SYSTEM OPTIONS", 20);
+        return HUB_ACT_CAMPAIGN_OPTIONS;
     }
     if (CheckCollisionPointRec(vm, k_camp_back_btn)) {
         hub_record_hit(out_hit, k_camp_back_btn, "BACK", 20);

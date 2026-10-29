@@ -7,6 +7,10 @@
 #include <string.h>
 #include <math.h>
 
+/* Owner decision: open to everyone while the mode is being tested. The long-term intent
+   is that Deus Supremus unlocks only after the story is completed; when that gate lands,
+   this flag stays 1 for testing builds and the real condition goes beside it
+   (see AGENTS.md, owner decisions). */
 #define DEUS_UNLOCKED_FOR_TESTING 1
 
 extern Font font_title;

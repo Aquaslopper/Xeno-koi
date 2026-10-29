@@ -23,6 +23,10 @@ typedef enum {
 void  action_card_sync_music(AudioAssets *audio, int in_action_table, int paused,
                              float transition_alpha, float dt);
 void  action_card_detach_music(AudioAssets *audio);
+/* Smoothed 0..1 music level, live on any screen that is playing match music (the menu
+   shares those streams). The title screen reads it so its glyph flares move with the
+   track; it is 0 whenever nothing is playing. */
+float action_card_music_pulse(void);
 void  action_card_set_mode(int active, float music_level);
 int   action_card_is_mode_active(void);
 int   action_card_is_paused(void);

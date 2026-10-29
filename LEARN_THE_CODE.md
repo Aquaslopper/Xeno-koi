@@ -1025,9 +1025,20 @@ rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 p
 
 | Face | File | `baseSize` | Drawn at | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 176 px | 0.24× – 3.67× |
+| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 56 px | 0.24× – 1.17× |
+| `font_display` | `audiowide.ttf` | **176** | 176 px only | 1.00× |
 | `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 34 px | 0.52× – 1.31× |
 | `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
+
+`font_display` exists because the 176 px `[XENO / KOI]` brand line was the one place the
+single-face compromise showed: a 3.67× bitmap stretch of the 48 px master reads as soft no
+matter what filter is set. It is rasterised at the size it is drawn at, so the glyphs are 1:1
+and only the canvas-to-window scale touches them. It is safe precisely because
+`ui_hub_draw_title()` passes it to `hub_draw_centered()`, which measures and draws with the
+same `Font` object; the metric hazard that blocked a general font LOD below is measuring with
+one face and drawing with the other, and no call site does that for this face. It is not a
+general "big text" face: at the 30–56 px headers it would be a 0.17×–0.32× downscale, which is
+worse than the 1.17× it replaces. One `Font` per draw size, each used only at that size.
 
 The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
 **0.12× downscale of a 96 px master**, so the month buttons and every hub button label were
@@ -1042,8 +1053,10 @@ narrower) because `advanceX` is integer-rounded at the new size. That is safe **
 because a single `Font` object performs both the measure and the draw at every call site, so
 centring is unaffected and only fit margins move, in the safe direction.
 
-The complete fix is a second, small rasterisation of each face selected by `font_size`,
-which would put small text at ~1:1. It is not done because `advanceX` rounding makes the two
+The general fix is a second, *small* rasterisation of each face selected by `font_size`,
+which would put small text at ~1:1. (The narrow exception above — one extra large face used by
+a single call site that measures and draws with it — does not run into the hazard, because no
+measure/draw pair is ever split across the two faces.) It is not done because `advanceX` rounding makes the two
 rasterisations *not* metrically interchangeable — measuring with one face and drawing with
 the other misaligns centred text by up to ~4 px on a long line. Doing it correctly requires
 every `MeasureTextEx` to be routed in lockstep with its draw: about 35 sites across
@@ -1777,7 +1790,64 @@ The board guides are drawn only while the tutorial is active, and
 `plexus_tutorial_allowed_hand_card()` returns −1 outside the two play steps, which
 the input handler treats as "no restriction".
 
-### 10.5 Story beats and per-card protocols
+### 10.5 The hub screens (`ui_hub.c`)
+
+`SCREEN_START` is the brand line and three buttons; `SCREEN_HUB_MAIN` is the mode
+select, and each of its two cards is deliberately minimal: **one data strip and one
+button, nothing else**. There is no card heading, because the heading said the same
+name the button says. The name lives on the button only, in plain uppercase:
+`PANCRATIUM` and `ATRIUM PLEX`.
+
+The two cards are built the **same way and differ only in width**, so the screen reads as
+one system of doors: same band, same 24 px inset, same 58 px strip, same 48 px button row,
+same single 1 px frame, same 20 px button label.
+
+| | Pancratium | Atrium Plex |
+|---|---|---|
+| panel | `{130, 256, 320, 178}` | `{482, 256, 668, 178}` |
+| strip | `{154, 276, 272, 58}` | `{506, 276, 620, 58}` |
+| button | `{154, 366, 272, 48}` | `{506, 366, 620, 48}` |
+| strip line 1 | `SECTORS nn/12   //   COINS nn/36` | a two-line description |
+| strip line 2 | rotating combat line | |
+
+Footer `BACK` is `{510, 594, 260, 48}`.
+
+The Pancratium strip's second line is the only moving copy on the screen. `hub_draw_combat_line()`
+prints one line from `GameStats`, switching every 5 s:
+
+| slot | line |
+|---|---|
+| 0 | `W <won> / L <lost>   //   STREAK <current_streak>` |
+| 1 | `WIN RATE <pct>%   //   BEST STREAK <best_streak>` |
+| 2 | `TOP YAKU  <storage_get_favorite_combo()>` |
+| 3 | `KOI CALLS <koi_calls_you>   //   BEST ROUND <highest_round_score>` |
+| none | `NO MATCHES YET  //  PLAY ONE` in amber when `matches_played == 0` |
+
+Deus outranks it: with `s->difficulty == DIFFICULTY_DEUS` the line is a red
+`DEUS SUPREMUS ACTIVE` instead, because that is a live session warning rather than a stat.
+`GameStats` is the single global match record — the same struct the result and stats screens
+read — so these numbers are **not** chamber-local. Plexus tutorials, protocols, Speedcoin and
+Action Card runs are diverted to their own `plexus_*_finish` paths and never reach
+`storage_record_match()`, so they do not move any of the four lines.
+
+There is deliberately **no Spine ladder and no second frame on these cards** any more. Earlier
+the Atrium card carried twelve ticks down its left edge and a bright 2 px frame plus an inner
+hairline; both were removed so the two cards are one system, and the Spine count is not printed
+on this screen at all. Do not reintroduce a second read-out of the same number, and do not give
+one card a frame the other does not have.
+
+The **Pancratium page** (`SCREEN_HUB_CAMPAIGN`) is headed `PANCRATIUM`; its first button is the
+`APEX PANCRATIUM CIRCUIT` (the twelve-opponent tournament, which is what the code still calls
+the campaign) and it keeps `RECORDS & STATS`, `SYSTEM OPTIONS` (returns here via
+`options_return_screen`), the Deus row and `BACK`. It uses a single frame like everything else.
+
+`HUB_ACT_TITLE_QUIT` is not a click-to-exit: it calls
+`start_transition(SCREEN_START, TRANSACT_QUIT, 0)`, so the ordinary fade plays, the
+card loader holds with a `-decoupled-` caption under the card, and the process exits
+at the end of the hold (`quit_requested`). `draw_loading_card()` takes a `caption`
+argument for exactly this; every other caller passes `NULL`.
+
+### 10.6 Story beats and per-card protocols
 
 `k_story_beats[48]` holds one `StoryBeat` per spine card, indexed by
 `card_id = month * 4 + slot`, and is the only place story text lives
@@ -1832,6 +1902,43 @@ The contributor rules that keep this from growing a second engine — one table,
 protocol test, one state machine, ASCII-only text, branch order above the generic
 `>= 4` path — are written out in `AGENTS.md` under "Atrium Plex story beats and
 story protocols". Read that before adding a story card.
+
+### 10.7 The Plex's own record (no campaign data)
+
+The two modes keep separate saves: the Pancratium writes `profiles/stats.txt`
+through `storage_record_match()`, the Plex writes `profiles/plexsave.txt` through
+`plexus_save()`. They used to share more than that in *display*: five sites in
+`ui_plexus.c` printed `GameStats` — the Pancratium career record — inside the Atrium,
+so campaign wins appeared as Plex totals. All five now read Plex data only, and
+`ui_plexus.c` contains **no `st->` access at all**; the `const GameStats *st` in the
+public signatures is kept because `ui_main.c` passes it, and the functions mark it
+`(void)st` (the atlas tab has done that since before this cleanup).
+
+| site | before | now |
+|---|---|---|
+| `draw_logfile_stats_box()` | record line `st->matches_won + s_ac_wins`, `st->koi_calls_you` | `[nn/48] [TR W-L] [SC runs] [AC W-L]` |
+| `draw_logfile_training_tab()` | `CAREER + PLEX`, campaign win streak, favourite yaku, peak round, `AI PLAYSTYLES n/12` | `PLEX RECORD`, `PERFECT SERIE`, `CARDS CLEARED`, `PEAK SCORING TR/AC`, `SPEEDCOIN HI` |
+| `draw_logfile_matches_tab()` | `ALL COMPLETED MATCHES & RUNS` = campaign + Plex | `ALL PLEX RUNS` = Plex only |
+| `plexus_draw_training_result()` right panel | heading `OVERALL STATS`, six `GameStats` lines | heading `PLEX ARCHIVE`, six Plex lines |
+| `plexus_draw_training_result()` left panel | unchanged, session-scoped (`g` only) | unchanged |
+
+Everything the panels now show is already in `plexsave.txt`:
+`s_tr_runs/wins/losses/best_score/rounds_total`, `s_ac_runs/wins/losses/best_score`,
+`s_sc_runs/s_sc_best_wave/s_sc_ranks[]`, `s_finished_cards_mask`,
+`s_deus_finished_cards_mask`, plus the speedbar/audio telemetry.
+
+The one deliberate remaining tie is the **training opponent list**, which is still
+capped by `get_unlocked_camp_opponents()` (i.e. Pancratium `unlocked_opponents`), on
+the owner's instruction. Note for whoever reads the achievements list: the Plex
+achievement `SECTOR HUNTER (12/12 RIVALS)` is also keyed to that campaign unlock, so
+it is a second, smaller tie — left alone deliberately, not overlooked.
+
+What is *not* a leak: to run its own matches the Plex borrows the shared
+`GameSettings` struct (`snapshot_campaign_settings()` / `plexus_sync_match_settings()`
+/ `plexus_restore_match_settings()`, `ui_plexus.c` ~958-1030). That is the engine's
+single config struct, not a save file; `save_current_profile()` restores before
+writing, so `settings.txt` never receives Plex values. Any new Plex screen should
+still read its data from `plexus_save()`'s own fields rather than from `GameStats`.
 
 ---
 
@@ -1940,6 +2047,38 @@ Each theme is a `TerminalTheme` of eight `Color`s: `base`, `dim`, `text_info`,
 `COLOR_AMBER` (`{255,176,0,255}`), `COLOR_RED` (`{255,64,64,255}`),
 `COLOR_PANEL_BG` (`{0,0,0,178}`), `COLOR_OVERLAY_BG` (`{0,0,0,220}`) and
 `COLOR_TABLE_DIM` (`{0,0,0,38}`) are fixed.
+
+### 12.1b Text flares and the contour cache
+
+`ui_theme_draw_text_flares()` traces glyph outlines once per glyph and caches them in
+`s_glyph_contours[96]`, keyed **per entry** by the source texture id and `baseSize`. It used to
+be keyed globally, which assumed one face was traceable at a time; the title screen breaks that
+assumption in a single frame, since the 176 px brand line is traced alongside 15 px button
+labels. `MAX_TRACE_DIM` must cover the tallest glyph *bitmap* it is asked to trace — 160 for
+Audiowide at 176 px, where `j` is 135 px tall and the brackets 128 px. Anything larger than the
+limit is skipped silently, so a flared draw at a new size needs a look at that constant.
+
+The outline walk buffers (`raw`, `tmp`, `cum`) are 2048 steps, not 1024. A single letter at
+176 px can run past a thousand boundary steps; at the old size the walk stopped mid-glyph and
+the mote path cut straight across the letter, which is why the brand line could look like it
+had no dots at all on some glyphs.
+
+The motes are **two effects on one clock**:
+
+- the idle cycle and the hover shine, unchanged;
+- `ui_theme_set_text_flare_pulse(level)`, a 0..1 music level that brightens every mote
+  (`shine = 0.35 * shine + 0.75 * pulse`) and speeds the travel
+  (`speed_mult = 1 + 1.1 * pulse`). It defaults to 0, so any caller that does not set it
+  behaves exactly as before. `src/ui_main.c` sets it once per frame from
+  `action_card_music_pulse()`, which is the smoothed level of the live music stream — the menu
+  plays the same match streams, so the title's dots ride the track. It reads 0 whenever no
+  music is playing.
+
+Faces drawn above 60 px also get a higher mote count per outline (5 / 3 instead of 3 / 2) and a
+1.3x travel speed, because three dots on an 18 px label and on a 176 px letter do not read as
+the same effect. The brand line draws with `font_display`, so its flare gate has to accept both
+title faces — `hub_font_has_motes()` in `ui_hub.c` does; a `font_title`-only test silently
+drops the flares.
 
 ### 12.2 Panel flares
 
