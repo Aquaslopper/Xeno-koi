@@ -474,9 +474,9 @@ static void trigger_event_beat(float base_s) {
 
 /* Minimal CPU inter-animation beat (~90-120 ms, skipped on captures where
    g.hitlag_timer = 150 ms already runs) so CPU steps never collapse into a
-   single frame while keeping Action Card reverb_energy decay negligible. */
+   single frame while keeping Action Card reverb_energy decay negligible. OWNER NOTES: THIS WAS NEVER TESTED*/
 static void trigger_cpu_step_beat(float sec) {
-    if (!plexus_speedcoin_is_active() && sec > event_beat_timer) event_beat_timer = sec;
+    if (!plexus_speedcoin_is_active() && !plexus_action_card_is_active() && sec > event_beat_timer) event_beat_timer = sec;
 }
 
 /* --- replay pacing -------------------------------------------------------
