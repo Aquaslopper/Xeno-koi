@@ -1,25 +1,35 @@
 #!/usr/bin/env python3
 """Table art: cut units out, size their borders to the game's rects, compose, assert.
 
-This is WORKFLOW.md steps 6-7 as code. It is manifest driven - a design is a JSON file in
-`tables/designs/`, so nothing about one table is hardcoded here.
+This is WORKFLOW.md steps 6-7 as code. Manifest driven: one table = one folder under `tables/`,
+and everything built for it stays in that folder.
 
-    python3 tools/table_art.py build tables/designs/city.json
-    python3 tools/table_art.py build city            # -> tables/designs/city.json
+    tables/table_city/
+        README.md      the spec
+        table.json     the manifest  <- this tool reads it
+        raw/           generator output
+        final/         cut out, borders sized, interior == the game's rect   (written)
+        preview/       composites + the assertion table                     (written)
+        refs/          examples of the direction
+
+    python3 tools/table_art.py build tables/table_city/table.json
+    python3 tools/table_art.py build table_city        # same, folder name is enough
     python3 tools/table_art.py cut raw.png out.png --rect 255x196 --border 12,12,44,12
 
-A design manifest:
+A manifest (schema and a filled example in `tables/_template/table.json`):
 
     {
-      "design": "city",
+      "design": "table_city",                  // optional, defaults to the folder name
       "backdrop": "assets/city.jpg",
-      "raw": "assets/tables/city/raw",
       "units": [ {"file": "city-frame-block", "rect": [255,196],
                   "border": [12,12,44,12], "place": [[12,12],[12,508]]} ],
       "rails": [ {"from": "city-frame-block", "size": [255,8], "place": [[12,40],[12,670]]} ],
       "cards": [ {"file": "city-card-frame", "size": [76,124], "border": 5, "kind": "field"} ],
       "decor": [ {"file": "city-edge-bracket", "box": [0,176,78,372]} ]
     }
+
+`raw`, `final` and `preview` default to subfolders of the manifest's own folder; override with a
+`"raw"` key if a table ever needs to point elsewhere.
 
 The rules it enforces, because each of them was violated once:
   * a frame's open interior equals the game's rect, +-2 px, or the unit is reported MISMATCH
@@ -232,16 +242,17 @@ def card_rects(kind):
 # ---------------------------------------------------------------- build
 def build(manifest_path, backdrop=None):
     if not os.path.isabs(manifest_path):
-        cand = os.path.join(ROOT, manifest_path)
-        if not os.path.exists(cand) and os.path.exists(os.path.join(ROOT, "tables", "designs",
-                                                                   manifest_path + ".json")):
-            cand = os.path.join(ROOT, "tables", "designs", manifest_path + ".json")
-        manifest_path = cand
+        tries = [os.path.join(ROOT, manifest_path),
+                 os.path.join(ROOT, "tables", manifest_path, "table.json"),
+                 os.path.join(ROOT, "tables", manifest_path + ".json")]
+        manifest_path = next((c for c in tries if os.path.exists(c)), tries[0])
+    if not os.path.exists(manifest_path):
+        raise SystemExit(f"no manifest at {manifest_path} (a table folder is tables/<name>/table.json)")
     spec = json.load(open(manifest_path))
-    design = spec["design"]
-    raw = os.path.join(ROOT, spec.get("raw", f"assets/tables/{design}/raw"))
-    outdir = os.path.join(ROOT, "assets", "tables", design)
-    final, preview = os.path.join(outdir, "final"), os.path.join(outdir, "preview")
+    folder = os.path.dirname(os.path.abspath(manifest_path))
+    design = spec.get("design") or os.path.basename(folder)
+    raw = os.path.join(ROOT, spec["raw"]) if spec.get("raw") else os.path.join(folder, "raw")
+    final, preview = os.path.join(folder, "final"), os.path.join(folder, "preview")
     os.makedirs(final, exist_ok=True)
     os.makedirs(preview, exist_ok=True)
     bd = backdrop or spec.get("backdrop")

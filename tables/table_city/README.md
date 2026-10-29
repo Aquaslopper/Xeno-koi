@@ -2,6 +2,9 @@
 
 Status: **spec only.** No art; the second pass was thrown away 29 Oct 2026. `src/` untouched.
 
+Everything for this table lives in this folder (`base.png`, `table.json`, `raw/`, `final/`,
+`preview/`, `refs/`). Nothing is written outside it.
+
 Backdrop `assets/city.jpg`, index **4** of
 `{0 Harvest, 1 Hole, 2 Arctic, 3 Castle, 4 City, 5 Deus, 6 Face, 7 Realm}` (`src/ui_screens.c:326`).
 Already 1280 × 720, so it doubles as the composite base.
@@ -9,7 +12,7 @@ Already 1280 × 720, so it doubles as the composite base.
 Intent: the city's own architecture instead of a wireframe — vertical buttresses, arched ribs, cable
 bundles, glowing seams. Front-on and symmetric. First of nine tables, same layout, different skin.
 
-Examples of the *direction* (not the layout): `refs/city-example-0{1,2}.jpg`.
+Examples of the *direction* (not the layout): `refs/city-example-01.jpg`, `refs/city-example-02.jpg`.
 
 ## Palette, sampled from `assets/city.jpg`
 
@@ -24,7 +27,7 @@ Examples of the *direction* (not the layout): `refs/city-example-0{1,2}.jpg`.
 
 ## Budget
 
-Full table in `anchors.md`. For this design: left blocks `(12, 12, 44, 12)`, right column
+Full table in `../anchors.md`. For this design: left blocks `(12, 12, 44, 12)`, right column
 `(44, 12, 8, 12)` (80 px of free space is on its *left*, 8 on the right — a uniform border there is
 the mistake that made the column read thin), buttons `(16, 9, 8, 9)`, deck `(18, 18, 18, 18)`,
 status vertical-only. Score strips are split off the lanes by **8 px rails at y 40 and y 670**. The

@@ -4,7 +4,7 @@
     python3 tools/table_map.py figure     -> tables/table-to-scale.png   (1:1 map + legend)
     python3 tools/table_map.py svg        -> tables/table-to-scale.svg   (same, vector, on demand)
     python3 tools/table_map.py base       -> tables/base.png             (composite base)
-    python3 tools/table_map.py base --backdrop city -> tables/base-city.png
+    python3 tools/table_map.py base --backdrop city.jpg -> tables/table_city/base.png
     python3 tools/table_map.py palettes   -> tables/palettes.{png,json}
     python3 tools/table_map.py check      -> assert anchors.json still matches src/
     python3 tools/table_map.py all
@@ -541,8 +541,13 @@ if __name__ == "__main__":
     if mode == "svg":
         write_svg(os.path.join(TAB, "table-to-scale.svg"))
     if mode == "base":
-        name = f"base-{os.path.splitext(bd)[0]}.png" if bd else "base.png"
-        base(os.path.join(TAB, name), bd)
+        # a base on a real backdrop belongs to that table, so it lives in that table's folder
+        stem = os.path.splitext(bd)[0] if bd else None
+        folder = os.path.join(TAB, "table_" + stem) if stem else None
+        if folder and os.path.isdir(folder):
+            base(os.path.join(folder, "base.png"), bd)
+        else:
+            base(os.path.join(TAB, (f"base-{stem}.png" if stem else "base.png")), bd)
     if mode in ("palettes", "all"):
         palettes()
     if mode == "check":

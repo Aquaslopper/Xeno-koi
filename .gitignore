@@ -6,3 +6,7 @@ site/
 # python tooling caches
 __pycache__/
 *.pyc
+
+# tables/ build output: raw renders are never a deliverable, per-table bases are one command away
+tables/*/raw/
+tables/*/base.png

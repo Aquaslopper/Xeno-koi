@@ -1,7 +1,8 @@
 # WORKFLOW — how a table gets built
 
 Data: `anchors.json` (machine) and `anchors.md` (human, with the source line). Visual truth:
-`table-to-scale.png`. Base: `base.png`. Start every session with `./tables/build.sh`; if it does not
+`table-to-scale.png`. Base: `base.png`. **One table = one folder**: `tables/table_<name>/` holds its
+spec, manifest, raw, final, preview and examples, and nothing about it is written anywhere else. Start every session with `./tables/build.sh`; if it does not
 print `anchors in sync`, stop — every number below it is suspect.
 
 ## An example is not evidence (paid for twice)
@@ -27,7 +28,8 @@ Facts live in `src/` and `anchors.json`.
 
 1. **Gate.** `./build.sh test` stays locked until `LEARN_THE_CODE.md`'s six questions are answered
    into `/tmp/ans.txt` and `./build.sh --verify /tmp/ans.txt` passes.
-2. **Anchors.** Open `table-to-scale.png`, work from `anchors.json`. A number that is not there gets
+2. **Folder.** `cp -r tables/_template tables/table_<name>`, then fill in its `README.md`. Open
+   `table-to-scale.png`, work from `anchors.json`. A number that is not there gets
    found in `src/` and added — then `./tables/build.sh` proves it still matches. `palettes.png` has
    the colours for all eight backdrops already sampled.
 3. **Layer, before any art.** *Runtime restyle* — `ui_draw_panel_border()` (`ui_theme.c:583`, 76 call
@@ -40,12 +42,14 @@ Facts live in `src/` and `anchors.json`.
    — use asymmetric ones with the weight on the inner side.
 5. **Unit art**, only if step 3 said art. Ask for **one empty frame**, state the interior's aspect
    ratio, pure black background, no scenery. A wrong compartment count cannot be scaled into place.
-   Output goes to `raw/`, never edited in place.
+   Output goes to `tables/table_<name>/raw/`, never edited in place.
 6. **Cut out** — solid silhouette, not soft alpha. `python3 tools/table_art.py cut|build` implements
-   this whole step; do not rewrite it in a scratch script. Seed `max>26` → 13 px close → fill enclosed
+   this whole step; do not rewrite it in a scratch script. `./tables/build.sh table_<name>` builds the
+   table's `table.json` and writes `final/` + `preview/` into that table's folder. Seed `max>26` → 13 px close → fill enclosed
    blobs <90 px → 0.7 px feather → grade to the sampled palette → **clear the interior to alpha 0**
    (a render keeps a wash that darkens the game's text). Sanity: 40–55 % fully opaque.
-7. **Compose on live geometry.** `tables/base.png`, or `./tables/build.sh base <name>`. Never
+7. **Compose on live geometry.** `./tables/build.sh base <name>` → `tables/table_<name>/base.png`.
+   Never
    composite on `docs/assets/readme/table-map.png` (dead 96 px layout). `table_art.py build` prints
    unit / final / interior / target / status and must end `0 mismatch(es)`.
 8. **Verify.** One preview on the real backdrop **and** one on a flat canvas; both looked at, at the

@@ -1,5 +1,20 @@
 # `NN` — table_`<name>`
 
+**One table = one folder.** Copy this folder to `tables/table_<name>/` and everything for that table
+lives here — spec, manifest, raw renders, cut units, previews, examples. Nothing about one table is
+written outside its folder.
+
+```
+tables/table_<name>/
+  README.md     this file: the spec
+  table.json    the manifest `tools/table_art.py` builds from (schema in this template)
+  base.png      composite base on this backdrop      ./tables/build.sh base <name>
+  raw/          generator output, untouched
+  final/        cut out, borders sized, interior == the game's rect
+  preview/      composites + the assertion table
+  refs/         examples of the direction (optional)
+```
+
 Status: **spec / pass N / done.** `src/` touched: yes/no.
 
 Backdrop `assets/<name>.jpg`, index **N** of
@@ -9,10 +24,10 @@ Intent, one line: what this backdrop's architecture suggests, and which redesign
 
 ## Direction
 
-Read the examples in `refs/` for the **idea** only — never a number, never a position. Write down
-what is being aimed at in words: the shapes, the way panels connect, the weight of the metal.
+Read `refs/` for the **idea** only — never a number, never a position. Write the aim in words: the
+shapes, how panels connect, the weight of the metal.
 
-## Palette (from `palettes.json`, sampled — not eyeballed)
+## Palette (`tables/palettes.json`, sampled — not eyeballed)
 
 | | value | use |
 |---|---|---|
@@ -21,7 +36,7 @@ what is being aimed at in words: the shapes, the way panels connect, the weight 
 | mid | | frame body |
 | accent | | seam glow |
 
-## Budget (from `anchors.md` → free space; fill in the last column)
+## Budget (`tables/anchors.md` → free space; fill in the last column)
 
 | group | bbox | L | T | R | B | uniform | chosen |
 |---|---|---|---|---|---|---|---|
@@ -38,7 +53,7 @@ after the casing; connectors on the canvas edge.
 ## Layer
 
 - [ ] runtime restyle — `ui_draw_panel_border()` `ui_theme.c:583`, `board_draw_card()` `ui_board.c:715`
-- [ ] stamped art — manifest `designs/<name>.json`, schema in `_schema.json`
+- [ ] stamped art — `table.json` in this folder
 - both, and why:
 
 ## Units

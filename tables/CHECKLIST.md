@@ -4,6 +4,7 @@ Every line is a mistake already made once. Order matters: a wrong "yes" near the
 everything under it.
 
 **Before drawing**
+- [ ] the table has its own folder `tables/table_<name>/`; anything I build is written inside it
 - [ ] `./tables/build.sh` prints `anchors in sync` (if it drifts, re-derive the number — don't work around it)
 - [ ] every number came from `anchors.json`; none from an example, a mockup or a screenshot
 - [ ] nothing I am about to assert came from `refs/` — an example shows a direction, not a position
