@@ -1,0 +1,30 @@
+{
+  "source": "../realm_clean.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "file": "upper_left_and_stock.png",
+      "x": 0,
+      "y": 0,
+      "width": 635,
+      "height": 683
+    },
+    {
+      "file": "upper_cards.png",
+      "x": 632,
+      "y": 0,
+      "width": 888,
+      "height": 212
+    },
+    {
+      "file": "lower_and_right.png",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    }
+  ]
+}

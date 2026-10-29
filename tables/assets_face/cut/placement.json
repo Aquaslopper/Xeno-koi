@@ -1,0 +1,44 @@
+{
+  "source": "../face_clean.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "file": "upper_left.png",
+      "x": 0,
+      "y": 0,
+      "width": 430,
+      "height": 363
+    },
+    {
+      "file": "upper_cards.png",
+      "x": 663,
+      "y": 0,
+      "width": 801,
+      "height": 208
+    },
+    {
+      "file": "stock.png",
+      "x": 438,
+      "y": 344,
+      "width": 206,
+      "height": 331
+    },
+    {
+      "file": "right_column.png",
+      "x": 1682,
+      "y": 0,
+      "width": 238,
+      "height": 1025
+    },
+    {
+      "file": "lower_area.png",
+      "x": 0,
+      "y": 718,
+      "width": 1662,
+      "height": 362
+    }
+  ]
+}

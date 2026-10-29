@@ -1,0 +1,51 @@
+{
+  "source": "../city_clean.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "file": "upper_left.png",
+      "x": 0,
+      "y": 0,
+      "width": 471,
+      "height": 382
+    },
+    {
+      "file": "upper_cards.png",
+      "x": 614,
+      "y": 0,
+      "width": 970,
+      "height": 217
+    },
+    {
+      "file": "stock.png",
+      "x": 441,
+      "y": 321,
+      "width": 224,
+      "height": 324
+    },
+    {
+      "file": "lower_left.png",
+      "x": 0,
+      "y": 694,
+      "width": 505,
+      "height": 386
+    },
+    {
+      "file": "lower_center.png",
+      "x": 497,
+      "y": 783,
+      "width": 1055,
+      "height": 189
+    },
+    {
+      "file": "right_column.png",
+      "x": 1663,
+      "y": 0,
+      "width": 257,
+      "height": 1037
+    }
+  ]
+}

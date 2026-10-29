@@ -1,0 +1,44 @@
+{
+  "source": "../arctic_clean.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "file": "left_column.png",
+      "x": 0,
+      "y": 0,
+      "width": 480,
+      "height": 1080
+    },
+    {
+      "file": "upper_cards.png",
+      "x": 664,
+      "y": 0,
+      "width": 796,
+      "height": 202
+    },
+    {
+      "file": "stock.png",
+      "x": 437,
+      "y": 336,
+      "width": 218,
+      "height": 333
+    },
+    {
+      "file": "lower_hand.png",
+      "x": 442,
+      "y": 767,
+      "width": 1215,
+      "height": 313
+    },
+    {
+      "file": "right_column.png",
+      "x": 1689,
+      "y": 0,
+      "width": 231,
+      "height": 1028
+    }
+  ]
+}
