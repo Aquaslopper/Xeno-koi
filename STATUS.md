@@ -33,6 +33,16 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Title and mode-select polish on the way to the story (29 October 2026)
+
+- **Instruction, in the owner's words:** brand line *"20% smaller"*, subtitle *"bold font and ... increased in size up to 10%"*, brand *"goes down until it touches the subtitle but keep a little space in between"*; on mode select, *"the text in the atrium plex is too small"*, the two inner text boxes are not needed — *"only the buttons should be in their panel"* — and *"the text can be made bigger when the upper panels are gone"*.
+- **Brand line 176 -> 140.8 px** (`176 * 0.8`), and its `y` 60 -> **91**. Shrinking alone would have opened a hole: the old pair was 42.8 px apart ink-to-ink at 176, and 176 -> 140.8 lifts the brand's ink by ~31 px, so the line was moved down to hold the gap at **11.8 px**. Measured with fontTools against the real glyph outlines, not the em boxes: at 140.8 px Audiowide's ink runs +24.9 .. +155.6 below the draw `y`, at 37.4 px Play's starts +10.4 below its own.
+- **Subtitle 34 -> 37.4 px** (`34 * 1.1`) and **synthesised bold**: no bold face ships — all four TTFs in `assets/` are weight 400 — so `hub_draw_centered_bold()` draws the line twice 0.9 px apart and centres on the wider box. A real `play-bold.ttf` is the alternative and was not taken without the owner asking for it; at 37 px the double-draw thickens the stems without visibly doubling the edges.
+- **The two inner mode-select boxes are gone**, along with `k_main_campaign_box` and `k_main_atrium_box`. Only the buttons are framed now. The copy that sat in them grew: Pancratium 16 -> **17 pt** (`SECTORS…`) and 14 -> **16 pt** (combat line, Deus warning), Atrium 15 -> **19 pt** for both lines.
+- **The Pancratium copy is at its fit limit, deliberately.** `SECTORS nn/12   //   COINS nn/36` was already 273.3 px inside a 272 px strip at 16 pt; with the strip gone it is centred on x 290 in a 320 px panel and measures 291.5 px at 17 pt, i.e. **14 px of margin each side**. It cannot grow again without either a wider panel or a shorter line — noted in `LEARN_THE_CODE.md` §10.5 so the next pass does not just bump the size.
+- **Verified:** `-std=c99 -Wall -Wextra -I/tmp/raylib-hdr/src -fsyntax-only src/ui_hub.c` clean; `RAYLIB_SRC=/tmp/raylib-hdr/src ./build.sh test` exit 0. **Not verified: the look.** This sandbox has raylib headers only — no library, no display — so nothing was rendered and the owner should judge the spacing on their own screen. Widths and ink offsets above are from fontTools, not from raylib's integer-rounded `MeasureTextEx`, which reads ~2 % narrower.
+- **Docs moved in the same commit** (the standing rule): `LEARN_THE_CODE.md` §9.1 (title screen geometry) and §10.5 (mode select: the strip row out of the table, the new sizes, the fit margin), plus the font-rasterisation table's "drawn at" ranges. No body prose was left claiming a 176 px brand line or a framed strip.
+
 ### Owner tuning pass on the dealership token: bigger, trailing, glows in motion (29 October 2026)
 
 - **Instruction:** *"1. dealership needs a trail, 50ms are fast, so give it a trail 2. make the dealership bigger at least 50% bigger 3. when it moves let it glow."* Judged on the owner's display, which is the only place this can be judged.
