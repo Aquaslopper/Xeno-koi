@@ -10,7 +10,7 @@ src/ui_main.c	        if (!plexus_action_card_is_active()) settings.ruleset = RU
 src/ui_main.c	    if (ac_mode) settings.ruleset = RULESET_KK_ADD_10;	# ruleset lock: the mode overwrites the shared settings with KK-ADD-10
 src/ui_main.c	    engine_init(&g, ac_mode ? RULESET_KK_ADD_10 : settings.ruleset, init_rounds, match_seed);	# match start: Action Card matches always initialise on KK-ADD-10
 src/ui_main.c	static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.30f : 0.20f; }	# CPU pacing: think duration per anim_speed, shared with every mode
-src/ui_main.c	    if (!plexus_speedcoin_is_active() && sec > event_beat_timer) event_beat_timer = sec;	# CPU step beat: 90-120 ms inter-step pause, excluded for Speedcoin only, NOT for Action Card
+src/ui_main.c	    if (!plexus_speedcoin_is_active() && !plexus_action_card_is_active() && sec > event_beat_timer) event_beat_timer = sec;	# CPU step beat: 90-120 ms inter-step pause, now excluded for Speedcoin AND Action Card (owner, 29 Oct)
 src/ui_plexus.c	static Difficulty s_ac_cfg_diff        = DIFFICULTY_EASY;	# difficulty source: the mode's own setting, defaulting to Easy
 src/ui_plexus.c	        s->difficulty       = s_ac_cfg_diff;	# difficulty sync: the Plex config is pushed into the shared settings the mode reads
 src/ui_input.c	    if (board_is_action_distraction_high()) return;	# hint suppression: Easy-mode hints are disabled at high distraction
