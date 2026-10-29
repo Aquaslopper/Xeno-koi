@@ -35,6 +35,14 @@ PIECES = {
         ('status_bar',    (614, 692, 1675, 824)),  # turn banner
         ('card_row_you',  (476, 824, 1675, 1080)),  # your hand, 8 card slots
     ],
+    'castle': [
+        ('left_column',    (0, 0, 446, 1080)),     # CPU plaque, B/A/R/P, player plaque
+        ('card_row_cpu',   (450, 0, 1696, 185)),   # CPU hand, 7 slots
+        ('deck',           (450, 354, 664, 655)),  # deck card + count bubble
+        ('status_bar',     (450, 700, 1696, 810)),  # turn banner
+        ('card_row_you',   (450, 810, 1696, 1080)),  # your hand, 7 slots
+        ('right_column',   (1696, 0, 1920, 1080)),  # RND/KK, combos, pause, restart
+    ],
     'arctic': [
         ('left_column',   (0, 0, 458, 1080)),      # CPU plaque, B/A/R/P, player plaque
         ('card_row_cpu',  (459, 0, 1712, 180)),    # CPU hand, 8 card slots

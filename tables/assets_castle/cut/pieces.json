@@ -1,0 +1,93 @@
+{
+  "source": "tables/assets_castle/castle.png",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "pieces": [
+    {
+      "name": "left_column",
+      "file": "left_column.png",
+      "rect": [
+        0,
+        0,
+        446,
+        1080
+      ],
+      "size": [
+        446,
+        1080
+      ]
+    },
+    {
+      "name": "card_row_cpu",
+      "file": "card_row_cpu.png",
+      "rect": [
+        450,
+        0,
+        1696,
+        185
+      ],
+      "size": [
+        1246,
+        185
+      ]
+    },
+    {
+      "name": "deck",
+      "file": "deck.png",
+      "rect": [
+        450,
+        354,
+        664,
+        655
+      ],
+      "size": [
+        214,
+        301
+      ]
+    },
+    {
+      "name": "status_bar",
+      "file": "status_bar.png",
+      "rect": [
+        450,
+        700,
+        1696,
+        810
+      ],
+      "size": [
+        1246,
+        110
+      ]
+    },
+    {
+      "name": "card_row_you",
+      "file": "card_row_you.png",
+      "rect": [
+        450,
+        810,
+        1696,
+        1080
+      ],
+      "size": [
+        1246,
+        270
+      ]
+    },
+    {
+      "name": "right_column",
+      "file": "right_column.png",
+      "rect": [
+        1696,
+        0,
+        1920,
+        1080
+      ],
+      "size": [
+        224,
+        1080
+      ]
+    }
+  ]
+}

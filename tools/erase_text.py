@@ -101,10 +101,50 @@ ARCTIC_REGIONS = [
     ('restart',     (1748, 946, 1888, 976), 'cyan', CYAN, 'right'),
 ]
 
+CASTLE_POOLS = {
+    'left':   (140, 90, 400, 114),      # clean face inside the B row
+    'right':  (1740, 300, 1850, 380),   # empty middle of the combos panel
+    'deck':   (500, 400, 570, 560),     # deck card face, left of DECK
+}
+
+# warm gold capitals on near-black leather: a plain luma threshold separates
+# them cleanly (faces stay under ~50)
+CASTLE_REGIONS = [
+    ('cpu_score',    (40, 24, 400, 70),      'bright', 95, 'left'),
+    ('you_score',    (40, 995, 380, 1050),   'bright', 95, 'left'),
+    ('lane1',        (38, 90, 120, 130),     'bright', 95, 'left'),
+    ('lane2',        (38, 160, 120, 200),    'bright', 95, 'left'),
+    ('lane3',        (38, 232, 120, 272),    'bright', 95, 'left'),
+    ('lane4',        (38, 305, 120, 345),    'bright', 95, 'left'),
+    ('lane5',        (38, 730, 120, 770),    'bright', 95, 'left'),
+    ('lane6',        (38, 800, 120, 840),    'bright', 95, 'left'),
+    ('lane7',        (38, 868, 120, 908),    'bright', 95, 'left'),
+    ('lane8',        (38, 936, 120, 976),    'bright', 95, 'left'),
+    ('deck_vert',    (598, 460, 630, 582),   'bright', 95, 'deck'),
+    ('deck_count',   (525, 605, 600, 646),   'bright', 95, 'deck'),
+    ('status',       (735, 755, 1430, 782),  'bright', 95, 'left'),
+    ('rnd',          (1740, 24, 1870, 66),   'bright', 95, 'right'),
+    ('kk',           (1738, 72, 1876, 110),  'bright', 95, 'right'),
+    ('cpu_combos',   (1732, 148, 1876, 176), 'bright', 95, 'right'),
+    ('cpu_base',     (1730, 192, 1820, 220), 'bright', 95, 'right'),
+    ('cpu_koi',      (1730, 224, 1815, 252), 'bright', 95, 'right'),
+    ('cpu_nocomb',   (1730, 276, 1870, 306), 'bright', 95, 'right'),
+    ('cpu_click',    (1735, 415, 1895, 448), 'bright', 95, 'right'),
+    ('your_combos',  (1730, 486, 1885, 518), 'bright', 95, 'right'),
+    ('your_base',    (1730, 526, 1820, 556), 'bright', 95, 'right'),
+    ('your_koi',     (1730, 560, 1815, 588), 'bright', 95, 'right'),
+    ('your_nocomb',  (1730, 610, 1872, 640), 'bright', 95, 'right'),
+    ('you_click',    (1730, 750, 1885, 784), 'bright', 95, 'right'),
+    ('pause',        (1745, 852, 1885, 892), 'bright', 95, 'right'),
+    ('restart',      (1728, 944, 1880, 978), 'bright', 95, 'right'),
+]
+
 TABLES = {
     'hole':    dict(pools=HOLE_POOLS,   regions=HOLE_REGIONS,   dilate=3, ring=8,
                     method='inpaint'),
     'arctic':  dict(pools=ARCTIC_POOLS, regions=ARCTIC_REGIONS, dilate=2, ring=6,
+                    method='inpaint'),
+    'castle':  dict(pools=CASTLE_POOLS, regions=CASTLE_REGIONS, dilate=3, ring=8,
                     method='inpaint'),
 }
 
