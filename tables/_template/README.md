@@ -58,6 +58,12 @@ shapes, how panels connect, the weight of the metal.
 Fixed: no per-lane frame; score strips split from the lanes by 8 px rails at y 40 / y 670, drawn
 after the casing; connectors on the canvas edge.
 
+## Port
+
+The picker already exists: `GameSettings.table_design` + the Pancratium row (`CARD TABLE:`). A new
+skin takes the next free index in `k_table_names[]` (`campaign.c:24`), and rendering reads
+`settings->table_design`. Nothing else about a port changes.
+
 ## Live test
 
 The owner plays the beta port and the findings are written into `live-test.md` in this folder —

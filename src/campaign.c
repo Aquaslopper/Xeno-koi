@@ -16,6 +16,38 @@
 extern Font font_title;
 extern Font font_body;
 
+/* Card table skins, in the order the Pancratium picker cycles them. Index 0 is the CRT
+   table the game ships with; the rest are slots for tables forged in tables/table_<name>/.
+   Nothing renders a skin differently yet - the picker only records the choice in
+   settings->table_design, so the first forged table has a door to walk through.
+   Keep this list the same length as TABLE_DESIGN_COUNT (storage.h). */
+static const char *const k_table_names[TABLE_DESIGN_COUNT] = { "CRT", "CITY (BETA)" };
+static const char *const k_table_notes[TABLE_DESIGN_COUNT] = { "DEFAULT", "PLACEHOLDER - NOT FORGED YET" };
+
+static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Color col);
+
+static Rectangle campaign_table_prev_rect(void) { return (Rectangle){ 520.0f, 500.0f, 26.0f, 26.0f }; }
+static Rectangle campaign_table_next_rect(void) { return (Rectangle){ 758.0f, 500.0f, 26.0f, 26.0f }; }
+static Rectangle campaign_table_value_rect(void) { return (Rectangle){ 552.0f, 500.0f, 200.0f, 26.0f }; }
+
+static void campaign_draw_table_picker(const GameSettings *settings, Vector2 vm) {
+    int sel = settings->table_design;
+    if (sel < 0 || sel >= TABLE_DESIGN_COUNT) sel = 0;
+    DrawLine(385, 496, 1105, 496, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(font_body, "CARD TABLE:", (Vector2){ 385.0f, 508.0f }, 15.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+    draw_btn_custom(campaign_table_prev_rect(), "<", 16, vm, COLOR_PHOSPHOR);
+    Rectangle val = campaign_table_value_rect();
+    DrawRectangleRec(val, COLOR_PANEL_BG);
+    ui_draw_panel_border(val, COLOR_PHOSPHOR);
+    Vector2 ts = MeasureTextEx(font_body, k_table_names[sel], 15.0f, 1.2f);
+    DrawTextEx(font_body, k_table_names[sel],
+               (Vector2){ val.x + (val.width - ts.x) * 0.5f, val.y + (val.height - ts.y) * 0.5f },
+               15.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_btn_custom(campaign_table_next_rect(), ">", 16, vm, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, k_table_notes[sel], (Vector2){ 794.0f, 508.0f }, 12.0f, 1.0f,
+               (sel == 0) ? COLOR_TEXT_INFO_DIM : COLOR_AMBER);
+}
+
 static void draw_text_wrapped(Font font, const char *text, float x, float y, float max_width, float font_size, float spacing, Color color) {
     if (!text || text[0] == '\0') return;
     char line[512];
@@ -220,6 +252,7 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
 
         DrawLine(385, 396, 1105, 396, COLOR_PHOSPHOR_DIM);
         draw_text_wrapped(font_body, opp->lore_text, 385.0f, 408.0f, 720.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
+        campaign_draw_table_picker(settings, vm);
     } else {
         DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 385.0f, 260.0f }, 24.0f, 1.2f, COLOR_RED);
         /* Show only the coin requirement for this opponent */
@@ -279,6 +312,19 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
             *out_selected = i;
             return 2;
         }
+    }
+
+    /* Card table picker: cycles the skin list and remembers the choice. Only live while the
+       row is drawn - it sits in the detail panel of an unlocked opponent. */
+    if (*out_selected < unlocked_opponents &&
+        (CheckCollisionPointRec(vm, campaign_table_prev_rect()) ||
+         CheckCollisionPointRec(vm, campaign_table_next_rect()))) {
+        int dir = CheckCollisionPointRec(vm, campaign_table_next_rect()) ? 1 : -1;
+        int sel = settings->table_design;
+        if (sel < 0 || sel >= TABLE_DESIGN_COUNT) sel = 0;
+        settings->table_design = (sel + dir + TABLE_DESIGN_COUNT) % TABLE_DESIGN_COUNT;
+        storage_save_settings(settings);
+        return 4;
     }
 
     /* Clearance Protocol quick-select preset buttons */

@@ -131,9 +131,9 @@ round. The loop, and where each stage writes:
 4. **Palette** — a `TerminalTheme` entry (today `theme_set()` cycles 5 while Options lists 6 names) or
    a separate `table_design` field in `GameSettings`.
 5. **Nine tables** — one layout, nine palettes and casing profiles, or bespoke ornament per backdrop.
-6. **The port contract** — how a table becomes selectable for a beta test, which is the one thing the
-   forge needs from `src/` that does not exist yet. Option A: one `table_design` field in
-   `GameSettings`, defaulting to the forged table, no UI — enough to play it, nothing to explain.
-   Option B: the field plus a selector on the Pancratium screen (`campaign.c:121`). Option A is the
-   cheaper first port; B is what the owner asked for eventually. Decide before the first port, not
-   during it.
+6. ~~**The port contract**~~ — **decided 29 Oct 2026: option B, done.** `GameSettings.table_design`
+   (`storage.h`, persisted as `table_design=` in `settings.txt`), `TABLE_DESIGN_COUNT` for the range,
+   and a picker row in the Pancratium detail panel: `CARD TABLE:  <  CRT  >  DEFAULT`, plus the
+   placeholder entry `CITY (BETA)` / `PLACEHOLDER - NOT FORGED YET`. It sits at y 500..526 inside the
+   panel and cycles with a click, saving immediately. **Nothing renders a skin differently yet** —
+   index 0 is the CRT table, index 1 is the door the first forged table walks through.

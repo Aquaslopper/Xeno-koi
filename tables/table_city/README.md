@@ -14,6 +14,10 @@ bundles, glowing seams. Front-on and symmetric. First of nine tables, same layou
 
 Examples of the *direction* (not the layout): `refs/city-example-01.jpg`, `refs/city-example-02.jpg`.
 
+The door is open: the Pancratium's `CARD TABLE:` picker already lists `CITY (BETA)` as a placeholder
+(index 1 in `k_table_names[]`, `src/campaign.c`) and saves it to `settings.txt`. Selecting it changes
+nothing yet — that is what "not forged" means.
+
 ## Palette, sampled from `assets/city.jpg`
 
 | | value | use |

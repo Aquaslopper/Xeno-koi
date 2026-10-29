@@ -6,6 +6,12 @@
 
 #define MUSIC_FOLDER_CAP 1024
 
+/* Card table skins, in picker order. 0 is the CRT table the game ships with and stays
+   the default; 1.. are forged tables from tables/table_<name>/. Index 1 is a placeholder
+   until the first table is forged (tables/WORKFLOW.md, open decision 6). Names live in
+   campaign.c next to the picker. */
+#define TABLE_DESIGN_COUNT 2
+
 typedef struct {
     char music_folder[MUSIC_FOLDER_CAP]; /* empty: built-in match music */
     int rounds;            /* 1..12, default 6 */
@@ -27,6 +33,9 @@ typedef struct {
     int unlocked_opponents;/* 1..12, default 1 */
     int current_opponent;  /* 0..11, default 0 */
     unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
+    int table_design;      /* card table skin: 0 = CRT (shipped, default), 1.. = forged tables.
+                              Index 1 is a placeholder for the first forged table - see
+                              tables/WORKFLOW.md open decision 6. Nothing renders it yet. */
 } GameSettings;
 
 typedef enum {

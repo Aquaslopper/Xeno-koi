@@ -768,6 +768,9 @@ static void handle_campaign_overlay_click(Vector2 vm) {
             }
         }
         audio_play_click(&audio);
+    } else if (cres == 4) {
+        /* Card table picker: the choice is already saved and stored in settings. */
+        audio_play_click(&audio);
     }
 }
 
