@@ -49,3 +49,10 @@
 /tests/ @Aquaslopper
 /tools/tests_guard.manifest @Aquaslopper
 /tools/tests_guard.sh @Aquaslopper
+
+# Action Card mode lock - frozen by owner decision, no agent may change it
+/src/ui_action.c @Aquaslopper
+/src/ui_action.h @Aquaslopper
+/tools/action_guard.sh @Aquaslopper
+/tools/action_guard.manifest @Aquaslopper
+/tools/action_guard.sha256 @Aquaslopper

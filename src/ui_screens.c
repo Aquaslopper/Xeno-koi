@@ -20,8 +20,6 @@ static void draw_centered_text(Font font, const char *text, float cx, float y, f
     Vector2 ts = MeasureTextEx(font, text, fsz, sp);
     Vector2 pos = { floorf(cx - ts.x / 2.0f), floorf(y) };
     DrawTextEx(font, text, pos, fsz, sp, col);
-    if (font.texture.id == font_title.texture.id && fsz >= 26.0f)
-        ui_theme_draw_text_flares(font, text, pos, fsz, sp, col);
 }
 
 static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fsz, float sp, Color col) {

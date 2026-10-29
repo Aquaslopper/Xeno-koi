@@ -128,15 +128,13 @@ static void sync_music_meter_tap(AudioAssets *audio, int attach) {
     if (!attach) s_music_meter_vis = 0.0f;
 }
 
-float action_card_music_pulse(void) { return s_music_meter_vis; }
-
 void action_card_sync_music(AudioAssets *audio, int in_action_table, int paused,
                             float transition_alpha, float dt) {
-    /* The tap used to follow the action table alone. The menus play these same match
-       streams and the title screen now reads the level for its glyph flares, so it
-       follows the music instead: attached while music is live, smoothed in every mode. */
+    /* The tap follows the action table alone. It used to be attached on every screen with
+       live music so the menu could drive glyph flares from the beat; with the motes back to
+       hover-only that listener has no consumer off the table, so it does not run there. */
     int music_live = (audio && audio->current_music == 2);
-    sync_music_meter_tap(audio, (in_action_table || music_live) ? 1 : 0);
+    sync_music_meter_tap(audio, in_action_table ? 1 : 0);
     int freeze_music = paused || s_badge_evt_active;
     if (!freeze_music && audio && dt > 0.0f) {
         float tgt = 0.0f;
