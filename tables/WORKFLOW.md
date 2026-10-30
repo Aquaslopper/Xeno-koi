@@ -124,6 +124,16 @@ round. The loop, and where each stage writes:
     composite — mean |RGB diff| 1.36 against their own clean plate — and still miss the anchors by
     up to 30 px. A plate agreeing with itself is the generator agreeing with itself; the game was
     never in the room. Measure compartments against `anchors.json`, always.
+17. **Reporting the asset you meant to make** (castle bezels, 30 Oct 2026). A card bezel only
+    works over a card if its inside is transparent and nothing but the border remains — every
+    delivered-art table has at least its card bezel(s) to make transparent this way: flood-clear
+    the dark interior from the centre so the corner ornaments that sweep inward survive, and
+    zero the RGB under the cleared alpha. The first pass cleared a rectangle, chopped the
+    ornaments to a hairline, blurred what was left — and was reported as done anyway, round
+    after round, until the owner made a correct one by hand in five minutes. Rule: never state
+    a property of an asset — transparent, fitted, on-canvas — without opening the produced
+    file in the same pass (checkerboard composite, alpha numbers). Do not lie about the asset;
+    check it.
 
 ## Open decisions
 
