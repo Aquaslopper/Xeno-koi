@@ -120,6 +120,45 @@ round. The loop, and where each stage writes:
 15. **An example treated as evidence — twice.** Once as a layout to copy, once as a claim about the
     current build. Both wrong the same way: the example's layout is the layout of whatever was fed to
     the generator. Read it for the idea.
+16. **Trusting the clean plate** (castle, 30 Oct 2026). The delivered pieces stack into a flawless
+    composite — mean |RGB diff| 1.36 against their own clean plate — and still miss the anchors by
+    up to 30 px. A plate agreeing with itself is the generator agreeing with itself; the game was
+    never in the room. Measure compartments against `anchors.json`, always.
+
+## Open decisions
+
+1. **Layer** (step 3) — and if runtime, what happens to the teal `ui_draw_panel_border` line inside
+   every frame: as long as it stays, the result reads as a box inside a box.
+2. **Grouping** — score strip + lane block as one casing with rails; the three right-column boxes as
+   one column; buttons as one unit.
+3. **Lane metrics** — keep 37.4 / 4 px and group the frames, or change them in code.
+4. **Palette** — a `TerminalTheme` entry (today `theme_set()` cycles 5 while Options lists 6 names) or
+   a separate `table_design` field in `GameSettings`.
+5. **Nine tables** — one layout, nine palettes and casing profiles, or bespoke ornament per backdrop.
+6. ~~**The port contract**~~ — **decided 29 Oct 2026: option B, done.** `GameSettings.table_design`
+   (`storage.h`, persisted as `table_design=` in `settings.txt`), `TABLE_DESIGN_COUNT` for the range,
+   and a picker row in the Pancratium detail panel: `CARD TABLE:  <  CRT  >  DEFAULT`, plus the
+   placeholder entry `CITY (BETA)` / `PLACEHOLDER - NOT FORGED YET`. It sits at y 500..526 inside the
+   panel and cycles with a click, saving immediately. **Nothing renders a skin differently yet** —
+   index 0 is the CRT table, index 1 is the door the first forged table walks through.
+set.
+7. **Frames drawn inside the rect.** The game's text ended up on the metal.
+8. **Fitting by measured holes.** Only valid when the art's hole count equals the code's rect count.
+9. **Stamping every rect individually.** Ten rects in a 267 × 700 column has nowhere to go — group
+   them, and use rails for internal seams.
+10. **Uniform border thickness.** Dragged down to the tightest free side; reads thin next to its
+    neighbours.
+11. **Decor in the middle of the left side.** A spine between the blocks was rejected twice. A
+    connector belongs on the **canvas edge**.
+12. **Rails drawn before the casing.** Covered until the draw order flipped.
+13. **The Action Card mode is hash-locked.** `ui_action.c/.h` are hash-guarded and 12 influence lines
+    outside them are pinned, 4 inside `board_draw_table()`; its stock `330, 262` and meter
+    `414, 170` cannot move. Run `./tools/action_guard.sh --report`.
+14. **No bezel art ships.** `assets/` has no frame, border or panel texture — a metal look is
+    procedural in the border function or a new 9-slice asset.
+15. **An example treated as evidence — twice.** Once as a layout to copy, once as a claim about the
+    current build. Both wrong the same way: the example's layout is the layout of whatever was fed to
+    the generator. Read it for the idea.
 
 ## Open decisions
 

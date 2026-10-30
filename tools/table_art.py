@@ -249,6 +249,12 @@ def build(manifest_path, backdrop=None):
     if not os.path.exists(manifest_path):
         raise SystemExit(f"no manifest at {manifest_path} (a table folder is tables/<name>/table.json)")
     spec = json.load(open(manifest_path))
+    if spec.get("method") == "cut-and-place":
+        raise SystemExit("this manifest is cut-and-place (cavity-measured crops, translation only); "
+                         "stamp() would 9-slice the art to force the rect - see the table's README")
+    if not any(spec.get(k) for k in ("units", "decor", "rails", "cards")):
+        raise SystemExit("this manifest builds nothing (no units/decor/rails/cards); "
+                         "refusing to report an empty build as 0 mismatches")
     folder = os.path.dirname(os.path.abspath(manifest_path))
     design = spec.get("design") or os.path.basename(folder)
     raw = os.path.join(ROOT, spec["raw"]) if spec.get("raw") else os.path.join(folder, "raw")

@@ -13,6 +13,8 @@ everything under it.
 
 **While drawing**
 - [ ] frames drawn **outside** their rect; interior == the game's rect ±2 px
+- [ ] delivered art: every compartment measured against its anchor (profiles, not the clean plate);
+      translations and any uniform scale listed with the cavity numbers; nothing 9-sliced
 - [ ] borders as thick as the space allows; neighbours comparable
 - [ ] no per-lane frame; rails drawn **after** the casing
 - [ ] connective art on the **canvas edge**, never a spine mid-left

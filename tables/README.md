@@ -77,9 +77,18 @@ A table is forged when a real round found nothing left to fix. The Pancratium pi
 4. **Assert, don't eyeball**: interior == target rect ±2 px, checked in code; previews on live geometry.
 5. **Never composite on `docs/assets/readme/table-map.png`** — it is drawn with dead code (96 px field
    pitch instead of 81). Use a `base.png`.
+6. **Delivered art is never 9-sliced or squished.** Finished pieces in `tables/assets_<name>/`
+   (1920×1080 = 1.5× canvas) are measured compartment by compartment and fitted by cut-and-place:
+   one uniform ×⅔ downscale, translation after that, a further uniform scale only where a measured
+   cavity demands it — minimal, and recorded. `stamp()` is for generated single frames; a
+   `cut-and-place` manifest is refused by `table_art.py`. See `WORKFLOW.md` → *Delivered art*.
 
 ## Status
 
 Two art passes were generated and thrown away (29 Oct 2026). Nothing is kept but the data, the traps
 and the tools. **No table is implemented; `src/` is untouched.** `table_city` is a spec with examples.
-Next: the five open decisions at the end of `WORKFLOW.md`.
+`table_castle` (started 30 Oct 2026) is the first table with finished art: owner-delivered pieces in
+`assets_castle/`, measured against the anchors and fitted by cut-and-place in `table_castle/README.md`
+— its internal rhythm is the generator's, not the game's, so no piece drops in whole. Next for castle:
+the owner's read of the pass-1 previews, then `final/` + beta port. The five open decisions at the end
+of `WORKFLOW.md` still stand for the other tables.
