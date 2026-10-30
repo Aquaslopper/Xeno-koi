@@ -282,16 +282,56 @@ def build_cut_and_place(spec, folder):
                 unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
             cav_px = [(cav[0] - corp[0]) * ns * k, (cav[1] - corp[1]) * ns * k,
                       cav[2] * ns * k, cav[3] * ns * k]
-            # Hollow frame (owner live test, 30 Oct 2026): the cavity clears to alpha 0
-            # so the game draws the bezel OVER its card - frame over picture - instead
-            # of the card sitting on an opaque leather mat longer than the card itself.
+            # Hollow frame: flood-clear the dark leather INTERIOR from the cavity
+            # centre so only the border survives - corner ornaments that sweep
+            # inside the cavity rect included. (First pass cleared the rectangle
+            # and chopped those ornaments to a hairline; a blur on top ate the
+            # rails. WORKFLOW trap 17.) Cleared pixels become (0,0,0,0): no
+            # leather RGB left under the transparency to bleed through mipmaps.
             arr = np.array(unit)
-            x0, y0 = round(cav_px[0]), round(cav_px[1])
-            x1, y1 = round(cav_px[0] + cav_px[2]), round(cav_px[1] + cav_px[3])
-            arr[max(y0, 0):min(y1, unit.height), max(x0, 0):min(x1, unit.width), 3] = 0
+            val = arr[..., :3].max(axis=2)
+            fillable = (arr[..., 3] > 0) & (val < 48)
+            cx = min(max(round(cav_px[0] + cav_px[2] / 2), 0), unit.width - 1)
+            cy = min(max(round(cav_px[1] + cav_px[3] / 2), 0), unit.height - 1)
+            if not fillable[cy, cx]:
+                raise SystemExit(f"{c['name']}: cavity centre ({cx},{cy}) is not dark "
+                                 f"interior (value {val[cy, cx]}) - cannot flood-clear")
+
+            def flood(seeds, passable):
+                seen = np.zeros(val.shape, bool)
+                dq = deque()
+                for sx, sy in seeds:
+                    if passable[sy, sx] and not seen[sy, sx]:
+                        seen[sy, sx] = True
+                        dq.append((sx, sy))
+                while dq:
+                    x, y = dq.popleft()
+                    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                        if 0 <= nx < unit.width and 0 <= ny < unit.height \
+                                and not seen[ny, nx] and passable[ny, nx]:
+                            seen[ny, nx] = True
+                            dq.append((nx, ny))
+                return seen
+
+            inside = flood([(cx, cy)], fillable)
+            # Bright sheen specks enclosed by the cleared interior clear too:
+            # anything not reachable from the image border without crossing it.
+            border_seeds = [(x, 0) for x in range(unit.width)] + \
+                           [(x, unit.height - 1) for x in range(unit.width)] + \
+                           [(0, y) for y in range(unit.height)] + \
+                           [(unit.width - 1, y) for y in range(unit.height)]
+            outside = flood(border_seeds, ~inside)
+            clear = inside | (~inside & ~outside)
+            # Never clear beyond the measured cavity (+6 px slop): a leak through
+            # a dark rail gap must not eat the border's outer shadow.
+            x0 = max(round(cav_px[0]) - 6, 0)
+            y0 = max(round(cav_px[1]) - 6, 0)
+            x1 = min(round(cav_px[0] + cav_px[2]) + 6, unit.width)
+            y1 = min(round(cav_px[1] + cav_px[3]) + 6, unit.height)
+            box = np.zeros(val.shape, bool)
+            box[y0:y1, x0:x1] = True
+            arr[clear & box] = (0, 0, 0, 0)
             unit = Image.fromarray(arr, "RGBA")
-            r, g, b, a = unit.split()
-            unit = Image.merge("RGBA", (r, g, b, a.filter(ImageFilter.GaussianBlur(0.8))))
             out_manifest[c["name"]] = {"size": [unit.width, unit.height],
                                        "cavity_px": [round(v, 2) for v in cav_px],
                                        "cavity_cleared": True,
