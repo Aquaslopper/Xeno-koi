@@ -416,16 +416,16 @@
     112,
     66
    ],
-   "align": "outer-right@1278, top; tower cavity-cx@1205.3",
+   "align": "outer-right@1278, top; tower outer-left@1134.2",
    "uniform_scale": 1.0,
    "cavity_placed": [
-    1146.3,
+    1141.9,
     12,
     118.0,
     66.7
    ],
    "outer_placed": [
-    1138.6,
+    1134.2,
     7.3,
     134.0,
     77.3
@@ -454,16 +454,16 @@
     112,
     218
    ],
-   "align": "outer-right@1278, top; tower cavity-cx@1205.3",
+   "align": "outer-right@1278, top",
    "uniform_scale": 1.065,
    "cavity_placed": [
-    1142.5,
+    1142.7,
     88,
     125.7,
     218.0
    ],
    "outer_placed": [
-    1134.0,
+    1134.2,
     83.0,
     143.8,
     229.3
@@ -492,16 +492,16 @@
     112,
     218
    ],
-   "align": "outer-right@1278, top; tower cavity-cx@1205.3",
+   "align": "outer-right@1278, top; tower outer-left@1134.2",
    "uniform_scale": 1.0723,
    "cavity_placed": [
-    1141.7,
+    1141.4,
     316,
     127.3,
     218.0
    ],
    "outer_placed": [
-    1134.5,
+    1134.2,
     310.3,
     143.7,
     230.2

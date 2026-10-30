@@ -1,4 +1,4 @@
-# Live test — `<table>`
+# Live test — `table_castle`
 
 The record of every time this table was **ported into the game and played**. One entry per test,
 newest first. It is the only place that says what broke in the real thing, so it has to be specific:
@@ -26,6 +26,71 @@ so they get written down here and become the next forge pass's work list.
 - **Next action:** what the next pass changes, in one line
 
 ---
+
+### 2026-10-30 · owner-provided bezel (`daf55e4`) · owner live test #6 — screenshot verdict
+
+- **Table id / selector:** `CASTLE (BETA)`, as before.
+- **Tested:** full in-game screenshot (1920×1080) from the owner's machine, taken as
+  ground truth and measured — RND tower, bezels on 8 hand cards + 8 CPU backs, field
+  frames, stock, status plaque, PAUSE/RESTART.
+- **Worked:** the owner-provided bezel — owner's words: *"now we got it right"*. Every
+  hand card and CPU back wears it (fronts and backs, corner gems whole, card art clear);
+  the field frames interlock readably; the stock reads as a stack of framed backs with
+  the count (24) centred; the status line (440 px) fits inside the plaque rails;
+  PAUSE/RESTART labels sit centred. One watch item only: the dim CPU SCORE text sits
+  close to the panel's top-left corner ornament.
+- **Broke:**
+  1. *RND box still a little offset* → measured on the shipped overlay: cavity centres
+     already agree (RND 1205.5 vs CPU 1205.0 / YOUR 1206.0), but the casing **left rails
+     stagger** — RND x 1139 against combos x 1134/1135 — and in one contiguous tower the
+     eye tracks the left rail line → expected: one shared outer-left edge for the tower
+     (WORKFLOW trap 18).
+- **Verdict:** bezel accepted; forge again for the tower only. Fix applied same day.
+- **Next action:** owner re-tests. Fix: the rnd+combos tower shares **outer-left x 1134**
+  in the record (rnd moves 5 px left; right edges stagger 1270 vs 1276 into the
+  screen-edge ornaments), finals + overlay rebuilt, mode lines centre on the RND cavity
+  cx **1200.9**. Combo lists stay left-aligned; PAUSE/RESTART island untouched. The
+  lessons of this test series went into the workflow docs the same day (`AGENT_START.md`;
+  WORKFLOW Delivered art + traps 18–19; CHECKLIST).
+
+### 2026-10-30 · flood-cleared bezel (`e590b0b`) · owner live test #5 — bezel provided
+
+- **Table id / selector:** `CASTLE (BETA)`, as before.
+- **Tested:** the flood-clear fix from #4 — and, in parallel, the owner's own hand-made
+  `bezzel.png` (95×136, transparent inside, only the border).
+- **Worked:** the flood-clear proved the border could survive (6.9 % → ~50 % solid,
+  `preview/castle-bezel-transparent.png`) — and was then superseded same day: the owner
+  provided the bezel as finished art. Settlement (owner's words, now workflow law): the
+  transparent card bezel is **something the owner provides**; there needs to be one card
+  bezel for every such table.
+- **Broke:** nothing new live; the shipped bezel was manufactured by the wrong side.
+- **Verdict:** ship the provided art, untouched.
+- **Next action:** done in `daf55e4`: `assets_castle/castle_card_bezel.png` passed
+  through by the fitter (pixel-identical, verified), its transparent cavity measured
+  from alpha (cavity x 10..89, y 6..128; centre 49.5, 67.0; height 122) and mirrored
+  into `ui_board.c`; ratio 0.94 kept; sandwich draw unchanged. Owner re-tests.
+
+### 2026-10-30 · fine-tune #3 (`c16cd27`) · owner live test #4 — "transparent? NO"
+
+- **Table id / selector:** `CASTLE (BETA)`, as before.
+- **Tested:** deeper-grip sandwich (ratio 0.94) and tower cavity-centre axis from #3.
+- **Worked:** the draw order (bezel → card → bezel) verified in source; numbers and
+  placements as recorded. It still read wrong — see below.
+- **Broke:**
+  1. *Card still on top — and the bezel was never the bezel described* → an A–D variant
+     sheet was rejected wholesale; owner's instruction: "Make the bezel transparent in
+     the middle, only keep the borders, than applied it on the back and on the front."
+     Opening the produced file on a checkerboard found why nothing worked: the shipped
+     "hollow" bezel had been made by clearing a **rectangle** through it, which chopped
+     the inward-sweeping corner ornaments and left a crumbling hairline (6.9 % solid) —
+     and its transparency had been reported as fact for two rounds from centre-alpha
+     numbers alone, without opening the asset. Recorded as WORKFLOW trap 17: *never
+     state a property of an asset without opening the produced file in the same pass.*
+- **Verdict:** forge again; the bezel had to be re-made the right way.
+- **Next action:** centre-seeded flood-clear of the strip frame (border ring survives,
+  incl. the ornaments sweeping in; RGB zeroed under cleared alpha), verified on a
+  checkerboard (`preview/castle-bezel-transparent.png`); the fitter now governs every
+  cut-and-place bezel this way. Owner responded by providing the bezel by hand (#5).
 
 ### 2026-10-30 · fine-tune #2 (`22a31b4`) · owner live test #3
 
@@ -111,8 +176,11 @@ so they get written down here and become the next forge pass's work list.
 
 ## Known-good reference
 
-Beta port landed 2026-10-30 (see entry above): `final/` built by
-`./tables/build.sh table_castle`, runtime copies in `assets/`, skin behind
-`board_castle_skin_active()`, selectable as `CASTLE (BETA)`. Played once by the owner the same
-day — dealer select, mode coverage and CRT switch-back confirmed good; three fine-tune fixes
-(hollow bezels, preview mute, hover box) are in and awaiting the re-test.
+Beta port landed 2026-10-30 and went through six owner live tests the same day: dealer
+select, mode coverage (Plex/Action/Speedcoin) and CRT switch-back confirmed good from #1;
+capture-info preview muted, PAUSE/RESTART hover box dropped, mode text centred. The card
+bezel is **owner-provided** art (`assets_castle/castle_card_bezel.png`), drawn under and
+over every card, and accepted live ("now we got it right", #6). The rnd+combos tower is
+aligned on one outer-left edge (x 1134) after the owner's screenshot showed the RND left
+rail indented; CRT unchanged throughout. Still open: README questions 2–3 (status
+overflow, turn cue) and the amber-theme owner decision noted in #2.

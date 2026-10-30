@@ -3,8 +3,9 @@
 **One table = one folder.** Everything for this table lives here — spec, manifest record,
 previews. The source art stays where the owner delivered it: `tables/assets_castle/`, untouched.
 
-Status: **beta port — selectable in the Pancratium (`CASTLE (BETA)`), awaiting owner live
-test.** `src/` touched: **yes** (beta port, see Port notes). CRT (index 0) unchanged.
+Status: **beta port — selectable in the Pancratium (`CASTLE (BETA)`); owner live-tested
+(`live-test.md` #1–#6), owner-provided bezel accepted.** `src/` touched: **yes** (beta port,
+see Port notes). CRT (index 0) unchanged.
 
 Backdrop `assets/castle.jpg`, index **3** of
 `{0 Harvest, 1 Hole, 2 Arctic, 3 Castle, 4 City, 5 Deus, 6 Face, 7 Realm}` (`src/ui_screens.c:326`).
@@ -62,16 +63,22 @@ measured cavity size:
 | field bezel | ×0.871 | hand frame scaled so cavity slack (+4.7 w) matches the hand bezel's |
 
 `table.json` in this folder is the machine record (crop, measured cavity, anchor, alignment,
-scale, placed cavity/outer per unit). It is **not** a table_art schema, and `table_art.py` now
-refuses it loudly instead of building an empty "0 mismatches". The finals builder (crop at
-1920 px → `final/`) is the next pass. After cut-and-place every unit is on-canvas; the assertion
-table is reproduced under Units.
+scale, placed cavity/outer per unit); `build_cut_and_place` in `tools/table_art.py` builds it
+(crop at 1920 px → `final/`), and asserts every cavity against its anchor — `0 mismatch(es)`.
+After cut-and-place every unit is on-canvas; the assertion table is reproduced under Units.
 
-Right-column placement needs one sentence of its own: the anchors end at x 1272 with 8 px to the
-canvas edge, but the art carries 8–13 px of border right of its cavities, so cavity-on-anchor
-pushes ornament off-canvas (measured 1280–1285). The units are therefore placed with their
-**outer right edge at 1278**; the cavities then end at x 1272 and every text the game draws there
-(labels are clipped to 96 px from x 1168, so ≤ 1264) stays inside with ≥ 8 px to spare.
+Right-column placement needs one paragraph of its own — it went through three alignment rules
+in live testing (WORKFLOW trap 18). The anchors end at x 1272 with 8 px to the canvas edge, but
+the art carries 8–13 px of border right of its cavities, so cavity-on-anchor pushes ornament
+off-canvas (measured 1280–1285) — blanket **outer-right@1278** was pass 1. In the contiguous
+rnd+combos tower that left the narrower RND casing's left rail indented ~10 px, which read as
+"the RND box is offset right" (live test #3); aligning cavity **centres** (cx 1205.3) halved the
+indent and it still read offset (#6). Final rule, measured from the owner's screenshot: the
+tower shares **one outer-left edge (x 1134)** — the eye tracks the left rail — and the right
+edges stagger (RND 1270 vs combos 1276) into the screen-edge ornaments, where it is invisible.
+The PAUSE/RESTART island keeps outer-right@1278 (separate group, labels game-centred at 1216).
+Every text drawn in the tower still stays inside: labels are clipped to 96 px from x 1168
+(≤ 1264) and the tower's cavities end ≥ 1260.
 
 ## Direction
 
@@ -97,7 +104,7 @@ only furniture there.
 |---|---|---|---|---|
 | CPU block | `12,12,255,196` | 12 / 12 / 163 / 300 | L 7–11, T 2–5, R 7–8, B 3–6 | x 1..275, y 7..212 |
 | player block | `12,508,255,200` | 12 / 300 / 163 / 12 | L 6–7, T 2–5, R 12 (23 score, the `>>` knob), B 1–9 | x 5..290, y 503..717 |
-| right column | `1160,12,112,522` | 80 / 12 / 8 / 26 | L 16–26, T 5–6, R 6, B 6–7 | x 1134..1278, y 7..541 |
+| right column | `1160,12,112,522` | 80 / 12 / 8 / 26 | L 26 (tower flush), T 5–6, R −4–6, B 6–7 | x 1134..1278, y 7..541 |
 | buttons | `1160,560,112,90` | 80 / 26 / 8 / 70 | L 21, T 4–5, R 6, B 5–6 | x 1139..1278, y 556..656 |
 | deck | `330,262,76,124` | 63 / 54 / 24 / 98 | frame L 9, T 5, R 10, B 7; plaque separate | frame 321..416 × 257..393; plaque 329..407 × 387..417 |
 | status | text 529..547 @ x 710 | top 84 / bottom 14 | plaque moved (+32, +25) onto the status glyphs | 433..982 × 494..565 |
@@ -108,7 +115,7 @@ right column grows left), thin only at the canvas edges.
 ## Layer
 
 - [ ] runtime restyle
-- [x] stamped art — cut-and-place variant, `table.json` is the record (builder next pass)
+- [x] stamped art — cut-and-place variant, `table.json` is the record (`build_cut_and_place`)
 
 ## Units (assertion run 2026-10-30 — cavity vs anchor, border outside the rect)
 
@@ -118,16 +125,16 @@ right column grows left), thin only at the canvas edges.
 | cpu_lane_0..3 | 256.7×34.7–36.7 | 255×37.4 | (−1.7, +0.7..+2.7) | left, centre-y | 7–8/2–5/7–8/3–6 |
 | you_lane_0..3 | 260.7–262.7×32.7–36 | 255×37.4 | (−5.7..−7.7, +1.4..+4.7) | left, centre-y | 6–7/2–5/12/1–4 |
 | you_score | 210.7×34.7 | 255×30 | (+44.3, −4.7) — cavity stops at the art's `>>` button; the score text is short and left-drawn | left, centre-y | 7/5/23/9 |
-| rnd_panel | 118×66.7 | 112×66 | (−6.0, −0.7) | tower cavity-cx@1205.3, top | 21/5/1/7 |
-| cpu_combos | 118×204.7 ×1.065 | 112×218 | (−13.7, 0.0) | tower cavity-cx@1205.3, top | 26/5/6/6 |
-| your_combos | 118.7×203.3 ×1.072 | 112×218 | (−15.3, 0.0) | tower cavity-cx@1205.3, top | 26/6/6/6 |
+| rnd_panel | 118×66.7 | 112×66 | (−6.0, −0.7) | tower outer-left@1134, top | 26/5/−4/7 |
+| cpu_combos | 118×204.7 ×1.065 | 112×218 | (−13.7, 0.0) | outer-right@1278, top (sets tower edge) | 26/5/6/6 |
+| your_combos | 118.7×203.3 ×1.072 | 112×218 | (−15.3, 0.0) | tower outer-left@1134, top | 26/6/6/6 |
 | pause / restart | 120.7×36.7 / 121.3×37.3 | 112×40 | (−8.7..−9.3, +2.7..+3.3) | outer-right@1278, centre-y | 21/4–5/6/5–6 |
 | stock_frame | 91.3×146 ×0.849 | 76×124 | (−1.5, 0.0) | cavity on card rect | 9/5/10/7 |
 | stock_plaque | 64×22.7 | count text (356,392) 18 px | — | cavity → (336,390), centred under the deck (368) | 7/3/7/4 |
 | status | 439.3×29.3 | glyphs 529..547, cx 710 | — | cavity centre → (710, 538) | flourish 57/29/53/13 |
-| bezel_hand | 92.7×161.3, outer 111×174 | card 88×143 | slack (+4.7, +18.3), centred | per card | ≈9 top/bottom mat |
-| bezel_cpu | 60.7×105.3, outer 72×114 | card 56×91 | slack (+4.7, +14.3), centred | per card | top lands at y ≈0.5 |
-| bezel_field | 80.7×140.4 (hand frame ×0.871) | card 76×124 | slack (+4.7, +16.4), centred | per card | — |
+| bezel_hand | **owner-provided**, 95×136, transparent cavity 79×122 (centre 49.5, 67.0) | every card, scaled by height | cavity h ≈ card h ×0.94 | per card, sandwich | — |
+| bezel_cpu | 60.7×105.3, outer 72×114 (strip-cut) | card 56×91 | slack (+4.7, +14.3), centred | record only — runtime uses bezel_hand for every size | top lands at y ≈0.5 |
+| bezel_field | 80.7×140.4 (hand frame ×0.871, strip-cut) | card 76×124 | slack (+4.7, +16.4), centred | record only — runtime uses bezel_hand for every size | — |
 
 Lane cavities are centred vertically on the 37.4 lane on purpose: the mini band (+3.4..+34.0) and
 the 20 px label (+8.5..) then both clear the metal in every lane — top-aligned, the shortest
@@ -236,10 +243,11 @@ the fault.
 
 ## Open questions for the owner
 
-1. **Bezel treatment.** The previews centre each frame's cavity on its card — the frame sits
-   *outside* the card rect and the card shows on a leather mat. `anchors.md`'s original
-   prescription was a bezel *inside* the card rect. The delivered frames are drawn as outside
-   casings, so pass 1 follows the art; say if you want the inside variant instead.
+1. **Bezel treatment — resolved 2026-10-30 (live tests #1–#6).** The opaque leather mat and
+   every agent-cut hollow variant were rejected; the shipped bezel is the **owner-provided**
+   transparent frame (`assets_castle/castle_card_bezel.png`), drawn under and over each card
+   (sandwich) at cavity height ≈ card height ×0.94, and accepted live. Recorded as workflow
+   law: a transparent card bezel is provided art, never manufactured (WORKFLOW trap 17).
 2. **Timer vs plaque.** With the plaque moved onto the status line, the turn timer
    (glyphs ≈505..527, centred 640) now crosses the plaque's top border. Acceptable, or does the
    timer get its own small plaque/moved treatment at port?

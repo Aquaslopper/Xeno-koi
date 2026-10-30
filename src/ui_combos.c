@@ -55,17 +55,17 @@ void combos_draw_sidebar(const GameState *g) {
         DrawRectangleRec(mode, COLOR_PANEL_BG);
         ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
     }
-    /* Castle: the rnd+combos tower's cavities share centre x 1205.3 (tables/
-       table_castle/final/_manifest.json), so text left-aligned at 1168 leaves a wide
-       empty leather margin on its left and reads shifted right - centre the two mode
-       lines on the tower axis instead. CRT keeps the left-aligned 1168. */
+    /* Castle: centre the two mode lines on the RND cavity itself (cx 1200.9,
+       tables/table_castle/final/_manifest.json) - text left-aligned at the game's
+       1168 leaves its empty margin on the left inside the wider cavity and reads
+       shifted right. CRT keeps the left-aligned 1168. */
     const char *rnd_line = sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
                                    : TextFormat("RND %d/%d", g->current_round, g->total_rounds);
-    label(rnd_line, castle_skin ? label_centered_x(rnd_line, 16, 1205.3f) : 1168,
+    label(rnd_line, castle_skin ? label_centered_x(rnd_line, 16, 1200.9f) : 1168,
           20, 96, 16, COLOR_PHOSPHOR);
     float size = 16;
     while (size > 12 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 96) size--;
-    label(mode_name, castle_skin ? label_centered_x(mode_name, size, 1205.3f) : 1168,
+    label(mode_name, castle_skin ? label_centered_x(mode_name, size, 1200.9f) : 1168,
           47, 96, size, COLOR_TEXT_INFO);
     for (int p = 1; p >= 0; p--) {
         if (sc_mode && p == 1) continue;
