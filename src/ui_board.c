@@ -433,6 +433,7 @@ static void ash_burst_draw_and_update(float dt) {
 static char path_buf[512];
 static int s_table_castle_ready = 0;      /* castle casing textures loaded (board_load_assets) */
 static int s_table_castle_selected = 0;   /* settings.table_design == CASTLE, refreshed per table frame */
+static int s_castle_bezel_muted = 0;      /* presentation draws (capture-info preview) opt out */
 
 static const char* get_path(const char* sub) {
     const char *base = GetApplicationDirectory();
@@ -543,6 +544,8 @@ int board_castle_skin_active(void) {
        this) without stubbing the game's settings global. */
     return s_table_castle_ready && s_table_castle_selected;
 }
+
+void board_set_castle_bezel_muted(int muted) { s_castle_bezel_muted = muted; }
 
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered) {
     float step = 96.0f, total_w = (total_cards > 0) ? ((total_cards - 1) * step + HAND_CARD_W) : 0;
@@ -734,18 +737,21 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
 }
 
 /* Castle card bezel (tables/table_castle/final/_manifest.json, bezel_hand): texture
-   167x261, measured cavity (13.05, 7.95, 139.05, 241.95) px. At canvas scale the
-   cavity is 161.3 px tall around the 143 px hand card, so the bezel scales by card
-   HEIGHT (deal/stock flips squeeze width, never height) with the cavity centre on
-   the card centre; the drawn width follows a flip's squeeze so the frame turns with
-   its card. Cards under 60 px tall (capture-lane minis) get no bezel. */
+   167x261, measured cavity (13.05, 7.95, 139.05, 241.95) px. The fitter clears the
+   cavity to alpha 0, so the frame draws OVER its card like the frame over a picture:
+   scaled by card HEIGHT (deal/stock flips squeeze width, never height) with the
+   cavity centre on the card centre, and the drawn width follows a flip's squeeze so
+   the frame turns with its card. The cavity is a narrower aspect than the card
+   (139.05/241.95 vs ~0.615), so at cavity height ~ card height the bronze lip overlaps
+   the card's long edges by ~2-3 px - the card sits behind the border. Cards under
+   60 px tall (capture-lane minis) get no bezel. */
 #define CASTLE_BEZEL_CAV_CX 82.575f    /* cavity centre, bezel texture px */
 #define CASTLE_BEZEL_CAV_CY 128.925f
 #define CASTLE_BEZEL_CAV_H  241.95f
-#define CASTLE_BEZEL_RATIO  (161.3f / 143.0f)   /* cavity height per card height */
+#define CASTLE_BEZEL_RATIO  0.99f      /* cavity height per card height */
 
 static void board_draw_castle_bezel(const BoardAssets *ba, Rectangle dest) {
-    if (!ba->has_table_castle || !board_castle_skin_active()) return;
+    if (s_castle_bezel_muted || !ba->has_table_castle || !board_castle_skin_active()) return;
     if (dest.width <= 0.0f || dest.height < 60.0f) return;
     float s = (dest.height * CASTLE_BEZEL_RATIO) / CASTLE_BEZEL_CAV_H;
     float squeeze = dest.width / (dest.height * 0.615f);   /* 1.0 at rest, <1 mid-flip */
@@ -767,18 +773,18 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
         return;
     }
     card_tooltip_record(card_id, dest);
-    board_draw_castle_bezel(ba, dest);
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    board_draw_castle_bezel(ba, dest);   /* hollow frame over the face (no-op off-castle) */
     if (!board_castle_skin_active()) DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
 
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
     card_tooltip_record(-1, dest);
-    board_draw_castle_bezel(ba, dest);
     Rectangle src = { 0, 0, (float)ba->card_back.width, (float)ba->card_back.height };
     DrawTexturePro(ba->card_back, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    board_draw_castle_bezel(ba, dest);
     if (!board_castle_skin_active()) {
         Color bo = g_theme.dim; bo.a = 100; Color bi = g_theme.base; bi.a = 180;
         DrawRectangleLinesEx((Rectangle){ dest.x - 1, dest.y - 1, dest.width + 2, dest.height + 2 }, 1.0f, bo);

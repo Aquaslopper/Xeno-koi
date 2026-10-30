@@ -282,8 +282,19 @@ def build_cut_and_place(spec, folder):
                 unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
             cav_px = [(cav[0] - corp[0]) * ns * k, (cav[1] - corp[1]) * ns * k,
                       cav[2] * ns * k, cav[3] * ns * k]
+            # Hollow frame (owner live test, 30 Oct 2026): the cavity clears to alpha 0
+            # so the game draws the bezel OVER its card - frame over picture - instead
+            # of the card sitting on an opaque leather mat longer than the card itself.
+            arr = np.array(unit)
+            x0, y0 = round(cav_px[0]), round(cav_px[1])
+            x1, y1 = round(cav_px[0] + cav_px[2]), round(cav_px[1] + cav_px[3])
+            arr[max(y0, 0):min(y1, unit.height), max(x0, 0):min(x1, unit.width), 3] = 0
+            unit = Image.fromarray(arr, "RGBA")
+            r, g, b, a = unit.split()
+            unit = Image.merge("RGBA", (r, g, b, a.filter(ImageFilter.GaussianBlur(0.8))))
             out_manifest[c["name"]] = {"size": [unit.width, unit.height],
                                        "cavity_px": [round(v, 2) for v in cav_px],
+                                       "cavity_cleared": True,
                                        "card_size": c.get("card_size")}
             status, target = "ok", f"card {c['card_size'][0]}x{c['card_size'][1]}"
             inside = f"cav {cav_px[2]:.0f}x{cav_px[3]:.0f}px"

@@ -36,6 +36,10 @@ void board_unload_assets(BoardAssets *ba);
    panel fills/hairlines so the forged casing shows through (tables/table_castle/). */
 int board_castle_skin_active(void);
 
+/* Mute the castle card bezel for presentation draws that are not table cards (the
+   capture-info hover preview): board_set_castle_bezel_muted(1), draw, then (0). */
+void board_set_castle_bezel_muted(int muted);
+
 /* Geometry helpers */
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered);
 Rectangle board_get_field_card_rect(int index, int total_cards);

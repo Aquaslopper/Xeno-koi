@@ -128,9 +128,12 @@ void capture_info_draw(const BoardAssets *ba) {
     DrawRectangleRec(panel, bg);
     ui_draw_panel_border(panel, COLOR_PHOSPHOR);
 
-    /* Crisp full-resolution card preview on the left (106 x 172 matches 176:286 card ratio). */
+    /* Crisp full-resolution card preview on the left (106 x 172 matches 176:286 card ratio).
+       A presentation draw, not a table card: no castle bezel over the panel chrome. */
     Rectangle card_rect = { 22.0f, 318.0f, 106.0f, 172.0f };
+    board_set_castle_bezel_muted(1);
     board_draw_card(ba, s_card_id, card_rect);
+    board_set_castle_bezel_muted(0);
     board_draw_card_glow(card_rect, 0.55f);
 
     /* Five aligned info rows on the right column inside x = 138..259. */

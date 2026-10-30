@@ -162,17 +162,25 @@ placement: lanes 0.6–6 px, right column ≤2 px — border shadows only, no ca
   link the sidebar path without stubbing it). The overlay draws right after the backdrop
   dim/gradient/ash, below every live element. While active, the CRT `COLOR_PANEL_BG` fills
   and `ui_draw_panel_border` hairlines are skipped on the score strips, capture lanes, combo
-  sidebar and PAUSE/RESTART — live text, counts, minis, flash feedback, glows, tooltips and
-  the hover hairline are untouched. Interiors stay the art's opaque leather. With castle not
+  sidebar and PAUSE/RESTART (including the PAUSE/RESTART hover box in `ui_main.c` — the
+  hitbox-sized box read as offset inside the wider bronze cavity; the hover label stays) —
+  live text, counts, minis, flash feedback, glows and tooltips are untouched. Interiors stay
+  the art's opaque leather. With castle not
   selected, every draw call is byte-for-byte the old CRT path.
-- **Bezels:** one texture for every card size, drawn under the card inside
-  `board_draw_card`/`board_draw_card_back`. It scales by card **height** (cavity height
-  161.3 canvas px per 143 px of card, cavity centre on card centre) and its drawn width
-  follows a flip's width squeeze, so frames turn with their cards during deal/stock flips
-  and fly with them. Cards under 60 px tall (capture-lane minis) get no bezel. This is what
-  makes 8-card hands work with a 7-frame delivered strip: no strip is ever placed.
+- **Bezels:** one texture for every card size, drawn **over** the card inside
+  `board_draw_card`/`board_draw_card_back`. Live test #1 rejected the first treatment (card
+  on an opaque leather mat longer than the card), so the fitter now clears each bezel's
+  measured cavity to alpha 0 — a hollow frame, the card behind the border. It scales by card
+  **height** at cavity height ≈ card height × 0.99 (the cavity aspect is narrower than the
+  card's, so the bronze lip overlaps the long edges by ~2–3 px), cavity centre on card
+  centre, and its drawn width follows a flip's width squeeze, so frames turn with their
+  cards during deal/stock flips and fly with them. Cards under 60 px tall (capture-lane
+  minis) get no bezel, and presentation draws can mute it
+  (`board_set_castle_bezel_muted` — the capture-info hover preview does). This is what makes
+  8-card hands work with a 7-frame delivered strip: no strip is ever placed.
   `final/bezel_cpu.png`/`bezel_field.png` are kept for the record; the hand frame at the
-  other sizes lands within ~1 px of their measured cavities.
+  other sizes lands within ~1 px of their measured cavities. Comparison:
+  `preview/castle-bezel-hollow.png`.
 - The score strips carry the turn cue: when a strip is active, `board_draw_info_box` draws
   breathing rings (2.5 px on the box, 2 px at box−3), panel flares and a filled `>>` tag at
   x 236..261, box.y+5..+25 (`ui_board_status.c:32-57`) — under castle those rings would draw on
