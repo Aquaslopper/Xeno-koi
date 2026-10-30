@@ -743,7 +743,11 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
    cavity centre on the card centre, and the drawn width follows a flip's squeeze so
    the frame turns with its card. The cavity is a narrower aspect than the card
    (139.05/241.95 vs ~0.615), so at cavity height ~ card height the bronze lip overlaps
-   the card's long edges by ~2-3 px - the card sits behind the border. Cards under
+   the card's long edges by ~2-3 px - the card sits behind the border. Drawn as a
+   SANDWICH - once under the card, once over it (owner live test #2): the delivered
+   frame art is soft-alpha throughout, so a single pass leaves the parts outside the
+   card reading faint while bright faces dominate; two passes lay the outer frame
+   down at full strength and the lip over the card's own printed edge. Cards under
    60 px tall (capture-lane minis) get no bezel. */
 #define CASTLE_BEZEL_CAV_CX 82.575f    /* cavity centre, bezel texture px */
 #define CASTLE_BEZEL_CAV_CY 128.925f
@@ -773,15 +777,17 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
         return;
     }
     card_tooltip_record(card_id, dest);
+    board_draw_castle_bezel(ba, dest);   /* sandwich under-layer (no-op off-castle) */
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
-    board_draw_castle_bezel(ba, dest);   /* hollow frame over the face (no-op off-castle) */
+    board_draw_castle_bezel(ba, dest);   /* hollow frame over the face */
     if (!board_castle_skin_active()) DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
 
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
     card_tooltip_record(-1, dest);
+    board_draw_castle_bezel(ba, dest);   /* sandwich under-layer */
     Rectangle src = { 0, 0, (float)ba->card_back.width, (float)ba->card_back.height };
     DrawTexturePro(ba->card_back, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     board_draw_castle_bezel(ba, dest);

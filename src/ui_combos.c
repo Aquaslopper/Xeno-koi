@@ -26,6 +26,13 @@ static void label(const char *text, float x, float y, float width, float size, C
     DrawTextEx(font_body, clipped, (Vector2){ x, y }, size, 0.5f, color);
 }
 
+/* Left x that centres a sidebar label (measured like label(), capped at its 96 px) on cx. */
+static float label_centered_x(const char *text, float size, float cx) {
+    float w = MeasureTextEx(font_body, text, size, 0.5f).x;
+    if (w > 96.0f) w = 96.0f;
+    return cx - w * 0.5f;
+}
+
 Rectangle combos_panel_rect(int player) {
     return (Rectangle){ 1160, player == 1 ? 88 : 316, 112, 218 };
 }
@@ -48,12 +55,18 @@ void combos_draw_sidebar(const GameState *g) {
         DrawRectangleRec(mode, COLOR_PANEL_BG);
         ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
     }
-    label(sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
-                  : TextFormat("RND %d/%d", g->current_round, g->total_rounds),
-          1168, 20, 96, 16, COLOR_PHOSPHOR);
+    /* Castle: the mode cavity measures x 1151.7..1269.7 (tables/table_castle/final/
+       _manifest.json, rnd_panel), so text left-aligned at 1168 leaves a wide empty
+       leather margin on its left and reads shifted right - centre the two mode lines
+       on the cavity (cx ~1211) instead. CRT keeps the left-aligned 1168. */
+    const char *rnd_line = sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
+                                   : TextFormat("RND %d/%d", g->current_round, g->total_rounds);
+    label(rnd_line, castle_skin ? label_centered_x(rnd_line, 16, 1211.0f) : 1168,
+          20, 96, 16, COLOR_PHOSPHOR);
     float size = 16;
     while (size > 12 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 96) size--;
-    label(mode_name, 1168, 47, 96, size, COLOR_TEXT_INFO);
+    label(mode_name, castle_skin ? label_centered_x(mode_name, size, 1211.0f) : 1168,
+          47, 96, size, COLOR_TEXT_INFO);
     for (int p = 1; p >= 0; p--) {
         if (sc_mode && p == 1) continue;
         ScoreResult s = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);

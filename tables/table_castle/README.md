@@ -174,13 +174,21 @@ placement: lanes 0.6–6 px, right column ≤2 px — border shadows only, no ca
   **height** at cavity height ≈ card height × 0.99 (the cavity aspect is narrower than the
   card's, so the bronze lip overlaps the long edges by ~2–3 px), cavity centre on card
   centre, and its drawn width follows a flip's width squeeze, so frames turn with their
-  cards during deal/stock flips and fly with them. Cards under 60 px tall (capture-lane
+  cards during deal/stock flips and fly with them. Live test #2 made it a **sandwich** —
+  bezel under the card and over it — because the soft-alpha frame art reads faint in a
+  single pass against bright faces. Cards under 60 px tall (capture-lane
   minis) get no bezel, and presentation draws can mute it
   (`board_set_castle_bezel_muted` — the capture-info hover preview does). This is what makes
   8-card hands work with a 7-frame delivered strip: no strip is ever placed.
   `final/bezel_cpu.png`/`bezel_field.png` are kept for the record; the hand frame at the
   other sizes lands within ~1 px of their measured cavities. Comparison:
   `preview/castle-bezel-hollow.png`.
+- **Terminal colour (owner note, live test #2):** the amber theme (`terminal_color 1`) makes
+  the game's text read as one with the bronze — the palette the table wants. DEUS already
+  forces its own theme colour per session (`storage.c`: `terminal_color 5` in memory, the
+  player's real setting restored from a snapshot on save); castle could force amber while
+  selected the same way. Owner decision — not implemented; amber set manually in Options
+  already gives the effect.
 - The score strips carry the turn cue: when a strip is active, `board_draw_info_box` draws
   breathing rings (2.5 px on the box, 2 px at box−3), panel flares and a filled `>>` tag at
   x 236..261, box.y+5..+25 (`ui_board_status.c:32-57`) — under castle those rings would draw on

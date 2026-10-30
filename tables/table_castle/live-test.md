@@ -27,6 +27,30 @@ so they get written down here and become the next forge pass's work list.
 
 ---
 
+### 2026-10-30 · beta port + fine-tune #1 (`85f5a41`) · owner live test #2
+
+- **Table id / selector:** `CASTLE (BETA)`, as before.
+- **Tested:** re-test after fine-tune #1 — hollow bezels on faces and backs, the RND/ruleset
+  box, terminal-colour harmony.
+- **Worked:** bezel direction confirmed (hollow, over the card); card backs read fully
+  framed; the capture-info preview and PAUSE/RESTART hover fixes from #1 stand. Amber
+  terminal colour makes the text read as one with the bronze — kept in mind (below).
+- **Broke:**
+  1. *Face side still above the bezel* → the delivered frame art is soft-alpha, so one pass
+     leaves the frame faint against bright faces → expected: bezel applied **twice**, under
+     and over the card (sandwich), only then does the border fully apply.
+  2. *RND/ruleset content right-of-centre* → the mode cavity measures x 1151.7..1269.7, so
+     text left-aligned at the game's x 1168 parks its empty margin on the left → expected:
+     the two lines centred in the box.
+- **Verdict:** forge again (fine-tune); fixes applied the same day, awaiting re-test.
+- **Next action:** owner re-tests. Fixes: sandwich bezel in `board_draw_card` /
+  `board_draw_card_back` (comparison: `preview/castle-bezel-sandwich.png`); mode lines
+  centred on cavity cx 1211 under castle (`label_centered_x`, CRT untouched). **Amber, for a
+  later owner decision:** DEUS already forces its theme colour per session
+  (`storage.c`: `terminal_color 5` in memory, snapshot restored on save) — castle could
+  force amber (1) while selected the same way. Not implemented; setting amber manually in
+  Options already gives the effect.
+
 ### 2026-10-30 · beta port (`2378423`) · owner live test #1
 
 - **Table id / selector:** `CASTLE (BETA)` — Pancratium → CARD TABLE picker, index 2
