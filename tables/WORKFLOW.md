@@ -133,7 +133,9 @@ round. The loop, and where each stage writes:
     after round, until the owner made a correct one by hand in five minutes. Rule: never state
     a property of an asset — transparent, fitted, on-canvas — without opening the produced
     file in the same pass (checkerboard composite, alpha numbers). Do not lie about the asset;
-    check it.
+    check it. The settlement: a transparent card bezel is **owner-provided** art
+    (`assets_castle/castle_card_bezel.png`), not something the agent manufactures — the fitter
+    measures its cavity, the game mirrors the constants.
 
 ## Open decisions
 
