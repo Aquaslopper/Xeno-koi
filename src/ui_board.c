@@ -914,6 +914,8 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
 
 static void draw_speedcoin_clock_panel(void) {
     Rectangle r = { 12.0f, 12.0f, CAPTURE_PANEL_W, 196.0f };
+    int castle_skin = board_castle_skin_active();
+    int city_skin = board_city_skin_active();
     int last_delta = 0;
     float flash = speed_mode_clock_flash(&last_delta);
     float sec = speed_mode_clock();
@@ -921,11 +923,11 @@ static void draw_speedcoin_clock_panel(void) {
     Color accent = low ? COLOR_RED : COLOR_PHOSPHOR;
     if (flash > 0.01f) accent = (last_delta < 0) ? COLOR_RED : (Color){ 255, 224, 108, 255 };
 
-    DrawRectangleRec(r, COLOR_PANEL_BG);
+    if (!castle_skin && !city_skin) DrawRectangleRec(r, COLOR_PANEL_BG);
     if (flash > 0.01f || low) {
         ui_theme_set_panel_flare_glow(r, fmaxf(flash, low ? 0.65f : 0.0f));
     }
-    ui_draw_panel_border(r, accent);
+    if (!castle_skin && !city_skin) ui_draw_panel_border(r, accent);
     DrawLine((int)(r.x + 12.0f), (int)(r.y + 44.0f), (int)(r.x + r.width - 12.0f), (int)(r.y + 44.0f), COLOR_PHOSPHOR_DIM);
 
     draw_centered_text(font_title, "TIME REMAINING", r.x + r.width * 0.5f, r.y + 16.0f, 15.0f, 1.0f, COLOR_PHOSPHOR);
