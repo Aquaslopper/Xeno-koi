@@ -736,24 +736,23 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
                            (Color){ 255, 255, 255, bot_a });
 }
 
-/* Castle card bezel (tables/table_castle/final/_manifest.json, bezel_hand): texture
-   167x261, measured cavity (13.05, 7.95, 139.05, 241.95) px. The fitter clears the
-   cavity to alpha 0, so the frame draws OVER its card like the frame over a picture:
-   scaled by card HEIGHT (deal/stock flips squeeze width, never height) with the
-   cavity centre on the card centre, and the drawn width follows a flip's squeeze so
-   the frame turns with its card. The cavity is a narrower aspect than the card
-   (139.05/241.95 vs ~0.615), so at cavity height ~ card height the bronze lip overlaps
-   the card's long edges by ~2-3 px - the card sits behind the border. Drawn as a
-   SANDWICH - once under the card, once over it (owner live test #2): the delivered
-   frame art is soft-alpha throughout, so a single pass leaves the parts outside the
-   card reading faint while bright faces dominate; two passes lay the outer frame
-   down at full strength and the lip over the card's own printed edge. Cards under
-   60 px tall (capture-lane minis) get no bezel. */
-#define CASTLE_BEZEL_CAV_CX 82.575f    /* cavity centre, bezel texture px */
-#define CASTLE_BEZEL_CAV_CY 128.925f
-#define CASTLE_BEZEL_CAV_H  241.95f
-#define CASTLE_BEZEL_RATIO  0.94f      /* cavity height per card height (<1: the frame grips;
-                                          floor ~0.927 keeps the outer edge outside the card) */
+/* Castle card bezel (tables/table_castle/final/_manifest.json, bezel_hand): the
+   OWNER-PROVIDED transparent frame tables/assets_castle/castle_card_bezel.png
+   (95x136, measured transparent cavity (10, 6, 79, 122) px) - provided art, not
+   manufactured by the fitter (WORKFLOW.md trap 17); these constants mirror its
+   measured cavity. Drawn as a SANDWICH - once under the card, once over it - so
+   the card is covered by the border on both sides: scaled by card HEIGHT
+   (deal/stock flips squeeze width, never height) with the cavity centre on the
+   card centre, and the drawn width follows a flip's squeeze so the frame turns
+   with its card. The cavity (79/122 ~ 0.648) is a touch wider in aspect than the
+   card (~0.615): at the ratio below the side rails abut the card, the top/bottom
+   lip overlaps ~3-4 px at hand size, and the frame silhouette stays ~3-8 px proud
+   of the card. Cards under 60 px tall (capture-lane minis) get no bezel. */
+#define CASTLE_BEZEL_CAV_CX 49.5f    /* cavity centre, bezel texture px */
+#define CASTLE_BEZEL_CAV_CY 67.0f
+#define CASTLE_BEZEL_CAV_H  122.0f
+#define CASTLE_BEZEL_RATIO  0.94f      /* cavity height per card height (window for this
+                                          texture: >=0.897 silhouette, <=0.950 no side gap) */
 
 static void board_draw_castle_bezel(const BoardAssets *ba, Rectangle dest) {
     if (s_castle_bezel_muted || !ba->has_table_castle || !board_castle_skin_active()) return;

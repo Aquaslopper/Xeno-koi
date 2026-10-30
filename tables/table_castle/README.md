@@ -167,22 +167,21 @@ placement: lanes 0.6–6 px, right column ≤2 px — border shadows only, no ca
   live text, counts, minis, flash feedback, glows and tooltips are untouched. Interiors stay
   the art's opaque leather. With castle not
   selected, every draw call is byte-for-byte the old CRT path.
-- **Bezels:** one texture for every card size, drawn **over** the card inside
-  `board_draw_card`/`board_draw_card_back`. Live test #1 rejected the first treatment (card
-  on an opaque leather mat longer than the card), so the fitter now clears each bezel's
-  measured cavity to alpha 0 — a hollow frame, the card behind the border. It scales by card
-  **height** at cavity height ≈ card height × 0.99 (the cavity aspect is narrower than the
-  card's, so the bronze lip overlaps the long edges by ~2–3 px), cavity centre on card
-  centre, and its drawn width follows a flip's width squeeze, so frames turn with their
-  cards during deal/stock flips and fly with them. Live test #2 made it a **sandwich** —
-  bezel under the card and over it — because the soft-alpha frame art reads faint in a
-  single pass against bright faces. Cards under 60 px tall (capture-lane
-  minis) get no bezel, and presentation draws can mute it
-  (`board_set_castle_bezel_muted` — the capture-info hover preview does). This is what makes
-  8-card hands work with a 7-frame delivered strip: no strip is ever placed.
-  `final/bezel_cpu.png`/`bezel_field.png` are kept for the record; the hand frame at the
-  other sizes lands within ~1 px of their measured cavities. Comparison:
-  `preview/castle-bezel-hollow.png`.
+- **Bezels:** the shipped texture is the **owner-provided** transparent frame
+  `assets_castle/castle_card_bezel.png` (95×136, transparent cavity 79×122) — provided art,
+  not manufactured by the fitter (WORKFLOW trap 17: agent-cut hollow bezels chopped the
+  corner ornaments and never read right in four tries). `./tables/build.sh table_castle`
+  measures its cavity into `final/_manifest.json` (`final/bezel_hand.png` is that file,
+  passed through pixel-identical; the strip-cut `bezel_cpu`/`bezel_field` finals remain
+  for the record) and `ui_board.c` mirrors the constants. One texture for every card size,
+  drawn as a **sandwich** — under the card and over it, so the card is covered by its
+  borders on both sides — scaled by card **height** at cavity height ≈ card height × 0.94
+  (side rails abut the card, top/bottom lip ~3–4 px at hand size, silhouette ~3–8 px
+  proud), cavity centre on card centre, drawn width following a flip's squeeze. Cards
+  under 60 px tall (capture-lane minis) get no bezel, and presentation draws can mute it
+  (`board_set_castle_bezel_muted` — the capture-info hover preview does). One bezel per
+  card is what makes 8-card hands work with a 7-frame delivered strip: no strip is ever
+  placed. Proof: `preview/castle-bezel-owner.png`.
 - **Terminal colour (owner note, live test #2):** the amber theme (`terminal_color 1`) makes
   the game's text read as one with the bronze — the palette the table wants. DEUS already
   forces its own theme colour per session (`storage.c`: `terminal_color 5` in memory, the

@@ -397,16 +397,17 @@
  },
  "bezel_hand": {
   "size": [
-   167,
-   261
+   95,
+   136
   ],
   "cavity_px": [
-   13.05,
-   7.95,
-   139.05,
-   241.95
+   10.0,
+   6.0,
+   79.0,
+   122.0
   ],
   "cavity_cleared": true,
+  "provided": "castle_card_bezel.png",
   "card_size": [
    88,
    143

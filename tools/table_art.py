@@ -277,6 +277,41 @@ def build_cut_and_place(spec, folder):
         unit = im.crop(tuple(crop))
         cav, corp = c["cavity_measured"], c["crop"]
         if c.get("group") == "bezel":
+            provided = os.path.join(raw, "castle_card_bezel.png")
+            if c["name"] == "bezel_hand" and os.path.exists(provided):
+                # The shipped card bezel is OWNER-PROVIDED art (WORKFLOW trap 17):
+                # already transparent inside, only the border kept. The fitter does
+                # not manufacture it - it measures the transparent cavity so the
+                # game constants can mirror it, and passes the file through.
+                unit = Image.open(provided).convert("RGBA")
+                a = np.array(unit)[..., 3]
+                sx, sy = unit.width // 2, unit.height // 2
+                if a[sy, sx] >= 128:
+                    raise SystemExit("castle_card_bezel.png: centre is not transparent - "
+                                     "the provided bezel must be hollow")
+                seen = np.zeros(a.shape, bool)
+                dq = deque([(sx, sy)])
+                seen[sy, sx] = True
+                while dq:
+                    x, y = dq.popleft()
+                    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                        if 0 <= nx < unit.width and 0 <= ny < unit.height \
+                                and not seen[ny, nx] and a[ny, nx] < 128:
+                            seen[ny, nx] = True
+                            dq.append((nx, ny))
+                ys, xs = np.nonzero(seen)
+                cav_px = [float(xs.min()), float(ys.min()),
+                          float(xs.max() - xs.min() + 1), float(ys.max() - ys.min() + 1)]
+                out_manifest[c["name"]] = {"size": [unit.width, unit.height],
+                                           "cavity_px": cav_px,
+                                           "cavity_cleared": True,
+                                           "provided": "castle_card_bezel.png",
+                                           "card_size": c.get("card_size")}
+                unit.save(os.path.join(final, c["name"] + ".png"))
+                report.append((c["name"], f"{unit.width}x{unit.height}",
+                               f"cav {cav_px[2]:.0f}x{cav_px[3]:.0f}px",
+                               f"card {c['card_size'][0]}x{c['card_size'][1]}", "ok"))
+                continue
             k = us                                          # native res; the game scales
             if k != 1.0:
                 unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
