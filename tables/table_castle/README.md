@@ -118,9 +118,9 @@ right column grows left), thin only at the canvas edges.
 | cpu_lane_0..3 | 256.7×34.7–36.7 | 255×37.4 | (−1.7, +0.7..+2.7) | left, centre-y | 7–8/2–5/7–8/3–6 |
 | you_lane_0..3 | 260.7–262.7×32.7–36 | 255×37.4 | (−5.7..−7.7, +1.4..+4.7) | left, centre-y | 6–7/2–5/12/1–4 |
 | you_score | 210.7×34.7 | 255×30 | (+44.3, −4.7) — cavity stops at the art's `>>` button; the score text is short and left-drawn | left, centre-y | 7/5/23/9 |
-| rnd_panel | 118×66.7 | 112×66 | (−6.0, −0.7) | outer-right@1278, top | 16/5/6/7 |
-| cpu_combos | 118×204.7 ×1.065 | 112×218 | (−13.7, 0.0) | outer-right@1278, top | 26/5/6/6 |
-| your_combos | 118.7×203.3 ×1.072 | 112×218 | (−15.3, 0.0) | outer-right@1278, top | 26/6/6/7 |
+| rnd_panel | 118×66.7 | 112×66 | (−6.0, −0.7) | tower cavity-cx@1205.3, top | 21/5/1/7 |
+| cpu_combos | 118×204.7 ×1.065 | 112×218 | (−13.7, 0.0) | tower cavity-cx@1205.3, top | 26/5/6/6 |
+| your_combos | 118.7×203.3 ×1.072 | 112×218 | (−15.3, 0.0) | tower cavity-cx@1205.3, top | 26/6/6/6 |
 | pause / restart | 120.7×36.7 / 121.3×37.3 | 112×40 | (−8.7..−9.3, +2.7..+3.3) | outer-right@1278, centre-y | 21/4–5/6/5–6 |
 | stock_frame | 91.3×146 ×0.849 | 76×124 | (−1.5, 0.0) | cavity on card rect | 9/5/10/7 |
 | stock_plaque | 64×22.7 | count text (356,392) 18 px | — | cavity → (336,390), centred under the deck (368) | 7/3/7/4 |

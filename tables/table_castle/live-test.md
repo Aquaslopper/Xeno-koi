@@ -27,6 +27,29 @@ so they get written down here and become the next forge pass's work list.
 
 ---
 
+### 2026-10-30 · fine-tune #2 (`22a31b4`) · owner live test #3
+
+- **Table id / selector:** `CASTLE (BETA)`, as before.
+- **Tested:** re-test — sandwich bezels on faces, RND box centring from #2.
+- **Worked:** the sandwich construction itself (backs still read correct); the grip was too
+  shallow, see below.
+- **Broke:**
+  1. *Card still sits on top of the bezel* → at cavity height ≈ card height (× 0.99) the
+     top/bottom rails overlap the card by <1 px and the sides by ~3 px, so the frame reads
+     as a border around the card, not holding it → expected: the **card in the sandwich** —
+     bronze visibly in front on every side.
+  2. *RND box still offset right* → it was the box, not its text: outer-right placement
+     puts the narrower RND cavity's centre ~5 px right of the combo panels' axis (left edge
+     ~10 px right of theirs) inside one contiguous tower → expected: one centre axis.
+- **Verdict:** forge again (fine-tune); fixes applied the same day, awaiting re-test.
+- **Next action:** owner re-tests. Fixes: bezel ratio × 0.99 → **× 0.94** (the bronze band
+  now lies mostly over the card — lip ~5 px at hand size, proportional elsewhere — while
+  the silhouette stays just proud of the card; floor ~0.927. Comparison:
+  `preview/castle-bezel-grip.png`); the rnd+combos tower's cavities aligned on **cx 1205.3**
+  in the record (rnd moves 5.4 px left), finals + overlay rebuilt, and the mode lines now
+  centre on that same axis. Buttons keep outer-right placement (separate island, labels
+  game-centred at 1216) — flag if they now read off-axis against the tower.
+
 ### 2026-10-30 · beta port + fine-tune #1 (`85f5a41`) · owner live test #2
 
 - **Table id / selector:** `CASTLE (BETA)`, as before.

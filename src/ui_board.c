@@ -752,7 +752,8 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
 #define CASTLE_BEZEL_CAV_CX 82.575f    /* cavity centre, bezel texture px */
 #define CASTLE_BEZEL_CAV_CY 128.925f
 #define CASTLE_BEZEL_CAV_H  241.95f
-#define CASTLE_BEZEL_RATIO  0.99f      /* cavity height per card height */
+#define CASTLE_BEZEL_RATIO  0.94f      /* cavity height per card height (<1: the frame grips;
+                                          floor ~0.927 keeps the outer edge outside the card) */
 
 static void board_draw_castle_bezel(const BoardAssets *ba, Rectangle dest) {
     if (s_castle_bezel_muted || !ba->has_table_castle || !board_castle_skin_active()) return;
