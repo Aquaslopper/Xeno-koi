@@ -64,6 +64,13 @@ forge (tables/)  ->  beta port (src/, selectable)  ->  owner plays  ->  back to 
    ground truth for alignment questions: measure its pixels.
 8. **Existing picker indices never move.** New tables append (`TABLE_DESIGN_*` in
    `src/storage.h`, names in `src/campaign.c`); old saves keep their meaning.
+9. **Small passes, checkpointed to disk — your memory is finite.** A session dies without
+   warning, and anything not written into the table's folder and committed dies with it
+   (WORKFLOW trap 20). Each pass ends at a verifiable state on disk: measure → record →
+   build → verify → commit. Keep it as simple as the record allows: the tools that exist,
+   no new general tooling for one table, targeted reads (headings, greps, line ranges)
+   instead of whole files poured into context. Still "preparing" after ~30 minutes means
+   overengineering — cut to the next verifiable deliverable and write down where you are.
 
 ## The two art paths
 
