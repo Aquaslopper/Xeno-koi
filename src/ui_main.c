@@ -1934,12 +1934,13 @@ static void update_draw_frame(void) {
                fill/border would sit visibly offset inside the wider cavity (owner live
                test, 30 Oct). The hover label alone stays as the feedback. */
             int castle_skin = board_castle_skin_active();
+            int city_skin = board_city_skin_active();
             if (CheckCollisionPointRec(vm, pause_btn)) {
-                if (!castle_skin) { DrawRectangleRec(pause_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
+                if (!castle_skin && !city_skin) { DrawRectangleRec(pause_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
                 draw_hover_action_label("PAUSE", pause_btn);
             }
             if (CheckCollisionPointRec(vm, restart_btn)) {
-                if (!castle_skin) { DrawRectangleRec(restart_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
+                if (!castle_skin && !city_skin) { DrawRectangleRec(restart_btn, COLOR_BTN_HOVER_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
                 draw_hover_action_label(replay_running ? "STOP" : "RESTART", restart_btn);
             }
         }

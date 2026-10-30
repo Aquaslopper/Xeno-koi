@@ -434,6 +434,9 @@ static char path_buf[512];
 static int s_table_castle_ready = 0;      /* castle casing textures loaded (board_load_assets) */
 static int s_table_castle_selected = 0;   /* settings.table_design == CASTLE, refreshed per table frame */
 static int s_castle_bezel_muted = 0;      /* presentation draws (capture-info preview) opt out */
+static int s_table_city_ready = 0;        /* city casing textures loaded (board_load_assets) */
+static int s_table_city_selected = 0;     /* settings.table_design == CITY, refreshed per table frame */
+static int s_city_bezel_muted = 0;        /* presentation draws (capture-info preview) opt out */
 
 static const char* get_path(const char* sub) {
     const char *base = GetApplicationDirectory();
@@ -468,6 +471,13 @@ void board_load_assets(BoardAssets *ba) {
     if (ba->table_castle_bezel.id > 0) { GenTextureMipmaps(&ba->table_castle_bezel); SetTextureFilter(ba->table_castle_bezel, TEXTURE_FILTER_TRILINEAR); }
     ba->has_table_castle = (ba->table_castle_overlay.id > 0 && ba->table_castle_bezel.id > 0);
     s_table_castle_ready = ba->has_table_castle;
+
+    ba->table_city_overlay = LoadTexture(get_path("assets/table_city_overlay.png"));
+    if (ba->table_city_overlay.id > 0) { GenTextureMipmaps(&ba->table_city_overlay); SetTextureFilter(ba->table_city_overlay, TEXTURE_FILTER_TRILINEAR); }
+    ba->table_city_bezel = LoadTexture(get_path("assets/table_city_bezel.png"));
+    if (ba->table_city_bezel.id > 0) { GenTextureMipmaps(&ba->table_city_bezel); SetTextureFilter(ba->table_city_bezel, TEXTURE_FILTER_TRILINEAR); }
+    ba->has_table_city = (ba->table_city_overlay.id > 0 && ba->table_city_bezel.id > 0);
+    s_table_city_ready = ba->has_table_city;
 
     Image img = LoadImage(get_path("assets/back.png"));
     if (img.data) {
@@ -530,6 +540,10 @@ void board_unload_assets(BoardAssets *ba) {
     if (ba->table_castle_bezel.id > 0) UnloadTexture(ba->table_castle_bezel);
     ba->has_table_castle = 0;
     s_table_castle_ready = 0;
+    if (ba->table_city_overlay.id > 0) UnloadTexture(ba->table_city_overlay);
+    if (ba->table_city_bezel.id > 0) UnloadTexture(ba->table_city_bezel);
+    ba->has_table_city = 0;
+    s_table_city_ready = 0;
     for (int i = 0; i < 8; i++) {
         UnloadTexture(ba->bgs[i]);
         if (ba->bg_normals[i].id > 0) UnloadTexture(ba->bg_normals[i]);
@@ -546,6 +560,15 @@ int board_castle_skin_active(void) {
 }
 
 void board_set_castle_bezel_muted(int muted) { s_castle_bezel_muted = muted; }
+
+int board_city_skin_active(void) {
+    /* Reads no globals on purpose: board_draw_table refreshes the selection flag each
+       frame, so the headless UI tests can link the sidebar/card paths (which consult
+       this) without stubbing the game's settings global. */
+    return s_table_city_ready && s_table_city_selected;
+}
+
+void board_set_city_bezel_muted(int muted) { s_city_bezel_muted = muted; }
 
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered) {
     float step = 96.0f, total_w = (total_cards > 0) ? ((total_cards - 1) * step + HAND_CARD_W) : 0;
@@ -770,6 +793,37 @@ static void board_draw_castle_bezel(const BoardAssets *ba, Rectangle dest) {
                    bd, (Vector2){ 0, 0 }, 0.0f, WHITE);
 }
 
+/* City card bezel (tables/table_city/final/_manifest.json, bezel_hand): the
+   OWNER-PROVIDED transparent frame tables/assets_city/bezzel_card_city.png
+   (136x232, measured transparent cavity (16, 22, 99, 190) px) - provided art, not
+   manufactured by the fitter (WORKFLOW.md trap 17); these constants mirror its
+   measured cavity. Drawn as a SANDWICH - once under the card, once over it - so the
+   card is covered by the border on both sides: scaled by card HEIGHT with the cavity
+   centre on the card centre, and the drawn width follows a flip's squeeze. Cards under
+   60 px tall (capture-lane minis) get no bezel. Ratio 0.94 matches castle's accepted
+   grip; the cavity aspect (99/190 ~ 0.521) is narrower than the card (~0.615) so the
+   side rails sit slightly proud of the card. Port-time decision - confirm live. */
+#define CITY_BEZEL_CAV_CX 65.5f    /* cavity centre, bezel texture px */
+#define CITY_BEZEL_CAV_CY 117.0f
+#define CITY_BEZEL_CAV_H  190.0f
+#define CITY_BEZEL_RATIO  0.94f      /* cavity height per card height */
+
+static void board_draw_city_bezel(const BoardAssets *ba, Rectangle dest) {
+    if (s_city_bezel_muted || !ba->has_table_city || !board_city_skin_active()) return;
+    if (dest.width <= 0.0f || dest.height < 60.0f) return;
+    float s = (dest.height * CITY_BEZEL_RATIO) / CITY_BEZEL_CAV_H;
+    float squeeze = dest.width / (dest.height * 0.615f);   /* 1.0 at rest, <1 mid-flip */
+    if (squeeze > 1.0f) squeeze = 1.0f;
+    if (squeeze < 0.06f) squeeze = 0.06f;
+    float cx = dest.x + dest.width * 0.5f, cy = dest.y + dest.height * 0.5f;
+    Rectangle bd = { cx - CITY_BEZEL_CAV_CX * s * squeeze, cy - CITY_BEZEL_CAV_CY * s,
+                     (float)ba->table_city_bezel.width * s * squeeze,
+                     (float)ba->table_city_bezel.height * s };
+    DrawTexturePro(ba->table_city_bezel,
+                   (Rectangle){ 0, 0, (float)ba->table_city_bezel.width, (float)ba->table_city_bezel.height },
+                   bd, (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     if ((unsigned)card_id >= 48u) return;
     if ((s_board_blind_mask >> card_id) & 1ULL) {
@@ -778,20 +832,24 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     }
     card_tooltip_record(card_id, dest);
     board_draw_castle_bezel(ba, dest);   /* sandwich under-layer (no-op off-castle) */
+    board_draw_city_bezel(ba, dest);     /* sandwich under-layer (no-op off-city) */
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     board_draw_castle_bezel(ba, dest);   /* hollow frame over the face */
-    if (!board_castle_skin_active()) DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
+    board_draw_city_bezel(ba, dest);     /* hollow frame over the face */
+    if (!board_castle_skin_active() && !board_city_skin_active()) DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
 
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
     card_tooltip_record(-1, dest);
     board_draw_castle_bezel(ba, dest);   /* sandwich under-layer */
+    board_draw_city_bezel(ba, dest);     /* sandwich under-layer */
     Rectangle src = { 0, 0, (float)ba->card_back.width, (float)ba->card_back.height };
     DrawTexturePro(ba->card_back, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
     board_draw_castle_bezel(ba, dest);
-    if (!board_castle_skin_active()) {
+    board_draw_city_bezel(ba, dest);
+    if (!board_castle_skin_active() && !board_city_skin_active()) {
         Color bo = g_theme.dim; bo.a = 100; Color bi = g_theme.base; bi.a = 180;
         DrawRectangleLinesEx((Rectangle){ dest.x - 1, dest.y - 1, dest.width + 2, dest.height + 2 }, 1.0f, bo);
         DrawRectangleLinesEx(dest, 1.5f, bi);
@@ -815,17 +873,18 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
     for (int t = 0; t < 4; t++) {
         float y = start_y + t * (CAPTURE_PANEL_H + 4.0f), card_y = y + (CAPTURE_PANEL_H - card_h) / 2.0f;
         Rectangle lr = { 12.0f, y, CAPTURE_PANEL_W, CAPTURE_PANEL_H };
-        /* Castle skin: the lane casing comes from the forged overlay - only the live
+        /* Forged skins: the lane casing comes from the forged overlay - only the live
            flash feedback and the label/minis draw over it. */
         int castle_skin = board_castle_skin_active();
-        if (!castle_skin) DrawRectangleRec(lr, COLOR_PANEL_BG);
+        int city_skin = board_city_skin_active();
+        if (!castle_skin && !city_skin) DrawRectangleRec(lr, COLOR_PANEL_BG);
         if (flash_alpha > 0.001f) {
             Color fill_glow = COLOR_PHOSPHOR;
             fill_glow.a = (unsigned char)(70.0f * flash_alpha);
             DrawRectangleRec(lr, fill_glow);
             ui_theme_set_panel_flare_glow(lr, flash_alpha);
         }
-        if (!castle_skin) ui_draw_panel_border(lr, (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+        if (!castle_skin && !city_skin) ui_draw_panel_border(lr, (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (flash_alpha > 0.001f) {
             Color ring = COLOR_PHOSPHOR;
             ring.a = (unsigned char)(255.0f * flash_alpha);
@@ -1004,6 +1063,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     float ac_card_lvl = action_card_begin_table(g, round_reset, reverb_synergy);
 
     s_table_castle_selected = (settings.table_design == TABLE_DESIGN_CASTLE);
+    s_table_city_selected = (settings.table_design == TABLE_DESIGN_CITY);
 
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
@@ -1032,6 +1092,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
        CRT fills/hairlines they'd otherwise sit in are gated off while it is active. */
     if (board_castle_skin_active() && ba->table_castle_overlay.id > 0) {
         DrawTexture(ba->table_castle_overlay, 0, 0, WHITE);
+    }
+    /* City table skin: same layering as castle - forged casing above the dimmed
+       backdrop/ash, below every live element; CRT fills/hairlines gated off while
+       active. (tables/table_city/) */
+    if (board_city_skin_active() && ba->table_city_overlay.id > 0) {
+        DrawTexture(ba->table_city_overlay, 0, 0, WHITE);
     }
 
     /* 2. Left Column */
@@ -1258,9 +1324,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 
     Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
     int castle_skin = board_castle_skin_active();   /* button casings are in the overlay */
-    if (!castle_skin) { DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
+    int city_skin = board_city_skin_active();       /* button casings are in the overlay */
+    if (!castle_skin && !city_skin) { DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
     draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
-    if (!castle_skin) { DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
+    if (!castle_skin && !city_skin) { DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
     /* A replay cannot be restarted: the second button ends it instead. */
     draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
 

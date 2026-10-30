@@ -1,0 +1,62 @@
+{
+  "_README": [
+    "City fit record - method UNIFORM-RESIZE ONLY (pass 1, per owner instruction: resize, not cut, not squash).",
+    "Each delivered piece is a positioned layer at 1920x1080 = 1.5x canvas. Every piece is resized by ONE uniform",
+    "downscale x0.6667 (1920x1080 -> 1280x720). No crop, no per-compartment scale, no non-uniform transform, no cut.",
+    "Pieces composite at canvas origin (they are positioned layers, so x2/3 places each UI group at its canvas coords).",
+    "cavity = measured dark-leather interior at canvas coords (lum<40, opaque alpha). anchor = game rect from ../anchors.json.",
+    "delta = cavity - anchor (x, y, w, h). Positive/negative deltas show where the delivered art's internal layout",
+    "differs from the game's anchors; under pure resize these are NOT forced to zero. Units flagged below need the",
+    "owner's decision (accept offset, or permit per-compartment placement - translation only - to fix).",
+    "0 off-canvas units. All pieces on-canvas.",
+    "The card bezel (bezzel_card_city.png, owner-provided transparent art, WORKFLOW trap 17) is documented below and",
+    "passed through at port time - it is NOT resized here and NOT a placed strip."
+  ],
+  "design": "table_city",
+  "method": "uniform-resize",
+  "backdrop": "assets/city.jpg",
+  "raw": "tables/assets_city",
+  "source_scale": "1920x1080 -> 1280x720 (uniform x0.6667, every piece)",
+  "transform": "resize x0.6667 uniform only; no crop; no per-compartment scale; no non-uniform transform",
+  "composite": "at canvas origin (positioned layers)",
+  "pieces": [
+    "city_upper_left.png", "city_lower_left.png", "city_right_column.png",
+    "city_status.png", "city_stock.png", "city_upper_hand.png", "city_lower_hand.png"
+  ],
+  "compartments": [
+    {"name":"cpu_score","piece":"city_upper_left.png","cavity":[20,11,278,34],"anchor":[12,12,255,30],"delta":[8,-1,23,4],"on_canvas":true},
+    {"name":"cpu_lane_0","piece":"city_upper_left.png","cavity":[5,52,276,40],"anchor":[12,46,255,37.4],"delta":[-7,6,21,3],"on_canvas":true},
+    {"name":"cpu_lane_1","piece":"city_upper_left.png","cavity":[8,96,274,40],"anchor":[12,87.4,255,37.4],"delta":[-4,9,19,3],"on_canvas":true},
+    {"name":"cpu_lane_2","piece":"city_upper_left.png","cavity":[6,141,276,40],"anchor":[12,128.8,255,37.4],"delta":[-6,12,21,3],"on_canvas":true},
+    {"name":"cpu_lane_3","piece":"city_upper_left.png","cavity":[7,185,274,40],"anchor":[12,170.2,255,37.4],"delta":[-5,15,19,3],"on_canvas":true},
+    {"name":"you_lane_0","piece":"city_lower_left.png","cavity":[6,489,276,40],"anchor":[12,508,255,37.4],"delta":[-6,-19,21,3],"on_canvas":true},
+    {"name":"you_lane_1","piece":"city_lower_left.png","cavity":[6,533,276,40],"anchor":[12,549.4,255,37.4],"delta":[-6,-16,21,3],"on_canvas":true},
+    {"name":"you_lane_2","piece":"city_lower_left.png","cavity":[6,566,276,51],"anchor":[12,590.8,255,37.4],"delta":[-6,-25,21,14],"on_canvas":true},
+    {"name":"you_lane_3","piece":"city_lower_left.png","cavity":[6,621,275,40],"anchor":[12,632.2,255,37.4],"delta":[-6,-11,20,3],"on_canvas":true},
+    {"name":"you_score","piece":"city_lower_left.png","cavity":[6,656,300,57],"anchor":[12,678,255,30],"delta":[-6,-22,45,27],"on_canvas":true},
+    {"name":"rnd_panel","piece":"city_right_column.png","cavity":[1134,13,137,68],"anchor":[1160,12,112,66],"delta":[-26,1,25,2],"on_canvas":true},
+    {"name":"cpu_combos","piece":"city_right_column.png","cavity":[1135,93,138,181],"anchor":[1160,88,112,218],"delta":[-25,5,26,-37],"on_canvas":true},
+    {"name":"your_combos","piece":"city_right_column.png","cavity":[1135,314,128,182],"anchor":[1160,316,112,218],"delta":[-25,-2,16,-36],"on_canvas":true},
+    {"name":"pause","piece":"city_right_column.png","cavity":[1139,366,123,44],"anchor":[1160,560,112,40],"delta":[-21,-194,11,4],"on_canvas":true},
+    {"name":"restart","piece":"city_right_column.png","cavity":[1139,402,123,47],"anchor":[1160,610,112,40],"delta":[-21,-208,11,7],"on_canvas":true},
+    {"name":"status","piece":"city_status.png","cavity":[351,539,664,93],"anchor":[375,494,670,88],"delta":[-24,45,-6,5],"on_canvas":true},
+    {"name":"stock_frame","piece":"city_stock.png","cavity":[312,232,114,182],"anchor":[330,262,76,124],"delta":[-18,-30,38,58],"on_canvas":true}
+  ],
+  "misaligned_vs_anchor_under_pure_resize": [
+    "pause: cavity y366 vs anchor y560 (dy -194) - right column's pause sits ~194px above the game's pause button",
+    "restart: cavity y402 vs anchor y610 (dy -208) - same, ~208px above",
+    "status: cavity y539 vs anchor y494, cavity 664x93 vs anchor 670x88 - plaque is wider than the score strip",
+    "stock_frame: cavity 114x182 vs anchor 76x124 - delivered stock frame is much larger than the game's stock rect",
+    "right column internal vertical spacing (rnd/combos/pause/restart) does not match the game's y anchors",
+    "lanes sit ~5-8px left of anchor x=12 and ~6-25px below anchor y (irregular pitch vs game's 41.4)"
+  ],
+  "owner_decision_needed": "Pure resize leaves pause/restart/status/stock (and right-column vertical layout) misaligned vs game anchors. Under pure resize a live round would draw frames offset from hitboxes. Owner must decide: accept the offsets as-is, or permit per-compartment placement (translation only, no crop, no squash) to align cavities to anchors.",
+  "_bezel": {
+    "file": "bezzel_card_city.png",
+    "size_native": [136, 232],
+    "frame_opaque_bbox_native": [2, 2, 132, 228],
+    "interior_cavity_native": [16, 22, 99, 190],
+    "centre_alpha": 0,
+    "note": "Owner-provided transparent card bezel (WORKFLOW trap 17): inside already empty (centre alpha 0), only the border kept, corner ornaments whole. Passed through pixel-identical at port; cavity constants mirrored into game code. Drawn per card under+over (sandwich), scaled by card height. Cavity height 190 vs hand card 143 -> ratio ~0.75, port-time decision (castle used ~0.94). Capture-lane minis (17x31) un-bezeled; capture-info preview mutes it. NOT rendered in pass 1 (no src/ touch). NOT resized here. NOT a placed strip."
+  }
+}

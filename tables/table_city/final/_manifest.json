@@ -1,0 +1,393 @@
+{
+ "cpu_score": {
+  "piece": "city_upper_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   10,
+   10,
+   288,
+   35
+  ],
+  "cavity": [
+   20.0,
+   11.0,
+   278.0,
+   34.0
+  ],
+  "anchor": [
+   12,
+   12,
+   255,
+   30
+  ],
+  "on_canvas": true
+ },
+ "cpu_lane_0": {
+  "piece": "city_upper_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   5,
+   52,
+   276,
+   40
+  ],
+  "cavity": [
+   5.0,
+   52.0,
+   276.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   46,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "cpu_lane_1": {
+  "piece": "city_upper_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   6,
+   96,
+   276,
+   40
+  ],
+  "cavity": [
+   8.0,
+   96.0,
+   274.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   87.4,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "cpu_lane_2": {
+  "piece": "city_upper_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   6,
+   141,
+   276,
+   40
+  ],
+  "cavity": [
+   6.0,
+   141.0,
+   276.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   128.8,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "cpu_lane_3": {
+  "piece": "city_upper_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   6,
+   185,
+   276,
+   40
+  ],
+  "cavity": [
+   7.0,
+   185.0,
+   274.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   170.2,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "you_lane_0": {
+  "piece": "city_lower_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   6,
+   489,
+   276,
+   40
+  ],
+  "cavity": [
+   6.0,
+   489.0,
+   276.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   508,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "you_lane_1": {
+  "piece": "city_lower_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   6,
+   533,
+   276,
+   40
+  ],
+  "cavity": [
+   6.0,
+   533.0,
+   276.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   549.4,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "you_lane_2": {
+  "piece": "city_lower_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   6,
+   566,
+   276,
+   51
+  ],
+  "cavity": [
+   6.0,
+   566.0,
+   276.0,
+   51.0
+  ],
+  "anchor": [
+   12,
+   590.8,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "you_lane_3": {
+  "piece": "city_lower_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   4,
+   621,
+   278,
+   40
+  ],
+  "cavity": [
+   6.0,
+   621.0,
+   275.0,
+   40.0
+  ],
+  "anchor": [
+   12,
+   632.2,
+   255,
+   37.4
+  ],
+  "on_canvas": true
+ },
+ "you_score": {
+  "piece": "city_lower_left.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   4,
+   656,
+   302,
+   57
+  ],
+  "cavity": [
+   6.0,
+   656.0,
+   300.0,
+   57.0
+  ],
+  "anchor": [
+   12,
+   678,
+   255,
+   30
+  ],
+  "on_canvas": true
+ },
+ "rnd_panel": {
+  "piece": "city_right_column.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   1134,
+   13,
+   138,
+   68
+  ],
+  "cavity": [
+   1134.0,
+   13.0,
+   137.0,
+   68.0
+  ],
+  "anchor": [
+   1160,
+   12,
+   112,
+   66
+  ],
+  "on_canvas": true
+ },
+ "cpu_combos": {
+  "piece": "city_right_column.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   1135,
+   93,
+   138,
+   181
+  ],
+  "cavity": [
+   1135.0,
+   93.0,
+   138.0,
+   181.0
+  ],
+  "anchor": [
+   1160,
+   88,
+   112,
+   218
+  ],
+  "on_canvas": true
+ },
+ "your_combos": {
+  "piece": "city_right_column.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   1135,
+   314,
+   138,
+   182
+  ],
+  "cavity": [
+   1135.0,
+   314.0,
+   128.0,
+   182.0
+  ],
+  "anchor": [
+   1160,
+   316,
+   112,
+   218
+  ],
+  "on_canvas": true
+ },
+ "pause": {
+  "piece": "city_right_column.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   1135,
+   366,
+   137,
+   44
+  ],
+  "cavity": [
+   1139.0,
+   366.0,
+   123.0,
+   44.0
+  ],
+  "anchor": [
+   1160,
+   560,
+   112,
+   40
+  ],
+  "on_canvas": true
+ },
+ "restart": {
+  "piece": "city_right_column.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   1135,
+   402,
+   137,
+   47
+  ],
+  "cavity": [
+   1139.0,
+   402.0,
+   123.0,
+   47.0
+  ],
+  "anchor": [
+   1160,
+   610,
+   112,
+   40
+  ],
+  "on_canvas": true
+ },
+ "status": {
+  "piece": "city_status.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   348,
+   538,
+   670,
+   94
+  ],
+  "cavity": [
+   351.0,
+   539.0,
+   664.0,
+   93.0
+  ],
+  "anchor": [
+   375,
+   494,
+   670,
+   88
+  ],
+  "on_canvas": true
+ },
+ "stock_frame": {
+  "piece": "city_stock.png",
+  "resize": "x0.6667 uniform (1920x1080->1280x720)",
+  "outer": [
+   310,
+   231,
+   116,
+   183
+  ],
+  "cavity": [
+   312.0,
+   232.0,
+   114.0,
+   182.0
+  ],
+  "anchor": [
+   330,
+   262,
+   76,
+   124
+  ],
+  "on_canvas": true
+ }
+}
