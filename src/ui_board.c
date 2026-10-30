@@ -896,11 +896,10 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
         int count = counts[t];
         const char *cnt_str = TextFormat((t == 1 && cup) ? "%s %d*" : "%s %d", labels[t], count);
         draw_text_ex_snapped(font_body, cnt_str, (Vector2){ 16.0f, y + 8.5f }, 20.0f, 1.4f, COLOR_TEXT_INFO);
-        float card_start_x = city_skin ? 60.0f : 54.0f;   /* overlay card cavity starts at x≈60 */
-        float step = (count > 1) ? fminf(24.0f, (CAPTURE_PANEL_W - card_start_x - card_w) / (count - 1)) : 0.0f;
+        float step = (count > 1) ? fminf(24.0f, (CAPTURE_PANEL_W - 54.0f - card_w) / (count - 1)) : 0.0f;
         for (int c = 0; c < count; c++) {
             int cid = lanes[t][c];
-            motion_set_target(cid, (Vector2){ card_start_x + c * step, card_y }, (Vector2){ card_w, card_h }, 0.35f);
+            motion_set_target(cid, (Vector2){ 54.0f + c * step, card_y }, (Vector2){ card_w, card_h }, 0.35f);
             Rectangle dr = motion_get_rect(cid);
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
