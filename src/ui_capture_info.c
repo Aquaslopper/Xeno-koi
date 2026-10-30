@@ -123,10 +123,13 @@ void capture_info_draw(const BoardAssets *ba) {
 
     /* Fixed left-column panel aligned 1:1 with all capture boxes (x=12, w=255, 4px gap above y=508). */
     Rectangle panel = capture_info_panel_rect();
-    Color bg = COLOR_PANEL_BG;
-    bg.a = 235;
-    DrawRectangleRec(panel, bg);
-    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
+    int city_skin = board_city_skin_active();
+    if (!city_skin) {
+        Color bg = COLOR_PANEL_BG;
+        bg.a = 235;
+        DrawRectangleRec(panel, bg);
+        ui_draw_panel_border(panel, COLOR_PHOSPHOR);
+    }
 
     /* Crisp full-resolution card preview on the left (106 x 172 matches 176:286 card ratio).
        A presentation draw, not a table card: no castle bezel over the panel chrome. */
