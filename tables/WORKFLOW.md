@@ -44,6 +44,17 @@ round. The loop, and where each stage writes:
   not happen, and the next pass will rebuild the same fault.
 - **Porting is the only stage that touches `src/`**, and it goes through the chokepoints, the guard
   manifest and `./build.sh test`.
+- **The folder is the memory; the session is not.** An agent session has finite memory and dies
+  without warning — everything not on disk dies with it (trap 20). Work in small passes, each
+  ending at a verifiable state written into the table's folder and committed: measure → record
+  in `table.json`/README → build → verify → commit, then the next pass. Keep each pass as simple
+  as the record allows: use the tools that exist (`build.sh`, `table_art.py`, `_template`), never
+  build new general tooling for one table, keep one-off measurement scripts one-off. Read
+  targeted — headings, greps, line ranges — and send big outputs to files instead of pouring
+  them into context. If you are still "preparing" after ~30 minutes, you are overengineering:
+  cut back to the next verifiable deliverable, write down where you are, and continue from the
+  folder. A restarted session resumes from the folder and the last commit; if it has to redo the
+  analysis, the previous session failed, whatever it produced.
 
 ## The three rules
 
@@ -189,6 +200,12 @@ alignment, scale, placed cavity/outer). Castle is the worked example;
     capture-info hover preview is a presentation draw and wore a bezel over the CRT panel
     chrome until given a mute switch (`board_set_castle_bezel_muted`). Audit every draw path
     that touches a skinned element, not just the table pass.
+20. **Overengineering one session into amnesia** (city pass 1, 30 Oct 2026). A fresh agent
+    spent ~30 minutes building an elaborate approach in its head, exhausted its session
+    memory, and restarted from zero — nothing it had learned was on disk, so the restart
+    inherited none of it. The fix is not a bigger plan; it is smaller passes with the state
+    written down as it is earned (forge loop, above). Simplicity here is not taste — it is
+    what survives a restart.
 
 ## Open decisions
 

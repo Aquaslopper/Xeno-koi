@@ -5,6 +5,8 @@ everything under it.
 
 **Before drawing**
 - [ ] the table has its own folder `tables/table_<name>/`; anything I build is written inside it
+- [ ] this pass has a stopping point and fits in one session; what I learn goes into the folder
+      as I learn it and gets committed — session memory dies, the folder doesn't (trap 20)
 - [ ] `./tables/build.sh` prints `anchors in sync` (if it drifts, re-derive the number — don't work around it)
 - [ ] every number came from `anchors.json`; none from an example, a mockup or a screenshot
 - [ ] nothing I am about to assert came from `refs/` — an example shows a direction, not a position
