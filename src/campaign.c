@@ -18,11 +18,11 @@ extern Font font_body;
 
 /* Card table skins, in the order the Pancratium picker cycles them. Index 0 is the CRT
    table the game ships with; the rest are slots for tables forged in tables/table_<name>/.
-   Nothing renders a skin differently yet - the picker only records the choice in
-   settings->table_design, so the first forged table has a door to walk through.
+   CASTLE renders its forged casing in ui_board.c (board_castle_skin_active); CITY is
+   still a placeholder that only records the choice and draws as CRT.
    Keep this list the same length as TABLE_DESIGN_COUNT (storage.h). */
-static const char *const k_table_names[TABLE_DESIGN_COUNT] = { "CRT", "CITY (BETA)" };
-static const char *const k_table_notes[TABLE_DESIGN_COUNT] = { "DEFAULT", "PLACEHOLDER - NOT FORGED YET" };
+static const char *const k_table_names[TABLE_DESIGN_COUNT] = { "CRT", "CITY (BETA)", "CASTLE (BETA)" };
+static const char *const k_table_notes[TABLE_DESIGN_COUNT] = { "DEFAULT", "PLACEHOLDER - NOT FORGED YET", "FORGED - IN LIVE TEST" };
 
 static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Color col);
 

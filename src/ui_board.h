@@ -13,6 +13,9 @@ typedef struct {
     Texture2D coin_gold;
     Texture2D coin_silver;
     Texture2D coin_bronze;
+    Texture2D table_castle_overlay;  /* forged castle casing: static panels (TABLE_DESIGN_CASTLE) */
+    Texture2D table_castle_bezel;    /* one castle card bezel, drawn per card at card scale */
+    int has_table_castle;
     Texture2D bgs[8];
     Texture2D bg_normals[8];
     int current_bg;
@@ -28,6 +31,14 @@ typedef struct {
 /* Load / unload graphical assets */
 void board_load_assets(BoardAssets *ba);
 void board_unload_assets(BoardAssets *ba);
+
+/* True when the castle table skin is selected AND its textures loaded. Gates the CRT
+   panel fills/hairlines so the forged casing shows through (tables/table_castle/). */
+int board_castle_skin_active(void);
+
+/* Mute the castle card bezel for presentation draws that are not table cards (the
+   capture-info hover preview): board_set_castle_bezel_muted(1), draw, then (0). */
+void board_set_castle_bezel_muted(int muted);
 
 /* Geometry helpers */
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered);

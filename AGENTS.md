@@ -36,6 +36,7 @@ Checks run: checks
 Where the truth lives
 - The Architecture Map: LEARN_THE_CODE.md is the strict, zero-fluff guide to the current C/raylib architecture. It holds the absolute truth for phase states, AI heuristic logic, UI boundaries, and memory constraints. 
 - The Code: src/ decides what the game actually does.
+- The Forge (card-table skins): tables/ is its own world with its own law. Any agent building or porting a card-table skin starts at tables/AGENT_START.md — read order, the forge→beta-port→live-test loop, and the hard rules (anchors from src/ only, uniform scaling, one owner-provided transparent card bezel, verify on the produced file). WORKFLOW.md in that folder is the canon; nothing in tables/ touches src/ until a beta port.
 - The Wiki: docs/ (published from mkdocs.yml) explains the current rules. It is the reference for players and contributors.
 - The Legacy Contract: HANDOFF_KoiKoi_Giger_v2.pdf is legacy. It is the original build spec from 11 Oct 2026. Do not implement or document rules from it. Use LEARN_THE_CODE.md instead. Where the handoff disagrees with the code or the wiki, it is out of date (see docs/errata.md).
 - The Status: STATUS.md is the current development handoff, not a rulebook or deployment record. Update its date, completed work, checks actually run, and remaining verification when handing off a meaningful change. Its explicitly marked historical section is not current status.

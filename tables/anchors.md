@@ -24,6 +24,12 @@ Nothing here comes from a mockup.
 | CPU / your combos | `1160, 88 | 316, 112, 218` | `ui_combos.c:29-31` |
 | PAUSE / RESTART | `1160, 560 | 610, 112, 40` | `ui_board.c:1184,1186` |
 
+Text ink, derived from those draw calls (`DrawTextEx` y is the glyph top): the timer's glyphs span
+≈505..527, the status line's ≈529..547 — and any status containing `KOI-KOI`, `SHOBU` or
+`YAKU DETECTED` switches to 20 px `font_title` (`ui_board_status.c:73-81`). Neither line is shrunk
+or clipped by the game, whatever its length. A status plaque can wrap one of the two lines, not
+both; which one is a per-table decision (castle pass 1: the status line).
+
 What is **painted** underneath (a composite that skips these looks wrong even when every frame is
 right): `COLOR_PANEL_BG` black @ **178** on lanes, combos, buttons (`ui_theme.h:38`); the score
 strips at **112** idle / **205** active plus an inset border when idle (`ui_board_status.c:23-28`);

@@ -91,6 +91,46 @@ round. The loop, and where each stage writes:
    and to write down what it found, verbatim, in the table's `live-test.md`: build, what was played,
    what broke as symptom → where → expected, verdict, next action. Anything that broke goes back to
    step 3 as the new work list. A table is forged when a live round found nothing left to fix.
+   Gate the whole skin behind one predicate so the unselected path stays byte-identical, and
+   keep that predicate free of the `settings` global (refresh a file-static per table frame) —
+   the headless UI tests link sidebar/card paths without stubbing `settings`, and they will
+   find the reference for you.
+
+## Delivered art (owner-provided pieces)
+
+When the owner delivers finished pieces (`tables/assets_<name>/`), there is no generation step
+and `stamp()` is forbidden — the method is **cut-and-place**, implemented as
+`build_cut_and_place` in `tools/table_art.py` and driven by the table's `table.json` record
+(`"method": "cut-and-place"`, one entry per compartment: crop, measured cavity, anchor,
+alignment, scale, placed cavity/outer). Castle is the worked example;
+`tables/table_castle/README.md` carries its numbers.
+
+- Pieces arrive as positioned layers at a multiple of the canvas (castle: 1920×1080 = 1.5×).
+  Each compartment is cropped at native resolution, given ONE uniform downscale to canvas
+  space (×⅔), plus only a recorded per-compartment uniform scale where a measured cavity
+  demands it — minimal, owner's rule — then **translated** so its measured cavity lands on the
+  anchor. No 9-slice, no non-uniform resizing, ever: chunky frames keep their proportions and
+  are never flattened into the old UI's 1 px lines.
+- **Measure compartments; never place pieces whole.** A delivery's internal rhythm is the
+  generator's, not the game's (castle: stack pitch drifts up to 30 px from the game's 41.4;
+  hand strips carry 7 frames for 8 cards). Enumerate compartments piece by piece —
+  band-averaged luminance for the dark cavities, alpha extents for the outers — and assert
+  every cavity against `anchors.json`, never against the delivery's own clean plate (trap 16).
+- Delivered panel interiors stay **opaque** (the art's own leather). Step 6's "clear the
+  interior to alpha 0 / 40–55 % opaque" is the generated cut-out recipe, not this path.
+  Static panels composite into one 1280×720 overlay in `final/`; at runtime it draws above
+  the dimmed backdrop/ash and below every live element, and only the CRT fills/hairlines it
+  replaces are gated off — text, counts, flash fills, glows, tooltips stay.
+- **One card bezel per table, provided transparent by the owner** (trap 17): inside empty,
+  only the border kept, corner ornaments whole. The fitter measures its transparent cavity
+  from the file's alpha into `final/_manifest.json` and passes the file through; the game
+  mirrors the constants and draws it per card — under and over (sandwich), scaled by card
+  height — never as a placed strip, so every live hand count works. There needs to be one
+  card bezel for every table built this way; without it the cards sit naked in a framed UI.
+- A contiguous stack of panels is aligned as **one object**: pick the edge the eye tracks and
+  flush that edge for the whole stack; the far edges stagger where ornaments hide it
+  (trap 18). Which edge that is gets settled by measuring the owner's screenshot, not by
+  arguing alignments in the abstract.
 
 ## The traps, in the order they were hit
 
@@ -103,6 +143,70 @@ round. The loop, and where each stage writes:
 5. **Multi-compartment panels from a generator.** Wanted 66/218/218, got 44/120/260; one scale cannot
    reconcile it, and band-surgery broke every joint.
 6. **Per-lane frames are geometrically impossible.** 37.4 tall, 4 px gaps, 4 px inset.
+7. **Frames drawn inside the rect.** The game's text ended up on the metal.
+8. **Fitting by measured holes.** Only valid when the art's hole count equals the code's rect count.
+9. **Stamping every rect individually.** Ten rects in a 267 × 700 column has nowhere to go — group
+   them, and use rails for internal seams.
+10. **Uniform border thickness.** Dragged down to the tightest free side; reads thin next to its
+    neighbours.
+11. **Decor in the middle of the left side.** A spine between the blocks was rejected twice. A
+    connector belongs on the **canvas edge**.
+12. **Rails drawn before the casing.** Covered until the draw order flipped.
+13. **The Action Card mode is hash-locked.** `ui_action.c/.h` are hash-guarded and 12 influence lines
+    outside them are pinned, 4 inside `board_draw_table()`; its stock `330, 262` and meter
+    `414, 170` cannot move. Run `./tools/action_guard.sh --report`.
+14. **No bezel art ships.** `assets/` has no frame, border or panel texture — a metal look is
+    procedural in the border function or a new 9-slice asset.
+15. **An example treated as evidence — twice.** Once as a layout to copy, once as a claim about the
+    current build. Both wrong the same way: the example's layout is the layout of whatever was fed to
+    the generator. Read it for the idea.
+16. **Trusting the clean plate** (castle, 30 Oct 2026). The delivered pieces stack into a flawless
+    composite — mean |RGB diff| 1.36 against their own clean plate — and still miss the anchors by
+    up to 30 px. A plate agreeing with itself is the generator agreeing with itself; the game was
+    never in the room. Measure compartments against `anchors.json`, always.
+17. **Reporting the asset you meant to make** (castle bezels, 30 Oct 2026). A card bezel only
+    works over a card if its inside is transparent and nothing but the border remains — every
+    delivered-art table has at least its card bezel(s) to make transparent this way: flood-clear
+    the dark interior from the centre so the corner ornaments that sweep inward survive, and
+    zero the RGB under the cleared alpha. The first pass cleared a rectangle, chopped the
+    ornaments to a hairline, blurred what was left — and was reported as done anyway, round
+    after round, until the owner made a correct one by hand in five minutes. Rule: never state
+    a property of an asset — transparent, fitted, on-canvas — without opening the produced
+    file in the same pass (checkerboard composite, alpha numbers). Do not lie about the asset;
+    check it. The settlement: a transparent card bezel is **owner-provided** art
+    (`assets_castle/castle_card_bezel.png`), not something the agent manufactures — the fitter
+    measures its cavity, the game mirrors the constants.
+18. **Aligning a stack by the wrong edge** (castle right tower, 30 Oct 2026). The RND box read
+    "offset right" under outer-right placement (its left rail indented 10 px against the combo
+    panels), and still read offset with cavity centres aligned (5 px indent) — in one
+    contiguous column the eye tracks the **left rail line**, so the tower shares one outer-left
+    edge and the right edges stagger into the screen-edge ornaments. Two alignment theories
+    were argued from the record; the owner's screenshot, measured, settled which edge was off.
+19. **The casing is not the only box** (castle, 30 Oct 2026). Gating the board's own fills is
+    not enough: `ui_main.c` redraws a hitbox-sized fill+border on PAUSE/RESTART hover, which
+    inside the wider bronze cavity read as a button offset right — gate the box under the
+    skin, keep the hover label. And not every `board_draw_card()` call is a table card: the
+    capture-info hover preview is a presentation draw and wore a bezel over the CRT panel
+    chrome until given a mute switch (`board_set_castle_bezel_muted`). Audit every draw path
+    that touches a skinned element, not just the table pass.
+
+## Open decisions
+
+1. **Layer** (step 3) — and if runtime, what happens to the teal `ui_draw_panel_border` line inside
+   every frame: as long as it stays, the result reads as a box inside a box.
+2. **Grouping** — score strip + lane block as one casing with rails; the three right-column boxes as
+   one column; buttons as one unit.
+3. **Lane metrics** — keep 37.4 / 4 px and group the frames, or change them in code.
+4. **Palette** — a `TerminalTheme` entry (today `theme_set()` cycles 5 while Options lists 6 names) or
+   a separate `table_design` field in `GameSettings`.
+5. **Nine tables** — one layout, nine palettes and casing profiles, or bespoke ornament per backdrop.
+6. ~~**The port contract**~~ — **decided 29 Oct 2026: option B, done.** `GameSettings.table_design`
+   (`storage.h`, persisted as `table_design=` in `settings.txt`), `TABLE_DESIGN_COUNT` for the range,
+   and a picker row in the Pancratium detail panel: `CARD TABLE:  <  CRT  >  DEFAULT`, plus the
+   placeholder entry `CITY (BETA)` / `PLACEHOLDER - NOT FORGED YET`. It sits at y 500..526 inside the
+   panel and cycles with a click, saving immediately. **Nothing renders a skin differently yet** —
+   index 0 is the CRT table, index 1 is the door the first forged table walks through.
+set.
 7. **Frames drawn inside the rect.** The game's text ended up on the metal.
 8. **Fitting by measured holes.** Only valid when the art's hole count equals the code's rect count.
 9. **Stamping every rect individually.** Ten rects in a 267 × 700 column has nowhere to go — group

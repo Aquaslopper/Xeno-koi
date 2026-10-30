@@ -9,6 +9,7 @@ elsewhere.
 
 ```
 tables/
+  AGENT_START.md                           an agent's first file: read order, hard rules
   README.md  WORKFLOW.md  CHECKLIST.md     how to work
   anchors.md  anchors.json                 the numbers, with their source lines
   build.sh                                 anchors-vs-src check + redraw
@@ -49,6 +50,7 @@ folder — one definition of where a card is, and never a second copy.
 
 | folder | backdrop | state |
 |---|---|---|
+| `table_castle/` | castle (7) | beta ported (`CASTLE (BETA)`, index 2); owner live-tested — `table_castle/live-test.md` #1–#6; owner-provided card bezel accepted |
 | `table_city/` | city (4) | spec + examples. No art, not ported, no live test |
 
 A table's folder is only listed here once the folder exists; the state is the short truth
@@ -77,9 +79,24 @@ A table is forged when a real round found nothing left to fix. The Pancratium pi
 4. **Assert, don't eyeball**: interior == target rect ±2 px, checked in code; previews on live geometry.
 5. **Never composite on `docs/assets/readme/table-map.png`** — it is drawn with dead code (96 px field
    pitch instead of 81). Use a `base.png`.
+6. **Delivered art is never 9-sliced or squished.** Finished pieces in `tables/assets_<name>/`
+   (1920×1080 = 1.5× canvas) are measured compartment by compartment and fitted by cut-and-place:
+   one uniform ×⅔ downscale, translation after that, a further uniform scale only where a measured
+   cavity demands it — minimal, and recorded. `stamp()` is for generated single frames; a
+   `cut-and-place` manifest builds through `build_cut_and_place` in `table_art.py` (crop, one
+   uniform downscale, translate — never `stamp()`). See `WORKFLOW.md` → *Delivered art*.
 
 ## Status
 
 Two art passes were generated and thrown away (29 Oct 2026). Nothing is kept but the data, the traps
-and the tools. **No table is implemented; `src/` is untouched.** `table_city` is a spec with examples.
-Next: the five open decisions at the end of `WORKFLOW.md`.
+and the tools. One table is implemented: `table_castle` (started 30 Oct 2026), the first with
+finished art — owner-delivered pieces in `assets_castle/`, measured against the anchors and fitted by
+cut-and-place (its internal rhythm is the generator's, not the game's, so no piece drops in whole) —
+is **beta-ported**: selectable as `CASTLE (BETA)` in the Pancratium (index 2), skin behind
+`board_castle_skin_active()` with CRT unchanged. It has been through six owner live tests
+(`table_castle/live-test.md` #1–#6): the card bezel is **owner-provided** and accepted
+("now we got it right", 30 Oct 2026), and the right-column tower is aligned on one outer-left
+edge after the owner's screenshot showed the RND casing's left rail indented. What that loop
+taught the forge is written into `WORKFLOW.md` (Delivered art, traps 16–19) and `CHECKLIST.md`;
+an incoming agent starts at `AGENT_START.md`. `table_city` is a spec with examples. The five open decisions at the end
+of `WORKFLOW.md` still stand for the other tables.

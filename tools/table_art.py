@@ -28,6 +28,10 @@ A manifest (schema and a filled example in `tables/_template/table.json`):
       "decor": [ {"file": "city-edge-bracket", "box": [0,176,78,372]} ]
     }
 
+A `"method": "cut-and-place"` manifest (owner-delivered art) builds differently -
+crop + one uniform downscale + translation, never stamp(). See
+tables/WORKFLOW.md -> Delivered art.
+
 `raw`, `final` and `preview` default to subfolders of the manifest's own folder; override with a
 `"raw"` key if a table ever needs to point elsewhere.
 
@@ -240,6 +244,158 @@ def card_rects(kind):
 
 
 # ---------------------------------------------------------------- build
+def build_cut_and_place(spec, folder):
+    """Fit owner-delivered art (WORKFLOW.md -> Delivered art): crop each recorded
+    compartment at native resolution, ONE uniform downscale to canvas space (plus
+    the compartment's recorded uniform scale), translate its measured cavity onto
+    the anchor. No 9-slice, no non-uniform resizing. Panel units composite into
+    one static <design>_overlay.png (they never move); bezels stay separate at
+    native resolution (they travel with their card) and their cavity-in-texture
+    constants land in _manifest.json for the game code to mirror."""
+    design = spec.get("design") or os.path.basename(folder)
+    raw = os.path.join(ROOT, spec["raw"]) if spec.get("raw") else os.path.join(folder, "raw")
+    final = os.path.join(folder, "final")
+    os.makedirs(final, exist_ok=True)
+    W, H = ANCH["canvas"]["w"], ANCH["canvas"]["h"]
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    report, out_manifest, pieces = [], {}, {}
+
+    def piece(fname):
+        if fname not in pieces:
+            pieces[fname] = Image.open(os.path.join(raw, fname)).convert("RGBA")
+        return pieces[fname]
+
+    for c in spec.get("compartments", []):
+        im = piece(c["file"])
+        ns = im.width / W                       # native delivery scale (1920/1280 = 1.5)
+        if abs(im.height / H - ns) > 0.01:
+            raise SystemExit(f"{c['file']}: not a uniform multiple of the canvas ({im.size})")
+        us = float(c.get("uniform_scale", 1.0))
+        crop = [round(v * ns) for v in c["crop"]]          # the record is canvas-space
+        if crop[0] < 0 or crop[1] < 0 or crop[2] > im.width or crop[3] > im.height:
+            raise SystemExit(f"{c['name']}: crop {crop} outside {c['file']} {im.size}")
+        unit = im.crop(tuple(crop))
+        cav, corp = c["cavity_measured"], c["crop"]
+        if c.get("group") == "bezel":
+            provided = os.path.join(raw, "castle_card_bezel.png")
+            if c["name"] == "bezel_hand" and os.path.exists(provided):
+                # The shipped card bezel is OWNER-PROVIDED art (WORKFLOW trap 17):
+                # already transparent inside, only the border kept. The fitter does
+                # not manufacture it - it measures the transparent cavity so the
+                # game constants can mirror it, and passes the file through.
+                unit = Image.open(provided).convert("RGBA")
+                a = np.array(unit)[..., 3]
+                sx, sy = unit.width // 2, unit.height // 2
+                if a[sy, sx] >= 128:
+                    raise SystemExit("castle_card_bezel.png: centre is not transparent - "
+                                     "the provided bezel must be hollow")
+                seen = np.zeros(a.shape, bool)
+                dq = deque([(sx, sy)])
+                seen[sy, sx] = True
+                while dq:
+                    x, y = dq.popleft()
+                    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                        if 0 <= nx < unit.width and 0 <= ny < unit.height \
+                                and not seen[ny, nx] and a[ny, nx] < 128:
+                            seen[ny, nx] = True
+                            dq.append((nx, ny))
+                ys, xs = np.nonzero(seen)
+                cav_px = [float(xs.min()), float(ys.min()),
+                          float(xs.max() - xs.min() + 1), float(ys.max() - ys.min() + 1)]
+                out_manifest[c["name"]] = {"size": [unit.width, unit.height],
+                                           "cavity_px": cav_px,
+                                           "cavity_cleared": True,
+                                           "provided": "castle_card_bezel.png",
+                                           "card_size": c.get("card_size")}
+                unit.save(os.path.join(final, c["name"] + ".png"))
+                report.append((c["name"], f"{unit.width}x{unit.height}",
+                               f"cav {cav_px[2]:.0f}x{cav_px[3]:.0f}px",
+                               f"card {c['card_size'][0]}x{c['card_size'][1]}", "ok"))
+                continue
+            k = us                                          # native res; the game scales
+            if k != 1.0:
+                unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
+            cav_px = [(cav[0] - corp[0]) * ns * k, (cav[1] - corp[1]) * ns * k,
+                      cav[2] * ns * k, cav[3] * ns * k]
+            # Hollow frame: flood-clear the dark leather INTERIOR from the cavity
+            # centre so only the border survives - corner ornaments that sweep
+            # inside the cavity rect included. (First pass cleared the rectangle
+            # and chopped those ornaments to a hairline; a blur on top ate the
+            # rails. WORKFLOW trap 17.) Cleared pixels become (0,0,0,0): no
+            # leather RGB left under the transparency to bleed through mipmaps.
+            arr = np.array(unit)
+            val = arr[..., :3].max(axis=2)
+            fillable = (arr[..., 3] > 0) & (val < 48)
+            cx = min(max(round(cav_px[0] + cav_px[2] / 2), 0), unit.width - 1)
+            cy = min(max(round(cav_px[1] + cav_px[3] / 2), 0), unit.height - 1)
+            if not fillable[cy, cx]:
+                raise SystemExit(f"{c['name']}: cavity centre ({cx},{cy}) is not dark "
+                                 f"interior (value {val[cy, cx]}) - cannot flood-clear")
+
+            def flood(seeds, passable):
+                seen = np.zeros(val.shape, bool)
+                dq = deque()
+                for sx, sy in seeds:
+                    if passable[sy, sx] and not seen[sy, sx]:
+                        seen[sy, sx] = True
+                        dq.append((sx, sy))
+                while dq:
+                    x, y = dq.popleft()
+                    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                        if 0 <= nx < unit.width and 0 <= ny < unit.height \
+                                and not seen[ny, nx] and passable[ny, nx]:
+                            seen[ny, nx] = True
+                            dq.append((nx, ny))
+                return seen
+
+            inside = flood([(cx, cy)], fillable)
+            # Bright sheen specks enclosed by the cleared interior clear too:
+            # anything not reachable from the image border without crossing it.
+            border_seeds = [(x, 0) for x in range(unit.width)] + \
+                           [(x, unit.height - 1) for x in range(unit.width)] + \
+                           [(0, y) for y in range(unit.height)] + \
+                           [(unit.width - 1, y) for y in range(unit.height)]
+            outside = flood(border_seeds, ~inside)
+            clear = inside | (~inside & ~outside)
+            # Never clear beyond the measured cavity (+6 px slop): a leak through
+            # a dark rail gap must not eat the border's outer shadow.
+            x0 = max(round(cav_px[0]) - 6, 0)
+            y0 = max(round(cav_px[1]) - 6, 0)
+            x1 = min(round(cav_px[0] + cav_px[2]) + 6, unit.width)
+            y1 = min(round(cav_px[1] + cav_px[3]) + 6, unit.height)
+            box = np.zeros(val.shape, bool)
+            box[y0:y1, x0:x1] = True
+            arr[clear & box] = (0, 0, 0, 0)
+            unit = Image.fromarray(arr, "RGBA")
+            out_manifest[c["name"]] = {"size": [unit.width, unit.height],
+                                       "cavity_px": [round(v, 2) for v in cav_px],
+                                       "cavity_cleared": True,
+                                       "card_size": c.get("card_size")}
+            status, target = "ok", f"card {c['card_size'][0]}x{c['card_size'][1]}"
+            inside = f"cav {cav_px[2]:.0f}x{cav_px[3]:.0f}px"
+        else:
+            k = us / ns                                     # one uniform downscale to canvas
+            unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
+            px = round(c["cavity_placed"][0] - (cav[0] - corp[0]) * us)
+            py = round(c["cavity_placed"][1] - (cav[1] - corp[1]) * us)
+            overlay.alpha_composite(unit, (px, py))
+            outer = c["outer_placed"]
+            on = outer[0] >= 0 and outer[1] >= 0 and outer[0] + outer[2] <= W and outer[1] + outer[3] <= H
+            anc = c["anchor"]
+            sd = (anc[2] - cav[2] * us, anc[3] - cav[3] * us)
+            out_manifest[c["name"]] = {"size": [unit.width, unit.height], "place": [px, py],
+                                       "cavity_placed": c["cavity_placed"], "anchor": anc}
+            status = "ok" if on else "OFF-CANVAS"
+            target = f"{anc[0]:.0f},{anc[1]:.0f} {anc[2]:.0f}x{anc[3]:.0f}"
+            inside = f"sd ({sd[0]:+.1f},{sd[1]:+.1f})"
+        unit.save(os.path.join(final, c["name"] + ".png"))
+        report.append((c["name"], f"{unit.width}x{unit.height}", inside, target, status))
+
+    overlay.save(os.path.join(final, design + "_overlay.png"))
+    json.dump(out_manifest, open(os.path.join(final, "_manifest.json"), "w"), indent=1)
+    return report, final
+
+
 def build(manifest_path, backdrop=None):
     if not os.path.isabs(manifest_path):
         tries = [os.path.join(ROOT, manifest_path),
@@ -249,6 +405,11 @@ def build(manifest_path, backdrop=None):
     if not os.path.exists(manifest_path):
         raise SystemExit(f"no manifest at {manifest_path} (a table folder is tables/<name>/table.json)")
     spec = json.load(open(manifest_path))
+    if spec.get("method") == "cut-and-place":
+        return build_cut_and_place(spec, os.path.dirname(os.path.abspath(manifest_path)))
+    if not any(spec.get(k) for k in ("units", "decor", "rails", "cards")):
+        raise SystemExit("this manifest builds nothing (no units/decor/rails/cards); "
+                         "refusing to report an empty build as 0 mismatches")
     folder = os.path.dirname(os.path.abspath(manifest_path))
     design = spec.get("design") or os.path.basename(folder)
     raw = os.path.join(ROOT, spec["raw"]) if spec.get("raw") else os.path.join(folder, "raw")
