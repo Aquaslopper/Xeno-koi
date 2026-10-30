@@ -49,29 +49,29 @@ void combos_draw_sidebar(const GameState *g) {
     int sc_mode = speed_mode_is_active();
     const char *mode_name = sc_mode ? "SPEEDCOIN" : ruleset_names[g->ruleset];
     Rectangle mode = { 1160, 12, 112, 66 };
-    /* Castle skin: the sidebar casings come from the forged overlay. */
-    int castle_skin = board_castle_skin_active();
-    if (!castle_skin) {
+    /* Forged table skin: the sidebar casings come from the forged overlay. */
+    int table_skin = board_table_skin_active();
+    if (!table_skin) {
         DrawRectangleRec(mode, COLOR_PANEL_BG);
         ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
     }
-    /* Castle: centre the two mode lines on the RND cavity itself (cx 1200.9,
+    /* Forged table skin: centre the two mode lines on the RND cavity itself (cx 1200.9,
        tables/table_castle/final/_manifest.json) - text left-aligned at the game's
        1168 leaves its empty margin on the left inside the wider cavity and reads
        shifted right. CRT keeps the left-aligned 1168. */
     const char *rnd_line = sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
                                    : TextFormat("RND %d/%d", g->current_round, g->total_rounds);
-    label(rnd_line, castle_skin ? label_centered_x(rnd_line, 16, 1200.9f) : 1168,
+    label(rnd_line, table_skin ? label_centered_x(rnd_line, 16, 1200.9f) : 1168,
           20, 96, 16, COLOR_PHOSPHOR);
     float size = 16;
     while (size > 12 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 96) size--;
-    label(mode_name, castle_skin ? label_centered_x(mode_name, size, 1200.9f) : 1168,
+    label(mode_name, table_skin ? label_centered_x(mode_name, size, 1200.9f) : 1168,
           47, 96, size, COLOR_TEXT_INFO);
     for (int p = 1; p >= 0; p--) {
         if (sc_mode && p == 1) continue;
         ScoreResult s = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         Rectangle r = combos_panel_rect(p);
-        if (!castle_skin) {
+        if (!table_skin) {
             DrawRectangleRec(r, COLOR_PANEL_BG);
             ui_draw_panel_border(r, COLOR_PHOSPHOR);
         }

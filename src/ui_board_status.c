@@ -22,21 +22,21 @@ static void draw_centered_text(Font font, const char *text, float center_x, floa
 }
 
 void board_draw_info_box(Rectangle box, const char *text, int is_active, float flash_alpha) {
-    /* Castle skin: the score casing is part of the forged overlay, so only the live
+    /* Forged table skin: the score casing is part of the forged overlay, so only the live
        text and its active/inactive colour draw here - no fill, rings, flares or the
        ">>" badge (the art already carries one on the YOU strip). */
-    int castle_skin = board_castle_skin_active();
+    int table_skin = board_table_skin_active();
     Color panel = COLOR_PANEL_BG;
     panel.a = is_active ? 205 : 112;
-    if (!castle_skin) DrawRectangleRec(box, panel);
+    if (!table_skin) DrawRectangleRec(box, panel);
 
     Color label = is_active ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
     if (!is_active) {
         Color border = COLOR_PHOSPHOR_DIM;
         border.a = 145;
         label.a = 165;
-        if (!castle_skin) ui_draw_panel_border(box, border);
-    } else if (!castle_skin) {
+        if (!table_skin) ui_draw_panel_border(box, border);
+    } else if (!table_skin) {
         float breathe = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
         float glow_alpha = 0.5f + 0.5f * breathe;
 

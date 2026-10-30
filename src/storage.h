@@ -7,13 +7,21 @@
 #define MUSIC_FOLDER_CAP 1024
 
 /* Card table skins, in picker order. 0 is the CRT table the game ships with and stays
-   the default; 1.. are forged tables from tables/table_<name>/. Index 1 (CITY) is still
-   a placeholder; index 2 (CASTLE) is forged and renders in ui_board.c (beta, in live
-   test - tables/table_castle/). Names live in campaign.c next to the picker. */
-#define TABLE_DESIGN_CRT    0
-#define TABLE_DESIGN_CITY   1   /* placeholder - not forged yet, renders as CRT */
-#define TABLE_DESIGN_CASTLE 2
-#define TABLE_DESIGN_COUNT  3
+   the default; 1.. are the map slots, each rendering assets/maps/<name>/ through
+   board_load_assets() in ui_board.c (tables/table_<name>/). CASTLE (2) is the forged
+   original and the only one with measured art; the other six are castle duplicates
+   awaiting the owner's own maps - swapping a slot's assets/maps/<name>/overlay.png and
+   bezel.png replaces it without touching code. Names live in campaign.c next to the
+   picker. DEUS (background 5) has no table slot on purpose. */
+#define TABLE_DESIGN_CRT     0   /* the shipped CRT table - no skin, never changes */
+#define TABLE_DESIGN_CITY    1   /* assets/maps/city/    (castle duplicate for now) */
+#define TABLE_DESIGN_CASTLE  2   /* assets/maps/castle/  (the forged original)      */
+#define TABLE_DESIGN_HOLE    3   /* assets/maps/hole/    (castle duplicate for now) */
+#define TABLE_DESIGN_ARCTIC  4   /* assets/maps/arctic/  (castle duplicate for now) */
+#define TABLE_DESIGN_HARVEST 5   /* assets/maps/harvest/ (castle duplicate for now) */
+#define TABLE_DESIGN_FACE    6   /* assets/maps/face/    (castle duplicate for now) */
+#define TABLE_DESIGN_REALM   7   /* assets/maps/realm/   (castle duplicate for now) */
+#define TABLE_DESIGN_COUNT   8
 
 typedef struct {
     char music_folder[MUSIC_FOLDER_CAP]; /* empty: built-in match music */
@@ -37,8 +45,7 @@ typedef struct {
     int current_opponent;  /* 0..11, default 0 */
     unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
     int table_design;      /* card table skin (TABLE_DESIGN_* above): 0 = CRT (shipped,
-                              default). CASTLE renders in ui_board.c; CITY is not forged
-                              yet and still renders as CRT. */
+                              default), 1..7 = the map slots in assets/maps/<name>/. */
 } GameSettings;
 
 typedef enum {
