@@ -7,10 +7,13 @@
 #define MUSIC_FOLDER_CAP 1024
 
 /* Card table skins, in picker order. 0 is the CRT table the game ships with and stays
-   the default; 1.. are forged tables from tables/table_<name>/. Index 1 is a placeholder
-   until the first table is forged (tables/WORKFLOW.md, open decision 6). Names live in
-   campaign.c next to the picker. */
-#define TABLE_DESIGN_COUNT 2
+   the default; 1.. are forged tables from tables/table_<name>/. Index 1 (CITY) is still
+   a placeholder; index 2 (CASTLE) is forged and renders in ui_board.c (beta, in live
+   test - tables/table_castle/). Names live in campaign.c next to the picker. */
+#define TABLE_DESIGN_CRT    0
+#define TABLE_DESIGN_CITY   1   /* placeholder - not forged yet, renders as CRT */
+#define TABLE_DESIGN_CASTLE 2
+#define TABLE_DESIGN_COUNT  3
 
 typedef struct {
     char music_folder[MUSIC_FOLDER_CAP]; /* empty: built-in match music */
@@ -33,9 +36,9 @@ typedef struct {
     int unlocked_opponents;/* 1..12, default 1 */
     int current_opponent;  /* 0..11, default 0 */
     unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
-    int table_design;      /* card table skin: 0 = CRT (shipped, default), 1.. = forged tables.
-                              Index 1 is a placeholder for the first forged table - see
-                              tables/WORKFLOW.md open decision 6. Nothing renders it yet. */
+    int table_design;      /* card table skin (TABLE_DESIGN_* above): 0 = CRT (shipped,
+                              default). CASTLE renders in ui_board.c; CITY is not forged
+                              yet and still renders as CRT. */
 } GameSettings;
 
 typedef enum {

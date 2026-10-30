@@ -431,6 +431,9 @@ static void ash_burst_draw_and_update(float dt) {
 }
 
 static char path_buf[512];
+static int s_table_castle_ready = 0;      /* castle casing textures loaded (board_load_assets) */
+static int s_table_castle_selected = 0;   /* settings.table_design == CASTLE, refreshed per table frame */
+
 static const char* get_path(const char* sub) {
     const char *base = GetApplicationDirectory();
     if (base && base[0] != '\0') {
@@ -457,6 +460,13 @@ void board_load_assets(BoardAssets *ba) {
     if (ba->coin_silver.id > 0) { GenTextureMipmaps(&ba->coin_silver); SetTextureFilter(ba->coin_silver, TEXTURE_FILTER_TRILINEAR); }
     ba->coin_bronze = LoadTexture(get_path("assets/coin_bronze.png"));
     if (ba->coin_bronze.id > 0) { GenTextureMipmaps(&ba->coin_bronze); SetTextureFilter(ba->coin_bronze, TEXTURE_FILTER_TRILINEAR); }
+
+    ba->table_castle_overlay = LoadTexture(get_path("assets/table_castle_overlay.png"));
+    if (ba->table_castle_overlay.id > 0) { GenTextureMipmaps(&ba->table_castle_overlay); SetTextureFilter(ba->table_castle_overlay, TEXTURE_FILTER_TRILINEAR); }
+    ba->table_castle_bezel = LoadTexture(get_path("assets/table_castle_bezel.png"));
+    if (ba->table_castle_bezel.id > 0) { GenTextureMipmaps(&ba->table_castle_bezel); SetTextureFilter(ba->table_castle_bezel, TEXTURE_FILTER_TRILINEAR); }
+    ba->has_table_castle = (ba->table_castle_overlay.id > 0 && ba->table_castle_bezel.id > 0);
+    s_table_castle_ready = ba->has_table_castle;
 
     Image img = LoadImage(get_path("assets/back.png"));
     if (img.data) {
@@ -515,12 +525,23 @@ void board_unload_assets(BoardAssets *ba) {
     if (ba->coin_gold.id > 0) UnloadTexture(ba->coin_gold);
     if (ba->coin_silver.id > 0) UnloadTexture(ba->coin_silver);
     if (ba->coin_bronze.id > 0) UnloadTexture(ba->coin_bronze);
+    if (ba->table_castle_overlay.id > 0) UnloadTexture(ba->table_castle_overlay);
+    if (ba->table_castle_bezel.id > 0) UnloadTexture(ba->table_castle_bezel);
+    ba->has_table_castle = 0;
+    s_table_castle_ready = 0;
     for (int i = 0; i < 8; i++) {
         UnloadTexture(ba->bgs[i]);
         if (ba->bg_normals[i].id > 0) UnloadTexture(ba->bg_normals[i]);
     }
     if (ba->has_fog_shader) { UnloadShader(ba->fog_shader); ba->has_fog_shader = 0; }
     ba->assets_loaded = 0;
+}
+
+int board_castle_skin_active(void) {
+    /* Reads no globals on purpose: board_draw_table refreshes the selection flag each
+       frame, so the headless UI tests can link the sidebar/card paths (which consult
+       this) without stubbing the game's settings global. */
+    return s_table_castle_ready && s_table_castle_selected;
 }
 
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered) {
@@ -712,6 +733,33 @@ void board_draw_card_shimmer(Rectangle dest, float shimmer_val) {
                            (Color){ 255, 255, 255, bot_a });
 }
 
+/* Castle card bezel (tables/table_castle/final/_manifest.json, bezel_hand): texture
+   167x261, measured cavity (13.05, 7.95, 139.05, 241.95) px. At canvas scale the
+   cavity is 161.3 px tall around the 143 px hand card, so the bezel scales by card
+   HEIGHT (deal/stock flips squeeze width, never height) with the cavity centre on
+   the card centre; the drawn width follows a flip's squeeze so the frame turns with
+   its card. Cards under 60 px tall (capture-lane minis) get no bezel. */
+#define CASTLE_BEZEL_CAV_CX 82.575f    /* cavity centre, bezel texture px */
+#define CASTLE_BEZEL_CAV_CY 128.925f
+#define CASTLE_BEZEL_CAV_H  241.95f
+#define CASTLE_BEZEL_RATIO  (161.3f / 143.0f)   /* cavity height per card height */
+
+static void board_draw_castle_bezel(const BoardAssets *ba, Rectangle dest) {
+    if (!ba->has_table_castle || !board_castle_skin_active()) return;
+    if (dest.width <= 0.0f || dest.height < 60.0f) return;
+    float s = (dest.height * CASTLE_BEZEL_RATIO) / CASTLE_BEZEL_CAV_H;
+    float squeeze = dest.width / (dest.height * 0.615f);   /* 1.0 at rest, <1 mid-flip */
+    if (squeeze > 1.0f) squeeze = 1.0f;
+    if (squeeze < 0.06f) squeeze = 0.06f;
+    float cx = dest.x + dest.width * 0.5f, cy = dest.y + dest.height * 0.5f;
+    Rectangle bd = { cx - CASTLE_BEZEL_CAV_CX * s * squeeze, cy - CASTLE_BEZEL_CAV_CY * s,
+                     (float)ba->table_castle_bezel.width * s * squeeze,
+                     (float)ba->table_castle_bezel.height * s };
+    DrawTexturePro(ba->table_castle_bezel,
+                   (Rectangle){ 0, 0, (float)ba->table_castle_bezel.width, (float)ba->table_castle_bezel.height },
+                   bd, (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
     if ((unsigned)card_id >= 48u) return;
     if ((s_board_blind_mask >> card_id) & 1ULL) {
@@ -719,19 +767,23 @@ void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
         return;
     }
     card_tooltip_record(card_id, dest);
+    board_draw_castle_bezel(ba, dest);
     Rectangle src = { (float)((card_id >> 2) * ATLAS_CELL_W), (float)((card_id & 3) * ATLAS_CELL_H), (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
     Texture2D tex = (settings.difficulty == DIFFICULTY_DEUS && ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
     DrawTexturePro(tex, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
-    DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
+    if (!board_castle_skin_active()) DrawRectangleLinesEx(dest, 1.0f, (Color){ 20, 40, 25, 200 });
 }
 
 void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
     card_tooltip_record(-1, dest);
+    board_draw_castle_bezel(ba, dest);
     Rectangle src = { 0, 0, (float)ba->card_back.width, (float)ba->card_back.height };
     DrawTexturePro(ba->card_back, src, dest, (Vector2){ 0, 0 }, 0.0f, WHITE);
-    Color bo = g_theme.dim; bo.a = 100; Color bi = g_theme.base; bi.a = 180;
-    DrawRectangleLinesEx((Rectangle){ dest.x - 1, dest.y - 1, dest.width + 2, dest.height + 2 }, 1.0f, bo);
-    DrawRectangleLinesEx(dest, 1.5f, bi);
+    if (!board_castle_skin_active()) {
+        Color bo = g_theme.dim; bo.a = 100; Color bi = g_theme.base; bi.a = 180;
+        DrawRectangleLinesEx((Rectangle){ dest.x - 1, dest.y - 1, dest.width + 2, dest.height + 2 }, 1.0f, bo);
+        DrawRectangleLinesEx(dest, 1.5f, bi);
+    }
 }
 
 void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
@@ -751,14 +803,17 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
     for (int t = 0; t < 4; t++) {
         float y = start_y + t * (CAPTURE_PANEL_H + 4.0f), card_y = y + (CAPTURE_PANEL_H - card_h) / 2.0f;
         Rectangle lr = { 12.0f, y, CAPTURE_PANEL_W, CAPTURE_PANEL_H };
-        DrawRectangleRec(lr, COLOR_PANEL_BG);
+        /* Castle skin: the lane casing comes from the forged overlay - only the live
+           flash feedback and the label/minis draw over it. */
+        int castle_skin = board_castle_skin_active();
+        if (!castle_skin) DrawRectangleRec(lr, COLOR_PANEL_BG);
         if (flash_alpha > 0.001f) {
             Color fill_glow = COLOR_PHOSPHOR;
             fill_glow.a = (unsigned char)(70.0f * flash_alpha);
             DrawRectangleRec(lr, fill_glow);
             ui_theme_set_panel_flare_glow(lr, flash_alpha);
         }
-        ui_draw_panel_border(lr, (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+        if (!castle_skin) ui_draw_panel_border(lr, (flash_alpha > 0.001f) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (flash_alpha > 0.001f) {
             Color ring = COLOR_PHOSPHOR;
             ring.a = (unsigned char)(255.0f * flash_alpha);
@@ -936,6 +991,8 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
     float ac_card_lvl = action_card_begin_table(g, round_reset, reverb_synergy);
 
+    s_table_castle_selected = (settings.table_design == TABLE_DESIGN_CASTLE);
+
     /* 1. Background with depth fog and a localized normal-map light */
     if (ba->has_fog_shader) {
         int bg = ba->current_bg;
@@ -957,6 +1014,13 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     DrawRectangle(0, 0, 1280, 720, COLOR_TABLE_DIM);
     DrawRectangleGradientV(0, 380, 1280, 340, (Color){ 5, 5, 5, 0 }, (Color){ 5, 5, 5, 65 });
     ash_draw_and_update(frame_dt);
+
+    /* Castle table skin: the forged casing sits above the dimmed backdrop/ash and
+       below every live element - text, counts, minis and cards draw over it, and the
+       CRT fills/hairlines they'd otherwise sit in are gated off while it is active. */
+    if (board_castle_skin_active() && ba->table_castle_overlay.id > 0) {
+        DrawTexture(ba->table_castle_overlay, 0, 0, WHITE);
+    }
 
     /* 2. Left Column */
     static int s_last_active_turn = -1;
@@ -1181,9 +1245,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     combos_draw_sidebar(g);
 
     Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
-    DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR);
+    int castle_skin = board_castle_skin_active();   /* button casings are in the overlay */
+    if (!castle_skin) { DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
     draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
-    DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR);
+    if (!castle_skin) { DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
     /* A replay cannot be restarted: the second button ends it instead. */
     draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
 

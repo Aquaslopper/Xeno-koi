@@ -28,6 +28,10 @@ A manifest (schema and a filled example in `tables/_template/table.json`):
       "decor": [ {"file": "city-edge-bracket", "box": [0,176,78,372]} ]
     }
 
+A `"method": "cut-and-place"` manifest (owner-delivered art) builds differently -
+crop + one uniform downscale + translation, never stamp(). See
+tables/WORKFLOW.md -> Delivered art.
+
 `raw`, `final` and `preview` default to subfolders of the manifest's own folder; override with a
 `"raw"` key if a table ever needs to point elsewhere.
 
@@ -240,6 +244,72 @@ def card_rects(kind):
 
 
 # ---------------------------------------------------------------- build
+def build_cut_and_place(spec, folder):
+    """Fit owner-delivered art (WORKFLOW.md -> Delivered art): crop each recorded
+    compartment at native resolution, ONE uniform downscale to canvas space (plus
+    the compartment's recorded uniform scale), translate its measured cavity onto
+    the anchor. No 9-slice, no non-uniform resizing. Panel units composite into
+    one static <design>_overlay.png (they never move); bezels stay separate at
+    native resolution (they travel with their card) and their cavity-in-texture
+    constants land in _manifest.json for the game code to mirror."""
+    design = spec.get("design") or os.path.basename(folder)
+    raw = os.path.join(ROOT, spec["raw"]) if spec.get("raw") else os.path.join(folder, "raw")
+    final = os.path.join(folder, "final")
+    os.makedirs(final, exist_ok=True)
+    W, H = ANCH["canvas"]["w"], ANCH["canvas"]["h"]
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    report, out_manifest, pieces = [], {}, {}
+
+    def piece(fname):
+        if fname not in pieces:
+            pieces[fname] = Image.open(os.path.join(raw, fname)).convert("RGBA")
+        return pieces[fname]
+
+    for c in spec.get("compartments", []):
+        im = piece(c["file"])
+        ns = im.width / W                       # native delivery scale (1920/1280 = 1.5)
+        if abs(im.height / H - ns) > 0.01:
+            raise SystemExit(f"{c['file']}: not a uniform multiple of the canvas ({im.size})")
+        us = float(c.get("uniform_scale", 1.0))
+        crop = [round(v * ns) for v in c["crop"]]          # the record is canvas-space
+        if crop[0] < 0 or crop[1] < 0 or crop[2] > im.width or crop[3] > im.height:
+            raise SystemExit(f"{c['name']}: crop {crop} outside {c['file']} {im.size}")
+        unit = im.crop(tuple(crop))
+        cav, corp = c["cavity_measured"], c["crop"]
+        if c.get("group") == "bezel":
+            k = us                                          # native res; the game scales
+            if k != 1.0:
+                unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
+            cav_px = [(cav[0] - corp[0]) * ns * k, (cav[1] - corp[1]) * ns * k,
+                      cav[2] * ns * k, cav[3] * ns * k]
+            out_manifest[c["name"]] = {"size": [unit.width, unit.height],
+                                       "cavity_px": [round(v, 2) for v in cav_px],
+                                       "card_size": c.get("card_size")}
+            status, target = "ok", f"card {c['card_size'][0]}x{c['card_size'][1]}"
+            inside = f"cav {cav_px[2]:.0f}x{cav_px[3]:.0f}px"
+        else:
+            k = us / ns                                     # one uniform downscale to canvas
+            unit = unit.resize((round(unit.width * k), round(unit.height * k)), Image.LANCZOS)
+            px = round(c["cavity_placed"][0] - (cav[0] - corp[0]) * us)
+            py = round(c["cavity_placed"][1] - (cav[1] - corp[1]) * us)
+            overlay.alpha_composite(unit, (px, py))
+            outer = c["outer_placed"]
+            on = outer[0] >= 0 and outer[1] >= 0 and outer[0] + outer[2] <= W and outer[1] + outer[3] <= H
+            anc = c["anchor"]
+            sd = (anc[2] - cav[2] * us, anc[3] - cav[3] * us)
+            out_manifest[c["name"]] = {"size": [unit.width, unit.height], "place": [px, py],
+                                       "cavity_placed": c["cavity_placed"], "anchor": anc}
+            status = "ok" if on else "OFF-CANVAS"
+            target = f"{anc[0]:.0f},{anc[1]:.0f} {anc[2]:.0f}x{anc[3]:.0f}"
+            inside = f"sd ({sd[0]:+.1f},{sd[1]:+.1f})"
+        unit.save(os.path.join(final, c["name"] + ".png"))
+        report.append((c["name"], f"{unit.width}x{unit.height}", inside, target, status))
+
+    overlay.save(os.path.join(final, design + "_overlay.png"))
+    json.dump(out_manifest, open(os.path.join(final, "_manifest.json"), "w"), indent=1)
+    return report, final
+
+
 def build(manifest_path, backdrop=None):
     if not os.path.isabs(manifest_path):
         tries = [os.path.join(ROOT, manifest_path),
@@ -250,8 +320,7 @@ def build(manifest_path, backdrop=None):
         raise SystemExit(f"no manifest at {manifest_path} (a table folder is tables/<name>/table.json)")
     spec = json.load(open(manifest_path))
     if spec.get("method") == "cut-and-place":
-        raise SystemExit("this manifest is cut-and-place (cavity-measured crops, translation only); "
-                         "stamp() would 9-slice the art to force the rect - see the table's README")
+        return build_cut_and_place(spec, os.path.dirname(os.path.abspath(manifest_path)))
     if not any(spec.get(k) for k in ("units", "decor", "rails", "cards")):
         raise SystemExit("this manifest builds nothing (no units/decor/rails/cards); "
                          "refusing to report an empty build as 0 mismatches")

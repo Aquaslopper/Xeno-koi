@@ -3,7 +3,8 @@
 **One table = one folder.** Everything for this table lives here — spec, manifest record,
 previews. The source art stays where the owner delivered it: `tables/assets_castle/`, untouched.
 
-Status: **spec / pass 1 (measured fit + previews).** `src/` touched: **no.**
+Status: **beta port — selectable in the Pancratium (`CASTLE (BETA)`), awaiting owner live
+test.** `src/` touched: **yes** (beta port, see Port notes). CRT (index 0) unchanged.
 
 Backdrop `assets/castle.jpg`, index **3** of
 `{0 Harvest, 1 Hole, 2 Arctic, 3 Castle, 4 City, 5 Deus, 6 Face, 7 Realm}` (`src/ui_screens.c:326`).
@@ -141,20 +142,46 @@ placement: lanes 0.6–6 px, right column ≤2 px — border shadows only, no ca
   live-geometry card layer from `base.png` (cards over bezels, minis in lanes). No text: the game
   draws it, and the Units table above is its fit proof.
 
-## Port notes (beta port — later, the only stage that touches `src/`)
+## Port notes (beta port — done 2026-10-30, the stage that touches `src/`)
 
-- **Picker naming is parked** (owner, 2026-10-30): index 1 remains the `CITY (BETA)` placeholder
-  until the port; naming/numbering of entries is decided then, not now.
-- With castle active the port skips the table's `COLOR_PANEL_BG` fills and
-  `ui_draw_panel_border` hairlines and draws these units under the existing text, minis and
-  cards. Interiors stay the art's opaque leather. CRT (index 0) must stay pixel-identical.
+- **Picker:** castle is appended as index 2, `CASTLE (BETA)` (`TABLE_DESIGN_CASTLE`,
+  `src/storage.h`; names in `src/campaign.c`). CRT stays 0 and `CITY (BETA)` stays the
+  placeholder at 1, so existing saves and indices are undisturbed. Final naming/ordering is
+  still the owner's call; selection itself works now.
+- **Finals:** `./tables/build.sh table_castle` builds `final/` via `build_cut_and_place`
+  (`tools/table_art.py`): each recorded compartment is cropped at native 1920×1080, given ONE
+  uniform ×⅔ downscale (plus the recorded per-compartment uniform scale), and translated so
+  its measured cavity lands on the anchor — no 9-slice, no non-uniform resizing. Static
+  panels composite into `final/table_castle_overlay.png`; bezels stay separate at native
+  resolution, and `_manifest.json` records each bezel's cavity-in-texture constants for the
+  game code to mirror. Runtime copies: `assets/table_castle_overlay.png` +
+  `assets/table_castle_bezel.png` (= `final/bezel_hand.png`).
+- **Runtime:** one predicate, `board_castle_skin_active()` (`src/ui_board.c`), true only when
+  the textures loaded and castle is selected. `board_draw_table` refreshes the selection flag
+  each frame (the predicate itself reads no `settings` global, so the headless table-UI tests
+  link the sidebar path without stubbing it). The overlay draws right after the backdrop
+  dim/gradient/ash, below every live element. While active, the CRT `COLOR_PANEL_BG` fills
+  and `ui_draw_panel_border` hairlines are skipped on the score strips, capture lanes, combo
+  sidebar and PAUSE/RESTART — live text, counts, minis, flash feedback, glows, tooltips and
+  the hover hairline are untouched. Interiors stay the art's opaque leather. With castle not
+  selected, every draw call is byte-for-byte the old CRT path.
+- **Bezels:** one texture for every card size, drawn under the card inside
+  `board_draw_card`/`board_draw_card_back`. It scales by card **height** (cavity height
+  161.3 canvas px per 143 px of card, cavity centre on card centre) and its drawn width
+  follows a flip's width squeeze, so frames turn with their cards during deal/stock flips
+  and fly with them. Cards under 60 px tall (capture-lane minis) get no bezel. This is what
+  makes 8-card hands work with a 7-frame delivered strip: no strip is ever placed.
+  `final/bezel_cpu.png`/`bezel_field.png` are kept for the record; the hand frame at the
+  other sizes lands within ~1 px of their measured cavities.
 - The score strips carry the turn cue: when a strip is active, `board_draw_info_box` draws
   breathing rings (2.5 px on the box, 2 px at box−3), panel flares and a filled `>>` tag at
   x 236..261, box.y+5..+25 (`ui_board_status.c:32-57`) — under castle those rings would draw on
   the bronze, and on the YOU strip the tag lands 13 px right of the art's own `>>` button
   (placed 223..259; on the CPU strip it falls inside the plain cavity, 12..263). The idle/active
-  fill alpha (112/205) also has no equivalent under opaque leather. Port decides how the active
-  state reads; the geometry above is what it has to work with. The score *text* fits: worst case
+  fill alpha (112/205) also has no equivalent under opaque leather. Beta drops all of it:
+  under castle the active state reads from the label colour alone (phosphor vs dim), which the
+  code already switches. Whether that's enough of a turn cue is open question 3. The score
+  *text* fits: worst case
   "YOU   SCORE: 999 [DEALER]" is 222 px at 16 px and the game shrink-fits it to its 210 px
   active allowance (right edge ≈226 vs cavity 223 — a ≤3 px graze in the worst case only;
   two-digit scores end ≈208).
@@ -164,22 +191,24 @@ placement: lanes 0.6–6 px, right column ≤2 px — border shadows only, no ca
   (the plaque's metal itself is 549 wide), the Audiowide callout
   `"CALL KOI-KOI TO CONTINUE OR SHOBU TO SCORE"` 626 px. Centred, so long lines overflow the
   plaque symmetrically onto metal/backdrop — still readable. The timer's glyphs (x ≤ 567..713,
-  y 505..527) ride the plaque's top rail (outer top 494, cavity top 523). Port decides: accept
-  the overflow, or shrink-fit status text on this table (`board_draw_info_box` already
-  shrink-fits; the status line does not).
+  y 505..527) ride the plaque's top rail (outer top 494, cavity top 523). Beta accepts both as
+  they are (open question 2); a shrink-fit for the status line on this table
+  (`board_draw_info_box` already shrink-fits; the status line does not) is the alternative if
+  the live test dislikes the overflow.
 - Hitboxes stay the code rects: on the right column the visual frames extend 9–14 px inboard of
   the clickable rects (1160..1272), so the bronze lip is decoration, not button.
 - The capture-info hover panel (`12,304,255,200`, `ui_capture_info.c` — the quick inventory) is
   **not** skinned in pass 1 and keeps working unchanged; no unit reaches it (blocks end y 212 /
   start y 503, its band is 304..504 — the player block's outer top at 503 just touches its
   bottom edge).
-- Stock pile: the game stacks up to 6 card backs at −1 px each (`stock_count>>2`,
-  `ui_board.c:1008`), reaching (324,256); the frame's outer starts (321,257), so the pile's back
-  edge crosses the frame's inner line as it does today's 1 px edge. Watch in live test.
-- Frozen neighbours: `action_card_draw_stock_returns` / `action_card_draw_meters`
-  (`ui_board.c:1016,1020`) and the guard manifest's pinned lines inside `board_draw_table()` —
-  the skin draws in its own pass and must not disturb them. `./tools/action_guard.sh --report`
-  at port time.
+- Stock pile: the game stacks up to 6 card backs at −1 px each (`stock_count>>2`, in
+  `board_draw_table`), reaching (324,256); the frame's outer starts (321,257), so the pile's back
+  edge crosses the frame's inner line as it does today's 1 px edge. Each pile back also carries
+  a bezel now, so up to 6 frames layer inside the static stock casing. Watch in live test.
+- Frozen neighbours: `action_card_draw_stock_returns` / `action_card_draw_meters` and the guard
+  manifest's pinned lines inside `board_draw_table()` — the port adds no lines inside them and
+  removes none. `./tools/action_guard.sh --report` exits 0 after the port (pinned lines intact;
+  only their line numbers moved).
 - Bezel behaviour to check live: interlocked bezels while a card flies (field/hand), a hovered
   hand card (y 552) lifting its bezel into the status plaque's bottom ornament (plaque bottom
   565), CPU bezel tops at the canvas edge.

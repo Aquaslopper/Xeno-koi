@@ -81,14 +81,16 @@ A table is forged when a real round found nothing left to fix. The Pancratium pi
    (1920×1080 = 1.5× canvas) are measured compartment by compartment and fitted by cut-and-place:
    one uniform ×⅔ downscale, translation after that, a further uniform scale only where a measured
    cavity demands it — minimal, and recorded. `stamp()` is for generated single frames; a
-   `cut-and-place` manifest is refused by `table_art.py`. See `WORKFLOW.md` → *Delivered art*.
+   `cut-and-place` manifest builds through `build_cut_and_place` in `table_art.py` (crop, one
+   uniform downscale, translate — never `stamp()`). See `WORKFLOW.md` → *Delivered art*.
 
 ## Status
 
 Two art passes were generated and thrown away (29 Oct 2026). Nothing is kept but the data, the traps
-and the tools. **No table is implemented; `src/` is untouched.** `table_city` is a spec with examples.
-`table_castle` (started 30 Oct 2026) is the first table with finished art: owner-delivered pieces in
-`assets_castle/`, measured against the anchors and fitted by cut-and-place in `table_castle/README.md`
-— its internal rhythm is the generator's, not the game's, so no piece drops in whole. Next for castle:
-the owner's read of the pass-1 previews, then `final/` + beta port. The five open decisions at the end
+and the tools. One table is implemented: `table_castle` (started 30 Oct 2026), the first with
+finished art — owner-delivered pieces in `assets_castle/`, measured against the anchors and fitted by
+cut-and-place (its internal rhythm is the generator's, not the game's, so no piece drops in whole) —
+is **beta-ported**: selectable as `CASTLE (BETA)` in the Pancratium (index 2), skin behind
+`board_castle_skin_active()` with CRT unchanged, awaiting the owner's live test
+(`table_castle/live-test.md`). `table_city` is a spec with examples. The five open decisions at the end
 of `WORKFLOW.md` still stand for the other tables.

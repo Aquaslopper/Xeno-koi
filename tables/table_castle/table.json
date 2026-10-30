@@ -16,6 +16,7 @@
   {
    "name": "cpu_score",
    "from": "upper_left",
+   "file": "castle_upper_left.png",
    "group": "upper_left",
    "crop": [
     10.0,
@@ -53,6 +54,7 @@
   {
    "name": "cpu_lane_0",
    "from": "upper_left",
+   "file": "castle_upper_left.png",
    "group": "upper_left",
    "crop": [
     12.0,
@@ -90,6 +92,7 @@
   {
    "name": "cpu_lane_1",
    "from": "upper_left",
+   "file": "castle_upper_left.png",
    "group": "upper_left",
    "crop": [
     12.0,
@@ -127,6 +130,7 @@
   {
    "name": "cpu_lane_2",
    "from": "upper_left",
+   "file": "castle_upper_left.png",
    "group": "upper_left",
    "crop": [
     12.0,
@@ -164,6 +168,7 @@
   {
    "name": "cpu_lane_3",
    "from": "upper_left",
+   "file": "castle_upper_left.png",
    "group": "upper_left",
    "crop": [
     11.0,
@@ -201,6 +206,7 @@
   {
    "name": "you_lane_0",
    "from": "lower_left",
+   "file": "castle_lower_left.png",
    "group": "lower_left",
    "crop": [
     11.0,
@@ -238,6 +244,7 @@
   {
    "name": "you_lane_1",
    "from": "lower_left",
+   "file": "castle_lower_left.png",
    "group": "lower_left",
    "crop": [
     11.0,
@@ -275,6 +282,7 @@
   {
    "name": "you_lane_2",
    "from": "lower_left",
+   "file": "castle_lower_left.png",
    "group": "lower_left",
    "crop": [
     11.0,
@@ -312,6 +320,7 @@
   {
    "name": "you_lane_3",
    "from": "lower_left",
+   "file": "castle_lower_left.png",
    "group": "lower_left",
    "crop": [
     10.0,
@@ -349,6 +358,7 @@
   {
    "name": "you_score",
    "from": "lower_left",
+   "file": "castle_lower_left.png",
    "group": "lower_left",
    "crop": [
     11.0,
@@ -386,6 +396,7 @@
   {
    "name": "rnd_panel",
    "from": "right_column",
+   "file": "castle_right_column.png",
    "group": "right_column",
    "crop": [
     1135.0,
@@ -423,6 +434,7 @@
   {
    "name": "cpu_combos",
    "from": "right_column",
+   "file": "castle_right_column.png",
    "group": "right_column",
    "crop": [
     1134.0,
@@ -460,6 +472,7 @@
   {
    "name": "your_combos",
    "from": "right_column",
+   "file": "castle_right_column.png",
    "group": "right_column",
    "crop": [
     1136.0,
@@ -497,6 +510,7 @@
   {
    "name": "pause",
    "from": "right_column",
+   "file": "castle_right_column.png",
    "group": "right_column",
    "crop": [
     1131.0,
@@ -534,6 +548,7 @@
   {
    "name": "restart",
    "from": "right_column",
+   "file": "castle_right_column.png",
    "group": "right_column",
    "crop": [
     1131.0,
@@ -571,6 +586,7 @@
   {
    "name": "stock_frame",
    "from": "stock",
+   "file": "castle_stock.png",
    "group": "stock",
    "crop": [
     315.0,
@@ -608,6 +624,7 @@
   {
    "name": "stock_plaque",
    "from": "stock",
+   "file": "castle_stock.png",
    "group": "stock",
    "crop": [
     332.0,
@@ -645,6 +662,7 @@
   {
    "name": "status",
    "from": "status",
+   "file": "castle_status.png",
    "group": "status",
    "crop": [
     401,
@@ -682,6 +700,7 @@
   {
    "name": "bezel_hand",
    "from": "lower_hand",
+   "file": "castle_lower_hand.png",
    "group": "bezel",
    "crop": [
     304.0,
@@ -705,6 +724,7 @@
   {
    "name": "bezel_cpu",
    "from": "upper_hand",
+   "file": "castle_upper_hand.png",
    "group": "bezel",
    "crop": [
     459.3,
@@ -727,8 +747,21 @@
   },
   {
    "name": "bezel_field",
-   "from": "lower_hand (same frame as bezel_hand)",
+   "from": "lower_hand",
+   "file": "castle_lower_hand.png",
    "group": "bezel",
+   "crop": [
+    304.0,
+    544.0,
+    415.3,
+    718.0
+   ],
+   "cavity_measured": [
+    312.7,
+    549.3,
+    92.7,
+    161.3
+   ],
    "card_size": [
     76,
     124

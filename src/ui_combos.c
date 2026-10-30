@@ -42,8 +42,12 @@ void combos_draw_sidebar(const GameState *g) {
     int sc_mode = speed_mode_is_active();
     const char *mode_name = sc_mode ? "SPEEDCOIN" : ruleset_names[g->ruleset];
     Rectangle mode = { 1160, 12, 112, 66 };
-    DrawRectangleRec(mode, COLOR_PANEL_BG);
-    ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
+    /* Castle skin: the sidebar casings come from the forged overlay. */
+    int castle_skin = board_castle_skin_active();
+    if (!castle_skin) {
+        DrawRectangleRec(mode, COLOR_PANEL_BG);
+        ui_draw_panel_border(mode, COLOR_PHOSPHOR_DIM);
+    }
     label(sc_mode ? TextFormat("WAVE %d", speed_mode_wave())
                   : TextFormat("RND %d/%d", g->current_round, g->total_rounds),
           1168, 20, 96, 16, COLOR_PHOSPHOR);
@@ -54,8 +58,10 @@ void combos_draw_sidebar(const GameState *g) {
         if (sc_mode && p == 1) continue;
         ScoreResult s = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
         Rectangle r = combos_panel_rect(p);
-        DrawRectangleRec(r, COLOR_PANEL_BG);
-        ui_draw_panel_border(r, COLOR_PHOSPHOR);
+        if (!castle_skin) {
+            DrawRectangleRec(r, COLOR_PANEL_BG);
+            ui_draw_panel_border(r, COLOR_PHOSPHOR);
+        }
         label(p ? "CPU COMBOS" : "YOUR COMBOS", r.x + 8, r.y + 8, 96, 13, COLOR_PHOSPHOR);
         label(TextFormat("Base: %d", s.base_points), r.x + 8, r.y + 29, 96, 16, COLOR_TEXT_INFO);
         label(sc_mode ? TextFormat("Award: %d", calculate_award(s.base_points, 0, 0))
