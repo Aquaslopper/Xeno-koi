@@ -1140,7 +1140,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.04f * env_dt;
+        reverb_energy -= 0.40f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.07f));
