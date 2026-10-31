@@ -436,6 +436,12 @@ static int s_table_selected = 0;   /* settings.table_design, refreshed per table
 /* Mirror of BoardAssets::table_skins[].ready, one flag per slot: the draw paths take a
    const BoardAssets, and the headless UI tests link them without loading any assets. */
 static int s_table_ready[BOARD_TABLE_SLOTS] = { 0 };
+static Texture2D s_table_bezel[BOARD_TABLE_SLOTS];
+static Shader s_bezel_shine_shader = { 0 };
+static int s_bezel_shine_phase_loc = -1;
+static float s_bezel_phase_acc[2] = { 0.0f, 0.0f };
+static float s_bezel_phase_stamp = -1.0f;
+static void (*s_draw_bezel_shine_fn)(Rectangle dest, float pulse_alpha) = NULL;
 
 static int s_table_skin_ready(void) {
     if (s_table_selected < 0 || s_table_selected >= BOARD_TABLE_SLOTS) return 0;
@@ -476,6 +482,67 @@ static const char* get_path(const char* sub) {
     return path_buf;
 }
 
+#define BEZEL_SHINE_BODY(TEX_FN, OUT_FRAG) \
+    "float bval(vec3 v) { return 0.45 * dot(v, vec3(0.299, 0.587, 0.114)) + 0.55 * max(max(v.r, v.g), v.b); }\n" \
+    "void main() {\n" \
+    "    vec4 c = " TEX_FN "(texture0, fragTexCoord);\n" \
+    "    vec4 cl = " TEX_FN "(texture0, fragTexCoord - vec2(u_phase.z, 0.0));\n" \
+    "    vec4 cr = " TEX_FN "(texture0, fragTexCoord + vec2(u_phase.z, 0.0));\n" \
+    "    vec4 cu = " TEX_FN "(texture0, fragTexCoord - vec2(0.0, u_phase.w));\n" \
+    "    vec4 cd = " TEX_FN "(texture0, fragTexCoord + vec2(0.0, u_phase.w));\n" \
+    "    float diag_a = min(min(" TEX_FN "(texture0, fragTexCoord - u_phase.zw).a,\n" \
+    "                           " TEX_FN "(texture0, fragTexCoord + vec2(u_phase.z, -u_phase.w)).a),\n" \
+    "                       min(" TEX_FN "(texture0, fragTexCoord + vec2(-u_phase.z, u_phase.w)).a,\n" \
+    "                           " TEX_FN "(texture0, fragTexCoord + u_phase.zw).a));\n" \
+    "    float min8 = min(min(min(cl.a, cr.a), min(cu.a, cd.a)), diag_a);\n" \
+    "    float solid = smoothstep(0.93, 0.99, c.a) * smoothstep(0.90, 0.97, min8);\n" \
+    "    float hc = bval(c.rgb);\n" \
+    "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
+    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.13);\n" \
+    "    float mask = solid * smoothstep(0.11, 0.23, hc) * smoothstep(0.50, 0.80, hc / peak);\n" \
+    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
+    "    vec3 n = normalize(vec3(g * 3.0, 1.0));\n" \
+    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    float d1 = dot(t1, t1);\n" \
+    "    vec3 h1 = normalize(normalize(vec3(t1, 0.28)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    float nd1 = max(dot(n, h1), 0.0);\n" \
+    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    float d2 = dot(t2, t2);\n" \
+    "    vec3 h2 = normalize(normalize(vec3(t2, 0.28)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    float nd2 = max(dot(n, h2), 0.0);\n" \
+    "    float str = fragColor.a * colDiffuse.a;\n" \
+    "    float core = mask * (exp(-d1 / 0.020) * pow(nd1, 7.5) + exp(-d2 / 0.012) * pow(nd2, 8.5)) * 3.60;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.032) * pow(nd1, 2.2) + exp(-d2 / 0.026) * pow(nd2, 2.2)) * (0.60 + 0.65 * str);\n" \
+    "    float raw = (core + bloom * 0.80) * str;\n" \
+    "    float a = 0.95 * (1.0 - exp(-raw * 1.75));\n" \
+    "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
+    "}\n"
+
+#ifdef __EMSCRIPTEN__
+static const char *const k_bezel_shine_fs =
+    "#version 100\n"
+    "precision mediump float;\n"
+    "varying vec2 fragTexCoord;\n"
+    "varying vec4 fragColor;\n"
+    "uniform sampler2D texture0;\n"
+    "uniform vec4 colDiffuse;\n"
+    "uniform vec4 u_phase;\n"
+    BEZEL_SHINE_BODY("texture2D", "gl_FragColor");
+#else
+static const char *const k_bezel_shine_fs =
+    "#version 330\n"
+    "in vec2 fragTexCoord;\n"
+    "in vec4 fragColor;\n"
+    "uniform sampler2D texture0;\n"
+    "uniform vec4 colDiffuse;\n"
+    "uniform vec4 u_phase;\n"
+    "out vec4 finalColor;\n"
+    BEZEL_SHINE_BODY("texture", "finalColor");
+#endif
+#undef BEZEL_SHINE_BODY
+
+static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha);
+
 void board_load_assets(BoardAssets *ba) {
     ba->atlas = LoadTexture(get_path("assets/atlas.png"));
     GenTextureMipmaps(&ba->atlas);
@@ -510,12 +577,18 @@ void board_load_assets(BoardAssets *ba) {
         if (ts->bezel.id > 0) {
             GenTextureMipmaps(&ts->bezel);
             SetTextureFilter(ts->bezel, TEXTURE_FILTER_TRILINEAR);
+            SetTextureWrap(ts->bezel, TEXTURE_WRAP_CLAMP);
         }
+        s_table_bezel[i] = ts->bezel;
         ts->ready = (ts->overlay.id > 0 && ts->bezel.id > 0);
         s_table_ready[i] = ts->ready;
         TraceLog(LOG_INFO, "TABLE SKIN %d (%s): %s", i, k_table_map_dirs[i],
                  ts->ready ? "ready" : "missing assets/maps folder files");
     }
+    s_bezel_shine_shader = LoadShaderFromMemory(0, k_bezel_shine_fs);
+    s_bezel_shine_phase_loc = (s_bezel_shine_shader.id > 0)
+        ? GetShaderLocation(s_bezel_shine_shader, "u_phase") : -1;
+    s_draw_bezel_shine_fn = board_draw_table_bezel_shine;
 
     Image img = LoadImage(get_path("assets/back.png"));
     if (img.data) {
@@ -580,8 +653,15 @@ void board_unload_assets(BoardAssets *ba) {
         ba->table_skins[i].overlay.id = 0;
         ba->table_skins[i].bezel.id = 0;
         ba->table_skins[i].ready = 0;
+        s_table_bezel[i] = (Texture2D){ 0 };
         s_table_ready[i] = 0;
     }
+    if (s_bezel_shine_shader.id > 0) {
+        UnloadShader(s_bezel_shine_shader);
+        s_bezel_shine_shader = (Shader){ 0 };
+    }
+    s_bezel_shine_phase_loc = -1;
+    s_draw_bezel_shine_fn = NULL;
     for (int i = 0; i < 8; i++) {
         UnloadTexture(ba->bgs[i]);
         if (ba->bg_normals[i].id > 0) UnloadTexture(ba->bg_normals[i]);
@@ -852,7 +932,55 @@ void board_draw_card_back(const BoardAssets *ba, Rectangle dest) {
     }
 }
 
+static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
+    if (dest.width <= 0.0f || pulse_alpha <= 0.001f) return;
+    if (dest.height < 60.0f) {
+        if (pulse_alpha >= 0.85f)
+            DrawRectangleLinesEx(dest, 1.5f, (Color){ 255, 255, 255, 210 });
+        return;
+    }
+    Texture2D bez = s_table_bezel[s_table_selected];
+    float cav_cx = k_bezel_cav[s_table_selected][0];
+    float cav_cy = k_bezel_cav[s_table_selected][1];
+    float cav_h = k_bezel_cav[s_table_selected][2];
+    if (bez.id <= 0 || cav_h <= 1.0f || s_bezel_shine_shader.id <= 0) return;
+    float s = (dest.height * TABLE_BEZEL_RATIO) / cav_h;
+    float squeeze = dest.width / (dest.height * 0.615f);
+    if (squeeze > 1.0f) squeeze = 1.0f;
+    if (squeeze < 0.06f) squeeze = 0.06f;
+    float cx = dest.x + dest.width * 0.5f, cy = dest.y + dest.height * 0.5f;
+    Rectangle bd = { cx - cav_cx * s * squeeze, cy - cav_cy * s,
+                     (float)bez.width * s * squeeze, (float)bez.height * s };
+    float t = (float)GetTime();
+    int live_table = (s_bezel_phase_stamp >= 0.0f && fabsf(t - s_bezel_phase_stamp) < 0.25f);
+    float p0 = live_table ? s_bezel_phase_acc[0] : (t * 0.52f);
+    float p1 = live_table ? s_bezel_phase_acc[1] : (-t * 0.37f);
+    float seed = dest.x * 0.019f + dest.y * 0.013f;
+    float phase[4] = {
+        p0 + seed,
+        p1 + seed * 2.3f,
+        2.25f / (float)bez.width,
+        2.25f / (float)bez.height
+    };
+    if (s_bezel_shine_phase_loc >= 0)
+        SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
+    float p_clamped = fminf(1.0f, fmaxf(0.0f, pulse_alpha));
+    float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.26f + 0.74f * powf(p_clamped, 0.60f)) : 0.0f;
+    if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
+    Color c = { 250, 246, 238, (unsigned char)(a * 255.0f) };
+    BeginBlendMode(BLEND_ADDITIVE);
+    BeginShaderMode(s_bezel_shine_shader);
+    DrawTexturePro(bez, (Rectangle){ 0, 0, (float)bez.width, (float)bez.height },
+                   bd, (Vector2){ 0, 0 }, 0.0f, c);
+    EndShaderMode();
+    EndBlendMode();
+}
+
 void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
+    if (!s_bezel_muted && board_table_skin_active()) {
+        if (s_draw_bezel_shine_fn) s_draw_bezel_shine_fn(dest, pulse_alpha);
+        return;
+    }
     Color gc = g_theme.base; gc.a = (unsigned char)(pulse_alpha * 255.0f);
     DrawRectangleLinesEx(dest, 1.5f, gc);
 }
@@ -885,7 +1013,8 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             Rectangle dr = motion_get_rect(cid);
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
-                board_draw_card(ba, cid, dr); board_draw_card_glow(dr, 0.4f);
+                board_draw_card(ba, cid, dr);
+                board_draw_card_glow(dr, board_table_skin_active() ? 0.90f : 0.4f);
             } else {
                 board_draw_card(ba, cid, dr);
                 capture_info_record(cid, player, c + 1, count, dr);
@@ -1043,6 +1172,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += env_dt;
     }
     float ac_card_lvl = action_card_begin_table(g, round_reset, reverb_synergy);
+    {
+        float shine_spd = (ac_card_lvl >= 0.75f) ? 2.00f : (ac_card_lvl >= 0.50f) ? 1.60f : 1.00f;
+        s_bezel_phase_acc[0] = fmodf(s_bezel_phase_acc[0] + env_dt * 0.52f * shine_spd, 628.31853f);
+        s_bezel_phase_acc[1] = fmodf(s_bezel_phase_acc[1] - env_dt * 0.37f * shine_spd, 628.31853f);
+        s_bezel_phase_stamp = cur_time;
+    }
 
     s_table_selected = settings.table_design;
     if (s_table_selected < 0 || s_table_selected >= BOARD_TABLE_SLOTS) s_table_selected = 0;
@@ -1118,8 +1253,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (sc_mode && speed_mode_deck_glow() && g->stock_count > 0) {
         float sp = 0.72f + 0.28f * (0.5f + 0.5f * sinf(cur_time * 5.2f));
         board_draw_card_glow(top_st, sp);
-        ui_theme_set_panel_flare_glow(top_st, 0.92f);
-        ui_theme_draw_panel_flares(top_st);
+        if (!board_table_skin_active()) {
+            ui_theme_set_panel_flare_glow(top_st, 0.92f);
+            ui_theme_draw_panel_flares(top_st);
+        }
     }
     action_card_draw_stock_returns(ba, g, ac_card_lvl);
     draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
@@ -1310,7 +1447,7 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
             int hov = CheckCollisionPointRec(vm, r[i]);
             if (hov) {
                 board_draw_card_glow(r[i], 1.0f);
-                ui_theme_draw_panel_flares(r[i]);
+                if (!board_table_skin_active()) ui_theme_draw_panel_flares(r[i]);
             }
             draw_centered_text(font_body, "CLICK TO PICK", r[i].x + r[i].width / 2.0f, 485.0f, 18.0f, 1.2f, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         }
@@ -1339,7 +1476,7 @@ void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2
             draw_centered_text(font_title, res, 640.0f, 565.0f, 32.0f, 1.5f, res_col);
             Rectangle winner_card = r[(g->oya_winner == 0) ? pc : cc];
             board_draw_card_glow(winner_card, 1.0f);
-            ui_theme_draw_panel_flares(winner_card);
+            if (!board_table_skin_active()) ui_theme_draw_panel_flares(winner_card);
         }
     }
 }

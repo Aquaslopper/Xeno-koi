@@ -2341,7 +2341,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
         DrawTexturePro(tex, src, preview, (Vector2){ 0, 0 }, 0.0f, WHITE);
         DrawRectangleLinesEx(preview, 1.8f, earned_border);
     } else {
-        if (ba) board_draw_card_back(ba, preview);
+        if (ba) { board_set_table_bezel_muted(1); board_draw_card_back(ba, preview); board_set_table_bezel_muted(0); }
         else DrawRectangleRec(preview, (Color){ 10, 14, 16, 220 });
         DrawRectangleLinesEx(preview, 1.0f, COLOR_PHOSPHOR_DIM);
     }
@@ -2769,8 +2769,10 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             int hov = !s_swing_active && CheckCollisionPointRec(vm, cr);
             int sel = (s_active_tab == 0 && i == s_selected_slot);
             board_draw_card_shadow(draw_r, (sel || hov) ? 0.85f : 0.35f);
+            board_set_table_bezel_muted(1);
             if (sel) board_draw_card_glow(draw_r, pulse);
             else if (hov) board_draw_card_glow(draw_r, 0.45f);
+            board_set_table_bezel_muted(0);
             if (ba) draw_spine_card_face(ba, card_id, draw_r);
             Color bcol = (sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
             Rectangle border_r = { draw_r.x - 1.0f, draw_r.y - 1.0f, draw_r.width + 2.0f, draw_r.height + 2.0f };
@@ -2779,7 +2781,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             ui_theme_draw_panel_flares(border_r);
         } else {
             board_draw_card_shadow(draw_r, 0.28f);
-            if (ba) board_draw_card_back(ba, draw_r);
+            if (ba) { board_set_table_bezel_muted(1); board_draw_card_back(ba, draw_r); board_set_table_bezel_muted(0); }
             Color dim_b = { COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 105 };
             DrawRectangleLinesEx((Rectangle){ draw_r.x - 1.0f, draw_r.y - 1.0f, draw_r.width + 2.0f, draw_r.height + 2.0f },
                                  1.0f, dim_b);
@@ -4051,16 +4053,18 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
                 DrawRectangleRec(hr, (Color){ 0, 0, 0, 175 });
             } else {
                 board_draw_card_glow(hr, pulse);
-                DrawRectangleLinesEx((Rectangle){ hr.x - 3.0f, hr.y - 3.0f, hr.width + 6.0f, hr.height + 6.0f },
-                                     2.5f, COLOR_PHOSPHOR);
+                if (!board_table_skin_active())
+                    DrawRectangleLinesEx((Rectangle){ hr.x - 3.0f, hr.y - 3.0f, hr.width + 6.0f, hr.height + 6.0f },
+                                         2.5f, COLOR_PHOSPHOR);
             }
         }
         Rectangle fr = motion_get_rect(target_field_cid);
         if (fr.width <= 0.0f) fr = board_get_field_card_rect_of(g, target_field_cid);
         if (fr.width > 0.0f) {
             board_draw_card_glow(fr, pulse);
-            DrawRectangleLinesEx((Rectangle){ fr.x - 3.0f, fr.y - 3.0f, fr.width + 6.0f, fr.height + 6.0f },
-                                 2.5f, COLOR_PHOSPHOR);
+            if (!board_table_skin_active())
+                DrawRectangleLinesEx((Rectangle){ fr.x - 3.0f, fr.y - 3.0f, fr.width + 6.0f, fr.height + 6.0f },
+                                     2.5f, COLOR_PHOSPHOR);
         }
     }
 
