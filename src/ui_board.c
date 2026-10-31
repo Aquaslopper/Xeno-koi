@@ -488,14 +488,29 @@ static const char *const k_bezel_shine_fs =
     "varying vec4 fragColor;\n"
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
-    "uniform vec2 u_phase;\n"
+    "uniform vec4 u_phase;\n"
+    "float blum(vec3 v) { return dot(v, vec3(0.299, 0.587, 0.114)); }\n"
     "void main() {\n"
-    "    float ba = texture2D(texture0, fragTexCoord).a;\n"
-    "    vec2 p = fragTexCoord * vec2(11.0, 16.0) + u_phase;\n"
-    "    float w = sin(p.x + sin(p.y * 1.3)) * cos(p.y - cos(p.x * 1.7))\n"
-    "            + 0.35 * sin(p.x * 2.3 - p.y * 1.9 + u_phase.x);\n"
-    "    float shard = smoothstep(0.35, 0.85, w);\n"
-    "    gl_FragColor = vec4(1.0, 1.0, 1.0, ba * shard * fragColor.a * colDiffuse.a);\n"
+    "    vec4 c = texture2D(texture0, fragTexCoord);\n"
+    "    float solid = smoothstep(0.72, 0.92, c.a);\n"
+    "    vec4 cl = texture2D(texture0, fragTexCoord - vec2(u_phase.z, 0.0));\n"
+    "    vec4 cr = texture2D(texture0, fragTexCoord + vec2(u_phase.z, 0.0));\n"
+    "    vec4 cu = texture2D(texture0, fragTexCoord - vec2(0.0, u_phase.w));\n"
+    "    vec4 cd = texture2D(texture0, fragTexCoord + vec2(0.0, u_phase.w));\n"
+    "    solid *= smoothstep(0.58, 0.86, min(min(cl.a, cr.a), min(cu.a, cd.a)));\n"
+    "    float hl = blum(cl.rgb), hr = blum(cr.rgb), hu = blum(cu.rgb), hd = blum(cd.rgb);\n"
+    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.14);\n"
+    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"
+    "    float slope = max(smoothstep(0.10, 0.46, length(g)), smoothstep(0.18, 0.65, blum(c.rgb) / peak) * 0.55);\n"
+    "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n"
+    "    vec2 t1 = (vec2(0.5 + 0.56 * cos(u_phase.x), 0.5 + 0.56 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n"
+    "    vec3 h1 = normalize(normalize(vec3(t1, 0.26)) + vec3(0.0, 0.0, 1.0));\n"
+    "    float r1 = exp(-dot(t1, t1) / 0.145) * (0.28 + 1.75 * pow(max(dot(n, h1), 0.0), 8.0));\n"
+    "    vec2 t2 = (vec2(0.5 + 0.56 * cos(u_phase.y), 0.5 + 0.56 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n"
+    "    vec3 h2 = normalize(normalize(vec3(t2, 0.26)) + vec3(0.0, 0.0, 1.0));\n"
+    "    float r2 = exp(-dot(t2, t2) / 0.145) * (0.28 + 1.75 * pow(max(dot(n, h2), 0.0), 8.0));\n"
+    "    float a = clamp(solid * slope * (r1 + r2), 0.0, 1.0) * fragColor.a * colDiffuse.a;\n"
+    "    gl_FragColor = vec4(1.0, 1.0, 1.0, a);\n"
     "}\n";
 #else
 static const char *const k_bezel_shine_fs =
@@ -504,15 +519,30 @@ static const char *const k_bezel_shine_fs =
     "in vec4 fragColor;\n"
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
-    "uniform vec2 u_phase;\n"
+    "uniform vec4 u_phase;\n"
     "out vec4 finalColor;\n"
+    "float blum(vec3 v) { return dot(v, vec3(0.299, 0.587, 0.114)); }\n"
     "void main() {\n"
-    "    float ba = texture(texture0, fragTexCoord).a;\n"
-    "    vec2 p = fragTexCoord * vec2(11.0, 16.0) + u_phase;\n"
-    "    float w = sin(p.x + sin(p.y * 1.3)) * cos(p.y - cos(p.x * 1.7))\n"
-    "            + 0.35 * sin(p.x * 2.3 - p.y * 1.9 + u_phase.x);\n"
-    "    float shard = smoothstep(0.35, 0.85, w);\n"
-    "    finalColor = vec4(1.0, 1.0, 1.0, ba * shard * fragColor.a * colDiffuse.a);\n"
+    "    vec4 c = texture(texture0, fragTexCoord);\n"
+    "    float solid = smoothstep(0.72, 0.92, c.a);\n"
+    "    vec4 cl = texture(texture0, fragTexCoord - vec2(u_phase.z, 0.0));\n"
+    "    vec4 cr = texture(texture0, fragTexCoord + vec2(u_phase.z, 0.0));\n"
+    "    vec4 cu = texture(texture0, fragTexCoord - vec2(0.0, u_phase.w));\n"
+    "    vec4 cd = texture(texture0, fragTexCoord + vec2(0.0, u_phase.w));\n"
+    "    solid *= smoothstep(0.58, 0.86, min(min(cl.a, cr.a), min(cu.a, cd.a)));\n"
+    "    float hl = blum(cl.rgb), hr = blum(cr.rgb), hu = blum(cu.rgb), hd = blum(cd.rgb);\n"
+    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.14);\n"
+    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"
+    "    float slope = max(smoothstep(0.10, 0.46, length(g)), smoothstep(0.18, 0.65, blum(c.rgb) / peak) * 0.55);\n"
+    "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n"
+    "    vec2 t1 = (vec2(0.5 + 0.56 * cos(u_phase.x), 0.5 + 0.56 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n"
+    "    vec3 h1 = normalize(normalize(vec3(t1, 0.26)) + vec3(0.0, 0.0, 1.0));\n"
+    "    float r1 = exp(-dot(t1, t1) / 0.145) * (0.28 + 1.75 * pow(max(dot(n, h1), 0.0), 8.0));\n"
+    "    vec2 t2 = (vec2(0.5 + 0.56 * cos(u_phase.y), 0.5 + 0.56 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n"
+    "    vec3 h2 = normalize(normalize(vec3(t2, 0.26)) + vec3(0.0, 0.0, 1.0));\n"
+    "    float r2 = exp(-dot(t2, t2) / 0.145) * (0.28 + 1.75 * pow(max(dot(n, h2), 0.0), 8.0));\n"
+    "    float a = clamp(solid * slope * (r1 + r2), 0.0, 1.0) * fragColor.a * colDiffuse.a;\n"
+    "    finalColor = vec4(1.0, 1.0, 1.0, a);\n"
     "}\n";
 #endif
 
@@ -926,10 +956,16 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     Rectangle bd = { cx - cav_cx * s * squeeze, cy - cav_cy * s,
                      (float)bez.width * s * squeeze, (float)bez.height * s };
     float t = (float)GetTime();
-    float phase[2] = { dest.x * 0.021f + t * 1.4f, dest.y * 0.017f - t * 1.0f };
+    float seed = dest.x * 0.019f + dest.y * 0.013f;
+    float phase[4] = {
+        t * 1.65f + seed,
+        -t * 1.18f + seed * 2.3f,
+        1.35f / (float)bez.width,
+        1.35f / (float)bez.height
+    };
     if (s_bezel_shine_phase_loc >= 0)
-        SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC2);
-    float a = fminf(1.0f, sqrtf(fmaxf(0.0f, pulse_alpha)) * 0.95f);
+        SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
+    float a = fminf(1.0f, powf(fmaxf(0.0f, pulse_alpha), 0.32f) * 1.05f);
     if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
     Color c = { 255, 255, 255, (unsigned char)(a * 255.0f) };
     BeginBlendMode(BLEND_ADDITIVE);
