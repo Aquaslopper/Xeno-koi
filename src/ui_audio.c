@@ -284,7 +284,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         /* Stereo room return, with no width/covariance automation. */
         float wet_mono = 0.5f * (wet_l + wet_r);
         float wet_stereo = 0.5f * (wet_l - wet_r);
-        float bass_late = clamp_range((room - 0.8f) * 5, 0, 1);
+        float bass_late = clamp_range((room - 0.0f) * 2.5, 0, 0.3);
         bass_late *= bass_late * (3 - 2*bass_late);
         float room_mid_hp = biquad_hp300(&s_in_hp_l, wet_mono);
         float room_side_hp = biquad_hp300(&s_in_hp_r, wet_stereo);
