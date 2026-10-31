@@ -1,8 +1,8 @@
-> **Development handoff (last updated 29 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 30 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 29 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
+**Last updated: 30 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
 
 ## Owner decisions: closed, do not reopen (29 October 2026)
 
@@ -32,6 +32,53 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 
 ## Status Summary
 ## Latest completed work
+
+### Seven map slots in the card-table picker, one asset folder per map (30 October 2026)
+
+Owner's instruction, in his words: *"i want you to place castle into the placeholder slots of
+each map in the pancratium. name the duplicates like the map they should actually be.... hole,
+arctic... so on.. apply the exact same mechanism that castle has. The reason, i will edit the map
+myself."* Plus: *"crt is the default, that one is excluded"*, *"not deus"*, and *"right now the
+maps and cards are dropped simply in the asset folder, it would be nice to have in the assets
+folder a map folder and in this folder for each map a folder"* (cards = the card bezel).
+
+- **One folder per map under `assets/`.** `assets/table_castle_overlay.png` +
+  `assets/table_castle_bezel.png` moved to **`assets/maps/castle/overlay.png`** and
+  **`assets/maps/castle/bezel.png`**; the other six map folders each hold a byte-identical copy
+  of that pair until the owner's own art lands. Both build paths (`cp -rf assets/*` in
+  `build.sh win`, `--preload-file assets` in `build.sh wasm`) carry subfolders unchanged.
+- **Eight picker slots.** `storage.h`: `TABLE_DESIGN_CRT 0`, `CITY 1`, `CASTLE 2`, `HOLE 3`,
+  `ARCTIC 4`, `HARVEST 5`, `FACE 6`, `REALM 7`, `TABLE_DESIGN_COUNT 8`. CRT stays 0 and CASTLE
+  stays 2, so existing saves keep their meaning (rule 8: new tables append). `campaign.c` names
+  them plainly - `CRT`, `CITY`, `CASTLE`, `HOLE`, `ARCTIC`, `HARVEST`, `FACE`, `REALM` - with
+  `MAP - CASTLE DUPLICATE` under the six copies. **DEUS has no slot** (background 5 is his).
+- **Same mechanism, per slot.** `BoardAssets.table_skins[8]` replaces the single castle pair;
+  `board_load_assets()` loads `assets/maps/<dir>/overlay.png` + `bezel.png` in a loop over
+  `k_table_map_dirs[8]`, unload swaps and unloads the same way, and `s_table_ready[]` mirrors the
+  per-slot flag for the const draw paths. `s_table_selected` is now `settings.table_design`
+  clamped to the slot range. `board_castle_skin_active()` -> **`board_table_skin_active()`**,
+  `board_set_castle_bezel_muted()` -> **`board_set_table_bezel_muted()`**; the overlay draw, the
+  bezel sandwich (`board_draw_table_bezel()`, cavity from `k_bezel_cav[]`), and the CRT
+  fill/hairline gates in `ui_board.c`, `ui_board_status.c`, `ui_combos.c`, `ui_main.c` and
+  `ui_capture_info.c` are unchanged otherwise. A slot whose files are missing logs
+  `TABLE SKIN n (<name>): missing` and falls back to CRT.
+- **A replaced bezel needs its row re-measured.** `k_bezel_cav[8][3]` holds each map's bezel
+  cavity as centre-x, centre-y, height in texture px; all seven rows are the castle measurement
+  (49.5 / 67.0 / 122.0 on 95x136, the owner-provided frame). Replace `assets/maps/<name>/bezel.png`
+  and that row has to be re-measured or the frame sits wrong.
+- **Docs moved with it:** `tables/README.md` (the runtime asset law and the eight slots) and
+  `tables/table_castle/README.md` Port notes (new paths, new predicate name).
+- **Verified:** the reading gate was cleared (`./build.sh --verify /tmp/ans.txt`);
+  `RAYLIB_SRC=/tmp/raylib-hdr/src ./build.sh test` **exit 0** (engine suite, `test_koikoi_trigger`,
+  `tests/test_table_ui.sh` - "All table input, campaign unlock, combo panel, Koi-Koi overlay,
+  capture info, and speed minigame tests passed" - music folder and Options pagination checks);
+  `./tools/action_guard.sh` **ok** (2 frozen files, 12 influence points intact);
+  `./tools/table_map.py check` **anchors in sync**; `python3 tools/gen_wiki_tables.py --check`
+  up to date; `git diff --check` clean; `-std=c99 -O2 -Wall -Wextra -Werror -fsyntax-only` clean
+  across **all** of `src/*.c` against raylib 5.5 headers. **Could not run:** `./build.sh linux`
+  and `./build.sh win` - no raylib library and no display in this sandbox, so nothing was
+  rendered and the picker row / the six duplicate casings have **not** been seen on a screen.
+  The owner's live round is the visual gate.
 
 ### Atrium Plex pass, and the title comes down again (29 October 2026)
 

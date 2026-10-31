@@ -16,13 +16,26 @@
 extern Font font_title;
 extern Font font_body;
 
-/* Card table skins, in the order the Pancratium picker cycles them. Index 0 is the CRT
-   table the game ships with; the rest are slots for tables forged in tables/table_<name>/.
-   CASTLE renders its forged casing in ui_board.c (board_castle_skin_active); CITY is
-   still a placeholder that only records the choice and draws as CRT.
-   Keep this list the same length as TABLE_DESIGN_COUNT (storage.h). */
-static const char *const k_table_names[TABLE_DESIGN_COUNT] = { "CRT", "CITY (BETA)", "CASTLE (BETA)" };
-static const char *const k_table_notes[TABLE_DESIGN_COUNT] = { "DEFAULT", "PLACEHOLDER - NOT FORGED YET", "FORGED - IN LIVE TEST" };
+/* Card table skins, in the order the Pancratium picker cycles them (index ==
+   TABLE_DESIGN_*). Index 0 is the CRT table the game ships with; every other index is a
+   map slot drawn from assets/maps/<name>/ by board_table_skin_active() in ui_board.c,
+   one folder per table (tables/table_<name>/). CASTLE is the forged original; the other
+   six are castle duplicates until the owner's own maps land in their folders.
+   Keep this list the same length as TABLE_DESIGN_COUNT (storage.h).
+   NOTE: the value box is 200 px wide at 15 px - keep every name under ~22 characters. */
+static const char *const k_table_names[TABLE_DESIGN_COUNT] = {
+    "CRT", "CITY", "CASTLE", "HOLE", "ARCTIC", "HARVEST", "FACE", "REALM"
+};
+static const char *const k_table_notes[TABLE_DESIGN_COUNT] = {
+    "DEFAULT",
+    "MAP - CASTLE DUPLICATE",
+    "FORGED - IN LIVE TEST",
+    "MAP - CASTLE DUPLICATE",
+    "MAP - CASTLE DUPLICATE",
+    "MAP - CASTLE DUPLICATE",
+    "MAP - CASTLE DUPLICATE",
+    "MAP - CASTLE DUPLICATE"
+};
 
 static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Color col);
 

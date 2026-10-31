@@ -57,6 +57,14 @@ A table's folder is only listed here once the folder exists; the state is the sh
 (`spec` → `beta ported` → `forged` → `abandoned`), and its detail lives in that folder's `README.md`
 and `live-test.md`.
 
+**Runtime assets: one folder per map.** The game reads a table from `assets/maps/<name>/` —
+`overlay.png` (the static casing, 1280×720, drawn over the dimmed backdrop and under every live
+element) and `bezel.png` (the one card frame, transparent inside, drawn under and over every
+card at card scale). `assets/maps/<name>/` is the shipping copy; `tables/assets_<name>/` stays
+the untouched owner delivery and `tables/table_<name>/final/` the built result. Since 30 Oct 2026
+all seven map slots exist: `castle` is the forged pair, the other six hold copies of it until
+their own maps are delivered.
+
 ## The forge loop
 
 A table is made here and ported into the game, not the other way round:
@@ -92,8 +100,13 @@ Two art passes were generated and thrown away (29 Oct 2026). Nothing is kept but
 and the tools. One table is implemented: `table_castle` (started 30 Oct 2026), the first with
 finished art — owner-delivered pieces in `assets_castle/`, measured against the anchors and fitted by
 cut-and-place (its internal rhythm is the generator's, not the game's, so no piece drops in whole) —
-is **beta-ported**: selectable as `CASTLE (BETA)` in the Pancratium (index 2), skin behind
-`board_castle_skin_active()` with CRT unchanged. It has been through six owner live tests
+is **beta-ported**: selectable as `CASTLE` in the Pancratium (index 2), skin behind
+`board_table_skin_active()` with CRT unchanged. Since 30 Oct 2026 the picker carries eight
+entries — `CRT` (0, no skin), then one slot per map: `CITY` 1, `CASTLE` 2, `HOLE` 3,
+`ARCTIC` 4, `HARVEST` 5, `FACE` 6, `REALM` 7. Slots 1 and 3–7 are **castle duplicates**: each
+loads its own `assets/maps/<name>/{overlay,bezel}.png`, currently byte copies of the castle
+pair, so the owner can replace one map's two files and that slot changes on its own. DEUS has
+no slot (background 5 is his). It has been through six owner live tests
 (`table_castle/live-test.md` #1–#6): the card bezel is **owner-provided** and accepted
 ("now we got it right", 30 Oct 2026), and the right-column tower is aligned on one outer-left
 edge after the owner's screenshot showed the RND casing's left rail indented. What that loop

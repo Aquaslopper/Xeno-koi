@@ -161,10 +161,13 @@ placement: lanes 0.6–6 px, right column ≤2 px — border shadows only, no ca
   its measured cavity lands on the anchor — no 9-slice, no non-uniform resizing. Static
   panels composite into `final/table_castle_overlay.png`; bezels stay separate at native
   resolution, and `_manifest.json` records each bezel's cavity-in-texture constants for the
-  game code to mirror. Runtime copies: `assets/table_castle_overlay.png` +
-  `assets/table_castle_bezel.png` (= `final/bezel_hand.png`).
-- **Runtime:** one predicate, `board_castle_skin_active()` (`src/ui_board.c`), true only when
-  the textures loaded and castle is selected. `board_draw_table` refreshes the selection flag
+  game code to mirror. Runtime copies (30 Oct 2026 - one folder per map):
+  `assets/maps/castle/overlay.png` + `assets/maps/castle/bezel.png` (= `final/bezel_hand.png`).
+  Every map slot loads **its own** `assets/maps/<name>/` pair, so replacing those two files
+  replaces that table and nothing else.
+- **Runtime:** one predicate, `board_table_skin_active()` (`src/ui_board.c`: the selected slot's
+  `ready` flag from `BoardAssets.table_skins[]`, mirrored into `s_table_ready[]` in load/unload),
+  true only when the textures loaded and a map slot (any `TABLE_DESIGN_*` except CRT) is selected. `board_draw_table` refreshes the selection flag
   each frame (the predicate itself reads no `settings` global, so the headless table-UI tests
   link the sidebar path without stubbing it). The overlay draws right after the backdrop
   dim/gradient/ash, below every live element. While active, the CRT `COLOR_PANEL_BG` fills
