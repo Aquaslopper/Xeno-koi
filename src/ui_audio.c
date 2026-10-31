@@ -113,11 +113,11 @@ static float card_sfx_volume(float master_volume) {
 
 /* 2nd-order Butterworth High-Pass (300 Hz, 12 dB/oct, sr = 44100 Hz) */
 static float biquad_hp300(BiquadState *s, float x) {
-    const float b0 =  0.9702284f, b1 = -1.9404568f, b2 = 0.9702284f;
-    const float a1 = -1.9395702f, a2 =  0.9413433f;
-    float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
-    s->x2 = s->x1; s->x1 = x;
-    s->y2 = s->y1; s->y1 = y;
+    const float b0 = 0.9949603f, b1 = -1.9899206f, b2 = 0.9949603f;
+    const float a1 = -1.9898701f, a2 = 0.9899711f;
+    float y = b0 * x + b1 * s-> x1 + b2 * s-> x2 - a1 * s-> y1 - a2 * s-> y2;
+    s-> x2 = s-> x1; s-> x1 = x;
+    s-> y2 = s-> y1; s-> y1 = y;
     return y;
 }
 
@@ -191,7 +191,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float added_r = (bass_shelf10(&s_bass_r, dry_r) - dry_r) * shelf_mix;
         float bass_peak = fmaxf(fabsf(added_l), fabsf(added_r));
         s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.00151f : 0.000567f);
-        float bass_gain = s_bass_env > 0.60f ? powf(s_bass_env / 0.60f, (1 / (1 + 2*bass_amount)) - 1) : 1;
+        float bass_gain = s_bass_env > 0.85f ? powf(s_bass_env / 0.85f, (1 / (1 + 2*bass_amount)) - 1) : 1;
         if (bass_amount > 0.00001f) {
             dry_l += added_l * bass_gain;
             dry_r += added_r * bass_gain;
@@ -330,8 +330,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         /* Stereo-linked protection: one gain for both ears, no image shift.
            Dry bypass (including hot input) is zero-latency when all effects are off. */
         float peak = fmaxf(fabsf(out_l), fabsf(out_r));
-        if (rev > 0.00001f && chorus + bass + room > 0.00001f && peak > 0.88f) {
-            float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;
+        if (rev > 0.00001f && chorus + bass + room > 0.00001f && peak > 0.95f) {
+            float gain = soft_knee_limit(peak, 0.95f, 0.99f) / peak;
             out_l *= gain; out_r *= gain;
         }
         pcm[f * 2 + 0] = out_l;
