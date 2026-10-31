@@ -1135,12 +1135,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (koi_edge)           reverb_energy += 0.20f;
     if (reverb_energy > 0.93f) reverb_energy = 0.93f;
     if ((capture_edge || koi_edge) && reverb_energy < 0.85f) {
-        reverb_hold = 4.10f;
+        reverb_hold = 8.10f;
     } else if (reverb_hold > 0.0f) {
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.4f * env_dt;
+        reverb_energy -= 0.8f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
     reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.7f));
