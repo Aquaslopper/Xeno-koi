@@ -190,7 +190,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float added_l = (bass_shelf10(&s_bass_l, dry_l) - dry_l) * shelf_mix;
         float added_r = (bass_shelf10(&s_bass_r, dry_r) - dry_r) * shelf_mix;
         float bass_peak = fmaxf(fabsf(added_l), fabsf(added_r));
-        s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.000377f : 0.000075f);
+        s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.0004f : 0.00016f);
         float bass_gain = s_bass_env > 0.65f ? powf(s_bass_env / 0.65f, (1 / (1 + 2*bass_amount)) - 1) : 1;
         if (bass_amount > 0.00001f) {
             dry_l += added_l * bass_gain;
