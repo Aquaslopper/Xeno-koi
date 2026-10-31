@@ -439,6 +439,8 @@ static int s_table_ready[BOARD_TABLE_SLOTS] = { 0 };
 static Texture2D s_table_bezel[BOARD_TABLE_SLOTS];
 static Shader s_bezel_shine_shader = { 0 };
 static int s_bezel_shine_phase_loc = -1;
+static float s_bezel_phase_acc[2] = { 0.0f, 0.0f };
+static float s_bezel_phase_stamp = -1.0f;
 static void (*s_draw_bezel_shine_fn)(Rectangle dest, float pulse_alpha) = NULL;
 
 static int s_table_skin_ready(void) {
@@ -511,10 +513,11 @@ static const char *const k_bezel_shine_fs =
     "    float d2 = dot(t2, t2);\n"
     "    vec3 h2 = normalize(normalize(vec3(t2, 0.25)) + vec3(0.0, 0.0, 1.0));\n"
     "    float s2 = pow(max(dot(n, h2), 0.0), 11.0);\n"
-    "    float core = solid * slope * (exp(-d1 / 0.026) * s1 + exp(-d2 / 0.026) * s2) * 1.25;\n"
-    "    float bloom = halo_mask * (exp(-d1 / 0.072) + exp(-d2 / 0.072)) * (0.24 + 0.34 * slope);\n"
-    "    float raw = (core + bloom * 0.50) * fragColor.a * colDiffuse.a;\n"
-    "    float a = 0.66 * (1.0 - exp(-raw * 1.35));\n"
+    "    float str = fragColor.a * colDiffuse.a;\n"
+    "    float core = solid * slope * (exp(-d1 / 0.026) * s1 + exp(-d2 / 0.026) * s2) * 1.45;\n"
+    "    float bloom = halo_mask * (exp(-d1 / 0.072) + exp(-d2 / 0.072)) * (0.20 + 0.36 * slope) * (0.45 + 0.55 * str);\n"
+    "    float raw = (core + bloom * 0.55) * str;\n"
+    "    float a = 0.70 * (1.0 - exp(-raw * 1.45));\n"
     "    gl_FragColor = vec4(fragColor.rgb, a);\n"
     "}\n";
 #else
@@ -548,10 +551,11 @@ static const char *const k_bezel_shine_fs =
     "    float d2 = dot(t2, t2);\n"
     "    vec3 h2 = normalize(normalize(vec3(t2, 0.25)) + vec3(0.0, 0.0, 1.0));\n"
     "    float s2 = pow(max(dot(n, h2), 0.0), 11.0);\n"
-    "    float core = solid * slope * (exp(-d1 / 0.026) * s1 + exp(-d2 / 0.026) * s2) * 1.25;\n"
-    "    float bloom = halo_mask * (exp(-d1 / 0.072) + exp(-d2 / 0.072)) * (0.24 + 0.34 * slope);\n"
-    "    float raw = (core + bloom * 0.50) * fragColor.a * colDiffuse.a;\n"
-    "    float a = 0.66 * (1.0 - exp(-raw * 1.35));\n"
+    "    float str = fragColor.a * colDiffuse.a;\n"
+    "    float core = solid * slope * (exp(-d1 / 0.026) * s1 + exp(-d2 / 0.026) * s2) * 1.45;\n"
+    "    float bloom = halo_mask * (exp(-d1 / 0.072) + exp(-d2 / 0.072)) * (0.20 + 0.36 * slope) * (0.45 + 0.55 * str);\n"
+    "    float raw = (core + bloom * 0.55) * str;\n"
+    "    float a = 0.70 * (1.0 - exp(-raw * 1.45));\n"
     "    finalColor = vec4(fragColor.rgb, a);\n"
     "}\n";
 #endif
@@ -966,16 +970,19 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     Rectangle bd = { cx - cav_cx * s * squeeze, cy - cav_cy * s,
                      (float)bez.width * s * squeeze, (float)bez.height * s };
     float t = (float)GetTime();
+    int live_table = (s_bezel_phase_stamp >= 0.0f && fabsf(t - s_bezel_phase_stamp) < 0.25f);
+    float p0 = live_table ? s_bezel_phase_acc[0] : (t * 0.52f);
+    float p1 = live_table ? s_bezel_phase_acc[1] : (-t * 0.37f);
     float seed = dest.x * 0.019f + dest.y * 0.013f;
     float phase[4] = {
-        t * 0.52f + seed,
-        -t * 0.37f + seed * 2.3f,
+        p0 + seed,
+        p1 + seed * 2.3f,
         1.55f / (float)bez.width,
         1.55f / (float)bez.height
     };
     if (s_bezel_shine_phase_loc >= 0)
         SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
-    float a = fminf(1.0f, 0.48f + 0.32f * powf(fmaxf(0.0f, pulse_alpha), 0.45f));
+    float a = powf(fminf(1.0f, fmaxf(0.0f, pulse_alpha)), 0.78f);
     if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
     Color c = { 246, 242, 234, (unsigned char)(a * 255.0f) };
     BeginBlendMode(BLEND_ADDITIVE);
@@ -1023,7 +1030,8 @@ static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int pl
             Rectangle dr = motion_get_rect(cid);
             if (motion_is_card_moving(cid)) {
                 board_draw_card_shadow(dr, motion_get_card_lift(cid));
-                board_draw_card(ba, cid, dr); board_draw_card_glow(dr, 0.4f);
+                board_draw_card(ba, cid, dr);
+                board_draw_card_glow(dr, board_table_skin_active() ? 0.90f : 0.4f);
             } else {
                 board_draw_card(ba, cid, dr);
                 capture_info_record(cid, player, c + 1, count, dr);
@@ -1181,6 +1189,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (reverb_synergy >= 0.95f) s_audio_full_hold_sec += env_dt;
     }
     float ac_card_lvl = action_card_begin_table(g, round_reset, reverb_synergy);
+    {
+        float shine_spd = (ac_card_lvl >= 0.75f) ? 2.00f : (ac_card_lvl >= 0.50f) ? 1.60f : 1.00f;
+        s_bezel_phase_acc[0] = fmodf(s_bezel_phase_acc[0] + env_dt * 0.52f * shine_spd, 628.31853f);
+        s_bezel_phase_acc[1] = fmodf(s_bezel_phase_acc[1] - env_dt * 0.37f * shine_spd, 628.31853f);
+        s_bezel_phase_stamp = cur_time;
+    }
 
     s_table_selected = settings.table_design;
     if (s_table_selected < 0 || s_table_selected >= BOARD_TABLE_SLOTS) s_table_selected = 0;
