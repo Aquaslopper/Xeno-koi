@@ -1,10 +1,6 @@
 site_name: Xeno Koi Wiki
 site_description: Rules, rule sets, scoring and reference for Xeno Koi, a Koi-Koi (Hanafuda) game.
 site_url: https://aquaslopper.github.io/Xeno-koi/
-repo_url: https://github.com/Aquaslopper/Xeno-koi
-repo_name: Aquaslopper/Xeno-koi
-edit_uri: edit/main/docs/
-
 docs_dir: docs
 strict: true
 
@@ -36,7 +32,6 @@ theme:
     - search.suggest
     - search.highlight
     - content.tabs.link
-    - content.action.edit
 
 markdown_extensions:
   - admonition
@@ -69,6 +64,5 @@ nav:
       - Difficulty: reference/difficulty.md
       - DEUS SUPREMUS: reference/deus-supremus.md
       - Modes & Settings: reference/modes.md
-      - Action Audio DSP: reference/audio-dsp.md
-  - Errata & Known Issues: errata.md
-  - About these docs: about-the-docs.md
+      - Audio effects: reference/audio-dsp.md
+  - Game notes: errata.md

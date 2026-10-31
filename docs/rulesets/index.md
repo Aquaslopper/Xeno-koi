@@ -33,16 +33,9 @@ The five Brights that the Goko / Sanko rows above are about:
 
 *"Replaced by sets" means the set score and the counted score are never added together. The higher one is used.*
 
-## How the differences were verified
+## Sample scoring comparisons
 
-The table above matches the engine's scoring code. Rather than trust a summary, the team checked the rules against the code with random capture piles:
-
-- **Tournament is Nintendo minus Viewings.** Across random capture piles, Nintendo and Tournament only differ when a Viewing is present.
-- **FudaWiki differs from Nintendo only in Goko and Sanko.** Piles with fewer than three Brights score identically.
-- **Yakuza scores identically to Tournament.** The only difference is Dealer's Privilege, which pays the dealer on a draw.
-- **KK-ADD-10 differs from the others on about 41–45% of random piles,** so it is the most different rule set.
-
-The live probe table generated from the game's own scoring code is below:
+These examples show how representative captured card groups score across the five rule sets:
 
 <!-- BEGIN GENERATED: ruleset-facts -->
 

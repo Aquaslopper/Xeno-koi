@@ -44,6 +44,13 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 - **Not visually verified:** no desktop display was available to run and inspect the game. Color values are first-pass interpretations of the owner's descriptions and need visual review in-game.
 - **Touched:** `src/campaign.c`, `src/ui_main.c`, `src/ui_theme.c`, `src/ui_theme.h`, `src/ui_screens.c`, `src/storage.c`, `src/storage.h`, `src/ui_board.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Did not touch:** `tests/`, `src/ui_action.{c,h}`, scoring/rule logic, cards, map image files.
 
+### Player wiki and web deployment check (31 October 2026)
+
+- Added player-facing Campaign setup guidance for difficulty presets, map previews, map-specific background/terminal-colour defaults, independent overrides, and the global scope of terminal colour. Corrected outdated opponent page copy and removed screenshots that showed the superseded clearance-button layout; a current screenshot still needs a real game capture.
+- Removed developer workflow and status commentary from the public wiki, replaced the technical audio-DSP change log with player instructions, and removed GitHub repository/edit links from the wiki chrome.
+- `make_card_images.py --check`, `gen_wiki_tables.py --check`, `mkdocs build --strict`, and `git diff --check` passed. First `make_card_images.py --check` attempt lacked Pillow; rerun passed in a temporary virtual environment.
+- The latest branch CI previously built the WebAssembly game successfully, but its Pages deploy job was skipped for the PR. The latest successful production Pages deployment is from `main` at `e81334480e52f0bb6af5aa50af60238448311b5d`; the open PR's build is not live. Publishing these changes requires merging the PR, which has not been done.
+
 ### Seven map slots in the card-table picker, one asset folder per map (30 October 2026)
 
 Owner's instruction, in his words: *"i want you to place castle into the placeholder slots of

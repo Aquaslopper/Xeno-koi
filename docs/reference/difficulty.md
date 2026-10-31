@@ -22,7 +22,7 @@ opponent 01**. Which is why the chart is one column per opponent, not one rising
 [DEUS SUPREMUS](deus-supremus.md) is not the thirteenth rung but a mode of his own: 100% in every band, with
 Yakuza rules, a fixed 15-second timer and the mono atlas. The timer and the ruleset stay off the axis, because the
 timer is your clock and DEUS forces Yakuza scoring - neither moves his
-accuracy. See [Errata & Known Issues](../errata.md) for what the rulesets do change.
+accuracy. See the [Rulesets overview](../rulesets/index.md) for the scoring and rule changes.
 
 <!-- BEGIN GENERATED: difficulty-curve -->
 
@@ -54,5 +54,4 @@ accuracy. See [Errata & Known Issues](../errata.md) for what the rulesets do cha
   decide how long a match runs.
 - How many rounds a win must last to earn a clearance coin depends on the difficulty you
   played: [Campaign and unlocks](modes.md#campaign-and-unlocks).
-- [DEUS SUPREMUS](deus-supremus.md) is normally gated until M-12 is open. His current state is
-  on [Errata & Known Issues](../errata.md).
+- [DEUS SUPREMUS](deus-supremus.md) has a separate access rule, described in [Game notes](../errata.md).
