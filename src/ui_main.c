@@ -215,14 +215,26 @@ static void draw_credits_slogan(void) {
 
 static void draw_campaign_preset_gate(void) {
     if (campaign_preset_selected || settings.difficulty == DIFFICULTY_DEUS) return;
-    Rectangle r = { 460, 570, 240, 48 };
+    Rectangle r = { 365, 570, 175, 48 };
     const char *label = "SELECT A PRESET";
     Vector2 size = MeasureTextEx(font_title, label, 16.0f, 1.0f);
-    DrawRectangleRec(r, COLOR_OVERLAY_BG);
+    DrawRectangleRec(r, (Color){ 0, 0, 0, 255 });
     DrawRectangleLinesEx(r, 1.5f, COLOR_PHOSPHOR_DIM);
     DrawTextEx(font_title, label,
                (Vector2){ r.x + (r.width - size.x) * 0.5f, r.y + 15.0f },
                16.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+}
+
+static void draw_campaign_difficulty_prompt(void) {
+    if (campaign_preset_selected || settings.difficulty == DIFFICULTY_DEUS) return;
+    Rectangle r = { 365.0f, 311.0f, 175.0f, 52.0f };
+    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
+    Color fill = COLOR_PHOSPHOR;
+    fill.a = (unsigned char)(12.0f + 24.0f * pulse);
+    Color border = COLOR_PHOSPHOR;
+    border.a = (unsigned char)(96.0f + 159.0f * pulse);
+    DrawRectangleRec(r, fill);
+    DrawRectangleLinesEx(r, 2.0f, border);
 }
 
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
@@ -230,8 +242,10 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
         ui_hub_draw_title(&assets, mouse_pos, saved_timer,
                           storage_profiles_mode() == STORAGE_PROFILES_READY);
         if (camp_open) {
-            campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+            campaign_draw_overlay(&assets, &settings, settings.current_opponent,
+                                   campaign_preset_selected, mouse_pos);
             draw_campaign_preset_gate();
+            draw_campaign_difficulty_prompt();
         }
     } else if (sc == SCREEN_ATRIUM) {
         plexus_draw(&assets, &stats, mouse_pos);
@@ -266,8 +280,10 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
     } else if (sc == SCREEN_HUB_CAMPAIGN) {
         ui_hub_draw_campaign(&assets, &settings, mouse_pos);
         if (camp_open) {
-            campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+            campaign_draw_overlay(&assets, &settings, settings.current_opponent,
+                                   campaign_preset_selected, mouse_pos);
             draw_campaign_preset_gate();
+            draw_campaign_difficulty_prompt();
         }
     }
 }
@@ -741,7 +757,7 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
 static void handle_campaign_overlay_click(Vector2 vm) {
     if (settings.difficulty != DIFFICULTY_DEUS && !campaign_preset_selected &&
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(vm, (Rectangle){ 460, 570, 240, 48 })) return;
+        CheckCollisionPointRec(vm, (Rectangle){ 365, 570, 175, 48 })) return;
     int cres = campaign_handle_click(&settings, &settings.current_opponent, vm);
     if (cres == -1) {
         audio_play_click(&audio);
@@ -768,8 +784,9 @@ static void handle_campaign_overlay_click(Vector2 vm) {
             }
         }
         audio_play_click(&audio);
-    } else if (cres == 4) {
-        /* Card table picker: the choice is already saved and stored in settings. */
+    } else if (cres == 5) {
+        assets.current_bg = settings.background;
+        theme_set(settings.terminal_color);
         audio_play_click(&audio);
     }
 }

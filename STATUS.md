@@ -1,8 +1,8 @@
-> **Development handoff (last updated 30 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 31 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 30 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
+**Last updated: 31 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
 
 ## Owner decisions: closed, do not reopen (29 October 2026)
 
@@ -32,6 +32,24 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 
 ## Status Summary
 ## Latest completed work
+
+### Pancratium opponent, difficulty and stage setup (31 October 2026)
+
+- Reworked the Apex Pancratium overlay around three right-panel views: opponent dossier, difficulty explanation/selection, and stage setup. Kept the existing opponent strip, large portrait, and start/back flow; Stage is the only place with map, background, and terminal color controls. Fine-tuned the three setup buttons to top-align with the info panel, made the stage background/color value controls and arrows equal-width and aligned, aligned the preset gate over Start so it replaces the label cleanly, added a pulsing Difficulty-tab cue until a preset is chosen, and aligned the PREVIEW/GLOBAL labels.
+- The Stage view shows eight clickable minimaps, compositing each loaded map overlay over its matching background. Selecting City, Castle, Hole, Arctic, Harvest, Face or Realm applies its same-named background and map palette. CRT remains the default and does not overwrite the player's current background or color. Background and color can be overridden after map selection.
+- Added first-pass palettes per owner description: Arctic/Teal, Castle/Gold, City/Rust, Face/Crimson, Harvest/Blood, Hole/Sand, Realm/Violet. Gold, Rust, Blood and Sand are available in System Options as well. Terminal color still updates the shared global theme and therefore affects menus; no per-stage isolation was introduced. Animation Speed remains in System Options.
+- Settings reuse the existing `table_design`, `background`, and `terminal_color` fields and persist through the existing settings file. No rules, scoring, card data, Action Card code, or tests were changed. Updated `LEARN_THE_CODE.md` and source comments to reflect the new setup and the distinct map assets.
+- Follow-up UI polish: the Difficulty tab pulses until the player explicitly chooses a preset, and the default saved difficulty is not shown as selected beforehand; `PREVIEW` and `GLOBAL` now share a left edge. `RAYLIB_SRC=/tmp/raylib-headers/src ./build.sh test`, strict C99 syntax checks, `./tools/action_guard.sh`, and `git diff --check` passed. Interactive display verification was not available.
+- **Verified:** `/tmp/ans.txt` reading gate via `./build.sh --verify`; `RAYLIB_SRC=/tmp/raylib-headers/src ./build.sh test` (engine/rules, locked-test guard, Action Card guard, table UI and music/options UI checks); strict `-std=c99 -O2 -Wall -Wextra -Werror -fsyntax-only` on all six changed C files; `git diff --check`.
+- **Not visually verified:** no desktop display was available to run and inspect the game. Color values are first-pass interpretations of the owner's descriptions and need visual review in-game.
+- **Touched:** `src/campaign.c`, `src/ui_main.c`, `src/ui_theme.c`, `src/ui_theme.h`, `src/ui_screens.c`, `src/storage.c`, `src/storage.h`, `src/ui_board.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Did not touch:** `tests/`, `src/ui_action.{c,h}`, scoring/rule logic, cards, map image files.
+
+### Player wiki and web deployment check (31 October 2026)
+
+- Added player-facing Campaign setup guidance for difficulty presets, map previews, map-specific background/terminal-colour defaults, independent overrides, and the global scope of terminal colour. Corrected outdated opponent page copy and removed screenshots that showed the superseded clearance-button layout; a current screenshot still needs a real game capture.
+- Removed developer workflow and status commentary from the public wiki, replaced the technical audio-DSP change log with player instructions, and removed GitHub repository/edit links from the wiki chrome.
+- `make_card_images.py --check`, `gen_wiki_tables.py --check`, `mkdocs build --strict`, and `git diff --check` passed. First `make_card_images.py --check` attempt lacked Pillow; rerun passed in a temporary virtual environment.
+- PR CI for head `25896ea` passed both the strict wiki build and WebAssembly build; Pages deployment was skipped because this run is for a pull request. The latest successful production Pages deployment is from `main` at `e81334480e52f0bb6af5aa50af60238448311b5d`, so the open PR's game and wiki changes are not live. Publishing them requires merging the PR, which has not been done.
 
 ### Seven map slots in the card-table picker, one asset folder per map (30 October 2026)
 

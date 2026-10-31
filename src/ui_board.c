@@ -453,18 +453,17 @@ typedef char board_table_slots_match_storage_h[(TABLE_DESIGN_COUNT <= BOARD_TABL
 
 /* Transparent card-bevel cavity of each map's bezel.png, in TEXTURE px: centre x, centre
    y, height (tools/table_art.py measures it from the file's alpha by flooding from the
-   centre). One row per slot. Today all seven bezels are the owner-provided castle frame,
-   so every row is the castle measurement (cavity (10, 6, 79, 122) on 95x136). A map
-   whose bezel.png is replaced gets its row re-measured, or its frame will sit wrong. */
+   centre). One row per slot; the current frames use the same cavity values, while each
+   map keeps its own art. Re-measure a row when a replacement bezel changes that opening. */
 static const float k_bezel_cav[BOARD_TABLE_SLOTS][3] = {
     {   0.0f,   0.0f,   0.0f },   /* CRT   - no bezel */
-    {  49.5f,  67.0f, 122.0f },   /* CITY  - castle duplicate */
-    {  49.5f,  67.0f, 122.0f },   /* CASTLE                     */
-    {  49.5f,  67.0f, 122.0f },   /* HOLE  - castle duplicate */
-    {  49.5f,  67.0f, 122.0f },   /* ARCTIC - castle duplicate */
-    {  49.5f,  67.0f, 122.0f },   /* HARVEST - castle duplicate */
-    {  49.5f,  67.0f, 122.0f },   /* FACE  - castle duplicate */
-    {  49.5f,  67.0f, 122.0f }    /* REALM - castle duplicate */
+    {  49.5f,  67.0f, 122.0f },   /* CITY    */
+    {  49.5f,  67.0f, 122.0f },   /* CASTLE  */
+    {  49.5f,  67.0f, 122.0f },   /* HOLE    */
+    {  49.5f,  67.0f, 122.0f },   /* ARCTIC  */
+    {  49.5f,  67.0f, 122.0f },   /* HARVEST */
+    {  49.5f,  67.0f, 122.0f },   /* FACE    */
+    {  49.5f,  67.0f, 122.0f }    /* REALM   */
 };
 
 static const char* get_path(const char* sub) {

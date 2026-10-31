@@ -32,9 +32,10 @@ Everything above is explained with real card pictures in the rulebook: **[How to
 | Know what a combination is worth | [Yaku & Scoring](https://aquaslopper.github.io/Xeno-koi/scoring/yaku/) |
 | Know why a score multiplied the way it did | [Multipliers & Awards](https://aquaslopper.github.io/Xeno-koi/scoring/multipliers/) |
 | Look up one of the 48 cards | [Cards](https://aquaslopper.github.io/Xeno-koi/reference/cards/) |
+| Set a campaign difficulty and stage | [Modes & Settings](https://aquaslopper.github.io/Xeno-koi/reference/modes/#campaign-setup) |
 | Know what the CPU is thinking, per difficulty | [Difficulty](https://aquaslopper.github.io/Xeno-koi/reference/difficulty/) |
 | Study his atlas, tile by tile | [DEUS SUPREMUS](https://aquaslopper.github.io/Xeno-koi/reference/deus-supremus/) |
-| Know what is broken or stale | [Errata](https://aquaslopper.github.io/Xeno-koi/errata/) |
+| Check current campaign and browser notes | [Game notes](https://aquaslopper.github.io/Xeno-koi/errata/) |
 
 ## Overview
 
@@ -58,7 +59,7 @@ The game supports 5 distinct rule variations, selectable in the Options menu to 
 |---|---|
 | **[Nintendo](https://aquaslopper.github.io/Xeno-koi/rulesets/nintendo/)** | The classic, balanced Koi-Koi rule set. One Koi-Koi call per player per round. |
 | **[FudaWiki](https://aquaslopper.github.io/Xeno-koi/rulesets/fudawiki/)** | Modern standard rules with slightly adjusted combo values: bigger Goko and Sanko, unlimited Koi-Koi calls. |
-| **[KK-ADD-10](https://aquaslopper.github.io/Xeno-koi/rulesets/kk-add-10/)** | A high-scoring variant where fixed sets and counted cards stack additively, and the Sake Cup counts as a plain. Includes the 1000 ms speed minigame and match-end minipoint conversion. The house rule, and a good place for beginners to start. |
+| **[KK-ADD-10](https://aquaslopper.github.io/Xeno-koi/rulesets/kk-add-10/)** | A high-scoring variant where fixed sets and counted cards stack additively, and the Sake Cup counts as a plain. Includes the 1000 ms speed minigame and match-end minipoint conversion. A good place for beginners to start. |
 | **[Tournament](https://aquaslopper.github.io/Xeno-koi/rulesets/tournament/)** | Disables "Hanami-zake" (Curtain + Cup) and "Tsukimi-zake" (Moon + Cup) Viewings. The Sake Cup is treated strictly as an animal card, eliminating cheap luck-based wins and forcing strategic combo building. |
 | **[Yakuza](https://aquaslopper.github.io/Xeno-koi/rulesets/yakuza/)** | Tournament scoring plus "Dealer's Privilege" (Oya-ken). If a round ends in exhaustion with a 0-0 draw, the current Dealer automatically wins the round and is awarded 6 points. |
 
@@ -69,7 +70,6 @@ The game supports 5 distinct rule variations, selectable in the Options menu to 
 * **Graphics:**
   * **GLSL Depth-Fog Shader:** A custom fragment shader that calculates background luminance to map procedural, drifting sine-wave fog exclusively to the dark, distant valleys of the 2D background art.
   * **Native Particle Engine:** Fixed-size memory pools handling ambient phosphor ash and high-velocity capture bursts.
-* **Development Methodology:** The core state machine and rendering pipelines were architected using strict, contract-based AI Prompt Engineering (Arena.ai), demonstrating advanced LLM context-retention through isolated logical handoffs.
 
 ### The table, to scale
 

@@ -50,6 +50,34 @@ TerminalTheme theme_get(int id) {
         t.dim  = (Color){ 75, 80, 90, 255 };
         t.text_info = (Color){ 225, 230, 235, 255 };
         t.text_info_dim = (Color){ 135, 140, 150, 255 };
+    } else if (id == TERMINAL_THEME_GOLD) {
+        t.id = TERMINAL_THEME_GOLD;
+        t.name = "GOLD";
+        t.base = (Color){ 255, 211, 112, 255 };
+        t.dim  = (Color){ 164, 119, 43, 255 };
+        t.text_info = (Color){ 255, 247, 222, 255 };
+        t.text_info_dim = (Color){ 224, 202, 151, 255 };
+    } else if (id == TERMINAL_THEME_RUST) {
+        t.id = TERMINAL_THEME_RUST;
+        t.name = "RUST";
+        t.base = (Color){ 170, 166, 105, 255 };
+        t.dim  = (Color){ 91, 91, 55, 255 };
+        t.text_info = (Color){ 241, 239, 211, 255 };
+        t.text_info_dim = (Color){ 190, 197, 160, 255 };
+    } else if (id == TERMINAL_THEME_BLOOD) {
+        t.id = TERMINAL_THEME_BLOOD;
+        t.name = "BLOOD";
+        t.base = (Color){ 218, 37, 49, 255 };
+        t.dim  = (Color){ 111, 19, 29, 255 };
+        t.text_info = (Color){ 255, 231, 231, 255 };
+        t.text_info_dim = (Color){ 220, 168, 174, 255 };
+    } else if (id == TERMINAL_THEME_SAND) {
+        t.id = TERMINAL_THEME_SAND;
+        t.name = "SAND";
+        t.base = (Color){ 231, 204, 151, 255 };
+        t.dim  = (Color){ 146, 117, 71, 255 };
+        t.text_info = (Color){ 255, 249, 231, 255 };
+        t.text_info_dim = (Color){ 218, 202, 165, 255 };
     } else {
         t.id = 0;
         t.name = "GREEN";

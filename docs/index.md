@@ -14,10 +14,11 @@ The five **Brights** — the most valuable cards in the deck:
 - **New to Koi-Koi?** Read [How to Play](how-to-play.md) first. It covers the deal, a turn, calling Koi-Koi or Shobu, and how a round ends.
 - **Choosing a rule set?** See [Rulesets](rulesets/index.md). The Options menu lets you pick one of five.
 - **Want the exact scoring?** See [Yaku & Scoring](scoring/yaku.md) and [Multipliers](scoring/multipliers.md).
-- **Working through the campaign?** See [Modes & Settings](reference/modes.md#campaign-and-unlocks) for clearance coins and sector requirements.
+- **Setting up a campaign match?** See [Modes & Settings](reference/modes.md#campaign-setup) for difficulty presets, stage maps, and their visual defaults. For progression, see [campaign unlocks](reference/modes.md#campaign-and-unlocks).
 - **Custom music or action-audio effects?** See [custom music](reference/modes.md#custom-music-desktop) and [Options page 2 action audio](reference/modes.md#action-card-audio-effects), including the live ON/OFF audition.
 - **Playing KK-ADD-10?** Its [speed minigame](rulesets/kk-add-10.md#speed-minigame-the-timer-bar-and-minipoints) explains the 1000 ms bar, serie bonus, and match-end minipoint conversion.
 - **Looking up a card or opponent?** See [Cards](reference/cards.md) and [Opponents](reference/opponents.md).
+- **Campaign access or browser fullscreen?** See [Game notes](errata.md).
 
 ## Rule sets at a glance
 
@@ -25,15 +26,6 @@ The five **Brights** — the most valuable cards in the deck:
 |---|---|
 | [Nintendo](rulesets/nintendo.md) | The classic balanced baseline. One Koi-Koi call per player per round. |
 | [FudaWiki](rulesets/fudawiki.md) | Nintendo with bigger Goko and Sanko, and unlimited Koi-Koi calls. |
-| [KK-ADD-10](rulesets/kk-add-10.md) | **The maintainer's house rule, and a good place for beginners to start.** Fixed sets stack with counted cards, the Sake Cup counts as a plain, and the speed minigame converts minipoints at match end. |
+| [KK-ADD-10](rulesets/kk-add-10.md) | A high-scoring variant and a good place for beginners to start. Fixed sets stack with counted cards, the Sake Cup counts as a plain, and the speed minigame converts minipoints at match end. |
 | [Tournament](rulesets/tournament.md) | Nintendo scoring with both Viewings removed. The Sake Cup is only an animal. |
 | [Yakuza](rulesets/yakuza.md) | Tournament scoring plus Dealer's Privilege: a draw pays the dealer 6 points. |
-
-## Source of truth
-
-!!! info "This wiki is the current reference"
-    The wiki describes the game as it is **now**. Older documents are history, not rules:
-
-    - **This wiki and the code in `src/`** are the source of truth.
-    - **`HANDOFF_KoiKoi_Giger_v2.pdf` is legacy.** It was the original build spec. Its rules were later changed, and it has not been updated since. Use it only for history. [Errata & Known Issues](errata.md) lists every place it differs from the game.
-    - **`STATUS.md` is the dated development handoff**, not a rulebook or deployment record. It reports the local source status and checks recorded on its stated date.

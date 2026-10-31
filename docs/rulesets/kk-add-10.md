@@ -1,9 +1,7 @@
 # KK-ADD-10
 
-!!! note "The maintainer's house rule"
-    KK-ADD-10 is the maintainer's own rule set, carried over from an earlier game. The maintainer considers it **a good first rule set for beginners**. The three counted families start scoring at clear thresholds (5 animals, 4 ribbons, 10 plains), and every card after that adds a point, so the score rises in visible steps.
-
-    This rule set is **expected to change** as the maintainer tunes it. When it does, this page and the generated tables are updated together. If you are reading a rule from older material, check here first.
+!!! note "A high-scoring variant"
+    The three counted families start scoring at clear thresholds (5 animals, 4 ribbons, 10 plains), and every card after that adds a point. Fixed sets and counted cards stack, so scores can rise quickly.
 
 **Fixed sets and counted cards are added together**, rather than replacing each other. The Sake Cup also counts as a Plain. Expect bigger rounds and bigger swings.
 

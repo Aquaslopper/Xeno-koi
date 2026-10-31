@@ -16,49 +16,101 @@
 extern Font font_title;
 extern Font font_body;
 
-/* Card table skins, in the order the Pancratium picker cycles them (index ==
-   TABLE_DESIGN_*). Index 0 is the CRT table the game ships with; every other index is a
-   map slot drawn from assets/maps/<name>/ by board_table_skin_active() in ui_board.c,
-   one folder per table (tables/table_<name>/). CASTLE is the forged original; the other
-   six are castle duplicates until the owner's own maps land in their folders.
-   Keep this list the same length as TABLE_DESIGN_COUNT (storage.h).
-   NOTE: the value box is 200 px wide at 15 px - keep every name under ~22 characters. */
+/* Pancratium stage names in TABLE_DESIGN_* order. Index 0 is the default CRT table;
+   each other index previews its own assets/maps/<name>/ overlay and bezel. Keep this
+   list the same length and order as TABLE_DESIGN_COUNT in storage.h. */
 static const char *const k_table_names[TABLE_DESIGN_COUNT] = {
     "CRT", "CITY", "CASTLE", "HOLE", "ARCTIC", "HARVEST", "FACE", "REALM"
-};
-static const char *const k_table_notes[TABLE_DESIGN_COUNT] = {
-    "DEFAULT",
-    "MAP - CASTLE DUPLICATE",
-    "FORGED - IN LIVE TEST",
-    "MAP - CASTLE DUPLICATE",
-    "MAP - CASTLE DUPLICATE",
-    "MAP - CASTLE DUPLICATE",
-    "MAP - CASTLE DUPLICATE",
-    "MAP - CASTLE DUPLICATE"
 };
 
 static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Color col);
 
-static Rectangle campaign_table_prev_rect(void) { return (Rectangle){ 520.0f, 500.0f, 26.0f, 26.0f }; }
-static Rectangle campaign_table_next_rect(void) { return (Rectangle){ 758.0f, 500.0f, 26.0f, 26.0f }; }
-static Rectangle campaign_table_value_rect(void) { return (Rectangle){ 552.0f, 500.0f, 200.0f, 26.0f }; }
+typedef enum {
+    CAMPAIGN_PAGE_OPPONENT = 0,
+    CAMPAIGN_PAGE_DIFFICULTY,
+    CAMPAIGN_PAGE_STAGE
+} CampaignSetupPage;
 
-static void campaign_draw_table_picker(const GameSettings *settings, Vector2 vm) {
-    int sel = settings->table_design;
-    if (sel < 0 || sel >= TABLE_DESIGN_COUNT) sel = 0;
-    DrawLine(385, 496, 1105, 496, COLOR_PHOSPHOR_DIM);
-    DrawTextEx(font_body, "CARD TABLE:", (Vector2){ 385.0f, 508.0f }, 15.0f, 1.2f, COLOR_PHOSPHOR_DIM);
-    draw_btn_custom(campaign_table_prev_rect(), "<", 16, vm, COLOR_PHOSPHOR);
-    Rectangle val = campaign_table_value_rect();
-    DrawRectangleRec(val, COLOR_PANEL_BG);
-    ui_draw_panel_border(val, COLOR_PHOSPHOR);
-    Vector2 ts = MeasureTextEx(font_body, k_table_names[sel], 15.0f, 1.2f);
-    DrawTextEx(font_body, k_table_names[sel],
-               (Vector2){ val.x + (val.width - ts.x) * 0.5f, val.y + (val.height - ts.y) * 0.5f },
-               15.0f, 1.2f, COLOR_PHOSPHOR);
-    draw_btn_custom(campaign_table_next_rect(), ">", 16, vm, COLOR_PHOSPHOR);
-    DrawTextEx(font_body, k_table_notes[sel], (Vector2){ 794.0f, 508.0f }, 12.0f, 1.0f,
-               (sel == 0) ? COLOR_TEXT_INFO_DIM : COLOR_AMBER);
+static CampaignSetupPage s_campaign_page = CAMPAIGN_PAGE_OPPONENT;
+
+/* Map order follows TABLE_DESIGN_*; background indices follow ui_board.c's bg_names[].
+   CRT has no authored map preset, so selecting it leaves the player's current choices. */
+static const int k_map_background[TABLE_DESIGN_COUNT] = { -1, 4, 3, 1, 2, 0, 6, 7 };
+static const int k_map_color[TABLE_DESIGN_COUNT] = {
+    -1, TERMINAL_THEME_RUST, TERMINAL_THEME_GOLD, TERMINAL_THEME_SAND,
+    TERMINAL_THEME_TEAL, TERMINAL_THEME_BLOOD, TERMINAL_THEME_CRIMSON, TERMINAL_THEME_VIOLET
+};
+static const int k_campaign_color_choices[] = {
+    TERMINAL_THEME_GREEN, TERMINAL_THEME_AMBER, TERMINAL_THEME_TEAL,
+    TERMINAL_THEME_CRIMSON, TERMINAL_THEME_VIOLET, TERMINAL_THEME_GOLD,
+    TERMINAL_THEME_RUST, TERMINAL_THEME_BLOOD, TERMINAL_THEME_SAND
+};
+static const int k_campaign_background_choices[] = { 0, 1, 2, 3, 4, 6, 7 };
+static const char *const k_campaign_background_names[8] = {
+    "HARVEST", "HOLE", "ARCTIC", "CASTLE", "CITY", "DEUS", "FACE", "REALM"
+};
+
+static Rectangle campaign_page_button(int page) {
+    return (Rectangle){ 365.0f, 245.0f + page * 66.0f, 175.0f, 52.0f };
+}
+
+static Rectangle campaign_map_card(int map) {
+    return (Rectangle){ 579.0f + (map % 4) * 136.0f, 278.0f + (map / 4) * 88.0f, 126.0f, 84.0f };
+}
+
+static void campaign_apply_map_defaults(GameSettings *settings, int map) {
+    if (!settings || map < 0 || map >= TABLE_DESIGN_COUNT) return;
+    settings->table_design = map;
+    if (map > TABLE_DESIGN_CRT) {
+        settings->background = k_map_background[map];
+        settings->terminal_color = k_map_color[map];
+    }
+}
+
+static int campaign_cycle_background(int current, int direction) {
+    int count = (int)(sizeof(k_campaign_background_choices) / sizeof(k_campaign_background_choices[0]));
+    int index = 0;
+    for (int i = 0; i < count; i++) {
+        if (k_campaign_background_choices[i] == current) { index = i; break; }
+    }
+    return k_campaign_background_choices[(index + count + direction) % count];
+}
+
+static int campaign_cycle_color(int current, int direction) {
+    int count = (int)(sizeof(k_campaign_color_choices) / sizeof(k_campaign_color_choices[0]));
+    int index = 0;
+    for (int i = 0; i < count; i++) {
+        if (k_campaign_color_choices[i] == current) { index = i; break; }
+    }
+    return k_campaign_color_choices[(index + count + direction) % count];
+}
+
+static void campaign_draw_map_card(const BoardAssets *ba, const GameSettings *settings,
+                                   int map, Vector2 vm) {
+    Rectangle card = campaign_map_card(map);
+    int hover = CheckCollisionPointRec(vm, card);
+    int preview_bg = (map == settings->table_design) ? settings->background :
+                     (map == TABLE_DESIGN_CRT ? settings->background : k_map_background[map]);
+    float art_height = 62.0f;
+    float art_width = art_height * (16.0f / 9.0f);
+    Rectangle art = { card.x + (card.width - art_width) * 0.5f, card.y + 2.0f, art_width, art_height };
+    DrawRectangleRec(art, (Color){ 5, 5, 5, 255 });
+    if (preview_bg >= 0 && preview_bg < 8 && ba->bgs[preview_bg].id > 0) {
+        DrawTexturePro(ba->bgs[preview_bg], (Rectangle){ 0, 0, 1280, 720 }, art,
+                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+    }
+    if (map > TABLE_DESIGN_CRT && ba->table_skins[map].ready) {
+        const Texture2D overlay = ba->table_skins[map].overlay;
+        DrawTexturePro(overlay, (Rectangle){ 0, 0, (float)overlay.width, (float)overlay.height }, art,
+                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+    }
+    DrawRectangleLinesEx(card, (map == settings->table_design || hover) ? 2.0f : 1.0f,
+                         (map == settings->table_design) ? COLOR_PHOSPHOR :
+                         (hover ? COLOR_PHOSPHOR_DIM : (Color){ 100, 100, 100, 150 }));
+    Vector2 label_size = MeasureTextEx(font_body, k_table_names[map], 13.0f, 1.0f);
+    DrawTextEx(font_body, k_table_names[map],
+               (Vector2){ card.x + (card.width - label_size.x) * 0.5f, card.y + 66.0f },
+               13.0f, 1.0f, (map == settings->table_design) ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
 }
 
 static void draw_text_wrapped(Font font, const char *text, float x, float y, float max_width, float font_size, float spacing, Color color) {
@@ -118,45 +170,141 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
     return hov;
 }
 
-void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent, Vector2 vm) {
+static void campaign_draw_opponent_page(const BoardAssets *ba, const GameSettings *settings,
+                                        const Opponent *opp, int selected_opponent) {
+    DrawTextEx(font_title, opp->name, (Vector2){ 580.0f, 258.0f }, 23.0f, 1.2f, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, opp->title, (Vector2){ 580.0f, 288.0f }, 15.0f, 1.6f, COLOR_TEXT_INFO_DIM);
+    DrawLine(580, 310, 1105, 310, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(font_body, TextFormat("PRIORITY YAKU: %s", opp->favorite_combo),
+               (Vector2){ 580.0f, 322.0f }, 16.0f, 1.1f, COLOR_TEXT_INFO);
+    DrawTextEx(font_body, TextFormat("SIGNATURE: %s", CARDS[opp->favorite_card_id].name),
+               (Vector2){ 580.0f, 345.0f }, 15.0f, 1.0f, COLOR_TEXT_INFO);
+    DrawTextEx(font_body, "CLEARANCE // MASTER 3 RDS   HARD 6 RDS   EASY 9 RDS",
+               (Vector2){ 580.0f, 371.0f }, 13.0f, 0.8f, COLOR_PHOSPHOR_DIM);
+    const Texture2D *coins[3] = { &ba->coin_gold, &ba->coin_silver, &ba->coin_bronze };
+    const char *names[3] = { "MASTER", "HARD", "EASY" };
+    const int medal_offset[3] = { 2, 1, 0 };
+    for (int i = 0; i < 3; i++) {
+        float x = 580.0f + i * 174.0f;
+        DrawTextEx(font_body, names[i], (Vector2){ x, 392.0f }, 12.0f, 0.8f, COLOR_TEXT_INFO_DIM);
+        if ((settings->cleared_mask & (1ULL << (selected_opponent * 3 + medal_offset[i]))) && coins[i]->id > 0) {
+            Rectangle src = { 0, 0, (float)coins[i]->width, (float)coins[i]->height };
+            DrawTexturePro(*coins[i], src, (Rectangle){ x + 62.0f, 389.0f, 18.0f, 18.0f },
+                           (Vector2){ 0, 0 }, 0.0f, WHITE);
+        }
+    }
+    DrawLine(580, 418, 1105, 418, COLOR_PHOSPHOR_DIM);
+    draw_text_wrapped(font_body, opp->lore_text, 580.0f, 430.0f, 525.0f, 15.0f, 1.2f, COLOR_TEXT_INFO);
+}
+
+static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settings,
+                                          int difficulty_selected) {
+    static const char *const labels[3] = { "EASY // 9 ROUNDS", "HARD // 6 ROUNDS", "MASTER // 3 ROUNDS" };
+    static const char *const accuracy[3] = {
+        "AI ACCURACY: 20-60%", "AI ACCURACY: 50-80%", "AI ACCURACY: 78-100%"
+    };
+    static const char *const run_length[3] = {
+        "CLEARANCE: 9 ROUNDS", "CLEARANCE: 6 ROUNDS", "CLEARANCE: 3 ROUNDS"
+    };
+    static const Difficulty modes[3] = { DIFFICULTY_EASY, DIFFICULTY_HARD, DIFFICULTY_MASTER };
+    DrawTextEx(font_title, "SELECT DIFFICULTY", (Vector2){ 580.0f, 260.0f }, 22.0f, 1.2f, COLOR_PHOSPHOR);
+    DrawTextEx(font_body, "Opponent behavior becomes more accurate as the roster advances.",
+               (Vector2){ 580.0f, 290.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    for (int i = 0; i < 3; i++) {
+        Rectangle r = { 580.0f + i * 176.0f, 327.0f, 166.0f, 42.0f };
+        int active = difficulty_selected && settings->difficulty == modes[i];
+        draw_btn_custom(r, labels[i], 13, vm, active ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
+        if (active) DrawRectangleLinesEx(r, 2.0f, COLOR_PHOSPHOR);
+        DrawTextEx(font_body, accuracy[i], (Vector2){ r.x, 379.0f }, 12.0f, 0.6f, COLOR_TEXT_INFO);
+        DrawTextEx(font_body, run_length[i], (Vector2){ r.x, 398.0f }, 12.0f, 0.6f, COLOR_TEXT_INFO_DIM);
+        if (i == 2) DrawTextEx(font_body, TextFormat("TURN LIMIT: %d SEC", settings->master_timer),
+                                (Vector2){ r.x, 417.0f }, 11.0f, 0.5f, COLOR_TEXT_INFO_DIM);
+    }
+    DrawLine(580, 428, 1105, 428, COLOR_PHOSPHOR_DIM);
+    DrawTextEx(font_body, "Clearance medals require the round counts shown above.",
+               (Vector2){ 580.0f, 444.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+    DrawTextEx(font_body, TextFormat("MASTER TURN LIMIT: %d SECONDS", settings->master_timer),
+               (Vector2){ 580.0f, 470.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO);
+    DrawTextEx(font_body, "Choose a tier to set its matching clearance length.",
+               (Vector2){ 580.0f, 503.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+}
+
+static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *settings,
+                                     Vector2 vm, int enabled) {
+    DrawTextEx(font_title, "STAGE // MAP SELECT", (Vector2){ 580.0f, 258.0f }, 20.0f, 1.0f, COLOR_PHOSPHOR);
+    for (int i = 0; i < TABLE_DESIGN_COUNT; i++) campaign_draw_map_card(ba, settings, i, vm);
+
+    Color active = enabled ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
+    DrawTextEx(font_body, "BACKGROUND", (Vector2){ 580.0f, 465.0f }, 12.0f, 0.8f, active);
+    draw_btn_custom((Rectangle){ 676.0f, 461.0f, 30.0f, 25.0f }, "<", 14, vm, active);
+    Rectangle bg_value = { 710.0f, 461.0f, 180.0f, 25.0f };
+    DrawRectangleRec(bg_value, COLOR_PANEL_BG);
+    ui_draw_panel_border(bg_value, active);
+    const char *bg_name = (settings->background >= 0 && settings->background < 8) ?
+                          k_campaign_background_names[settings->background] : "UNKNOWN";
+    Vector2 bg_size = MeasureTextEx(font_body, bg_name, 13.0f, 0.8f);
+    DrawTextEx(font_body, bg_name,
+               (Vector2){ bg_value.x + (bg_value.width - bg_size.x) * 0.5f,
+                          bg_value.y + 5.0f }, 13.0f, 0.8f, COLOR_TEXT_INFO);
+    draw_btn_custom((Rectangle){ 894.0f, 461.0f, 30.0f, 25.0f }, ">", 14, vm, active);
+    if (settings->background >= 0 && settings->background < 8 && ba->bgs[settings->background].id > 0) {
+        DrawTextEx(font_body, "PREVIEW", (Vector2){ 976.0f, 468.0f }, 11.0f, 0.5f, COLOR_TEXT_INFO_DIM);
+        Rectangle preview = { 1032.0f, 455.0f, 72.0f, 40.0f };
+        DrawTexturePro(ba->bgs[settings->background], (Rectangle){ 0, 0, 1280, 720 }, preview,
+                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+        DrawRectangleLinesEx(preview, 1.0f, active);
+    }
+
+    DrawTextEx(font_body, "TERMINAL COLOR", (Vector2){ 580.0f, 505.0f }, 12.0f, 0.8f, active);
+    draw_btn_custom((Rectangle){ 676.0f, 501.0f, 30.0f, 25.0f }, "<", 14, vm, active);
+    Rectangle color_value = { 710.0f, 501.0f, 180.0f, 25.0f };
+    DrawRectangleRec(color_value, COLOR_PANEL_BG);
+    ui_draw_panel_border(color_value, active);
+    const char *color_name = theme_get(settings->terminal_color).name;
+    Vector2 color_size = MeasureTextEx(font_body, color_name, 13.0f, 0.8f);
+    DrawTextEx(font_body, color_name,
+               (Vector2){ color_value.x + (color_value.width - color_size.x) * 0.5f,
+                          color_value.y + 5.0f }, 13.0f, 0.8f, COLOR_TEXT_INFO);
+    draw_btn_custom((Rectangle){ 894.0f, 501.0f, 30.0f, 25.0f }, ">", 14, vm, active);
+    DrawTextEx(font_body, "GLOBAL", (Vector2){ 976.0f, 507.0f }, 11.0f, 0.7f, COLOR_TEXT_INFO_DIM);
+    Rectangle color_swatch = { 1032.0f, 501.0f, 72.0f, 25.0f };
+    DrawRectangleRec(color_swatch, theme_get(settings->terminal_color).base);
+    DrawRectangleLinesEx(color_swatch, 1.0f, active);
+}
+
+void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent,
+                           int difficulty_selected, Vector2 vm) {
     int unlocked_opponents = settings->unlocked_opponents;
     if (selected_opponent < 0 || selected_opponent >= CAMPAIGN_OPPONENT_COUNT) selected_opponent = 0;
 
-    /* Dim background */
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 225 });
-
-    Rectangle p = { 90, 35, 1100, 650 };
-    DrawRectangleRec(p, COLOR_PANEL_BG);
-    ui_draw_panel_border(p, COLOR_PHOSPHOR);
+    Rectangle panel = { 90, 35, 1100, 650 };
+    DrawRectangleRec(panel, COLOR_PANEL_BG);
+    ui_draw_panel_border(panel, COLOR_PHOSPHOR);
     draw_btn_custom((Rectangle){ 1145, 48, 32, 28 }, "X", 18, vm, COLOR_PHOSPHOR);
 
     if (settings->difficulty == DIFFICULTY_DEUS) {
         DrawTextEx(font_title, "CAMPAIGN: DEUS SUPREMUS // PRIME INTELLECT", (Vector2){ 295.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
-
         Rectangle big_box = { 155.0f, 140.0f, 200.0f, 320.0f };
         DrawRectangleRec((Rectangle){ big_box.x - 4, big_box.y - 4, big_box.width + 8, big_box.height + 8 }, COLOR_PANEL_BG);
         ui_draw_panel_border((Rectangle){ big_box.x - 2, big_box.y - 2, big_box.width + 4, big_box.height + 4 }, COLOR_PHOSPHOR);
         Rectangle big_src = { (float)(11 * ATLAS_CELL_W), 0.0f, (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
         Texture2D tex = (ba->atlas_deus.id > 0) ? ba->atlas_deus : ba->atlas;
-        DrawTexturePro(tex, big_src, big_box, (Vector2){0,0}, 0.0f, WHITE);
+        DrawTexturePro(tex, big_src, big_box, (Vector2){ 0, 0 }, 0.0f, WHITE);
 
         Rectangle txt_box = { 380.0f, 140.0f, 745.0f, 320.0f };
         DrawRectangleRec(txt_box, COLOR_PANEL_BG);
         ui_draw_panel_border(txt_box, COLOR_PHOSPHOR_DIM);
-
         DrawTextEx(font_title, "ENTITY 13 // DEUS SUPREMUS", (Vector2){ 400.0f, 158.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
         DrawTextEx(font_body, "Omnipresent Machine God // Sector Null", (Vector2){ 400.0f, 188.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         DrawLine(400, 212, 1105, 212, COLOR_PHOSPHOR_DIM);
-
         DrawTextEx(font_body, "RULESET: YAKUZA RULES (LOCKED)", (Vector2){ 400.0f, 224.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
         DrawTextEx(font_body, "AI INTELLECT: 100.0% OPTIMAL (ZERO BLUNDERS)", (Vector2){ 400.0f, 248.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
         DrawTextEx(font_body, "TURN LIMIT: 15.0 SECONDS", (Vector2){ 400.0f, 272.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
         DrawTextEx(font_body, "THREAT LEVEL: TERMINAL", (Vector2){ 400.0f, 296.0f }, 17.0f, 2.0f, COLOR_RED);
         DrawLine(400, 324, 1105, 324, COLOR_PHOSPHOR_DIM);
-
         const char *lore = "The apex consciousness. Born from the convergence of all twelve sectors, Deus Supremus operates with pure mathematical perfection. It does not hesitate, does not blunder, and will exploit every vulnerability under ruthless Yakuza rules.";
         draw_text_wrapped(font_body, lore, 400.0f, 338.0f, 700.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
-
         int deus_ok = (DEUS_UNLOCKED_FOR_TESTING || unlocked_opponents >= 12);
         draw_btn_custom((Rectangle){ 460.0f, 570.0f, 240.0f, 48.0f }, "START MATCH", 20, vm, deus_ok ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         draw_btn_custom((Rectangle){ 720.0f, 570.0f, 180.0f, 48.0f }, "BACK", 20, vm, COLOR_PHOSPHOR);
@@ -164,135 +312,71 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
     }
 
     const char *picker_title = " APEX  PANCRATIUM  CIRCUIT ";
-    Vector2 picker_title_size = MeasureTextEx(font_title, picker_title, 24.0f, 1.2f);
+    Vector2 title_size = MeasureTextEx(font_title, picker_title, 24.0f, 1.2f);
     DrawTextEx(font_title, picker_title,
-               (Vector2){ floorf(p.x + (p.width - picker_title_size.x) * 0.5f), 52.0f },
+               (Vector2){ floorf(panel.x + (panel.width - title_size.x) * 0.5f), 52.0f },
                24.0f, 1.2f, COLOR_PHOSPHOR);
 
-    /* Top Row: 12 mini portraits */
     for (int i = 0; i < CAMPAIGN_OPPONENT_COUNT; i++) {
         Rectangle slot = { 155.0f + i * 82.0f, 96.0f, 68.0f, 110.0f };
         Rectangle src = { (float)(i * ATLAS_CELL_W), 0.0f, (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
         int unlocked = (i < unlocked_opponents);
-        int hov = CheckCollisionPointRec(vm, slot);
-
+        int hover = CheckCollisionPointRec(vm, slot);
         if (unlocked) {
-            DrawTexturePro(ba->atlas, src, slot, (Vector2){0,0}, 0.0f, WHITE);
-            if (i == selected_opponent) {
-                DrawRectangleLinesEx(slot, 2.5f, COLOR_PHOSPHOR);
-                DrawRectangleLinesEx((Rectangle){ slot.x - 2, slot.y - 2, slot.width + 4, slot.height + 4 }, 1.0f, COLOR_PHOSPHOR_DIM);
-            } else if (hov) {
-                DrawRectangleLinesEx(slot, 2.0f, YELLOW);
-            } else {
-                DrawRectangleLinesEx(slot, 1.0f, COLOR_PHOSPHOR_DIM);
-            }
+            DrawTexturePro(ba->atlas, src, slot, (Vector2){ 0, 0 }, 0.0f, WHITE);
+            DrawRectangleLinesEx(slot, (i == selected_opponent || hover) ? 2.0f : 1.0f,
+                                 (i == selected_opponent) ? COLOR_PHOSPHOR : (hover ? YELLOW : COLOR_PHOSPHOR_DIM));
         } else {
-            DrawTexturePro(ba->atlas, src, slot, (Vector2){0,0}, 0.0f, (Color){ 15, 15, 15, 255 });
+            DrawTexturePro(ba->atlas, src, slot, (Vector2){ 0, 0 }, 0.0f, (Color){ 15, 15, 15, 255 });
             DrawRectangleRec(slot, (Color){ 0, 0, 0, 210 });
-            if (hov || i == selected_opponent) {
-                DrawRectangleLinesEx(slot, 2.0f, YELLOW);
-            } else {
-                DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
-            }
+            DrawRectangleLinesEx(slot, 1.0f, (Color){ 40, 40, 40, 255 });
             DrawTextEx(font_body, "LOCKED", (Vector2){ slot.x + 8.0f, slot.y + 45.0f }, 13.0f, 2.0f, (Color){ 160, 160, 160, 255 });
         }
-        ui_theme_draw_panel_flares(slot);
-        DrawTextEx(font_body, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f }, 14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
+        DrawTextEx(font_body, TextFormat("M-%02d", i + 1), (Vector2){ slot.x + 16.0f, slot.y + 114.0f },
+                   14.0f, 2.0f, (i == selected_opponent) ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
     }
 
-    const Opponent *opp = campaign_get_opponent(selected_opponent);
+    Rectangle portrait = { 155.0f, 245.0f, 185.0f, 300.0f };
+    Rectangle portrait_src = { (float)(selected_opponent * ATLAS_CELL_W), 0.0f, (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
+    DrawRectangleRec((Rectangle){ portrait.x - 4, portrait.y - 4, portrait.width + 8, portrait.height + 8 }, COLOR_PANEL_BG);
+    ui_draw_panel_border((Rectangle){ portrait.x - 2, portrait.y - 2, portrait.width + 4, portrait.height + 4 }, COLOR_PHOSPHOR);
+    DrawTexturePro(ba->atlas, portrait_src, portrait, (Vector2){ 0, 0 }, 0.0f,
+                   (selected_opponent < unlocked_opponents) ? WHITE : (Color){ 30, 30, 30, 255 });
 
-    /* Bottom Left: Large card portrait */
-    Rectangle big_box = { 155.0f, 245.0f, 185.0f, 300.0f };
-    DrawRectangleRec((Rectangle){ big_box.x - 4, big_box.y - 4, big_box.width + 8, big_box.height + 8 }, COLOR_PANEL_BG);
-    ui_draw_panel_border((Rectangle){ big_box.x - 2, big_box.y - 2, big_box.width + 4, big_box.height + 4 }, COLOR_PHOSPHOR);
-    Rectangle big_src = { (float)(selected_opponent * ATLAS_CELL_W), 0.0f, (float)ATLAS_CELL_W, (float)ATLAS_CELL_H };
-    DrawTexturePro(ba->atlas, big_src, big_box, (Vector2){0,0}, 0.0f, (selected_opponent < unlocked_opponents) ? WHITE : (Color){ 30, 30, 30, 255 });
+    for (int page = 0; page < 3; page++) {
+        Rectangle r = campaign_page_button(page);
+        int active = s_campaign_page == (CampaignSetupPage)page;
+        draw_btn_custom(r, page == CAMPAIGN_PAGE_OPPONENT ? "OPPONENT" :
+                           page == CAMPAIGN_PAGE_DIFFICULTY ? "DIFFICULTY" : "STAGE",
+                        17, vm, active ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
+        if (active) DrawRectangleLinesEx(r, 2.0f, COLOR_PHOSPHOR);
+    }
 
-    /* Bottom Right: Info Box */
-    Rectangle txt_box = { 365.0f, 245.0f, 760.0f, 300.0f };
-    DrawRectangleRec(txt_box, COLOR_PANEL_BG);
-    ui_draw_panel_border(txt_box, COLOR_PHOSPHOR_DIM);
-
-    if (selected_opponent < unlocked_opponents) {
-        DrawTextEx(font_title, opp->name, (Vector2){ 385.0f, 260.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
-        DrawTextEx(font_body, opp->title, (Vector2){ 385.0f, 290.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
-        DrawLine(385, 312, 1105, 312, COLOR_PHOSPHOR_DIM);
-        DrawTextEx(font_body, TextFormat("PRIORITY YAKU:   %s", opp->favorite_combo), (Vector2){ 385.0f, 324.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, TextFormat("SIGNATURE TARGET: %s (#%02d)", CARDS[opp->favorite_card_id].name, opp->favorite_card_id + 1), (Vector2){ 385.0f, 344.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
-        DrawTextEx(font_body, "CLEARANCE PROTOCOL:", (Vector2){ 385.0f, 368.0f }, 15.0f, 1.2f, COLOR_PHOSPHOR_DIM);
-
-        bool is_master = (settings->difficulty == DIFFICULTY_MASTER && settings->rounds >= 3);
-        bool is_hard   = (settings->difficulty == DIFFICULTY_HARD   && settings->rounds >= 6);
-        bool is_easy   = (settings->difficulty == DIFFICULTY_EASY   && settings->rounds >= 9);
-
-        Rectangle btn_req_m = { 560.0f, 364.0f, 160.0f, 26.0f };
-        Rectangle btn_req_h = { 730.0f, 364.0f, 150.0f, 26.0f };
-        Rectangle btn_req_e = { 890.0f, 364.0f, 150.0f, 26.0f };
-
-        draw_btn_custom(btn_req_m, "MASTER (3 RDS)", 13, vm, is_master ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
-        if (is_master) DrawRectangleLinesEx(btn_req_m, 1.5f, COLOR_PHOSPHOR);
-        if (settings->cleared_mask & (1ULL << (selected_opponent * 3 + 2))) {
-            if (ba->coin_gold.id > 0) {
-                float cs = 24.0f;
-                Rectangle src = { 0.0f, 0.0f, (float)ba->coin_gold.width, (float)ba->coin_gold.height };
-                Rectangle dst = { btn_req_m.x + btn_req_m.width - cs - 4.0f, btn_req_m.y - 6.0f, cs, cs };
-                DrawTexturePro(ba->coin_gold, src, dst, (Vector2){0,0}, 0.0f, WHITE);
-            }
+    Rectangle info = { 560.0f, 245.0f, 565.0f, 300.0f };
+    DrawRectangleRec(info, COLOR_PANEL_BG);
+    ui_draw_panel_border(info, COLOR_PHOSPHOR_DIM);
+    int unlocked = selected_opponent < unlocked_opponents;
+    if (s_campaign_page == CAMPAIGN_PAGE_OPPONENT) {
+        if (unlocked) campaign_draw_opponent_page(ba, settings, campaign_get_opponent(selected_opponent), selected_opponent);
+        else {
+            static const int req_b[12] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
+            static const int req_s[12] = { 0,0,0,0,1,2,3,6,7,8,9,10 };
+            static const int req_g[12] = { 0,0,0,0,0,0,0,1,2,4,6,9 };
+            DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 580.0f, 260.0f }, 23.0f, 1.2f, COLOR_RED);
+            DrawTextEx(font_body, TextFormat("REQUIRES: %d BRONZE / %d SILVER / %d GOLD",
+                       req_b[selected_opponent], req_s[selected_opponent], req_g[selected_opponent]),
+                       (Vector2){ 580.0f, 304.0f }, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         }
-
-        draw_btn_custom(btn_req_h, "HARD (6 RDS)", 13, vm, is_hard ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
-        if (is_hard) DrawRectangleLinesEx(btn_req_h, 1.5f, COLOR_PHOSPHOR);
-        if (settings->cleared_mask & (1ULL << (selected_opponent * 3 + 1))) {
-            if (ba->coin_silver.id > 0) {
-                float cs = 24.0f;
-                Rectangle src = { 0.0f, 0.0f, (float)ba->coin_silver.width, (float)ba->coin_silver.height };
-                Rectangle dst = { btn_req_h.x + btn_req_h.width - cs - 4.0f, btn_req_h.y - 6.0f, cs, cs };
-                DrawTexturePro(ba->coin_silver, src, dst, (Vector2){0,0}, 0.0f, WHITE);
-            }
-        }
-
-        draw_btn_custom(btn_req_e, "EASY (9 RDS)", 13, vm, is_easy ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
-        if (is_easy) DrawRectangleLinesEx(btn_req_e, 1.5f, COLOR_PHOSPHOR);
-        if (settings->cleared_mask & (1ULL << (selected_opponent * 3 + 0))) {
-            if (ba->coin_bronze.id > 0) {
-                float cs = 24.0f;
-                Rectangle src = { 0.0f, 0.0f, (float)ba->coin_bronze.width, (float)ba->coin_bronze.height };
-                Rectangle dst = { btn_req_e.x + btn_req_e.width - cs - 4.0f, btn_req_e.y - 6.0f, cs, cs };
-                DrawTexturePro(ba->coin_bronze, src, dst, (Vector2){0,0}, 0.0f, WHITE);
-            }
-        }
-
-        DrawLine(385, 396, 1105, 396, COLOR_PHOSPHOR_DIM);
-        draw_text_wrapped(font_body, opp->lore_text, 385.0f, 408.0f, 720.0f, 16.0f, 2.0f, COLOR_TEXT_INFO);
-        campaign_draw_table_picker(settings, vm);
+    } else if (s_campaign_page == CAMPAIGN_PAGE_DIFFICULTY) {
+        campaign_draw_difficulty_page(vm, settings, difficulty_selected);
     } else {
-        DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 385.0f, 260.0f }, 24.0f, 1.2f, COLOR_RED);
-        /* Show only the coin requirement for this opponent */
-        static const int REQ_B[12] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-        static const int REQ_S[12] = { 0, 0, 0, 0, 1, 2, 3, 6, 7, 8, 9, 10 };
-        static const int REQ_G[12] = { 0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 6, 9 };
-        int ri = selected_opponent;
-        if (ri < 0 || ri > 11) ri = 0;
-        char req[128];
-        req[0] = '\0';
-        int pos = 0;
-        int first = 1;
-        if (REQ_B[ri] > 0) { pos += snprintf(req + pos, sizeof(req) - pos, "%s%d BRONZE", first ? "" : ", ", REQ_B[ri]); first = 0; }
-        if (REQ_S[ri] > 0) { pos += snprintf(req + pos, sizeof(req) - pos, "%s%d SILVER", first ? "" : ", ", REQ_S[ri]); first = 0; }
-        if (REQ_G[ri] > 0) { pos += snprintf(req + pos, sizeof(req) - pos, "%s%d GOLD", first ? "" : ", ", REQ_G[ri]); first = 0; }
-        if (first) snprintf(req, sizeof(req), "NONE");
-        char line[160];
-        snprintf(line, sizeof(line), "REQUIRES: %s", req);
-        DrawTextEx(font_body, line, (Vector2){ 385.0f, 295.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO_DIM);
-        DrawLine(385, 325, 1105, 325, COLOR_PHOSPHOR_DIM);
+        campaign_draw_stage_page(ba, settings, vm, unlocked);
     }
 
-    /* Bottom Buttons */
-    Rectangle btn_start = { 460.0f, 570.0f, 240.0f, 48.0f };
-    Rectangle btn_back = { 720.0f, 570.0f, 180.0f, 48.0f };
-    draw_btn_custom(btn_start, "START MATCH", 20, vm, (selected_opponent < unlocked_opponents) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    draw_btn_custom(btn_back, "BACK", 20, vm, COLOR_PHOSPHOR);
+    Rectangle start = { 365.0f, 570.0f, 175.0f, 48.0f };
+    Rectangle back = { 720.0f, 570.0f, 180.0f, 48.0f };
+    draw_btn_custom(start, "START", 20, vm, (unlocked && settings->difficulty != DIFFICULTY_DEUS) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    draw_btn_custom(back, "BACK", 20, vm, COLOR_PHOSPHOR);
 }
 
 int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm) {
@@ -302,6 +386,7 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
     /* Close / Back button */
     if (CheckCollisionPointRec(vm, (Rectangle){ 1145, 48, 32, 28 }) ||
         CheckCollisionPointRec(vm, (Rectangle){ 720.0f, 570.0f, 180.0f, 48.0f })) {
+        s_campaign_page = CAMPAIGN_PAGE_OPPONENT;
         return -1;
     }
 
@@ -327,44 +412,60 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
         }
     }
 
-    /* Card table picker: cycles the skin list and remembers the choice. Only live while the
-       row is drawn - it sits in the detail panel of an unlocked opponent. */
-    if (*out_selected < unlocked_opponents &&
-        (CheckCollisionPointRec(vm, campaign_table_prev_rect()) ||
-         CheckCollisionPointRec(vm, campaign_table_next_rect()))) {
-        int dir = CheckCollisionPointRec(vm, campaign_table_next_rect()) ? 1 : -1;
-        int sel = settings->table_design;
-        if (sel < 0 || sel >= TABLE_DESIGN_COUNT) sel = 0;
-        settings->table_design = (sel + dir + TABLE_DESIGN_COUNT) % TABLE_DESIGN_COUNT;
-        storage_save_settings(settings);
-        return 4;
+    /* The three setup selectors reuse the Atrium's one-panel-at-a-time pattern. */
+    for (int page = 0; page < 3; page++) {
+        if (CheckCollisionPointRec(vm, campaign_page_button(page))) {
+            s_campaign_page = (CampaignSetupPage)page;
+            return 2;
+        }
     }
 
-    /* Clearance Protocol quick-select preset buttons */
-    if (*out_selected < unlocked_opponents) {
-        if (CheckCollisionPointRec(vm, (Rectangle){ 560.0f, 364.0f, 160.0f, 26.0f })) {
-            settings->difficulty = DIFFICULTY_MASTER;
-            settings->rounds = 3;
-            storage_save_settings(settings);
-            return 3;
+    if (*out_selected < unlocked_opponents && s_campaign_page == CAMPAIGN_PAGE_DIFFICULTY) {
+        static const Difficulty modes[3] = { DIFFICULTY_EASY, DIFFICULTY_HARD, DIFFICULTY_MASTER };
+        static const int rounds[3] = { 9, 6, 3 };
+        for (int i = 0; i < 3; i++) {
+            Rectangle r = { 580.0f + i * 176.0f, 327.0f, 166.0f, 42.0f };
+            if (CheckCollisionPointRec(vm, r)) {
+                settings->difficulty = modes[i];
+                settings->rounds = rounds[i];
+                storage_save_settings(settings);
+                return 3;
+            }
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 730.0f, 364.0f, 150.0f, 26.0f })) {
-            settings->difficulty = DIFFICULTY_HARD;
-            settings->rounds = 6;
-            storage_save_settings(settings);
-            return 3;
+    }
+
+    if (*out_selected < unlocked_opponents && s_campaign_page == CAMPAIGN_PAGE_STAGE) {
+        for (int map = 0; map < TABLE_DESIGN_COUNT; map++) {
+            if (CheckCollisionPointRec(vm, campaign_map_card(map))) {
+                campaign_apply_map_defaults(settings, map);
+                storage_save_settings(settings);
+                return 5;
+            }
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 890.0f, 364.0f, 150.0f, 26.0f })) {
-            settings->difficulty = DIFFICULTY_EASY;
-            settings->rounds = 9;
+        int bg_dir = 0;
+        if (CheckCollisionPointRec(vm, (Rectangle){ 676.0f, 461.0f, 30.0f, 25.0f })) bg_dir = -1;
+        else if (CheckCollisionPointRec(vm, (Rectangle){ 710.0f, 461.0f, 214.0f, 25.0f })) bg_dir = 1;
+        if (bg_dir) {
+            settings->background = campaign_cycle_background(settings->background, bg_dir);
             storage_save_settings(settings);
-            return 3;
+            return 5;
+        }
+        int color_dir = 0;
+        if (CheckCollisionPointRec(vm, (Rectangle){ 676.0f, 501.0f, 30.0f, 25.0f })) color_dir = -1;
+        else if (CheckCollisionPointRec(vm, (Rectangle){ 710.0f, 501.0f, 214.0f, 25.0f })) color_dir = 1;
+        if (color_dir) {
+            settings->terminal_color = campaign_cycle_color(settings->terminal_color, color_dir);
+            storage_save_settings(settings);
+            return 5;
         }
     }
 
     /* Start Match */
-    if (CheckCollisionPointRec(vm, (Rectangle){ 460.0f, 570.0f, 240.0f, 48.0f })) {
-        if (*out_selected < unlocked_opponents) return 1;
+    if (CheckCollisionPointRec(vm, (Rectangle){ 365.0f, 570.0f, 175.0f, 48.0f })) {
+        if (*out_selected < unlocked_opponents) {
+            s_campaign_page = CAMPAIGN_PAGE_OPPONENT;
+            return 1;
+        }
     }
 
     return 0;

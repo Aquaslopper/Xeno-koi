@@ -659,34 +659,53 @@ needs 4 bronze and 1 silver; index 11 ("M-12") needs 11 bronze, 10 silver and
 
 ### 5.3 The campaign screen
 
-`campaign_draw_overlay()` is the start screen's overlay and is also where Deus is
-selected. The standard opponent chooser is titled `//APEX PANCRATIUM CIRCUIT//`,
-centered within the 1100 px overlay panel; the Deus dossier retains its separate
-title. With
-`settings.difficulty != DIFFICULTY_DEUS` it draws:
+`campaign_draw_overlay()` is the start screen's overlay and the standard campaign
+setup screen; the Deus dossier remains a separate branch. The normal screen is titled
+`APEX PANCRATIUM CIRCUIT` and uses the `{90,35,1100,650}` panel. It draws the twelve
+opponent tiles at `{155 + i*82, 96, 68, 110}`, the selected portrait at
+`{155,245,185,300}`, three setup buttons at x=365, y=245/311/377 (top-aligned
+with the information panel), and the interactive information panel at
+`{560,245,565,300}`. The panel switches between Opponent,
+Difficulty and Stage; `START` is `{365,570,175,48}`, `BACK` remains
+`{720,570,180,48}`. Until a difficulty preset has been selected, `ui_main.c` draws
+an opaque `SELECT A PRESET` gate over that exact Start rectangle and pulses the
+Difficulty tab. The stored difficulty is not visually marked as chosen until the
+player selects a preset. A file-scope page enum owns this display-only selection.
 
-* the panel `{ 90, 35, 1100, 650 }` and a close button `{ 1145, 48, 32, 28 }`;
-* twelve mini portraits at `{ 155 + i * 82, 96, 68, 110 }`, each textured from
-  `atlas` source rectangle `{ i * ATLAS_CELL_W, 0, ATLAS_CELL_W, ATLAS_CELL_H }`;
-* a large portrait `{ 155, 245, 185, 300 }` from the selected opponent's cell;
-* an info box `{ 365, 245, 760, 300 }` with `opp->name`, `opp->title`,
-  `opp->favorite_combo`, `CARDS[opp->favorite_card_id].name` and the lore text;
-* three requirement buttons at y 364 — `{560, 364, 160, 26}`, `{730, 364, 150, 26}`,
-  `{890, 364, 150, 26}` — labelled `MASTER (3 RDS)`, `HARD (6 RDS)`,
-  `EASY (9 RDS)`, each with the earned coin drawn at 24×24 if the bit is set;
-* `START MATCH` at `{ 460, 570, 240, 48 }` and `BACK` at `{ 720, 570, 180, 48 }`.
+* Opponent shows the existing name/title, favorite yaku/card, clearance status and lore.
+  Locked opponents remain inspectable, but cannot change settings or start.
+* Difficulty offers Easy/Hard/Master presets. Selecting one saves the matching
+  round count (9/6/3) and the current clearance requirements. The descriptions reflect
+  the AI accuracy bands (20–60%, 50–80%, 78–100%); Master also uses the saved turn limit.
+* Stage displays all eight table choices as clickable minimaps. Each preview composites
+  the selected background with that map's already-loaded `TableSkin.overlay`; CRT has no
+  overlay and previews the current background. Selecting a named map applies its
+  same-named background and its terminal-color preset, then saves. Background and color
+  controls below the map grid can override either default. CRT preserves the current
+  background/color. The background/color value controls and arrows share aligned widths;
+  the `PREVIEW` and `GLOBAL` labels share the same right-side alignment. The stage
+  controls are only active for an unlocked opponent.
 
-Clicking a requirement button writes the difficulty and rounds and saves at once:
+Map/background presets in `campaign.c` follow the shared asset indices:
 
-| Button | Sets |
-|---|---|
-| MASTER (3 RDS) | `DIFFICULTY_MASTER`, `rounds = 3` |
-| HARD (6 RDS) | `DIFFICULTY_HARD`, `rounds = 6` |
-| EASY (9 RDS) | `DIFFICULTY_EASY`, `rounds = 9` |
+| Map | Background id/name | Terminal theme id/name |
+|---|---|---|
+| City | 4 / City | 7 / Rust |
+| Castle | 3 / Castle | 6 / Gold |
+| Hole | 1 / Hole | 9 / Sand |
+| Arctic | 2 / Arctic | 2 / Teal |
+| Harvest | 0 / Harvest | 8 / Blood |
+| Face | 6 / Face | 3 / Crimson |
+| Realm | 7 / Realm | 4 / Violet |
 
-Locked tiles still draw the atlas cell, tinted `{15,15,15,255}`, overlaid with
-`{0,0,0,210}` and the word `LOCKED`. Clicking any tile — locked included — selects
-it for inspection and returns 2; only `START MATCH` checks the unlock.
+Terminal colors remain global (`theme_set()` updates the shared `g_theme` used across
+menus and match UI). The existing System Options picker cycles the regular palettes
+Green, Amber, Teal, Crimson, Violet, Gold, Rust, Blood and Sand; DARK remains reserved
+for Deus. The existing `GameSettings` fields persist table design, background and
+terminal color; there is no separate per-match stage record.
+
+Locked opponent tiles retain the atlas cell, dark tint and `LOCKED` label. The Deus
+branch still displays its dossier and start/back buttons.
 
 With `settings.difficulty == DIFFICULTY_DEUS` the same function draws a single
 dossier instead: title `CAMPAIGN: DEUS SUPREMUS // PRIME INTELLECT`, portrait

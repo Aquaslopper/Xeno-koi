@@ -3,6 +3,19 @@
 
 #include "raylib.h"
 
+typedef enum {
+    TERMINAL_THEME_GREEN = 0,
+    TERMINAL_THEME_AMBER = 1,
+    TERMINAL_THEME_TEAL = 2,
+    TERMINAL_THEME_CRIMSON = 3,
+    TERMINAL_THEME_VIOLET = 4,
+    TERMINAL_THEME_DARK = 5,
+    TERMINAL_THEME_GOLD = 6,
+    TERMINAL_THEME_RUST = 7,
+    TERMINAL_THEME_BLOOD = 8,
+    TERMINAL_THEME_SAND = 9
+} TerminalThemeId;
+
 typedef struct {
     int id;
     const char *name;

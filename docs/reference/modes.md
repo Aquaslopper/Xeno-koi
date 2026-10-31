@@ -1,11 +1,37 @@
 # Modes & Settings
 
-How strongly the CPU plays has its own page: [Difficulty](difficulty.md). This page is everything
-around the match itself - unlocks, rounds, options and the records the game keeps.
+How strongly the CPU plays has its own page: [Difficulty](difficulty.md). This page covers
+campaign setup, unlocks, rounds, options and the records the game keeps.
+
+## Campaign setup
+
+The campaign setup screen has three views: **Opponent**, **Difficulty** and **Stage**. Choose an
+unlocked opponent, then select a difficulty preset before starting. The Start control remains
+blocked until you make that choice; the Difficulty tab pulses to point you there.
+
+Difficulty presets set both the CPU tier and the campaign clearance length: Easy is 9 rounds, Hard
+is 6, and Master is 3. The Difficulty page describes the CPU accuracy bands; see
+[Difficulty](difficulty.md) for details. Master also uses the saved 15- or 30-second turn timer.
+
+The **Stage** view shows previews of the available table maps. Choosing a named map applies its
+matching background and terminal-colour defaults. You can then change either setting independently.
+CRT keeps your current background and terminal colour. Terminal colour is global, so changing it
+also changes the colours used by the menus and other game screens.
+
+| Stage | Background default | Terminal-colour default |
+|---|---|---|
+| CRT | Keeps current choice | Keeps current choice |
+| City | City | Rust |
+| Castle | Castle | Gold |
+| Hole | Hole | Sand |
+| Arctic | Arctic | Teal |
+| Harvest | Harvest | Blood |
+| Face | Face | Crimson |
+| Realm | Realm | Violet |
 
 ## Campaign and unlocks
 
-Win a match against an **unlocked sector** to earn a clearance coin for that opponent: bronze on Easy, silver on Hard, or gold on Master. A match must be at least **9 rounds on Easy**, **6 on Hard**, or **3 on Master**. Shorter wins still count in your match stats, but award no coin. The three clearance buttons in an unlocked opponent's dossier set those difficulty/round presets; you can also set a longer match in Options. Winning that tier again does not award a second coin. Wins against earlier unlocked opponents count too — you do **not** have to beat only the newest sector.
+Win a match against an **unlocked sector** to earn a clearance coin for that opponent: bronze on Easy, silver on Hard, or gold on Master. A match must be at least **9 rounds on Easy**, **6 on Hard**, or **3 on Master**. Shorter wins still count in your match stats, but award no coin. Choose the difficulty/round preset on the campaign's Difficulty view; you can also set a longer match in Options. Winning that tier again does not award a second coin. Wins against earlier unlocked opponents count too — you do **not** have to beat only the newest sector.
 
 Coins are permanent, are never spent, and are counted **by colour across all twelve opponents**. The Stats screen shows your gold, silver, and bronze coins in one row per tier, one slot per opponent. A locked sector's dossier displays its requirements; the game opens sectors **in order** once all three cumulative totals reach the required counts:
 
@@ -26,14 +52,13 @@ Coins are permanent, are never spent, and are counted **by colour across all twe
 
 For example, four bronze coins alone will **not** open M-05: you also need a silver coin. The game derives the open sectors from your coins when loading a save, rather than trusting an old saved unlock count (`campaign_update_unlocks()` in `src/campaign.c`). A victory only awards a coin for the tier you played; it does not retroactively award lower-tier coins. After a qualifying victory, the match-result screen shows a clearance message (sometimes labelled NEXT SECTOR UNLOCKED); a shorter victory against the newest open sector reports clearance unfulfilled.
 
-**[DEUS SUPREMUS](deus-supremus.md)** normally requires M-12 to be open. The maintainer currently keeps him **open to everyone on purpose**, while testing the mode. DEUS matches grant no clearance coins. See [Errata & Known Issues](../errata.md).
+**[DEUS SUPREMUS](deus-supremus.md)** is currently selectable even if M-12 remains locked. Matches against him grant no clearance coins; see [Game notes](../errata.md) for this access rule.
 
 ## Rounds
 
 Choose 1 to 12 rounds on the Options screen; the `+` and `-` buttons in
 `screens_handle_options_click()` stop at both ends. With no saved settings the game starts at
-**2** rounds (`storage_load_settings()` in `src/storage.c`), and the value is saved with your other
-settings when you press BACK (SAVE). See [Errata & Known Issues](../errata.md) for why that is 2 and not 6.
+**2** rounds. The value is saved with your other settings when you press BACK (SAVE).
 
 ## Options
 
@@ -54,7 +79,7 @@ The left column is the label the screen shows. The right column is what `storage
 | Ruleset | Nintendo, FudaWiki, KK-ADD-10, Tournament, Yakuza. `screens_draw_options()` paints the row green for Nintendo and KK-ADD-10, amber for FudaWiki, and red for Tournament and Yakuza; it is locked to Yakuza on [DEUS SUPREMUS](deus-supremus.md) | KK-ADD-10 |
 | Master Timer | 15 sec or 30 sec, and the row only answers to clicks at Master. Against DEUS it reads **Deus Timer: 15 SEC (LOCKED)** | 15 |
 | Background | Harvest, Hole, Arctic, Castle, City, Face, Realm — seven, because index 5 is his and both arrows step over it. The row shows a live 46 x 26 preview of the frame you are on | Harvest (0) |
-| Terminal colour | Green, Amber, Teal, Crimson, Violet. A sixth name, DARK, is what playing DEUS sets; leaving him puts you back on Teal | Teal (2) |
+| Terminal colour | Green, Amber, Teal, Crimson, Violet, Gold, Rust, Blood, Sand. DEUS uses a separate Dark palette | Teal (2) |
 | Anim Speed | Slow, Normal, Fast | Slow |
 | BGM Volume / SFX Volume | Sliders, shown as a percentage | 100% / 50% |
 | Music Folder (desktop, page 2) | Folder path for up to 10 custom MP3 match tracks; Use Default restores shipped tracks | Built-in music |
@@ -89,12 +114,12 @@ On **Options page 2**, beneath **Audio effect options**, the three sliders chang
 *Options page 2 in the current UI. Chorus 60%, Bass +20 dB, and Space reverb 70% are this player's example settings, not the fresh defaults of Off, +0 dB, and 50%.*
 
 - **Chorus:** replaces the discontinued stereo widener. Adds two pitch-modulated short-delay voices over the direct music. Raising the control increases their level and modulation depth. The two channels use identical modulation and fixed gains: this is a layered chorus, **not an auto-panner**. Chorus deliberately modulates pitch/phase; set Chorus to zero if you do not want that movement.
-- **Bass boost:** maximum is a **+20 dB low shelf with stereo-linked compression of only the added bass** (up to 4:1); the midpoint requests +10 dB. The original music is not ducked by the bass compressor. The displayed dB value is the low-frequency pre-compression ceiling at full action strength; loud material receives less additional gain to prevent clipping. See the [current 96 kHz regression note](audio-dsp.md#checks-run-22-october-2026) before treating that endpoint as verified on every output device.
-- **Space reverb:** increasing the slider expands reflection spacing and diffusion, and lengthens the decay from a small room toward a large hall—not just a louder copy of the same room. At nominal 44.1 kHz, measured impulse-decay estimates are about 0.6 s at 25%, 1.1 s at 50%, and 6 s at maximum. The largest setting includes low-frequency ambience in the centre of the return; bass opens over the final 20%, while the stereo diffuse field stays focused on mids/highs. Dry music remains present. This is algorithmic room/hall reverb, not a recorded impulse response or a shimmer/pitch-shifting reverb.
+- **Bass boost:** increases the low-frequency weight of the music. Strong settings are limited to keep the output from clipping.
+- **Space reverb:** adds room-like reflections, from a smaller space toward a larger, longer-sounding room. Dry music remains present.
 
 Use **TEST EFFECT: ON/OFF** below the sliders to audition your settings. **ON** plays match music from your selected folder (or the built-in playlist) through the real effect at full action strength, with slider changes applied live. **OFF** keeps that same track playing dry for comparison, with a short smooth release rather than an abrupt cut. Finished tracks advance through the loaded playlist. BGM volume/mute is respected. Leaving page 2 or using **BACK (SAVE)** stops the audition and restores menu music. Test state is temporary, never saved; with no playable tracks the page displays a warning instead of starting a silent test. This control works in the browser too, using bundled music.
 
-Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls in `settings.txt` (`effect_chorus`, `effect_bass`, `effect_reverb`). Fresh defaults are Chorus off, +0 dB bass, 50% space reverb. Old `effect_stereo` values are ignored rather than turning a different effect on automatically. With all effects off, music is unchanged with no added latency. The effect sliders also work in browser builds; the local folder control remains desktop-only. See [DSP design, sources and numerical verification](audio-dsp.md) for mono-safety checks and device-rate limitations.
+Zero disables each corresponding contribution. **BACK (SAVE)** saves the three controls with your other settings. Fresh defaults are Chorus off, +0 dB bass, and 50% space reverb. The effect sliders also work in browser builds; the local music-folder control remains desktop-only. See [Audio effects](audio-dsp.md) for details and audition steps.
 
 ### Fullscreen
 
