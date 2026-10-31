@@ -1140,10 +1140,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         reverb_hold -= env_dt;
         if (reverb_hold < 0.0f) reverb_hold = 0.0f;
     } else {
-        reverb_energy -= 0.8f * env_dt;
+        reverb_energy -= 0.16f * env_dt;
         if (reverb_energy < 0.0f) reverb_energy = 0.0f;
     }
-    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.7f));
+    reverb_mid    += (reverb_energy - reverb_mid) * (1.0f - expf(-env_dt / 0.14f));
     reverb_curve  += (reverb_mid - reverb_curve) * (1.0f - expf(-env_dt / 0.14f));
     if (reverb_curve > 1.0f) reverb_curve = 1.0f;
     if (reverb_energy < 0.0005f && reverb_mid < 0.0005f && reverb_curve < 0.0005f) {
@@ -1166,7 +1166,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
             reverb_synergy = 0.85f;
             reverb_peak_hold = 0.0f;
         }
-    } else if (reverb_synergy >= 1.0f) reverb_peak_hold = 4.10f;
+    } else if (reverb_synergy >= 1.0f) reverb_peak_hold = 8.10f;
     audio_set_reverb(reverb_synergy);
     if (!replay_mode) {
         if (capture_edge || koi_edge) s_audio_action_triggers++;
