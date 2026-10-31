@@ -667,7 +667,9 @@ opponent tiles at `{155 + i*82, 96, 68, 110}`, the selected portrait at
 with the information panel), and the interactive information panel at
 `{560,245,565,300}`. The panel switches between Opponent,
 Difficulty and Stage; `START` is `{365,570,175,48}`, `BACK` remains
-`{720,570,180,48}`. A file-scope page enum owns this display-only selection.
+`{720,570,180,48}`. Until a difficulty preset has been selected, `ui_main.c` draws
+an opaque `SELECT A PRESET` gate over that exact Start rectangle. A file-scope page
+enum owns this display-only selection.
 
 * Opponent shows the existing name/title, favorite yaku/card, clearance status and lore.
   Locked opponents remain inspectable, but cannot change settings or start.

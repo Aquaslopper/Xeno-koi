@@ -215,10 +215,10 @@ static void draw_credits_slogan(void) {
 
 static void draw_campaign_preset_gate(void) {
     if (campaign_preset_selected || settings.difficulty == DIFFICULTY_DEUS) return;
-    Rectangle r = { 460, 570, 240, 48 };
+    Rectangle r = { 365, 570, 175, 48 };
     const char *label = "SELECT A PRESET";
     Vector2 size = MeasureTextEx(font_title, label, 16.0f, 1.0f);
-    DrawRectangleRec(r, COLOR_OVERLAY_BG);
+    DrawRectangleRec(r, (Color){ 0, 0, 0, 255 });
     DrawRectangleLinesEx(r, 1.5f, COLOR_PHOSPHOR_DIM);
     DrawTextEx(font_title, label,
                (Vector2){ r.x + (r.width - size.x) * 0.5f, r.y + 15.0f },
