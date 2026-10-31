@@ -495,26 +495,28 @@ static const char* get_path(const char* sub) {
     "                       min(" TEX_FN "(texture0, fragTexCoord + vec2(-u_phase.z, u_phase.w)).a,\n" \
     "                           " TEX_FN "(texture0, fragTexCoord + u_phase.zw).a));\n" \
     "    float min8 = min(min(min(cl.a, cr.a), min(cu.a, cd.a)), diag_a);\n" \
-    "    float solid = smoothstep(0.93, 0.99, c.a) * smoothstep(0.90, 0.97, min8);\n" \
+    "    float solid = smoothstep(0.91, 0.98, c.a) * smoothstep(0.85, 0.95, min8);\n" \
     "    float hc = bval(c.rgb);\n" \
     "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
-    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.13);\n" \
-    "    float mask = solid * smoothstep(0.11, 0.23, hc) * smoothstep(0.50, 0.80, hc / peak);\n" \
+    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.12);\n" \
+    "    float mask = solid * smoothstep(0.08, 0.18, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
-    "    vec3 n = normalize(vec3(g * 3.0, 1.0));\n" \
+    "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n" \
     "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
     "    float d1 = dot(t1, t1);\n" \
-    "    vec3 h1 = normalize(normalize(vec3(t1, 0.28)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
     "    float nd1 = max(dot(n, h1), 0.0);\n" \
     "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
     "    float d2 = dot(t2, t2);\n" \
-    "    vec3 h2 = normalize(normalize(vec3(t2, 0.28)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    vec3 h2 = normalize(normalize(vec3(t2, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
     "    float nd2 = max(dot(n, h2), 0.0);\n" \
     "    float str = fragColor.a * colDiffuse.a;\n" \
-    "    float core = mask * (exp(-d1 / 0.020) * pow(nd1, 7.5) + exp(-d2 / 0.012) * pow(nd2, 8.5)) * 3.60;\n" \
-    "    float bloom = mask * (exp(-d1 / 0.032) * pow(nd1, 2.2) + exp(-d2 / 0.026) * pow(nd2, 2.2)) * (0.60 + 0.65 * str);\n" \
+    "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
+    "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
+    "    float core = mask * (exp(-d1 / 0.022) * s1 + exp(-d2 / 0.015) * s2) * 3.40;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.038) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.028) * (0.35 + 0.65 * nd2 * nd2)) * (0.60 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.80) * str;\n" \
-    "    float a = 0.95 * (1.0 - exp(-raw * 1.75));\n" \
+    "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
     "}\n"
 
@@ -959,13 +961,13 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     float phase[4] = {
         p0 + seed,
         p1 + seed * 2.3f,
-        2.25f / (float)bez.width,
-        2.25f / (float)bez.height
+        1.45f / (float)bez.width,
+        1.45f / (float)bez.height
     };
     if (s_bezel_shine_phase_loc >= 0)
         SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
     float p_clamped = fminf(1.0f, fmaxf(0.0f, pulse_alpha));
-    float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.26f + 0.74f * powf(p_clamped, 0.60f)) : 0.0f;
+    float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.16f + 0.84f * powf(p_clamped, 0.68f)) : 0.0f;
     if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
     Color c = { 250, 246, 238, (unsigned char)(a * 255.0f) };
     BeginBlendMode(BLEND_ADDITIVE);
@@ -1211,13 +1213,48 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         DrawTexture(ba->table_skins[s_table_selected].overlay, 0, 0, WHITE);
     }
 
-    /* 2. Left Column */
+    /* 2. Table Chrome, Status, Combos & Left Column (all behind cards) */
     int active_turn = (g->phase != PHASE_ROUND_END && g->phase != PHASE_MATCH_END) ?
                       ((anim && anim->active && anim->type == ANIM_CAPTURE_FLY) ? anim->capture_player : g->current_player) : -1;
 
     Rectangle cpu_score_box = { 12, 12, CAPTURE_PANEL_W, 30 };
     Rectangle you_score_box = { 12, 678, CAPTURE_PANEL_W, 30 };
     int sc_mode = speed_mode_is_active();
+
+    if (g->current_player == 0 && g->phase == PHASE_TURN_HAND && g->player_timer > 0.0f) {
+        char t_str[32];
+        if (g->player_timer <= 5.0f) {
+            int flash = ((int)(g->player_timer * 6.0f)) & 1;
+            Color tcol = flash ? (Color){ 255, 30, 30, 255 } : (Color){ 255, 230, 230, 255 };
+            snprintf(t_str, sizeof(t_str), "! TIME: %.1fS !", g->player_timer);
+            draw_centered_text(font_body, t_str, 640.0f, 502.0f, 24.0f, 1.2f, tcol);
+        } else {
+            snprintf(t_str, sizeof(t_str), "TIME: %.1fS", g->player_timer);
+            draw_centered_text(font_body, t_str, 640.0f, 505.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
+        }
+    }
+    board_draw_status_message(status_msg);
+
+    for (int p = 0; p < 2; p++) {
+        if (sc_mode && p == 1) continue;
+        ScoreResult cs = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
+        if (cs.yaku_count > 0) {
+            float cglow = fminf(1.0f, 0.28f * (float)cs.yaku_count);
+            ui_theme_set_panel_flare_glow(combos_panel_rect(p), cglow);
+        }
+    }
+    combos_draw_sidebar(g);
+
+    Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
+    int table_skin = board_table_skin_active();   /* button casings are in the overlay */
+    if (!table_skin) { DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
+    draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+    if (!table_skin) { DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
+    /* A replay cannot be restarted: the second button ends it instead. */
+    draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
+    if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
+    draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+
     if (sc_mode) {
         draw_speedcoin_clock_panel();
     } else {
@@ -1259,7 +1296,6 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         }
     }
     action_card_draw_stock_returns(ba, g, ac_card_lvl);
-    draw_text_ex_snapped(font_body, TextFormat("%d", g->stock_count), (Vector2){ 356.0f, 392.0f }, 18.0f, 1.2f, COLOR_PHOSPHOR);
     action_card_draw_meters(ba, g, reverb_synergy, env_dt, replay_mode);
 
     /* 5. Field Cards (Sticky physical slots: sorted at deal, zero movement once on the felt) */
@@ -1397,42 +1433,6 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         ui_theme_draw_panel_flares_keyed(cr, anim->card_id + 1);
     }
 
-    /* 10. Status Line & Master Timer */
-    if (g->current_player == 0 && g->phase == PHASE_TURN_HAND && g->player_timer > 0.0f) {
-        char t_str[32];
-        if (g->player_timer <= 5.0f) {
-            int flash = ((int)(g->player_timer * 6.0f)) & 1;
-            Color tcol = flash ? (Color){ 255, 30, 30, 255 } : (Color){ 255, 230, 230, 255 };
-            snprintf(t_str, sizeof(t_str), "! TIME: %.1fS !", g->player_timer);
-            draw_centered_text(font_body, t_str, 640.0f, 502.0f, 24.0f, 1.2f, tcol);
-        } else {
-            snprintf(t_str, sizeof(t_str), "TIME: %.1fS", g->player_timer);
-            draw_centered_text(font_body, t_str, 640.0f, 505.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
-        }
-    }
-    board_draw_status_message(status_msg);
-
-    /* 11. Fixed-size, clickable combo summaries (perimeter dots glow brighter as more combos stack). */
-    for (int p = 0; p < 2; p++) {
-        if (sc_mode && p == 1) continue;
-        ScoreResult cs = score_captures(g->ruleset, g->captured[p], g->captured_count[p]);
-        if (cs.yaku_count > 0) {
-            float cglow = fminf(1.0f, 0.28f * (float)cs.yaku_count);
-            ui_theme_set_panel_flare_glow(combos_panel_rect(p), cglow);
-        }
-    }
-    combos_draw_sidebar(g);
-
-    Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
-    int table_skin = board_table_skin_active();   /* button casings are in the overlay */
-    if (!table_skin) { DrawRectangleRec(pause_btn, COLOR_PANEL_BG); ui_draw_panel_border(pause_btn, COLOR_PHOSPHOR); }
-    draw_text_in_rect(font_title, "PAUSE", pause_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
-    if (!table_skin) { DrawRectangleRec(restart_btn, COLOR_PANEL_BG); ui_draw_panel_border(restart_btn, COLOR_PHOSPHOR); }
-    /* A replay cannot be restarted: the second button ends it instead. */
-    draw_text_in_rect(font_title, replay_mode ? "STOP" : "RESTART", restart_btn, 16.0f, 1.0f, COLOR_PHOSPHOR);
-
-    /* KK-ADD-10 speed minigame: the timer bar sits in the button column below RESTART. */
-    if (!replay_mode && g->ruleset == RULESET_KK_ADD_10) speed_bar_draw();
     if (!replay_mode) speed_hit_popups_draw();
     if (!replay_mode) action_card_draw_vfx(ba, env_dt);
 }
