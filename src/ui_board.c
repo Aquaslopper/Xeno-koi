@@ -482,6 +482,42 @@ static const char* get_path(const char* sub) {
     return path_buf;
 }
 
+#define BEZEL_SHINE_BODY(TEX_FN, OUT_FRAG) \
+    "float bval(vec3 v) { return 0.45 * dot(v, vec3(0.299, 0.587, 0.114)) + 0.55 * max(max(v.r, v.g), v.b); }\n" \
+    "void main() {\n" \
+    "    vec4 c = " TEX_FN "(texture0, fragTexCoord);\n" \
+    "    vec4 cl = " TEX_FN "(texture0, fragTexCoord - vec2(u_phase.z, 0.0));\n" \
+    "    vec4 cr = " TEX_FN "(texture0, fragTexCoord + vec2(u_phase.z, 0.0));\n" \
+    "    vec4 cu = " TEX_FN "(texture0, fragTexCoord - vec2(0.0, u_phase.w));\n" \
+    "    vec4 cd = " TEX_FN "(texture0, fragTexCoord + vec2(0.0, u_phase.w));\n" \
+    "    float diag_a = min(min(" TEX_FN "(texture0, fragTexCoord - u_phase.zw).a,\n" \
+    "                           " TEX_FN "(texture0, fragTexCoord + vec2(u_phase.z, -u_phase.w)).a),\n" \
+    "                       min(" TEX_FN "(texture0, fragTexCoord + vec2(-u_phase.z, u_phase.w)).a,\n" \
+    "                           " TEX_FN "(texture0, fragTexCoord + u_phase.zw).a));\n" \
+    "    float min8 = min(min(min(cl.a, cr.a), min(cu.a, cd.a)), diag_a);\n" \
+    "    float solid = smoothstep(0.93, 0.99, c.a) * smoothstep(0.90, 0.97, min8);\n" \
+    "    float hc = bval(c.rgb);\n" \
+    "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
+    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.13);\n" \
+    "    float mask = solid * smoothstep(0.11, 0.23, hc) * smoothstep(0.50, 0.80, hc / peak);\n" \
+    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
+    "    vec3 n = normalize(vec3(g * 3.0, 1.0));\n" \
+    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    float d1 = dot(t1, t1);\n" \
+    "    vec3 h1 = normalize(normalize(vec3(t1, 0.28)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    float nd1 = max(dot(n, h1), 0.0);\n" \
+    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    float d2 = dot(t2, t2);\n" \
+    "    vec3 h2 = normalize(normalize(vec3(t2, 0.28)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    float nd2 = max(dot(n, h2), 0.0);\n" \
+    "    float str = fragColor.a * colDiffuse.a;\n" \
+    "    float core = mask * (exp(-d1 / 0.020) * pow(nd1, 7.5) + exp(-d2 / 0.012) * pow(nd2, 8.5)) * 3.60;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.032) * pow(nd1, 2.2) + exp(-d2 / 0.026) * pow(nd2, 2.2)) * (0.60 + 0.65 * str);\n" \
+    "    float raw = (core + bloom * 0.80) * str;\n" \
+    "    float a = 0.95 * (1.0 - exp(-raw * 1.75));\n" \
+    "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
+    "}\n"
+
 #ifdef __EMSCRIPTEN__
 static const char *const k_bezel_shine_fs =
     "#version 100\n"
@@ -491,35 +527,7 @@ static const char *const k_bezel_shine_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
-    "float bval(vec3 v) { return 0.45 * dot(v, vec3(0.299, 0.587, 0.114)) + 0.55 * max(max(v.r, v.g), v.b); }\n"
-    "void main() {\n"
-    "    vec4 c = texture2D(texture0, fragTexCoord);\n"
-    "    vec4 cl = texture2D(texture0, fragTexCoord - vec2(u_phase.z, 0.0));\n"
-    "    vec4 cr = texture2D(texture0, fragTexCoord + vec2(u_phase.z, 0.0));\n"
-    "    vec4 cu = texture2D(texture0, fragTexCoord - vec2(0.0, u_phase.w));\n"
-    "    vec4 cd = texture2D(texture0, fragTexCoord + vec2(0.0, u_phase.w));\n"
-    "    float solid = smoothstep(0.75, 0.93, c.a) * smoothstep(0.60, 0.88, min(min(cl.a, cr.a), min(cu.a, cd.a)));\n"
-    "    float hc = bval(c.rgb);\n"
-    "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n"
-    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.13);\n"
-    "    float mask = solid * smoothstep(0.11, 0.24, hc) * smoothstep(0.52, 0.82, hc / peak);\n"
-    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"
-    "    vec3 n = normalize(vec3(g * 3.0, 1.0));\n"
-    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n"
-    "    float d1 = dot(t1, t1);\n"
-    "    vec3 h1 = normalize(normalize(vec3(t1, 0.28)) + vec3(0.0, 0.0, 1.0));\n"
-    "    float nd1 = max(dot(n, h1), 0.0);\n"
-    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n"
-    "    float d2 = dot(t2, t2);\n"
-    "    vec3 h2 = normalize(normalize(vec3(t2, 0.28)) + vec3(0.0, 0.0, 1.0));\n"
-    "    float nd2 = max(dot(n, h2), 0.0);\n"
-    "    float str = fragColor.a * colDiffuse.a;\n"
-    "    float core = mask * (exp(-d1 / 0.020) * pow(nd1, 10.0) + exp(-d2 / 0.010) * pow(nd2, 10.0)) * 2.95;\n"
-    "    float bloom = mask * (exp(-d1 / 0.022) * pow(nd1, 3.0) + exp(-d2 / 0.022) * pow(nd2, 3.0)) * (0.46 + 0.58 * str);\n"
-    "    float raw = (core + bloom * 0.70) * str;\n"
-    "    float a = 0.66 * (1.0 - exp(-raw * 1.45));\n"
-    "    gl_FragColor = vec4(fragColor.rgb, a);\n"
-    "}\n";
+    BEZEL_SHINE_BODY("texture2D", "gl_FragColor");
 #else
 static const char *const k_bezel_shine_fs =
     "#version 330\n"
@@ -529,36 +537,9 @@ static const char *const k_bezel_shine_fs =
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
     "out vec4 finalColor;\n"
-    "float bval(vec3 v) { return 0.45 * dot(v, vec3(0.299, 0.587, 0.114)) + 0.55 * max(max(v.r, v.g), v.b); }\n"
-    "void main() {\n"
-    "    vec4 c = texture(texture0, fragTexCoord);\n"
-    "    vec4 cl = texture(texture0, fragTexCoord - vec2(u_phase.z, 0.0));\n"
-    "    vec4 cr = texture(texture0, fragTexCoord + vec2(u_phase.z, 0.0));\n"
-    "    vec4 cu = texture(texture0, fragTexCoord - vec2(0.0, u_phase.w));\n"
-    "    vec4 cd = texture(texture0, fragTexCoord + vec2(0.0, u_phase.w));\n"
-    "    float solid = smoothstep(0.75, 0.93, c.a) * smoothstep(0.60, 0.88, min(min(cl.a, cr.a), min(cu.a, cd.a)));\n"
-    "    float hc = bval(c.rgb);\n"
-    "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n"
-    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.13);\n"
-    "    float mask = solid * smoothstep(0.11, 0.24, hc) * smoothstep(0.52, 0.82, hc / peak);\n"
-    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"
-    "    vec3 n = normalize(vec3(g * 3.0, 1.0));\n"
-    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n"
-    "    float d1 = dot(t1, t1);\n"
-    "    vec3 h1 = normalize(normalize(vec3(t1, 0.28)) + vec3(0.0, 0.0, 1.0));\n"
-    "    float nd1 = max(dot(n, h1), 0.0);\n"
-    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n"
-    "    float d2 = dot(t2, t2);\n"
-    "    vec3 h2 = normalize(normalize(vec3(t2, 0.28)) + vec3(0.0, 0.0, 1.0));\n"
-    "    float nd2 = max(dot(n, h2), 0.0);\n"
-    "    float str = fragColor.a * colDiffuse.a;\n"
-    "    float core = mask * (exp(-d1 / 0.010) * pow(nd1, 10.0) + exp(-d2 / 0.010) * pow(nd2, 10.0)) * 1.95;\n"
-    "    float bloom = mask * (exp(-d1 / 0.022) * pow(nd1, 3.0) + exp(-d2 / 0.022) * pow(nd2, 3.0)) * (0.34 + 0.46 * str);\n"
-    "    float raw = (core + bloom * 0.60) * str;\n"
-    "    float a = 0.66 * (1.0 - exp(-raw * 1.45));\n"
-    "    finalColor = vec4(fragColor.rgb, a);\n"
-    "}\n";
+    BEZEL_SHINE_BODY("texture", "finalColor");
 #endif
+#undef BEZEL_SHINE_BODY
 
 static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha);
 
@@ -596,6 +577,7 @@ void board_load_assets(BoardAssets *ba) {
         if (ts->bezel.id > 0) {
             GenTextureMipmaps(&ts->bezel);
             SetTextureFilter(ts->bezel, TEXTURE_FILTER_TRILINEAR);
+            SetTextureWrap(ts->bezel, TEXTURE_WRAP_CLAMP);
         }
         s_table_bezel[i] = ts->bezel;
         ts->ready = (ts->overlay.id > 0 && ts->bezel.id > 0);
@@ -977,14 +959,15 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     float phase[4] = {
         p0 + seed,
         p1 + seed * 2.3f,
-        1.55f / (float)bez.width,
-        1.55f / (float)bez.height
+        2.25f / (float)bez.width,
+        2.25f / (float)bez.height
     };
     if (s_bezel_shine_phase_loc >= 0)
         SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
-    float a = powf(fminf(1.0f, fmaxf(0.0f, pulse_alpha)), 0.78f);
+    float p_clamped = fminf(1.0f, fmaxf(0.0f, pulse_alpha));
+    float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.26f + 0.74f * powf(p_clamped, 0.60f)) : 0.0f;
     if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
-    Color c = { 246, 242, 234, (unsigned char)(a * 255.0f) };
+    Color c = { 250, 246, 238, (unsigned char)(a * 255.0f) };
     BeginBlendMode(BLEND_ADDITIVE);
     BeginShaderMode(s_bezel_shine_shader);
     DrawTexturePro(bez, (Rectangle){ 0, 0, (float)bez.width, (float)bez.height },
