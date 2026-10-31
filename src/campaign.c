@@ -51,7 +51,7 @@ static const char *const k_campaign_background_names[8] = {
 };
 
 static Rectangle campaign_page_button(int page) {
-    return (Rectangle){ 365.0f, 255.0f + page * 66.0f, 175.0f, 52.0f };
+    return (Rectangle){ 365.0f, 245.0f + page * 66.0f, 175.0f, 52.0f };
 }
 
 static Rectangle campaign_map_card(int map) {
@@ -256,7 +256,7 @@ static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *
 
     DrawTextEx(font_body, "TERMINAL COLOR", (Vector2){ 580.0f, 505.0f }, 12.0f, 0.8f, active);
     draw_btn_custom((Rectangle){ 676.0f, 501.0f, 30.0f, 25.0f }, "<", 14, vm, active);
-    Rectangle color_value = { 710.0f, 501.0f, 220.0f, 25.0f };
+    Rectangle color_value = { 710.0f, 501.0f, 180.0f, 25.0f };
     DrawRectangleRec(color_value, COLOR_PANEL_BG);
     ui_draw_panel_border(color_value, active);
     const char *color_name = theme_get(settings->terminal_color).name;
@@ -264,7 +264,7 @@ static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *
     DrawTextEx(font_body, color_name,
                (Vector2){ color_value.x + (color_value.width - color_size.x) * 0.5f,
                           color_value.y + 5.0f }, 13.0f, 0.8f, COLOR_TEXT_INFO);
-    draw_btn_custom((Rectangle){ 934.0f, 501.0f, 30.0f, 25.0f }, ">", 14, vm, active);
+    draw_btn_custom((Rectangle){ 894.0f, 501.0f, 30.0f, 25.0f }, ">", 14, vm, active);
     DrawTextEx(font_body, "GLOBAL", (Vector2){ 976.0f, 507.0f }, 11.0f, 0.7f, COLOR_TEXT_INFO_DIM);
     Rectangle color_swatch = { 1032.0f, 501.0f, 72.0f, 25.0f };
     DrawRectangleRec(color_swatch, theme_get(settings->terminal_color).base);
@@ -450,7 +450,7 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
         }
         int color_dir = 0;
         if (CheckCollisionPointRec(vm, (Rectangle){ 676.0f, 501.0f, 30.0f, 25.0f })) color_dir = -1;
-        else if (CheckCollisionPointRec(vm, (Rectangle){ 710.0f, 501.0f, 254.0f, 25.0f })) color_dir = 1;
+        else if (CheckCollisionPointRec(vm, (Rectangle){ 710.0f, 501.0f, 214.0f, 25.0f })) color_dir = 1;
         if (color_dir) {
             settings->terminal_color = campaign_cycle_color(settings->terminal_color, color_dir);
             storage_save_settings(settings);

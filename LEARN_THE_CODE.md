@@ -663,8 +663,9 @@ needs 4 bronze and 1 silver; index 11 ("M-12") needs 11 bronze, 10 silver and
 setup screen; the Deus dossier remains a separate branch. The normal screen is titled
 `APEX PANCRATIUM CIRCUIT` and uses the `{90,35,1100,650}` panel. It draws the twelve
 opponent tiles at `{155 + i*82, 96, 68, 110}`, the selected portrait at
-`{155,245,185,300}`, three setup buttons at x=365, y=255/321/387, and the interactive
-information panel at `{560,245,565,300}`. The panel switches between Opponent,
+`{155,245,185,300}`, three setup buttons at x=365, y=245/311/377 (top-aligned
+with the information panel), and the interactive information panel at
+`{560,245,565,300}`. The panel switches between Opponent,
 Difficulty and Stage; `START` is `{365,570,175,48}`, `BACK` remains
 `{720,570,180,48}`. A file-scope page enum owns this display-only selection.
 
@@ -678,7 +679,8 @@ Difficulty and Stage; `START` is `{365,570,175,48}`, `BACK` remains
   overlay and previews the current background. Selecting a named map applies its
   same-named background and its terminal-color preset, then saves. Background and color
   controls below the map grid can override either default. CRT preserves the current
-  background/color. The stage controls are only active for an unlocked opponent.
+  background/color. The background/color value controls and arrows share aligned widths.
+  The stage controls are only active for an unlocked opponent.
 
 Map/background presets in `campaign.c` follow the shared asset indices:
 
