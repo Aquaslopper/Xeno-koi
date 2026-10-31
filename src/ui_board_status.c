@@ -21,7 +21,7 @@ static void draw_centered_text(Font font, const char *text, float center_x, floa
                font_size, spacing, color);
 }
 
-void board_draw_info_box(Rectangle box, const char *text, int is_active, float flash_alpha) {
+void board_draw_info_box(Rectangle box, const char *text, int is_active) {
     /* Forged table skin: the score casing is part of the forged overlay, so only the live
        text and its active/inactive colour draw here - no fill, rings, flares or the
        ">>" badge (the art already carries one on the YOU strip). */
@@ -48,11 +48,6 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active, float f
         ring_outer.a = (unsigned char)(140.0f * glow_alpha);
         DrawRectangleLinesEx((Rectangle){ box.x - 3.0f, box.y - 3.0f, box.width + 6.0f, box.height + 6.0f }, 2.0f, ring_outer);
 
-        if (flash_alpha > 0.001f) {
-            Color flash = COLOR_PHOSPHOR;
-            flash.a = (unsigned char)(255.0f * flash_alpha);
-            DrawRectangleLinesEx((Rectangle){ box.x - 1, box.y - 1, box.width + 2, box.height + 2 }, 3.0f, flash);
-        }
         ui_theme_draw_panel_flares(box);
 
         Rectangle tag = { box.x + box.width - 31.0f, box.y + 5.0f, 25.0f, box.height - 10.0f };
