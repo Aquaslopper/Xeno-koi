@@ -190,8 +190,8 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
         float added_l = (bass_shelf10(&s_bass_l, dry_l) - dry_l) * shelf_mix;
         float added_r = (bass_shelf10(&s_bass_r, dry_r) - dry_r) * shelf_mix;
         float bass_peak = fmaxf(fabsf(added_l), fabsf(added_r));
-        s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.00151f : 0.000567f);
-        float bass_gain = s_bass_env > 0.60f ? powf(s_bass_env / 0.60f, (1 / (1 + 2*bass_amount)) - 1) : 1;
+        s_bass_env += (bass_peak - s_bass_env) * (bass_peak > s_bass_env ? 0.000377f : 0.000075f);
+        float bass_gain = s_bass_env > 0.70f ? powf(s_bass_env / 0.70f, (1 / (1 + 2*bass_amount)) - 1) : 1;
         if (bass_amount > 0.00001f) {
             dry_l += added_l * bass_gain;
             dry_r += added_r * bass_gain;
@@ -331,7 +331,7 @@ static void music_reverb_processor_impl(void *music_buffer, void *sfx_buffer, un
            Dry bypass (including hot input) is zero-latency when all effects are off. */
         float peak = fmaxf(fabsf(out_l), fabsf(out_r));
         if (rev > 0.00001f && chorus + bass + room > 0.00001f && peak > 0.88f) {
-            float gain = soft_knee_limit(peak, 0.88f, 0.98f) / peak;
+            float gain = soft_knee_limit(peak, 0.95f, 1.06f) / peak;
             out_l *= gain; out_r *= gain;
         }
         pcm[f * 2 + 0] = out_l;
