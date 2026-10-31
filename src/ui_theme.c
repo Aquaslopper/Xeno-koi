@@ -121,7 +121,7 @@ typedef struct {
 } PanelFlareBox;
 
 static PanelFlareBox s_panel_flare_boxes[MAX_FLARE_BOXES];
-#define PANEL_SHINE_DURATION 0.4
+#define PANEL_SHINE_DURATION 0.8
 
 static Vector2 s_panel_mouse;
 static Vector2 s_previous_panel_mouse;
@@ -230,7 +230,7 @@ static void panel_flare_assign(PanelFlare *f, Rectangle bounds, double now, int 
     if (!f || perimeter_steps <= 0) return;
     f->direction = (rand() & 1) ? 1.0f : -1.0f;
     f->speed = (12.0f + (float)(rand() % 29)) * 0.80f;
-    float requested_len = 19.0f + (float)(rand() % 9);
+    float requested_len = 10.0f + (float)(rand() % 9);
     f->len = fminf(requested_len, perimeter * 0.25f);
     f->distance = (float)(rand() % perimeter_steps);
     f->life = perimeter / f->speed + 2.0f;
@@ -373,10 +373,10 @@ static void panel_flares_draw(Rectangle r, int key) {
             else f->flash_active = 0;
         }
         if (glow_floor > shine) shine = glow_floor;
-        unsigned char alpha = (unsigned char)(22.0f + 200.0f * shine);
+        unsigned char alpha = (unsigned char)(25.0f + 200.0f * shine);
         Color flare = (Color){ 255, 255, 255, alpha };
         panel_draw_streak(bounds, f->distance, f->direction, f->len,
-                          0.9f + 0.3f * shine, flare);
+                          1.0f + 0.2f * shine, flare);
     }
 }
 
