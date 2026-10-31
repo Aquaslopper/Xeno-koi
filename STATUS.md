@@ -49,7 +49,7 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 - Added player-facing Campaign setup guidance for difficulty presets, map previews, map-specific background/terminal-colour defaults, independent overrides, and the global scope of terminal colour. Corrected outdated opponent page copy and removed screenshots that showed the superseded clearance-button layout; a current screenshot still needs a real game capture.
 - Removed developer workflow and status commentary from the public wiki, replaced the technical audio-DSP change log with player instructions, and removed GitHub repository/edit links from the wiki chrome.
 - `make_card_images.py --check`, `gen_wiki_tables.py --check`, `mkdocs build --strict`, and `git diff --check` passed. First `make_card_images.py --check` attempt lacked Pillow; rerun passed in a temporary virtual environment.
-- The latest branch CI previously built the WebAssembly game successfully, but its Pages deploy job was skipped for the PR. The latest successful production Pages deployment is from `main` at `e81334480e52f0bb6af5aa50af60238448311b5d`; the open PR's build is not live. Publishing these changes requires merging the PR, which has not been done.
+- PR CI for head `25896ea` passed both the strict wiki build and WebAssembly build; Pages deployment was skipped because this run is for a pull request. The latest successful production Pages deployment is from `main` at `e81334480e52f0bb6af5aa50af60238448311b5d`, so the open PR's game and wiki changes are not live. Publishing them requires merging the PR, which has not been done.
 
 ### Seven map slots in the card-table picker, one asset folder per map (30 October 2026)
 
