@@ -133,8 +133,8 @@ void capture_info_draw(const BoardAssets *ba) {
     Rectangle card_rect = { 22.0f, 318.0f, 106.0f, 172.0f };
     board_set_table_bezel_muted(1);
     board_draw_card(ba, s_card_id, card_rect);
-    board_set_table_bezel_muted(0);
     board_draw_card_glow(card_rect, 0.55f);
+    board_set_table_bezel_muted(0);
 
     /* Five aligned info rows on the right column inside x = 138..259. */
     const float text_x = 138.0f;

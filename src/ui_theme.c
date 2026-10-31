@@ -1,4 +1,5 @@
 #include "ui_theme.h"
+#include "ui_board.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -394,7 +395,7 @@ void ui_theme_draw_panel_flares(Rectangle r) {
 }
 
 void ui_theme_draw_panel_flares_keyed(Rectangle r, int key) {
-    if (key != 0) panel_flares_draw(r, key);
+    if (key != 0 && !board_table_skin_active()) panel_flares_draw(r, key);
 }
 
 #define GLYPH_LOOP_PTS   64
