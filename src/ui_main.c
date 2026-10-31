@@ -1945,7 +1945,7 @@ static void update_draw_frame(void) {
             taunt_draw();
         }
 
-        if (!is_paused) {
+        if (!is_paused && !drag.on) {
             Rectangle pause_btn = { 1160, 560, 112, 40 }, restart_btn = { 1160, 610, 112, 40 };
             /* Forged table skin: the bronze casing IS the button box - the hitbox-sized hover
                fill/border would sit visibly offset inside the wider cavity (owner live
