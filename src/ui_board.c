@@ -513,9 +513,9 @@ static const char* get_path(const char* sub) {
     "    float str = fragColor.a * colDiffuse.a;\n" \
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
-    "    float core = mask * (exp(-d1 / 0.022) * s1 + exp(-d2 / 0.015) * s2) * 3.40;\n" \
-    "    float bloom = mask * (exp(-d1 / 0.038) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.028) * (0.35 + 0.65 * nd2 * nd2)) * (0.60 + 0.65 * str);\n" \
-    "    float raw = (core + bloom * 0.80) * str;\n" \
+    "    float core = mask * (exp(-d1 / 0.040) * s1 + exp(-d2 / 0.085) * s2) * 2.50;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.038) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.028) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
+    "    float raw = (core + bloom * 0.60) * str;\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
     "}\n"
@@ -967,7 +967,7 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     if (s_bezel_shine_phase_loc >= 0)
         SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
     float p_clamped = fminf(1.0f, fmaxf(0.0f, pulse_alpha));
-    float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.16f + 0.84f * powf(p_clamped, 0.68f)) : 0.0f;
+    float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.36f + 0.84f * powf(p_clamped, 0.68f)) : 0.0f;
     if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
     Color c = { 250, 246, 238, (unsigned char)(a * 255.0f) };
     BeginBlendMode(BLEND_ADDITIVE);
