@@ -197,7 +197,8 @@ static void campaign_draw_opponent_page(const BoardAssets *ba, const GameSetting
     draw_text_wrapped(font_body, opp->lore_text, 580.0f, 430.0f, 525.0f, 15.0f, 1.2f, COLOR_TEXT_INFO);
 }
 
-static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settings) {
+static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settings,
+                                          int difficulty_selected) {
     static const char *const labels[3] = { "EASY // 9 ROUNDS", "HARD // 6 ROUNDS", "MASTER // 3 ROUNDS" };
     static const char *const accuracy[3] = {
         "AI ACCURACY: 20-60%", "AI ACCURACY: 50-80%", "AI ACCURACY: 78-100%"
@@ -211,7 +212,7 @@ static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settin
                (Vector2){ 580.0f, 290.0f }, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
     for (int i = 0; i < 3; i++) {
         Rectangle r = { 580.0f + i * 176.0f, 327.0f, 166.0f, 42.0f };
-        int active = settings->difficulty == modes[i];
+        int active = difficulty_selected && settings->difficulty == modes[i];
         draw_btn_custom(r, labels[i], 13, vm, active ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
         if (active) DrawRectangleLinesEx(r, 2.0f, COLOR_PHOSPHOR);
         DrawTextEx(font_body, accuracy[i], (Vector2){ r.x, 379.0f }, 12.0f, 0.6f, COLOR_TEXT_INFO);
@@ -247,7 +248,7 @@ static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *
                           bg_value.y + 5.0f }, 13.0f, 0.8f, COLOR_TEXT_INFO);
     draw_btn_custom((Rectangle){ 894.0f, 461.0f, 30.0f, 25.0f }, ">", 14, vm, active);
     if (settings->background >= 0 && settings->background < 8 && ba->bgs[settings->background].id > 0) {
-        DrawTextEx(font_body, "PREVIEW", (Vector2){ 936.0f, 468.0f }, 11.0f, 0.5f, COLOR_TEXT_INFO_DIM);
+        DrawTextEx(font_body, "PREVIEW", (Vector2){ 976.0f, 468.0f }, 11.0f, 0.5f, COLOR_TEXT_INFO_DIM);
         Rectangle preview = { 1032.0f, 455.0f, 72.0f, 40.0f };
         DrawTexturePro(ba->bgs[settings->background], (Rectangle){ 0, 0, 1280, 720 }, preview,
                        (Vector2){ 0, 0 }, 0.0f, WHITE);
@@ -271,7 +272,8 @@ static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *
     DrawRectangleLinesEx(color_swatch, 1.0f, active);
 }
 
-void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent, Vector2 vm) {
+void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, int selected_opponent,
+                           int difficulty_selected, Vector2 vm) {
     int unlocked_opponents = settings->unlocked_opponents;
     if (selected_opponent < 0 || selected_opponent >= CAMPAIGN_OPPONENT_COUNT) selected_opponent = 0;
 
@@ -366,7 +368,7 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
                        (Vector2){ 580.0f, 304.0f }, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         }
     } else if (s_campaign_page == CAMPAIGN_PAGE_DIFFICULTY) {
-        campaign_draw_difficulty_page(vm, settings);
+        campaign_draw_difficulty_page(vm, settings, difficulty_selected);
     } else {
         campaign_draw_stage_page(ba, settings, vm, unlocked);
     }

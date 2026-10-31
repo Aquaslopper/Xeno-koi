@@ -225,13 +225,27 @@ static void draw_campaign_preset_gate(void) {
                16.0f, 1.0f, COLOR_PHOSPHOR_DIM);
 }
 
+static void draw_campaign_difficulty_prompt(void) {
+    if (campaign_preset_selected || settings.difficulty == DIFFICULTY_DEUS) return;
+    Rectangle r = { 365.0f, 311.0f, 175.0f, 52.0f };
+    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
+    Color fill = COLOR_PHOSPHOR;
+    fill.a = (unsigned char)(12.0f + 24.0f * pulse);
+    Color border = COLOR_PHOSPHOR;
+    border.a = (unsigned char)(96.0f + 159.0f * pulse);
+    DrawRectangleRec(r, fill);
+    DrawRectangleLinesEx(r, 2.0f, border);
+}
+
 static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_pos) {
     if (sc == SCREEN_START) {
         ui_hub_draw_title(&assets, mouse_pos, saved_timer,
                           storage_profiles_mode() == STORAGE_PROFILES_READY);
         if (camp_open) {
-            campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+            campaign_draw_overlay(&assets, &settings, settings.current_opponent,
+                                   campaign_preset_selected, mouse_pos);
             draw_campaign_preset_gate();
+            draw_campaign_difficulty_prompt();
         }
     } else if (sc == SCREEN_ATRIUM) {
         plexus_draw(&assets, &stats, mouse_pos);
@@ -266,8 +280,10 @@ static void draw_hub_screen_state(ScreenState sc, int camp_open, Vector2 mouse_p
     } else if (sc == SCREEN_HUB_CAMPAIGN) {
         ui_hub_draw_campaign(&assets, &settings, mouse_pos);
         if (camp_open) {
-            campaign_draw_overlay(&assets, &settings, settings.current_opponent, mouse_pos);
+            campaign_draw_overlay(&assets, &settings, settings.current_opponent,
+                                   campaign_preset_selected, mouse_pos);
             draw_campaign_preset_gate();
+            draw_campaign_difficulty_prompt();
         }
     }
 }

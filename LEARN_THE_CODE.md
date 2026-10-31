@@ -668,8 +668,9 @@ with the information panel), and the interactive information panel at
 `{560,245,565,300}`. The panel switches between Opponent,
 Difficulty and Stage; `START` is `{365,570,175,48}`, `BACK` remains
 `{720,570,180,48}`. Until a difficulty preset has been selected, `ui_main.c` draws
-an opaque `SELECT A PRESET` gate over that exact Start rectangle. A file-scope page
-enum owns this display-only selection.
+an opaque `SELECT A PRESET` gate over that exact Start rectangle and pulses the
+Difficulty tab. The stored difficulty is not visually marked as chosen until the
+player selects a preset. A file-scope page enum owns this display-only selection.
 
 * Opponent shows the existing name/title, favorite yaku/card, clearance status and lore.
   Locked opponents remain inspectable, but cannot change settings or start.
@@ -681,8 +682,9 @@ enum owns this display-only selection.
   overlay and previews the current background. Selecting a named map applies its
   same-named background and its terminal-color preset, then saves. Background and color
   controls below the map grid can override either default. CRT preserves the current
-  background/color. The background/color value controls and arrows share aligned widths.
-  The stage controls are only active for an unlocked opponent.
+  background/color. The background/color value controls and arrows share aligned widths;
+  the `PREVIEW` and `GLOBAL` labels share the same right-side alignment. The stage
+  controls are only active for an unlocked opponent.
 
 Map/background presets in `campaign.c` follow the shared asset indices:
 
