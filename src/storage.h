@@ -6,21 +6,18 @@
 
 #define MUSIC_FOLDER_CAP 1024
 
-/* Card table skins, in picker order. 0 is the CRT table the game ships with and stays
-   the default; 1.. are the map slots, each rendering assets/maps/<name>/ through
-   board_load_assets() in ui_board.c (tables/table_<name>/). CASTLE (2) is the forged
-   original and the only one with measured art; the other six are castle duplicates
-   awaiting the owner's own maps - swapping a slot's assets/maps/<name>/overlay.png and
-   bezel.png replaces it without touching code. Names live in campaign.c next to the
-   picker. DEUS (background 5) has no table slot on purpose. */
+/* Pancratium stage maps, in picker order. 0 is the shipped CRT table; 1..7 use their
+   own assets/maps/<name>/{overlay,bezel}.png pair loaded by board_load_assets() in
+   ui_board.c. Names live in campaign.c beside the selector. DEUS (background 5) has no
+   table slot on purpose. */
 #define TABLE_DESIGN_CRT     0   /* the shipped CRT table - no skin, never changes */
-#define TABLE_DESIGN_CITY    1   /* assets/maps/city/    (castle duplicate for now) */
-#define TABLE_DESIGN_CASTLE  2   /* assets/maps/castle/  (the forged original)      */
-#define TABLE_DESIGN_HOLE    3   /* assets/maps/hole/    (castle duplicate for now) */
-#define TABLE_DESIGN_ARCTIC  4   /* assets/maps/arctic/  (castle duplicate for now) */
-#define TABLE_DESIGN_HARVEST 5   /* assets/maps/harvest/ (castle duplicate for now) */
-#define TABLE_DESIGN_FACE    6   /* assets/maps/face/    (castle duplicate for now) */
-#define TABLE_DESIGN_REALM   7   /* assets/maps/realm/   (castle duplicate for now) */
+#define TABLE_DESIGN_CITY    1   /* assets/maps/city/    */
+#define TABLE_DESIGN_CASTLE  2   /* assets/maps/castle/  */
+#define TABLE_DESIGN_HOLE    3   /* assets/maps/hole/    */
+#define TABLE_DESIGN_ARCTIC  4   /* assets/maps/arctic/  */
+#define TABLE_DESIGN_HARVEST 5   /* assets/maps/harvest/ */
+#define TABLE_DESIGN_FACE    6   /* assets/maps/face/    */
+#define TABLE_DESIGN_REALM   7   /* assets/maps/realm/   */
 #define TABLE_DESIGN_COUNT   8
 
 typedef struct {
@@ -36,7 +33,7 @@ typedef struct {
     float effect_reverb;
     float sfx_volume;      /* 0.0 .. 1.0, default 0.5f */
     int anim_speed;        /* 0: Slow (600ms), 1: Normal (400ms), 2: Fast (250ms) */
-    int terminal_color;    /* 0: Green, 1: Amber, 2: Teal, 3: Crimson, 4: Violet */
+    int terminal_color;    /* ui_theme.h IDs: 0..4 base palettes, 6..9 map palettes; 5 DARK stays Deus-only */
     int fullscreen;        /* 0: Windowed, 1: Borderless */
     int bloom;             /* 0: OFF, 1: MID, 2: FULL (default 1) */
     int crt_filter;        /* 0: OFF, 1: LOW, 2: MID, 3: HIGH (default 2) */

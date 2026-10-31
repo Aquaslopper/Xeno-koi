@@ -165,6 +165,7 @@ static void draw_slider(int y, float val, const char *lbl, const char *val_txt, 
 }
 
 static int options_page; /* 0: original settings, 1: audio */
+static const int k_terminal_color_choices[] = { 0, 1, 2, 3, 4, 6, 7, 8, 9 };
 static int audio_test_state = -1; /* -1: idle, 0: same track dry, 1: effect on */
 static int audio_test_unavailable;
 
@@ -315,9 +316,8 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
     }
 
     draw_section_header("DISPLAY & SOUND", 56.0f);
-    const char *cnames[6] = { "GREEN", "AMBER", "TEAL", "CRIMSON", "VIOLET", "DARK" };
     if (is_deus) draw_locked_row(96.0f, "Terminal Color:", "[ DARK (LOCKED) ]");
-    else draw_selector_row(96.0f, "Terminal Color:", cnames[s->terminal_color % 6], 15, COLOR_TEXT_INFO, vm);
+    else draw_selector_row(96.0f, "Terminal Color:", theme_get(s->terminal_color).name, 15, COLOR_TEXT_INFO, vm);
 
     const char *bg_names[8] = { "0: Harvest", "1: Hole", "2: Arctic", "3: Castle", "4: City", "5: Deus", "6: Face", "7: Realm" };
     Vector2 bg_vm = is_deus ? (Vector2){ -1.0f, -1.0f } : vm;
@@ -409,7 +409,17 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     if (!pressed) return ACT_NONE;
 
     int dir, is_deus = (s->difficulty == DIFFICULTY_DEUS);
-    if (!is_deus && (dir = check_selector_click(vm, 96.0f)) != 0) { s->terminal_color = (s->terminal_color + 5 + dir) % 5; theme_set(s->terminal_color); if (audio) audio_play_click(audio); }
+    if (!is_deus && (dir = check_selector_click(vm, 96.0f)) != 0) {
+        int index = 0;
+        int count = (int)(sizeof(k_terminal_color_choices) / sizeof(k_terminal_color_choices[0]));
+        for (int i = 0; i < count; i++) {
+            if (k_terminal_color_choices[i] == s->terminal_color) { index = i; break; }
+        }
+        index = (index + count + dir) % count;
+        s->terminal_color = k_terminal_color_choices[index];
+        theme_set(s->terminal_color);
+        if (audio) audio_play_click(audio);
+    }
     else if (!is_deus && CheckCollisionPointRec(vm, (Rectangle){ 650, 154, 36, 26 })) { s->background = (s->background == 0) ? 7 : (s->background == 6) ? 4 : s->background - 1; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
     else if (!is_deus && (CheckCollisionPointRec(vm, (Rectangle){ 690, 154, 130, 26 }) || CheckCollisionPointRec(vm, (Rectangle){ 824, 154, 36, 26 }))) { s->background = (s->background == 4) ? 6 : (s->background + 1) % 8; ba->current_bg = s->background; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 212, 84, 26 })) { s->anim_speed = 0; if (audio) audio_play_click(audio); }

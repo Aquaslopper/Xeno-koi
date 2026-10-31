@@ -615,6 +615,10 @@ void storage_load_settings(GameSettings *s) {
                 else if (strcmp(v, "crimson") == 0 || strcmp(v, "3") == 0) s->terminal_color = 3;
                 else if (strcmp(v, "violet") == 0 || strcmp(v, "4") == 0) s->terminal_color = 4;
                 else if (strcmp(v, "dark") == 0 || strcmp(v, "5") == 0) s->terminal_color = 5;
+                else if (strcmp(v, "gold") == 0 || strcmp(v, "6") == 0) s->terminal_color = 6;
+                else if (strcmp(v, "rust") == 0 || strcmp(v, "7") == 0) s->terminal_color = 7;
+                else if (strcmp(v, "blood") == 0 || strcmp(v, "8") == 0) s->terminal_color = 8;
+                else if (strcmp(v, "sand") == 0 || strcmp(v, "9") == 0) s->terminal_color = 9;
                 else s->terminal_color = 0;
             } else if (strcmp(k, "fullscreen") == 0) {
                 s->fullscreen = (atoi(v) == 1) ? 1 : 0;
@@ -674,7 +678,11 @@ void storage_save_settings(const GameSettings *s) {
                           (s->terminal_color == 2) ? "teal" :
                           (s->terminal_color == 3) ? "crimson" :
                           (s->terminal_color == 4) ? "violet" :
-                          (s->terminal_color == 5) ? "dark" : "green";
+                          (s->terminal_color == 5) ? "dark" :
+                          (s->terminal_color == 6) ? "gold" :
+                          (s->terminal_color == 7) ? "rust" :
+                          (s->terminal_color == 8) ? "blood" :
+                          (s->terminal_color == 9) ? "sand" : "green";
 
     snprintf(buf, sizeof(buf),
              "music_folder=%s\n"

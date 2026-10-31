@@ -741,7 +741,7 @@ static void draw_active_game_overlays(const BoardAssets *ba, const GameState *gs
 static void handle_campaign_overlay_click(Vector2 vm) {
     if (settings.difficulty != DIFFICULTY_DEUS && !campaign_preset_selected &&
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(vm, (Rectangle){ 460, 570, 240, 48 })) return;
+        CheckCollisionPointRec(vm, (Rectangle){ 365, 570, 175, 48 })) return;
     int cres = campaign_handle_click(&settings, &settings.current_opponent, vm);
     if (cres == -1) {
         audio_play_click(&audio);
@@ -768,8 +768,9 @@ static void handle_campaign_overlay_click(Vector2 vm) {
             }
         }
         audio_play_click(&audio);
-    } else if (cres == 4) {
-        /* Card table picker: the choice is already saved and stored in settings. */
+    } else if (cres == 5) {
+        assets.current_bg = settings.background;
+        theme_set(settings.terminal_color);
         audio_play_click(&audio);
     }
 }

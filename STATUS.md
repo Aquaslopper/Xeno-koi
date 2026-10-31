@@ -1,8 +1,8 @@
-> **Development handoff (last updated 30 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 31 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 30 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
+**Last updated: 31 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
 
 ## Owner decisions: closed, do not reopen (29 October 2026)
 
@@ -32,6 +32,16 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 
 ## Status Summary
 ## Latest completed work
+
+### Pancratium opponent, difficulty and stage setup (31 October 2026)
+
+- Reworked the Apex Pancratium overlay around three right-panel views: opponent dossier, difficulty explanation/selection, and stage setup. Kept the existing opponent strip, large portrait, and start/back flow; Stage is the only place with map, background, and terminal color controls.
+- The Stage view shows eight clickable minimaps, compositing each loaded map overlay over its matching background. Selecting City, Castle, Hole, Arctic, Harvest, Face or Realm applies its same-named background and map palette. CRT remains the default and does not overwrite the player's current background or color. Background and color can be overridden after map selection.
+- Added first-pass palettes per owner description: Arctic/Teal, Castle/Gold, City/Rust, Face/Crimson, Harvest/Blood, Hole/Sand, Realm/Violet. Gold, Rust, Blood and Sand are available in System Options as well. Terminal color still updates the shared global theme and therefore affects menus; no per-stage isolation was introduced. Animation Speed remains in System Options.
+- Settings reuse the existing `table_design`, `background`, and `terminal_color` fields and persist through the existing settings file. No rules, scoring, card data, Action Card code, or tests were changed. Updated `LEARN_THE_CODE.md` and source comments to reflect the new setup and the distinct map assets.
+- **Verified:** `/tmp/ans.txt` reading gate via `./build.sh --verify`; `RAYLIB_SRC=/tmp/raylib-headers/src ./build.sh test` (engine/rules, locked-test guard, Action Card guard, table UI and music/options UI checks); strict `-std=c99 -O2 -Wall -Wextra -Werror -fsyntax-only` on all six changed C files; `git diff --check`.
+- **Not visually verified:** no desktop display was available to run and inspect the game. Color values are first-pass interpretations of the owner's descriptions and need visual review in-game.
+- **Touched:** `src/campaign.c`, `src/ui_main.c`, `src/ui_theme.c`, `src/ui_theme.h`, `src/ui_screens.c`, `src/storage.c`, `src/storage.h`, `src/ui_board.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Did not touch:** `tests/`, `src/ui_action.{c,h}`, scoring/rule logic, cards, map image files.
 
 ### Seven map slots in the card-table picker, one asset folder per map (30 October 2026)
 
