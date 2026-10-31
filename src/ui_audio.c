@@ -113,8 +113,8 @@ static float card_sfx_volume(float master_volume) {
 
 /* 2nd-order Butterworth High-Pass (300 Hz, 12 dB/oct, sr = 44100 Hz) */
 static float biquad_hp300(BiquadState *s, float x) {
-    const float b0 =  0.9702284f, b1 = -1.9404568f, b2 = 0.9702284f;
-    const float a1 = -1.9395702f, a2 =  0.9413433f;
+    const float b0 =  0.9800525f, b1 = -1.9601050f, b2 = 0.9800525f;
+    const float a1 = -1.9597070f, a2 =  0.9605029f;
     float y = b0 * x + b1 * s->x1 + b2 * s->x2 - a1 * s->y1 - a2 * s->y2;
     s->x2 = s->x1; s->x1 = x;
     s->y2 = s->y1; s->y1 = y;
