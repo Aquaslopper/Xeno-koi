@@ -514,9 +514,9 @@ static const char *const k_bezel_shine_fs =
     "    vec3 h2 = normalize(normalize(vec3(t2, 0.28)) + vec3(0.0, 0.0, 1.0));\n"
     "    float nd2 = max(dot(n, h2), 0.0);\n"
     "    float str = fragColor.a * colDiffuse.a;\n"
-    "    float core = mask * (exp(-d1 / 0.010) * pow(nd1, 10.0) + exp(-d2 / 0.010) * pow(nd2, 10.0)) * 1.95;\n"
-    "    float bloom = mask * (exp(-d1 / 0.022) * pow(nd1, 3.0) + exp(-d2 / 0.022) * pow(nd2, 3.0)) * (0.34 + 0.46 * str);\n"
-    "    float raw = (core + bloom * 0.60) * str;\n"
+    "    float core = mask * (exp(-d1 / 0.020) * pow(nd1, 10.0) + exp(-d2 / 0.010) * pow(nd2, 10.0)) * 2.95;\n"
+    "    float bloom = mask * (exp(-d1 / 0.022) * pow(nd1, 3.0) + exp(-d2 / 0.022) * pow(nd2, 3.0)) * (0.46 + 0.58 * str);\n"
+    "    float raw = (core + bloom * 0.70) * str;\n"
     "    float a = 0.66 * (1.0 - exp(-raw * 1.45));\n"
     "    gl_FragColor = vec4(fragColor.rgb, a);\n"
     "}\n";
