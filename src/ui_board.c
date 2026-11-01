@@ -1282,7 +1282,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         Texture2D overlay = crt ? s_table_overlay_crt[s_table_selected]
                                 : ba->table_skins[s_table_selected].overlay;
         DrawTexture(overlay, 0, 0, WHITE);
-        table_glow_draw(overlay, frame_dt);
+        table_glow_draw(overlay, frame_dt, s_table_selected);
     }
 
     /* 2. Table Chrome, Status, Combos & Left Column (all behind cards) */

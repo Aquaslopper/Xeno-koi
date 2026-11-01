@@ -1,5 +1,6 @@
 #include "ui_table_glow.h"
 #include "ui_theme.h"
+#include "storage.h"
 #include "rlgl.h"
 #include <math.h>
 
@@ -17,11 +18,27 @@
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
 #define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
 
+/* Brightness cutoff per named table, before theme tint and music strength.
+   0..1: below cutoff stays unlit; the next 0.10 fades smoothly into light.
+   Castle 0.30 is a first-pass value for owner review; Realm stays unchanged.
+   The selected normal/CRT artwork uses the same table-specific setting. */
+static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
+    [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
+    [TABLE_DESIGN_CITY]    = 0.08f,
+    [TABLE_DESIGN_CASTLE]  = 0.30f,
+    [TABLE_DESIGN_HOLE]    = 0.08f,
+    [TABLE_DESIGN_ARCTIC]  = 0.08f,
+    [TABLE_DESIGN_HARVEST] = 0.08f,
+    [TABLE_DESIGN_FACE]    = 0.08f,
+    [TABLE_DESIGN_REALM]   = 0.08f
+};
+
 static Shader s_shader;
 static Shader s_blur_shader;
 static RenderTexture2D s_bloom[2];
 static int s_blur_step_loc = -1;
 static int s_phase_loc = -1;
+static int s_cutoff_loc = -1;
 static int s_attempted;
 static float s_phase_a, s_phase_b, s_level;
 static unsigned int s_music_peak;
@@ -60,7 +77,7 @@ static void table_glow_music_tap(void *buffer, unsigned int frames) {
     "    float hc = bval(c.rgb);\n" \
     "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
     "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.12);\n" \
-    "    float mask = solid * smoothstep(0.08, 0.18, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
+    "    float mask = solid * smoothstep(u_dark_cutoff, u_dark_cutoff + 0.10, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n" \
     "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
@@ -90,6 +107,7 @@ static const char *const k_table_glow_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform float u_dark_cutoff;\n"
     TABLE_GLOW_BODY("texture2D", "gl_FragColor");
 #else
 static const char *const k_table_glow_fs =
@@ -99,6 +117,7 @@ static const char *const k_table_glow_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform float u_dark_cutoff;\n"
     "out vec4 finalColor;\n"
     TABLE_GLOW_BODY("texture", "finalColor");
 #endif
@@ -172,7 +191,7 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
     EndBlendMode();
 }
 
-void table_glow_draw(Texture2D overlay, float dt) {
+void table_glow_draw(Texture2D overlay, float dt, int table_design) {
     if (overlay.id <= 0 || overlay.width <= 0 || overlay.height <= 0) return;
     if (!s_tap_attached && IsAudioDeviceReady()) {
         AttachAudioMixedProcessor(table_glow_music_tap);
@@ -181,7 +200,10 @@ void table_glow_draw(Texture2D overlay, float dt) {
     if (!s_attempted) {
         s_attempted = 1;
         s_shader = LoadShaderFromMemory(0, k_table_glow_fs);
-        if (s_shader.id > 0) s_phase_loc = GetShaderLocation(s_shader, "u_phase");
+        if (s_shader.id > 0) {
+            s_phase_loc = GetShaderLocation(s_shader, "u_phase");
+            s_cutoff_loc = GetShaderLocation(s_shader, "u_dark_cutoff");
+        }
         s_blur_shader = LoadShaderFromMemory(0, k_blur_fs);
         if (s_blur_shader.id > 0)
             s_blur_step_loc = GetShaderLocation(s_blur_shader, "u_step");
@@ -193,7 +215,10 @@ void table_glow_draw(Texture2D overlay, float dt) {
             }
         }
     }
-    if (s_shader.id <= 0 || s_phase_loc < 0) return;
+    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0) return;
+    if (table_design < 0 || table_design >= TABLE_DESIGN_COUNT) return;
+    SetShaderValue(s_shader, s_cutoff_loc, &k_table_dark_cutoff[table_design],
+                   SHADER_UNIFORM_FLOAT);
     dt = fminf(fmaxf(dt, 0.0f), 0.1f);
     float target = __atomic_exchange_n(&s_music_peak, 0, __ATOMIC_RELAXED) / 1000000.0f;
     target = fminf(1.0f, target * TABLE_GLOW_LEVEL_GAIN);
@@ -233,7 +258,7 @@ void table_glow_unload(void) {
     s_blur_step_loc = -1;
     if (s_shader.id > 0) UnloadShader(s_shader);
     s_shader = (Shader){0};
-    s_phase_loc = -1;
+    s_phase_loc = s_cutoff_loc = -1;
     s_attempted = 0;
     s_phase_a = s_phase_b = s_level = 0.0f;
     __atomic_store_n(&s_music_peak, 0, __ATOMIC_RELAXED);
