@@ -1,5 +1,6 @@
 #include "ui_hub.h"
 #include "ui_theme.h"
+#include "version.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -226,6 +227,21 @@ void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int
     for (int i = 0; i < 3; i++) hub_draw_button(k_title_btns[i], labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
+    /* Build stamp, bottom-right (see src/version.h). This is the title screen the game
+       actually draws - screens_draw_start() in ui_screens.c has no callers and never runs.
+       Right-aligned to a 24 px margin on the 1280x720 canvas: the buttons end at y 554 and
+       the SAVED note is centred at 675, so 694 is clear of both. It is reference, not a
+       control, so it stays small and quiet - but it draws in the same phosphor as the
+       menu, not the dim tone: the backdrop under the corner is a painted
+       board at 95/255 black, and dim-on-artwork was the difference between "there" and
+       "I cannot see it". */
+    {
+        const float fsz = 15.0f, sp = 1.2f;
+        Vector2 vs = MeasureTextEx(font_body, XENO_KOI_VERSION, fsz, sp);
+        hub_draw_text_snapped(font_body, XENO_KOI_VERSION,
+                              CANVAS_W - 24.0f - vs.x, CANVAS_H - 26.0f,
+                              fsz, sp, COLOR_PHOSPHOR);
+    }
 }
 
 HubAction ui_hub_handle_title_click(Vector2 vm, HubButtonHit *out_hit, int has_active_profile) {
