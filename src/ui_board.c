@@ -439,8 +439,10 @@ static int s_table_ready[BOARD_TABLE_SLOTS] = { 0 };
 static Texture2D s_table_bezel[BOARD_TABLE_SLOTS];
 static Shader s_bezel_shine_shader = { 0 };
 static int s_bezel_shine_phase_loc = -1;
-static float s_bezel_phase_acc[2] = { 0.0f, 0.0f };
+static int s_bezel_shine_roam_loc = -1;
+static float s_bezel_phase_acc[2] = { 0.85f, -0.62f };
 static float s_bezel_phase_stamp = -1.0f;
+static float s_ac_light_roam = 0.0f;
 static void (*s_draw_bezel_shine_fn)(Rectangle dest, float pulse_alpha) = NULL;
 
 static int s_table_skin_ready(void) {
@@ -515,7 +517,27 @@ static const char* get_path(const char* sub) {
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
     "    float core = mask * (exp(-d1 / 0.040) * s1 + exp(-d2 / 0.085) * s2) * 2.50;\n" \
     "    float bloom = mask * (exp(-d1 / 0.038) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.028) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
-    "    float raw = (core + bloom * 0.60) * str;\n" \
+    "    float raw_st = (core + bloom * 0.60) * str;\n" \
+    "    float ang1 = u_phase.x + 0.24 * sin(u_phase.y);\n" \
+    "    vec2 dir1 = vec2(cos(ang1), sin(ang1));\n" \
+    "    vec2 q1 = dir1 * dir1;\n" \
+    "    vec2 pr1 = vec2(0.5) + vec2(0.45, 0.465) * dir1 / sqrt(sqrt(q1.x * q1.x + q1.y * q1.y));\n" \
+    "    vec2 tr1 = (pr1 - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    float dr1 = dot(tr1, tr1);\n" \
+    "    vec3 hr1 = normalize(normalize(vec3(tr1, 0.26)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    float ndr1 = max(dot(n, hr1), 0.0);\n" \
+    "    float sr1 = 0.36 + 0.64 * pow(max(ndr1, 0.0001), 3.5);\n" \
+    "    vec2 dir2 = vec2(cos(u_phase.y), sin(u_phase.y));\n" \
+    "    vec2 q2 = dir2 * dir2;\n" \
+    "    vec2 pr2 = vec2(0.5) + vec2(0.45, 0.465) * dir2 / sqrt(sqrt(q2.x * q2.x + q2.y * q2.y));\n" \
+    "    vec2 tr2 = (pr2 - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    float dr2 = dot(tr2, tr2);\n" \
+    "    vec3 hr2 = normalize(normalize(vec3(tr2, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
+    "    float ndr2 = max(dot(n, hr2), 0.0);\n" \
+    "    float rm_core = mask * (0.09 + exp(-dr1 / 0.018) * sr1 * 2.85 + exp(-dr2 / 0.014) * (0.30 + 0.70 * ndr2 * ndr2) * 0.55);\n" \
+    "    float rm_bloom = mask * exp(-dr1 / 0.036) * (0.35 + 0.65 * ndr1 * ndr1) * (0.45 + 0.55 * str);\n" \
+    "    float raw_rm = (rm_core + rm_bloom * 0.55) * str;\n" \
+    "    float raw = mix(raw_st, raw_rm, clamp(u_roam, 0.0, 1.0));\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
     "}\n"
@@ -529,6 +551,7 @@ static const char *const k_bezel_shine_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform float u_roam;\n"
     BEZEL_SHINE_BODY("texture2D", "gl_FragColor");
 #else
 static const char *const k_bezel_shine_fs =
@@ -538,6 +561,7 @@ static const char *const k_bezel_shine_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform float u_roam;\n"
     "out vec4 finalColor;\n"
     BEZEL_SHINE_BODY("texture", "finalColor");
 #endif
@@ -590,6 +614,8 @@ void board_load_assets(BoardAssets *ba) {
     s_bezel_shine_shader = LoadShaderFromMemory(0, k_bezel_shine_fs);
     s_bezel_shine_phase_loc = (s_bezel_shine_shader.id > 0)
         ? GetShaderLocation(s_bezel_shine_shader, "u_phase") : -1;
+    s_bezel_shine_roam_loc = (s_bezel_shine_shader.id > 0)
+        ? GetShaderLocation(s_bezel_shine_shader, "u_roam") : -1;
     s_draw_bezel_shine_fn = board_draw_table_bezel_shine;
 
     Image img = LoadImage(get_path("assets/back.png"));
@@ -663,6 +689,7 @@ void board_unload_assets(BoardAssets *ba) {
         s_bezel_shine_shader = (Shader){ 0 };
     }
     s_bezel_shine_phase_loc = -1;
+    s_bezel_shine_roam_loc = -1;
     s_draw_bezel_shine_fn = NULL;
     for (int i = 0; i < 8; i++) {
         UnloadTexture(ba->bgs[i]);
@@ -955,8 +982,9 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
                      (float)bez.width * s * squeeze, (float)bez.height * s };
     float t = (float)GetTime();
     int live_table = (s_bezel_phase_stamp >= 0.0f && fabsf(t - s_bezel_phase_stamp) < 0.25f);
-    float p0 = live_table ? s_bezel_phase_acc[0] : (t * 0.52f);
-    float p1 = live_table ? s_bezel_phase_acc[1] : (-t * 0.37f);
+    float p0 = live_table ? s_bezel_phase_acc[0] : 0.85f;
+    float p1 = live_table ? s_bezel_phase_acc[1] : -0.62f;
+    float roam = live_table ? s_ac_light_roam : 0.0f;
     float seed = dest.x * 0.019f + dest.y * 0.013f;
     float phase[4] = {
         p0 + seed,
@@ -966,6 +994,8 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     };
     if (s_bezel_shine_phase_loc >= 0)
         SetShaderValue(s_bezel_shine_shader, s_bezel_shine_phase_loc, phase, SHADER_UNIFORM_VEC4);
+    if (s_bezel_shine_roam_loc >= 0)
+        SetShaderValue(s_bezel_shine_shader, s_bezel_shine_roam_loc, &roam, SHADER_UNIFORM_FLOAT);
     float p_clamped = fminf(1.0f, fmaxf(0.0f, pulse_alpha));
     float a = (p_clamped > 0.001f) ? fminf(1.0f, 0.36f + 0.84f * powf(p_clamped, 0.68f)) : 0.0f;
     if (dest.height < 76.0f) a *= (dest.height - 60.0f) / 16.0f;
@@ -978,13 +1008,70 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     EndBlendMode();
 }
 
+static void draw_rect_perim_span(Rectangle r, float u0, float len, float thick, Color col) {
+    float w = r.width, h = r.height, perim = 2.0f * (w + h);
+    if (w <= 2.0f || h <= 2.0f || perim <= 4.0f || len <= 0.05f || col.a == 0) return;
+    float u = fmodf(u0, perim);
+    if (u < 0.0f) u += perim;
+    for (int guard = 0; guard < 6 && len > 0.05f; guard++) {
+        float seg;
+        if (u < w) {
+            seg = fminf(len, w - u);
+            DrawRectangleRec((Rectangle){ r.x + u, r.y, seg, thick }, col);
+        } else if (u < w + h) {
+            float e = u - w;
+            seg = fminf(len, h - e);
+            DrawRectangleRec((Rectangle){ r.x + w - thick, r.y + e, thick, seg }, col);
+        } else if (u < 2.0f * w + h) {
+            float e = u - (w + h);
+            seg = fminf(len, w - e);
+            DrawRectangleRec((Rectangle){ r.x + w - e - seg, r.y + h - thick, seg, thick }, col);
+        } else {
+            float e = u - (2.0f * w + h);
+            seg = fminf(len, h - e);
+            DrawRectangleRec((Rectangle){ r.x, r.y + h - e - seg, thick, seg }, col);
+        }
+        if (seg <= 0.001f) break;
+        len -= seg;
+        u += seg;
+        if (u >= perim - 0.0005f) u = 0.0f;
+    }
+}
+
 void board_draw_card_glow(Rectangle dest, float pulse_alpha) {
     if (!s_bezel_muted && board_table_skin_active()) {
         if (s_draw_bezel_shine_fn) s_draw_bezel_shine_fn(dest, pulse_alpha);
         return;
     }
-    Color gc = g_theme.base; gc.a = (unsigned char)(pulse_alpha * 255.0f);
-    DrawRectangleLinesEx(dest, 1.5f, gc);
+    float p_clamped = fminf(1.0f, fmaxf(0.0f, pulse_alpha));
+    float roam = (!s_bezel_muted && dest.height >= 60.0f) ? s_ac_light_roam : 0.0f;
+    float base_a = p_clamped * (1.0f - 0.72f * roam);
+    if (base_a > 0.004f) {
+        Color gc = g_theme.base;
+        gc.a = (unsigned char)(base_a * 255.0f);
+        DrawRectangleLinesEx(dest, 1.5f, gc);
+    }
+    if (roam > 0.005f && p_clamped > 0.005f) {
+        float perim = 2.0f * (dest.width + dest.height);
+        float seed = dest.x * 0.019f + dest.y * 0.013f;
+        float ang = s_bezel_phase_acc[0] + 0.24f * sinf(s_bezel_phase_acc[1] + seed * 2.3f) + seed;
+        float head = (ang / 6.2831853f) * perim;
+        float arc = perim * 0.34f;
+        float slice = arc / 8.0f;
+        for (int i = 0; i < 8; i++) {
+            float frac = ((float)i + 0.5f) / 8.0f;
+            float fall = frac * frac;
+            float sa = roam * p_clamped * (0.18f + 0.82f * fall);
+            Color sc = {
+                (unsigned char)(g_theme.base.r + (255 - g_theme.base.r) * fall * 0.80f),
+                (unsigned char)(g_theme.base.g + (255 - g_theme.base.g) * fall * 0.80f),
+                (unsigned char)(g_theme.base.b + (255 - g_theme.base.b) * fall * 0.80f),
+                (unsigned char)(fminf(1.0f, sa) * 255.0f)
+            };
+            draw_rect_perim_span(dest, head - arc + (float)i * slice, slice + 0.5f,
+                                 (i >= 6) ? 2.2f : 1.7f, sc);
+        }
+    }
 }
 
 static void draw_capture_lanes(const BoardAssets *ba, const GameState *g, int player, float start_y) {
@@ -1162,9 +1249,20 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     }
     float ac_card_lvl = action_card_begin_table(g, round_reset, reverb_synergy);
     {
-        float shine_spd = (ac_card_lvl >= 0.75f) ? 2.00f : (ac_card_lvl >= 0.50f) ? 1.60f : 1.00f;
-        s_bezel_phase_acc[0] = fmodf(s_bezel_phase_acc[0] + env_dt * 0.52f * shine_spd, 628.31853f);
-        s_bezel_phase_acc[1] = fmodf(s_bezel_phase_acc[1] - env_dt * 0.37f * shine_spd, 628.31853f);
+        if (round_reset || ac_card_lvl <= 0.0f) {
+            s_ac_light_roam = 0.0f;
+        } else {
+            float roam_target = (ac_card_lvl >= 0.98f) ? 1.0f : 0.0f;
+            float roam_tc = (roam_target > s_ac_light_roam) ? 0.18f : 0.26f;
+            s_ac_light_roam += (roam_target - s_ac_light_roam) * (1.0f - expf(-env_dt / roam_tc));
+            if (s_ac_light_roam < 0.002f) s_ac_light_roam = 0.0f;
+            if (s_ac_light_roam > 0.998f) s_ac_light_roam = 1.0f;
+        }
+        if (s_ac_light_roam > 0.0f) {
+            s_bezel_phase_acc[0] = fmodf(s_bezel_phase_acc[0] + env_dt * 2.85f * s_ac_light_roam, 628.31853f);
+            s_bezel_phase_acc[1] = fmodf(s_bezel_phase_acc[1] - env_dt * 1.85f * s_ac_light_roam, 628.31853f);
+            ui_theme_set_global_flare_boost(0.90f + 0.10f * s_ac_light_roam, 2.00f + 1.50f * s_ac_light_roam);
+        }
         s_bezel_phase_stamp = cur_time;
     }
 
@@ -1425,6 +1523,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
 }
 
 void board_draw_dealer_select(const BoardAssets *ba, const GameState *g, Vector2 vm) {
+    s_ac_light_roam = 0.0f;
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 245 });
     draw_centered_text(font_title, "PICK A CARD TO DETERMINE DEALER (EARLIEST MONTH WINS)", 640.0f, 85.0f, 26.0f, 1.2f, COLOR_PHOSPHOR);
     Rectangle r[2] = { { 400, 180, 176, 286 }, { 704, 180, 176, 286 } };
