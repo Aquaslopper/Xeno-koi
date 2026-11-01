@@ -62,6 +62,7 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define TABLEGLOW_ENABLED 1
@@ -593,13 +594,16 @@ static void tg_draw_readout(void) {
     if (!s_debug) return;
     const Color ink = { 235, 240, 235, 255 };
     const Color bg  = { 0, 0, 0, 170 };
-    const char *lines[5];
-    lines[0] = TextFormat("tableglow %s   live %d", tableglow.enabled ? "ON" : "OFF", s_dbg_live);
-    lines[1] = TextFormat("lufs %.1f  ->  bright %.2f", s_dbg_lufs, s_bright_vis);
-    lines[2] = TextFormat("high %.2f  ->  bloom %.2f", s_dbg_share, s_bloom_vis);
-    lines[3] = TextFormat("bpm %.0f  ->  rate %.2f", s_dbg_bpm, tableglow.speed_base);
-    lines[4] = TextFormat("alpha %.3f   gain %.2f/%.2f", s_dbg_alpha,
-                          tableglow.core_gain, tableglow.bloom_gain);
+    /* Local buffers, not TextFormat: it hands back pointers into a four-slot ring,
+       and five stored pointers alias - the first line came out as the last one. */
+    char lines[5][64];
+    snprintf(lines[0], sizeof(lines[0]), "tableglow %s   live %d",
+             tableglow.enabled ? "ON" : "OFF", s_dbg_live);
+    snprintf(lines[1], sizeof(lines[1]), "lufs %.1f  ->  bright %.2f", s_dbg_lufs, s_bright_vis);
+    snprintf(lines[2], sizeof(lines[2]), "high %.2f  ->  bloom %.2f", s_dbg_share, s_bloom_vis);
+    snprintf(lines[3], sizeof(lines[3]), "bpm %.0f  ->  rate %.2f", s_dbg_bpm, tableglow.speed_base);
+    snprintf(lines[4], sizeof(lines[4]), "alpha %.3f   gain %.2f/%.2f", s_dbg_alpha,
+             tableglow.core_gain, tableglow.bloom_gain);
     int w = 0;
     for (int i = 0; i < 5; i++) {
         int lw = MeasureText(lines[i], 16);
@@ -635,6 +639,7 @@ void tableglow_draw_overlay(Texture2D overlay, float dt) {
    ACTUALLY HEARS" at the top of this file for the consequence of running last.
    ========================================================================== */
 static int s_attached;
+static int s_tap_count;
 static unsigned int s_tap_sig;
 
 static unsigned int tg_stream_signature(const AudioAssets *a) {
@@ -650,12 +655,14 @@ static unsigned int tg_stream_signature(const AudioAssets *a) {
 static void tg_set_tap(AudioAssets *a, int on) {
     if (!a) return;
     unsigned int fs = 48000u;
+    int hooked = 0;
     for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (!a->has_music_game[i]) continue;
         if (a->music_game[i].stream.sampleRate > 0) fs = a->music_game[i].stream.sampleRate;
-        if (on) AttachAudioStreamProcessor(a->music_game[i].stream, tg_music_processor);
+        if (on) { AttachAudioStreamProcessor(a->music_game[i].stream, tg_music_processor); hooked++; }
         else    DetachAudioStreamProcessor(a->music_game[i].stream, tg_music_processor);
     }
+    s_tap_count = hooked;
     if (on) {
         tg_analysis_setup((double)fs);      /* K-weighting for the real device rate */
         __atomic_add_fetch(&s_epoch, 1u, __ATOMIC_RELAXED);
@@ -665,7 +672,7 @@ static void tg_set_tap(AudioAssets *a, int on) {
         __atomic_store_n(&s_pub_lufs, 0u, __ATOMIC_RELAXED);
         __atomic_store_n(&s_pub_high, 0u, __ATOMIC_RELAXED);
     }
-    s_attached = on;
+    s_attached = on && (s_tap_count > 0);   /* nothing hooked up: retry next frame */
 }
 
 void tableglow_sync_music(AudioAssets *audio) {
