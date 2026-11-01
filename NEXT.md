@@ -16,8 +16,20 @@ pulsing phosphor rings and leader lines in `plexus_tutorial_draw_panel()`, and l
 callout pills (`1. CLICK THIS CARD` -> `2. MATCH HERE`) in
 `plexus_tutorial_draw_board_guides()`. Advances on click only.
 
-Rule: presentation only. No phase, no timer, no input gate, no rule changes. Card 2
-(Action Card) and card 3 (Speedcoin) tutorials are untouched. Not yet seen on a screen.
+Rule: presentation only. No phase, no timer, no input gate, no rule changes. Not yet seen
+on a screen.
+
+## 1a. The other two tutorials, same language — built, waiting on one look
+
+Speedcoin and Action Card now borrow the same coach marks as Koi-Koi instead of drawing
+their own flat boxes. `tut_sc_focus_rect()` gives Speedcoin a real spotlight scrim
+(CORE, SYNC, PARASITE/HAND2); the flat dim stays on `NO_HESITATION` on purpose, because
+that step is reading the score screen. Each frozen step rings its subject and labels it:
+`YOUR SCORE + CLOCK`, `SPEEDBAR`, `THE STOCK`, `AUDIO PULSE`, `RESERVOIR`. Action Card
+keeps its flat dim — the meters frame the panel, so a cut-out there would light the middle
+of the board and nothing else. Red stays on the parasite pile and the wine reservoir. The
+`DrawRectangleLinesEx` outlines are gone; what a step asks for is unchanged. Not yet seen
+on a screen.
 
 ## 1b. D-badge tour — built, waiting on one look
 
