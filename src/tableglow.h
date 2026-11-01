@@ -42,21 +42,40 @@ typedef struct TableGlowSettings {
     int   key_toggle;           /* key that flips it. KEY_F8 unless the game uses it. */
 
     /* ---- the light itself ---------------------------------------------------- */
-    float radius_px;            /* how far the shader looks, in canvas pixels. 4..40,
-                                   default 16. It does two jobs, exactly as on the card:
-                                   it is the reach of the brightness gradient, and it is
-                                   how far inside the art a pixel must sit from ANY
-                                   transparency before it may light (the 8-neighbour
-                                   opacity test uses the same stencil). Measured on the
-                                   city overlay: 3.3% of the image lights at 4 px, 1.9% at
-                                   16 px. Too small: nothing lights. Too large: only the
-                                   fattest parts of the casing do.                      */
+    float radius_px;            /* how far the shader looks, in canvas pixels. 2..40,
+                                   default 4. It does two jobs, as on the card: it is the
+                                   reach of the brightness gradient, and how far inside the
+                                   art a pixel must sit from ANY transparency before it may
+                                   light (the 8-neighbour opacity test uses the same
+                                   stencil). Too small: the gradient gets noisy. Too large:
+                                   only the fattest parts of the casing can light.        */
+    float core_uv;              /* radius of the sharp head's falloff, in texture UV.
+                                   0.02..0.60, default 0.10 (= 128 px at 1280 wide).      */
+    float bloom_uv;             /* radius of the broad halo around each head, in UV.
+                                   0.05..1.20, default 0.45 (= 576 px). It must stay
+                                   well above core_uv or the bloom is invisible: the card
+                                   has bloom NARROWER than its core, which reads as a
+                                   tight halo on a 90 px bezel and as nothing at all on
+                                   a 1280 px table.                                     */
     float luminance_lo;         /* a pixel may catch light only if it is at least this
                                    share of its neighbourhood's brightest pixel. 0..1,
                                    default 0.42. Raise it to light fewer, sharper
                                    details; lower it for a broader glow.                */
     float luminance_hi;         /* where that ramp reaches full strength. Must be above
-                                   luminance_lo. Default 0.72.                          */
+                                   luminance_lo. Default 0.72.
+                                   On the card this ramp is a GATE - a pixel below it
+                                   catches no light. Here it is a GAIN: the table body
+                                   keeps its light and the ridges simply burn brighter.
+                                   A gate left whole cells of the art completely dark.   */
+    float black_lo;             /* near-black floor: brightness at or below this gets no
+                                   light at all. 0..0.2, default 0.015.
+                                   The card uses 0.08, which is right for a bezel and
+                                   wrong here: measured on the shipped overlays the
+                                   OPAQUE table body has a median brightness of 0.03-0.08
+                                   (realm 0.032, harvest 0.042, city 0.077, castle 0.084),
+                                   so the card's floor threw away 46-83% of the table.   */
+    float black_hi;             /* where that floor reaches full light. Must be above
+                                   black_lo. Default 0.050.                              */
     float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.88.
                                    This is the single "how strong" knob.                */
     float intensity;            /* multiplier on top of the loudness term. 0..2,
@@ -75,7 +94,8 @@ typedef struct TableGlowSettings {
                                    release = more breathing, less flicker.             */
 
     /* ---- high share -> bloom -------------------------------------------------- */
-    float bloom_base;           /* halo radius multiplier for a dark tone. 0.2..2,
+    float bloom_base;           /* halo RADIUS multiplier for a dark tone, applied to
+                                   bloom_uv. 0.2..2,
                                    default 0.85.                                       */
     float bloom_per_high;       /* added to that when the high band is all there is,
                                    0..1.5, default 0.55.                                */

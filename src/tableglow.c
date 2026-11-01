@@ -70,7 +70,11 @@
    DEFAULTS - one source of truth for the numbers documented in tableglow.h.
    -------------------------------------------------------------------------- */
 #define TGLOW_DEF_ENABLED           1
-#define TGLOW_DEF_RADIUS_PX        16.0f
+#define TGLOW_DEF_RADIUS_PX         4.0f
+#define TGLOW_DEF_CORE_UV          0.10f
+#define TGLOW_DEF_BLOOM_UV         0.45f
+#define TGLOW_DEF_BLACK_LO         0.015f
+#define TGLOW_DEF_BLACK_HI         0.050f
 #define TGLOW_DEF_LUM_LO            0.42f
 #define TGLOW_DEF_LUM_HI            0.72f
 #define TGLOW_DEF_MAX_ALPHA         0.88f
@@ -91,27 +95,31 @@
 #define TGLOW_DEF_BPM_MAX         180.0f
 
 TableGlowSettings tableglow = {
-    TGLOW_DEF_ENABLED,
-    KEY_F8,
-    TGLOW_DEF_RADIUS_PX,
-    TGLOW_DEF_LUM_LO,
-    TGLOW_DEF_LUM_HI,
-    TGLOW_DEF_MAX_ALPHA,
-    TGLOW_DEF_INTENSITY,
-    TGLOW_DEF_BRIGHT_BASE,
-    TGLOW_DEF_BRIGHT_PER_LUFS,
-    TGLOW_DEF_LUFS_FLOOR,
-    TGLOW_DEF_LUFS_CEIL,
-    TGLOW_DEF_LUFS_ATTACK_MS,
-    TGLOW_DEF_LUFS_RELEASE_MS,
-    TGLOW_DEF_BLOOM_BASE,
-    TGLOW_DEF_BLOOM_PER_HIGH,
-    TGLOW_DEF_HIGH_SMOOTH_MS,
-    TGLOW_DEF_SPEED_BASE,
-    TGLOW_DEF_BPM_REF,
-    TGLOW_DEF_BPM_FORCED,
-    TGLOW_DEF_BPM_MIN,
-    TGLOW_DEF_BPM_MAX
+    .enabled             = TGLOW_DEF_ENABLED,
+    .key_toggle          = KEY_F8,
+    .radius_px           = TGLOW_DEF_RADIUS_PX,
+    .core_uv             = TGLOW_DEF_CORE_UV,
+    .bloom_uv            = TGLOW_DEF_BLOOM_UV,
+    .luminance_lo        = TGLOW_DEF_LUM_LO,
+    .luminance_hi        = TGLOW_DEF_LUM_HI,
+    .black_lo            = TGLOW_DEF_BLACK_LO,
+    .black_hi            = TGLOW_DEF_BLACK_HI,
+    .max_alpha           = TGLOW_DEF_MAX_ALPHA,
+    .intensity           = TGLOW_DEF_INTENSITY,
+    .brightness_base     = TGLOW_DEF_BRIGHT_BASE,
+    .brightness_per_lufs = TGLOW_DEF_BRIGHT_PER_LUFS,
+    .lufs_floor_db       = TGLOW_DEF_LUFS_FLOOR,
+    .lufs_ceil_db        = TGLOW_DEF_LUFS_CEIL,
+    .lufs_attack_ms      = TGLOW_DEF_LUFS_ATTACK_MS,
+    .lufs_release_ms     = TGLOW_DEF_LUFS_RELEASE_MS,
+    .bloom_base          = TGLOW_DEF_BLOOM_BASE,
+    .bloom_per_high      = TGLOW_DEF_BLOOM_PER_HIGH,
+    .high_smooth_ms      = TGLOW_DEF_HIGH_SMOOTH_MS,
+    .speed_base          = TGLOW_DEF_SPEED_BASE,
+    .bpm_ref             = TGLOW_DEF_BPM_REF,
+    .bpm_forced          = TGLOW_DEF_BPM_FORCED,
+    .bpm_min             = TGLOW_DEF_BPM_MIN,
+    .bpm_max             = TGLOW_DEF_BPM_MAX
 };
 
 /* ============================================================================
@@ -359,57 +367,65 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
      - the same 8-neighbour opacity test as the card, for the same reason. Measured on
        the shipped art (the overlay.png of all seven maps): 69-76% of it is FULLY
        transparent and 1-10% is semi-transparent, so the light is kept inside the painted
-       casing exactly as it is kept out of a card cavity. There is no brightness window
-       standing in for it any more - that was an assumption, and it was wrong;
-     - bloom width is scaled by u_tune.y (the high-share term);
+       casing exactly as it is kept out of a card cavity;
+     - but the ridge window is a GAIN here, not a gate, and the near-black floor is
+       lowered to suit the art (u_shape.z/.w). Both because a table is not a bezel:
+       measured on the opaque body, median brightness is 0.032 (realm), 0.042 (harvest),
+       0.077 (city), 0.084 (castle), and the card's 0.08 floor threw away 46-83% of it,
+       while its ridge gate left whole cells of the table with no light at all;
+     - bloom is WIDER than the core here and its radius is scaled by u_tune.y. On the
+       card the bloom lobe is narrower than the core, which reads as a tight halo on a
+       90 px bezel and as nothing at all across 1280 px;
+     - the head radius and the bloom radius are the owner's (core_uv, bloom_uv),
+       handed over squared in u_shape.xy;
      - the final alpha is multiplied by the vertex alpha, which is max_alpha.
 
    Two sources: GL 3.3 for desktop and GLES2 for the browser build.
    ========================================================================== */
-#define TGLOW_SHADER_BODY(TEX, OUT)                                                        \
+#define TGLOW_SHADER_BODY(TEX, OUT)                                                         \
     "float bval(vec3 v) { return 0.45 * dot(v, vec3(0.299, 0.587, 0.114)) + 0.55 * max(max(v.r, v.g), v.b); }\n" \
     "vec2 uvc(vec2 uv) { return clamp(uv, vec2(0.0), vec2(1.0)); }\n"                       \
-    "void main() {\n"                                                                      \
-    "    vec2 uv = uvc(fragTexCoord);\n"                                                   \
-    "    vec2 d  = u_phase.zw;\n"                                                          \
-    "    vec4 c  = " TEX "(texture0, uv);\n"                                               \
-    "    vec4 cl = " TEX "(texture0, uvc(uv - vec2(d.x, 0.0)));\n"                         \
-    "    vec4 cr = " TEX "(texture0, uvc(uv + vec2(d.x, 0.0)));\n"                         \
-    "    vec4 cu = " TEX "(texture0, uvc(uv - vec2(0.0, d.y)));\n"                         \
-    "    vec4 cd = " TEX "(texture0, uvc(uv + vec2(0.0, d.y)));\n"                         \
+    "void main() {\n"                                                                       \
+    "    vec2 uv = uvc(fragTexCoord);\n"                                                    \
+    "    vec2 d  = u_phase.zw;\n"                                                           \
+    "    vec4 c  = " TEX "(texture0, uv);\n"                                                \
+    "    vec4 cl = " TEX "(texture0, uvc(uv - vec2(d.x, 0.0)));\n"                          \
+    "    vec4 cr = " TEX "(texture0, uvc(uv + vec2(d.x, 0.0)));\n"                          \
+    "    vec4 cu = " TEX "(texture0, uvc(uv - vec2(0.0, d.y)));\n"                          \
+    "    vec4 cd = " TEX "(texture0, uvc(uv + vec2(0.0, d.y)));\n"                          \
     "    float diag_a = min(min(" TEX "(texture0, uvc(uv - d)).a,\n"                        \
-    "        " TEX "(texture0, uvc(uv + vec2(d.x, -d.y))).a),\n"                            \
-    "        min(" TEX "(texture0, uvc(uv + vec2(-d.x, d.y))).a,\n"                         \
-    "        " TEX "(texture0, uvc(uv + d)).a));\n"                                         \
+    "                           " TEX "(texture0, uvc(uv + vec2(d.x, -d.y))).a),\n"         \
+    "                       min(" TEX "(texture0, uvc(uv + vec2(-d.x, d.y))).a,\n"          \
+    "                           " TEX "(texture0, uvc(uv + d)).a));\n"                      \
     "    float min8 = min(min(min(cl.a, cr.a), min(cu.a, cd.a)), diag_a);\n"                \
-    "    float hc = bval(c.rgb);\n"                                                        \
+    "    float hc = bval(c.rgb);\n"                                                         \
     "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
     "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.12);\n"                          \
     "    float solid = smoothstep(0.91, 0.98, c.a) * smoothstep(0.85, 0.95, min8);\n"       \
+    "    float lit   = solid * smoothstep(u_shape.z, u_shape.w, hc);\n"                     \
     "    float hi_edge = max(u_tune.w, u_tune.z + 0.001);\n"                                \
-    "    float mask = solid * smoothstep(0.08, 0.18, hc) * smoothstep(u_tune.z, hi_edge, hc / peak);\n" \
+    "    float ridge = smoothstep(u_tune.z, hi_edge, hc / peak);\n"                         \
+    "    float gain  = 0.35 + 0.65 * ridge;\n"                                              \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"                                         \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n"                                         \
     "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - uv) * vec2(0.70, 1.0);\n" \
     "    float d1 = dot(t1, t1);\n"                                                         \
-    "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n"            \
+    "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n"           \
     "    float nd1 = max(dot(n, h1), 0.0);\n"                                               \
     "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - uv) * vec2(0.70, 1.0);\n" \
     "    float d2 = dot(t2, t2);\n"                                                         \
-    "    vec3 h2 = normalize(normalize(vec3(t2, 0.30)) + vec3(0.0, 0.0, 1.0));\n"            \
+    "    vec3 h2 = normalize(normalize(vec3(t2, 0.30)) + vec3(0.0, 0.0, 1.0));\n"           \
     "    float nd2 = max(dot(n, h2), 0.0);\n"                                               \
-    "    float str   = fragColor.a * colDiffuse.a;\n"                                       \
-    "    float bw    = max(u_tune.y, 0.05);\n"                                              \
-    "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n"                                          \
-    "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n"                                          \
-    "    float core  = mask * (exp(-d1 / 0.040) * s1 + exp(-d2 / 0.085) * s2) * 2.50;\n"     \
-    "    float bloom = mask * (exp(-d1 / (0.038 * bw)) * (0.35 + 0.65 * nd1 * nd1)\n"         \
-    "                        + exp(-d2 / (0.028 * bw)) * (0.35 + 0.65 * nd2 * nd2))\n"       \
-    "                       * (0.50 + 0.65 * str);\n"                                        \
-    "    float raw = (core + bloom * 0.60) * u_tune.x;\n"                                    \
-    "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                        \
+    "    float str = fragColor.a * colDiffuse.a;\n"                                         \
+    "    float bw  = max(u_tune.y, 0.05);\n"                                                \
+    "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n"                                         \
+    "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n"                                         \
+    "    float core  = lit * gain * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * 0.55;\n" \
+    "    float bloom = lit * gain * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * 0.35;\n" \
+    "    float raw = (core + bloom) * u_tune.x;\n"                                          \
+    "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                       \
     "    " OUT " = vec4(fragColor.rgb, a);\n"                                               \
-    "}\n"
+    "}\n"                                                                                   \
 
 #ifdef __EMSCRIPTEN__
 static const char *const k_tableglow_fs =
@@ -421,6 +437,7 @@ static const char *const k_tableglow_fs =
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
     "uniform vec4 u_tune;\n"
+    "uniform vec4 u_shape;\n"
     TGLOW_SHADER_BODY("texture2D", "gl_FragColor");
 #else
 static const char *const k_tableglow_fs =
@@ -431,6 +448,7 @@ static const char *const k_tableglow_fs =
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
     "uniform vec4 u_tune;\n"
+    "uniform vec4 u_shape;\n"
     "out vec4 finalColor;\n"
     TGLOW_SHADER_BODY("texture", "finalColor");
 #endif
@@ -443,6 +461,7 @@ static Shader s_shader = { 0 };
 static int    s_shader_tried;
 static int    s_phase_loc = -1;
 static int    s_tune_loc = -1;
+static int    s_shape_loc = -1;
 static float  s_phase_a, s_phase_b;
 static float  s_bright_vis = -1.0f;      /* <0 = not seeded yet, snap on first frame */
 static float  s_bloom_vis = -1.0f;
@@ -454,6 +473,7 @@ static void tg_shader_init(void) {
     if (s_shader.id > 0) {
         s_phase_loc = GetShaderLocation(s_shader, "u_phase");
         s_tune_loc  = GetShaderLocation(s_shader, "u_tune");
+        s_shape_loc = GetShaderLocation(s_shader, "u_shape");
         TraceLog(LOG_INFO, "tableglow: linked - %s", TABLEGLOW_ENABLED ? "on" : "off");
     } else {
         TraceLog(LOG_WARNING, "tableglow: shader failed to load, table light disabled");
@@ -527,8 +547,20 @@ void tableglow_draw_overlay(Texture2D overlay, float dt) {
                        tableglow.radius_px / (float)overlay.width,
                        tableglow.radius_px / (float)overlay.height };
     float tune[4]  = { s_bright_vis, s_bloom_vis, lo, hi };
+
+    /* Radii are handed to the shader squared, because d1/d2 are squared UV distances:
+       exp(-d/core_uv^2) is down to 1/e at exactly core_uv away from the head.
+       z/w are the near-black floor, which is art-specific (see tableglow.h). */
+    float core_uv  = tg_clampf(tableglow.core_uv,  0.02f, 0.60f);
+    float bloom_uv = tg_clampf(tableglow.bloom_uv, 0.05f, 1.20f);
+    float black_lo = tg_clampf(tableglow.black_lo, 0.0f, 0.20f);
+    float black_hi = tg_clampf(tableglow.black_hi, 0.0f, 0.30f);
+    if (black_hi <= black_lo) black_hi = black_lo + 0.001f;
+    float shape[4] = { core_uv * core_uv, bloom_uv * bloom_uv, black_lo, black_hi };
+
     if (s_phase_loc >= 0) SetShaderValue(s_shader, s_phase_loc, phase, SHADER_UNIFORM_VEC4);
     if (s_tune_loc  >= 0) SetShaderValue(s_shader, s_tune_loc,  tune,  SHADER_UNIFORM_VEC4);
+    if (s_shape_loc >= 0) SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
 
     Color tint = { 250, 246, 238,
                    (unsigned char)(tg_clampf(tableglow.max_alpha, 0.0f, 1.0f) * 255.0f) };
