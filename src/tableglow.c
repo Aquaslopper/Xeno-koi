@@ -71,16 +71,17 @@
    DEFAULTS - one source of truth for the numbers documented in tableglow.h.
    -------------------------------------------------------------------------- */
 #define TGLOW_DEF_ENABLED           1
-#define TGLOW_DEF_RADIUS_PX        12.0f
-#define TGLOW_DEF_CORE_GAIN        0.80f
-#define TGLOW_DEF_BLOOM_GAIN       0.62f
+#define TGLOW_DEF_MICRO_PX          3.0f
+#define TGLOW_DEF_MESO_PX          10.0f
+#define TGLOW_DEF_CORE_GAIN        0.95f
+#define TGLOW_DEF_BLOOM_GAIN       0.72f
 #define TGLOW_DEF_CORE_UV          0.10f
 #define TGLOW_DEF_BLOOM_UV         0.45f
 #define TGLOW_DEF_BLACK_LO         0.015f
 #define TGLOW_DEF_BLACK_HI         0.050f
-#define TGLOW_DEF_LUM_LO           0.050f
-#define TGLOW_DEF_LUM_HI           0.300f
-#define TGLOW_DEF_MAX_ALPHA         0.68f
+#define TGLOW_DEF_EDGE_LO          0.080f
+#define TGLOW_DEF_EDGE_HI          0.450f
+#define TGLOW_DEF_MAX_ALPHA        0.70f
 #define TGLOW_DEF_INTENSITY         1.00f
 #define TGLOW_DEF_BRIGHT_BASE       0.08f
 #define TGLOW_DEF_BRIGHT_PER_LUFS   0.92f
@@ -101,13 +102,14 @@ TableGlowSettings tableglow = {
     .enabled             = TGLOW_DEF_ENABLED,
     .key_toggle          = KEY_F8,
     .key_debug           = KEY_F7,
-    .radius_px           = TGLOW_DEF_RADIUS_PX,
+    .micro_px            = TGLOW_DEF_MICRO_PX,
+    .meso_px             = TGLOW_DEF_MESO_PX,
     .core_gain           = TGLOW_DEF_CORE_GAIN,
     .bloom_gain          = TGLOW_DEF_BLOOM_GAIN,
     .core_uv             = TGLOW_DEF_CORE_UV,
     .bloom_uv            = TGLOW_DEF_BLOOM_UV,
-    .luminance_lo        = TGLOW_DEF_LUM_LO,
-    .luminance_hi        = TGLOW_DEF_LUM_HI,
+    .edge_lo             = TGLOW_DEF_EDGE_LO,
+    .edge_hi             = TGLOW_DEF_EDGE_HI,
     .black_lo            = TGLOW_DEF_BLACK_LO,
     .black_hi            = TGLOW_DEF_BLACK_HI,
     .max_alpha           = TGLOW_DEF_MAX_ALPHA,
@@ -371,18 +373,31 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
    from the card version, all deliberate:
 
      - taps are clamped to the texture, so the edges of the art cannot wrap;
-     - the same 8-neighbour opacity test as the card, for the same reason. Measured on
-       the shipped art (the overlay.png of all seven maps): 69-76% of it is FULLY
-       transparent and 1-10% is semi-transparent, so the light is kept inside the painted
-       casing exactly as it is kept out of a card cavity;
-     - but the ridge window is a GAIN here, not a gate, and the near-black floor is
-       lowered to suit the art (u_shape.z/.w). Both because a table is not a bezel:
-       measured on the opaque body, median brightness is 0.032 (realm), 0.042 (harvest),
-       0.077 (city), 0.084 (castle), and the card's 0.08 floor threw away 46-83% of it,
-       while its ridge gate left whole cells of the table with no light at all;
+     - the normal comes from the luminance gradient at TWO scales, 3 px and 10 px,
+       combined with no divisor at all:  g = 1.2*(micro) + 1.0*(meso), then the normal
+       is clamped, never the divisor. The card divided by the brightest neighbour, which
+       needs a floor, and on art this dark the floor is what the division measures -
+       the normal then sits near z and the bevel disappears. A clamped normal cannot
+       do that: the tilt is whatever the art's own gradient says, up to 45 degrees;
+     - the gate is INVERTED. What gets lit is high gradient - mouldings, the rim of a
+       plaque, the skull rail. Flat panel fill is suppressed, because the fill is as
+       bright as the mouldings here and only the gradient tells them apart. Measured on
+       the shipped overlays at the two scales: flat fill 0.025-0.06, real edges
+       0.18-0.40, strongest 0.4-0.75, which is what edge_lo 0.080 / edge_hi 0.450 cuts;
+     - opacity is the pixel's OWN alpha, not its eight neighbours'. The card's neighbour
+       test is right for a card: its frame is a ring around transparent art. On a table
+       the casing is 60-98% opaque and its panels sit at 0.84-0.98, so the neighbour test
+       excluded the interiors - measured, city has 22% of its visible pixels below 0.91
+       alpha and arctic 40% below 0.85 - and the light came out as a thin ring;
+     - the near-black floor is lowered to suit the art (u_shape.z/.w). On the opaque body
+       median brightness is 0.032 (realm), 0.042 (harvest), 0.077 (city), 0.084
+       (castle); the card's 0.08 floor threw away 46-83% of it;
+     - the light takes its colour from the art: tint = normalise(c.rgb) * f(brightness).
+       The card emits a constant cream and gets away with it on a 90 px bezel; across a
+       whole table that is one flat white wash, wrong on arctic and wrong on realm;
      - bloom is WIDER than the core here and its radius is scaled by u_tune.y. On the
        card the bloom lobe is narrower than the core, which reads as a tight halo on a
-       90 px bezel and as nothing at all across 1280 px;
+       bezel and as nothing at all across 1280 px;
      - the head radius and the bloom radius are the owner's (core_uv, bloom_uv),
        handed over squared in u_shape.xy;
      - the final alpha is multiplied by the vertex alpha, which is max_alpha.
@@ -394,21 +409,23 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "vec2 uvc(vec2 uv) { return clamp(uv, vec2(0.0), vec2(1.0)); }\n"                       \
     "void main() {\n"                                                                       \
     "    vec2 uv = uvc(fragTexCoord);\n"                                                    \
-    "    vec2 d  = u_phase.zw;\n"                                                           \
-    "    vec4 c  = " TEX "(texture0, uv);\n"                                                \
-    "    vec4 cl = " TEX "(texture0, uvc(uv - vec2(d.x, 0.0)));\n"                          \
-    "    vec4 cr = " TEX "(texture0, uvc(uv + vec2(d.x, 0.0)));\n"                          \
-    "    vec4 cu = " TEX "(texture0, uvc(uv - vec2(0.0, d.y)));\n"                          \
-    "    vec4 cd = " TEX "(texture0, uvc(uv + vec2(0.0, d.y)));\n"                          \
+    "    vec2 dm = u_scale.xy;\n"                                                           \
+    "    vec2 dM = u_scale.zw;\n"                                                           \
+    "    vec4 c  = TEX(texture0, uv);\n"                                                    \
     "    float hc = bval(c.rgb);\n"                                                         \
-    "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
+    "    float m1 = bval(TEX(texture0, uvc(uv - vec2(dm.x, 0.0))).rgb);\n"                  \
+    "    float m2 = bval(TEX(texture0, uvc(uv + vec2(dm.x, 0.0))).rgb);\n"                  \
+    "    float m3 = bval(TEX(texture0, uvc(uv - vec2(0.0, dm.y))).rgb);\n"                  \
+    "    float m4 = bval(TEX(texture0, uvc(uv + vec2(0.0, dm.y))).rgb);\n"                  \
+    "    float q1 = bval(TEX(texture0, uvc(uv - vec2(dM.x, 0.0))).rgb);\n"                  \
+    "    float q2 = bval(TEX(texture0, uvc(uv + vec2(dM.x, 0.0))).rgb);\n"                  \
+    "    float q3 = bval(TEX(texture0, uvc(uv - vec2(0.0, dM.y))).rgb);\n"                  \
+    "    float q4 = bval(TEX(texture0, uvc(uv + vec2(0.0, dM.y))).rgb);\n"                  \
+    "    vec2 g = vec2(m1 - m2, m3 - m4) * 1.2 + vec2(q1 - q2, q3 - q4);\n"                 \
+    "    float edge = smoothstep(u_tune.z, u_tune.w, length(g));\n"                         \
+    "    vec3 n = normalize(vec3(clamp(g * 2.5, vec2(-1.0), vec2(1.0)), 1.0));\n"           \
     "    float solid = smoothstep(0.35, 0.80, c.a);\n"                                      \
-    "    float lit   = solid * smoothstep(u_shape.z, u_shape.w, hc);\n"                     \
-    "    float hi_e  = max(u_tune.w, u_tune.z + 0.001);\n"                                  \
-    "    float gain  = 0.35 + 0.65 * clamp((hc - u_tune.z) / (hi_e - u_tune.z), 0.0, 1.0);\n" \
-    "    float peak  = max(max(max(hl, hr), max(hu, hd)), 0.02);\n"                         \
-    "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"                                         \
-    "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n"                                         \
+    "    float lit = solid * smoothstep(u_shape.z, u_shape.w, hc) * (0.04 + 0.96 * edge);\n" \
     "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - uv) * vec2(0.70, 1.0);\n" \
     "    float d1 = dot(t1, t1);\n"                                                         \
     "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n"           \
@@ -421,13 +438,13 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    float bw  = max(u_tune.y, 0.05);\n"                                                \
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n"                                         \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n"                                         \
-    "    float core  = lit * gain * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * u_gain.x;\n" \
-    "    float bloom = lit * gain * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * u_gain.y;\n" \
-    "    vec3 hue  = c.rgb / max(max(c.r, max(c.g, c.b)), 0.02);\n"                         \
-    "    vec3 tint = fragColor.rgb * mix(vec3(1.0), hue, 0.55) * (0.62 + 0.38 * min(hc * 4.0, 1.0));\n" \
+    "    float core  = lit * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * u_gain.x;\n" \
+    "    float bloom = lit * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * u_gain.y;\n" \
+    "    vec3 art  = c.rgb / max(max(c.r, max(c.g, c.b)), 0.02);\n"                         \
+    "    vec3 tint = art * (0.55 + 0.45 * min(hc * 4.0, 1.0));\n"                           \
     "    float raw = (core + bloom) * u_tune.x;\n"                                          \
     "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                       \
-    "    " OUT " = vec4(tint, a);\n"                                                        \
+    "    OUT = vec4(tint, a);\n"                                                            \
     "}\n"                                                                                   
 
 #ifdef __EMSCRIPTEN__
@@ -442,6 +459,7 @@ static const char *const k_tableglow_fs =
     "uniform vec4 u_tune;\n"
     "uniform vec4 u_shape;\n"
     "uniform vec4 u_gain;\n"
+    "uniform vec4 u_scale;\n"
     TGLOW_SHADER_BODY("texture2D", "gl_FragColor");
 #else
 static const char *const k_tableglow_fs =
@@ -454,6 +472,7 @@ static const char *const k_tableglow_fs =
     "uniform vec4 u_tune;\n"
     "uniform vec4 u_shape;\n"
     "uniform vec4 u_gain;\n"
+    "uniform vec4 u_scale;\n"
     "out vec4 finalColor;\n"
     TGLOW_SHADER_BODY("texture", "finalColor");
 #endif
@@ -468,7 +487,7 @@ static int    s_phase_loc = -1;
 static int    s_tune_loc = -1;
 static int    s_shape_loc = -1;
 static int    s_gain_loc = -1;
-static float  s_phase_a, s_phase_b;
+static int    s_scale_loc = -1;
 static float  s_bright_vis = -1.0f;      /* <0 = not seeded yet, snap on first frame */
 static float  s_bloom_vis = -1.0f;
 
@@ -481,6 +500,7 @@ static void tg_shader_init(void) {
         s_tune_loc  = GetShaderLocation(s_shader, "u_tune");
         s_shape_loc = GetShaderLocation(s_shader, "u_shape");
         s_gain_loc  = GetShaderLocation(s_shader, "u_gain");
+        s_scale_loc = GetShaderLocation(s_shader, "u_scale");
         TraceLog(LOG_INFO, "tableglow: linked - %s", TABLEGLOW_ENABLED ? "on" : "off");
     } else {
         TraceLog(LOG_WARNING, "tableglow: shader failed to load, table light disabled");
@@ -540,18 +560,28 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     bpm = tg_clampf(bpm, tableglow.bpm_min, tableglow.bpm_max);
     float ref = (tableglow.bpm_ref > 1.0f) ? tableglow.bpm_ref : 96.0f;
     float rate = tableglow.speed_base * (bpm / ref);          /* rad/s on the light circle */
+    float pha = 0.0f, phb = 0.0f;
     s_dbg_bpm = bpm;
-    s_phase_a = fmodf(s_phase_a + dt * rate, 6.28318530718f);
-    s_phase_b = fmodf(s_phase_b - dt * rate * 0.7115f, 6.28318530718f);   /* the cards' 0.52 : 0.37 */
+    /* Wall clock, not accumulated dt: the light keeps its own time, so a caller
+       that forgets to pass a frame delta cannot freeze it. */
+    {
+        const double now = GetTime();
+        const double tau = 6.28318530718;
+        pha = (float)fmod(now * (double)rate, tau);
+        phb = (float)fmod(tau * 1024.0 - now * (double)rate * 0.7115, tau); /* cards' 0.52 : 0.37 */
+    }
 
     /* ---- uniforms ------------------------------------------------------------ */
-    float lo = tg_clampf(tableglow.luminance_lo, 0.0f, 1.0f);
-    float hi = tg_clampf(tableglow.luminance_hi, 0.0f, 1.0f);
+    float lo = tg_clampf(tableglow.edge_lo, 0.0f, 4.0f);
+    float hi = tg_clampf(tableglow.edge_hi, 0.0f, 4.0f);
     if (hi <= lo) hi = lo + 0.001f;
-    float phase[4] = { s_phase_a, s_phase_b,
-                       tableglow.radius_px / (float)overlay.width,
-                       tableglow.radius_px / (float)overlay.height };
+    float phase[4] = { pha, phb, 0.0f, 0.0f };
     float tune[4]  = { s_bright_vis, s_bloom_vis, lo, hi };
+    /* The two gradient scales, in texels of this overlay. */
+    float micro = tg_clampf(tableglow.micro_px, 1.0f, 64.0f);
+    float meso  = tg_clampf(tableglow.meso_px, 1.0f, 64.0f);
+    float scale[4] = { micro / (float)overlay.width,  micro / (float)overlay.height,
+                       meso  / (float)overlay.width,  meso  / (float)overlay.height };
 
     /* Radii are handed to the shader squared, because d1/d2 are squared UV distances:
        exp(-d/core_uv^2) is down to 1/e at exactly core_uv away from the head.
@@ -569,13 +599,16 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     if (s_tune_loc  >= 0) SetShaderValue(s_shader, s_tune_loc,  tune,  SHADER_UNIFORM_VEC4);
     if (s_shape_loc >= 0) SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
     if (s_gain_loc  >= 0) SetShaderValue(s_shader, s_gain_loc,  gain,  SHADER_UNIFORM_VEC4);
+    if (s_scale_loc >= 0) SetShaderValue(s_shader, s_scale_loc, scale, SHADER_UNIFORM_VEC4);
 
     {
         float head_raw = (tableglow.core_gain * 1.0f + tableglow.bloom_gain) * s_bright_vis;
         s_dbg_alpha = (1.0f - expf(-head_raw * 1.65f)) * tg_clampf(tableglow.max_alpha, 0.0f, 1.0f);
     }
 
-    Color tint = { 250, 246, 238,
+    /* White: the shader takes its colour from the art now, so there is nothing to tint
+       here. Only the alpha travels, and it is the headroom of the additive pass. */
+    Color tint = { 255, 255, 255,
                    (unsigned char)(tg_clampf(tableglow.max_alpha, 0.0f, 1.0f) * 255.0f) };
 
     /* ---- draw --------------------------------------------------------------- */

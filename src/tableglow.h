@@ -47,20 +47,24 @@ typedef struct TableGlowSettings {
                                    too timid" without guessing.                          */
 
     /* ---- the light itself ---------------------------------------------------- */
-    float radius_px;            /* reach of the brightness gradient, in canvas pixels.
-                                   2..40, default 12. Only the gradient now: the light is
-                                   gated on the centre pixel's own alpha, not on its eight
-                                   neighbours, so this no longer doubles as an opacity
-                                   skirt. 12 px reads a moulding as a slope instead of as
-                                   a 4 px speckle; the card uses 1.45 texels because a
-                                   card is 90 px wide, this is 1280.                     */
-    float core_gain;            /* strength of the sharp head. 0.02..2, default 0.80.
+    float micro_px;             /* first gradient scale, in canvas pixels at 1280 wide.
+                                   1..16, default 3. Reads the bevel of a moulding.     */
+    float meso_px;              /* second gradient scale. 2..48, default 10. Reads the
+                                   body of a panel and keeps the light from turning into
+                                   per-pixel speckle. The card works at 1.45 texels
+                                   because a card is 90 px wide; the table is 1280, so
+                                   the same relative structure sits at 3 and 10 px.
+                                   Measured on the shipped overlays, the luminance
+                                   gradient at these two scales separates cleanly:
+                                   flat panel fill sits at 0.025-0.06, real edges at
+                                   0.18-0.40, the strongest at 0.4-0.75.              */
+    float core_gain;            /* strength of the sharp head. 0.02..2, default 0.95.
                                    These were 0.20/0.10 after the over-bright fix and
                                    the effect vanished: rendered offscreen against the
                                    shipped city overlay, the brightest pixel moved by
-                                   4/255. 0.80 puts a visible warm sheen on the
+                                   4/255. 0.95 puts a visible warm sheen on the
                                    mouldings and still leaves the panel fill alone.  */
-    float bloom_gain;           /* strength of the halo. 0..2, default 0.62.            */
+    float bloom_gain;           /* strength of the halo. 0..2, default 0.72.            */
     float core_uv;              /* radius of the sharp head's falloff, in texture UV.
                                    0.02..0.60, default 0.10 (= 128 px at 1280 wide).      */
     float bloom_uv;             /* radius of the broad halo around each head, in UV.
@@ -69,15 +73,16 @@ typedef struct TableGlowSettings {
                                    has bloom NARROWER than its core, which reads as a
                                    tight halo on a 90 px bezel and as nothing at all on
                                    a 1280 px table.                                     */
-    float luminance_lo;         /* ABSOLUTE brightness where the ridge gain starts.
-                                   0..0.5, default 0.050. This used to be a share of the
-                                   neighbourhood's brightest pixel; on dark painted art that
-                                   test is dominated by the divisor's floor, so flat panels
-                                   scored higher than real mouldings and the light came out
-                                   as speckle with no direction. Absolute brightness cannot
-                                   invert like that: it is the art's own exposure.          */
-    float luminance_hi;         /* where that gain reaches full strength. 0..1, default
-                                   0.300. Keep it above luminance_lo.                     */
+    float edge_lo;              /* gradient magnitude where the light starts. 0..4,
+                                   default 0.080. This is an INVERTED gate: flat fill
+                                   is what gets suppressed, edges are what survive. The
+                                   card could gate on brightness because a bezel is the
+                                   brightest thing on a card; here the casing is dark and
+                                   its fill is as bright as its mouldings, so the only
+                                   thing that tells them apart is the gradient.          */
+    float edge_hi;              /* gradient magnitude where the light is at full
+                                   strength. 0..4, default 0.450. Must be above
+                                   edge_lo.                                             */
     float black_lo;             /* near-black floor: brightness at or below this gets no
                                    light at all. 0..0.2, default 0.015.
                                    The card uses 0.08, which is right for a bezel and
@@ -87,11 +92,11 @@ typedef struct TableGlowSettings {
                                    so the card's floor threw away 46-83% of the table.   */
     float black_hi;             /* where that floor reaches full light. Must be above
                                    black_lo. Default 0.050.                              */
-    float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.68.
+    float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.70.
                                    This is the single "how strong" knob. It was 0.88
                                    with a flat white tint over a panel-wide mask, which
                                    washed the score grey; 0.35 under the corrected mask
-                                   and the art-tinted colour was invisible. 0.68 is the
+                                   and the art-tinted colour was invisible. 0.70 is the
                                    value that survives both faults.                      */
     float intensity;            /* multiplier on top of the loudness term. 0..2,
                                    default 1.00. Use it to audition 0.5 quickly.        */
