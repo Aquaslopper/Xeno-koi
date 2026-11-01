@@ -651,7 +651,8 @@ void action_card_draw_symbol_icon(const BoardAssets *ba, int sym, float cx, floa
     draw_symbol_glyph_scaled(ba, sym, cx, cy, 1.0f, fg, cut, 1.0f);
 }
 
-static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, float *timer, float dt,
+static void draw_action_vertical_bar(Rectangle bar, float lvl, float grey_lvl,
+                                     float *hold, float *timer, float dt,
                                      int wine_right, int marker_quartile) {
     if (lvl >= *hold) {
         *hold = lvl;
@@ -668,6 +669,14 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
     int is_full = (lvl >= 0.98f);
     int ix = (int)bar.x + 2, iw = (int)bar.width - 4, ih = (int)bar.height - 4, bot = (int)bar.y + 2 + ih;
     int fh = is_full ? ih : (int)lroundf((float)ih * lvl);
+    int gh = (grey_lvl >= 0.98f) ? ih : (int)lroundf((float)ih * grey_lvl);
+    if (gh > fh) {
+        int gy = bot - gh, g_h = gh - fh;
+        DrawRectangleGradientV(ix, gy, iw, g_h,
+                               (Color){ 130, 134, 140, 180 },
+                               (Color){  76,  80,  86, 145 });
+        DrawRectangle(ix, gy, iw, (g_h >= 2) ? 2 : 1, (Color){ 162, 166, 172, 210 });
+    }
     if (fh > 0) {
         Color top_c = hi_c, bot_c = base_c;
         top_c.a = (unsigned char)(195.0f + 60.0f * lvl);
@@ -713,8 +722,39 @@ static void draw_action_vertical_bar(Rectangle bar, float lvl, float *hold, floa
 
 void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
                              float reverb_synergy, float env_dt, int replay_mode) {
-    if (!s_action_card_mode) return;
-    float added_lvl = reverb_synergy;
+    static float s_peak_buf_sec = 0.0f;
+    static int   s_grey_lock    = 0;
+    if (!s_action_card_mode) {
+        s_peak_buf_sec = 0.0f;
+        s_grey_lock    = 0;
+        return;
+    }
+    int live_round = g && g->phase != PHASE_DEALER_SELECT &&
+                     g->phase != PHASE_ROUND_END && g->phase != PHASE_MATCH_END;
+    if (g && g->phase == PHASE_DEALER_SELECT) {
+        s_peak_buf_sec = 0.0f;
+        s_grey_lock    = 0;
+    }
+    if (s_grey_lock) {
+        if (reverb_synergy <= 0.60f) {
+            s_grey_lock    = 0;
+            s_peak_buf_sec = 0.0f;
+        }
+    } else if (reverb_synergy >= 0.98f) {
+        if (live_round && !s_action_card_paused && !s_badge_evt_active && !replay_mode) {
+            s_peak_buf_sec += env_dt;
+            if (s_peak_buf_sec >= 5.0f) {
+                s_grey_lock          = 1;
+                s_peak_buf_sec       = 0.0f;
+                s_action_added_hold  = 0.60f;
+                s_action_added_timer = 0.0f;
+            }
+        }
+    } else {
+        s_peak_buf_sec = 0.0f;
+    }
+    float added_lvl = s_grey_lock ? 0.60f : reverb_synergy;
+    float grey_lvl  = s_grey_lock ? reverb_synergy : 0.0f;
     int right_full = (added_lvl >= 0.98f);
     int trigger_quartile = (settings.difficulty == DIFFICULTY_EASY) ? 1 :
                            (settings.difficulty == DIFFICULTY_MASTER) ? 3 : 2;
@@ -725,8 +765,6 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
     float base_music = 0.80f * s_action_music_level;
     float full_music = fminf(1.0f, 0.40f + 0.68f * s_action_music_level);
     float music_lvl = base_music + (full_music - base_music) * s_action_full_boost;
-    int live_round = g && g->phase != PHASE_DEALER_SELECT &&
-                     g->phase != PHASE_ROUND_END && g->phase != PHASE_MATCH_END;
     if (s_action_beat_cd > 0.0f) {
         s_action_beat_cd -= env_dt;
         if (s_action_beat_cd < 0.0f) s_action_beat_cd = 0.0f;
@@ -757,10 +795,10 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
             s_ac_symbols_fired++;
         }
     }
-    draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl,
+    draw_action_vertical_bar((Rectangle){ 414.0f, 170.0f, 14.0f, 264.0f }, music_lvl, 0.0f,
                              &s_action_peak_hold, &s_action_peak_timer, env_dt, 0, 2);
     action_card_draw_symbol_icon(ba, s_action_symbol_idx, 421.0f, 148.0f, s_action_symbol_armed, s_action_symbol_flash);
-    draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl,
+    draw_action_vertical_bar((Rectangle){ 1082.0f, 170.0f, 14.0f, 264.0f }, added_lvl, grey_lvl,
                              &s_action_added_hold, &s_action_added_timer, env_dt, 1,
                              trigger_quartile);
     if (s_action_ceil_started) {
