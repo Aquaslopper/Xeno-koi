@@ -26,9 +26,16 @@ Geometry is never resampled, so the measured card cavity in k_bezel_cav[] (ui_bo
 stays correct for the CRT bezel too.
 
 Usage:
-  python3 tools/crt_casing.py            # every map that has an overlay
+  python3 tools/crt_casing.py            # every map still missing a pair
   python3 tools/crt_casing.py castle     # one or more maps by folder name
-  python3 tools/crt_casing.py --check    # exit 1 if a baked pair is missing or stale
+  python3 tools/crt_casing.py --force    # replace existing pairs, after a typed yes
+
+The baked pair is art once it exists. Hand-painted casing, a retouch, a reupload -
+none of it is "stale", and this tool has no way to know better. So it fills gaps and
+stops there. Replacing needs --force AND a human at the keyboard typing "replace": with
+no terminal attached it refuses and prints the list instead, so no script, no CI job and
+no agent can rewrite assets/ on its own. There is no --check, because there is nothing
+to check against.
 """
 import math
 import os
@@ -231,31 +238,51 @@ def map_dirs(argv):
 
 
 def main(argv):
-    check = "--check" in argv
-    stale = []
+    force = "--force" in argv
+    unknown = [a for a in argv if a.startswith("-") and a != "--force"]
+    if unknown:
+        print("unknown option: %s" % ", ".join(unknown))
+        print("usage: crt_casing.py [map ...] [--force]")
+        return 2
+    jobs = []
     for name in map_dirs([a for a in argv if not a.startswith("-")]):
         folder = os.path.join(MAPS, name)
         for src_name, dst_name in (("overlay.png", "crt_overlay.png"),
                                    ("bezel.png", "crt_bezel.png")):
             src = os.path.join(folder, src_name)
             dst = os.path.join(folder, dst_name)
-            if not os.path.isfile(src):
-                continue
-            if check:
-                if (not os.path.isfile(dst) or
-                        os.path.getmtime(dst) < os.path.getmtime(src)):
-                    stale.append(os.path.relpath(dst, ROOT))
-                continue
-            w, h = bake(src, dst)
-            print("%-8s %-14s %4dx%-4d -> %s" % (name, src_name, w, h,
-                                                 os.path.relpath(dst, ROOT)))
-    if check:
-        if stale:
-            print("stale CRT casing (rerun tools/crt_casing.py):")
-            for p in stale:
-                print("  " + p)
+            if os.path.isfile(src):
+                jobs.append((name, src_name, src, dst, os.path.isfile(dst)))
+
+    replaces = [j for j in jobs if j[4]]
+    missing = [j for j in jobs if not j[4]]
+
+    if replaces and not force:
+        print("%d baked pair%s already on disk, left alone - they are the owner's art,"
+              % (len(replaces), "" if len(replaces) == 1 else "s"))
+        print("not a build product. Nothing was written.")
+
+    if replaces and force:
+        print("about to REPLACE %d existing file%s:" % (len(replaces),
+                                                        "" if len(replaces) == 1 else "s"))
+        for job in replaces:
+            print("  " + os.path.relpath(job[3], ROOT))
+        if not sys.stdin.isatty():
+            print("refusing: no keyboard attached to confirm. Nothing was written.")
+            print("Run this yourself in a terminal if the replacement is intended.")
+            return 3
+        try:
+            answer = input('type "replace" to continue: ').strip()
+        except EOFError:
+            answer = ""
+        if answer != "replace":
+            print("cancelled. Nothing was written.")
             return 1
-        print("CRT casing pairs are up to date.")
+
+    for name, src_name, src, dst, _ in missing + (replaces if force else []):
+        w, h = bake(src, dst)
+        print("%-8s %-14s %4dx%-4d -> %s" % (name, src_name, w, h,
+                                             os.path.relpath(dst, ROOT)))
     return 0
 
 

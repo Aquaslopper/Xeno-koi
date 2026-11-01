@@ -61,9 +61,10 @@ you touch, the setting is global and saved. It is real baked art,
 not a tint: `tools/crt_casing.py` reads each map's `overlay.png` and `bezel.png` and writes
 `crt_overlay.png` / `crt_bezel.png` beside them — Sobel edges, three glow octaves, phosphor
 ramp, hollow interiors with a dark floor so text stays readable. Silhouette, ornaments and
-the card cavity are that map's own. Rerun the tool after editing a map's art;
-`--check` fails when a pair is stale. Runtime just picks the texture, so desktop and web
-agree. Off by default, saved as `crt_tables`. Not yet seen on a screen.
+the card cavity are that map's own. The tool only fills gaps — an existing pair is left
+alone unless you pass `--force`, because once it exists the baked art is art, not a build
+product. Runtime just picks the texture, so desktop and web agree. Off by default, saved
+as `crt_tables`. Not yet seen on a screen.
 
 ## 3. Month 02 onwards: my words, one card at a time
 
