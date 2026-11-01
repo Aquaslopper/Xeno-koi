@@ -28,7 +28,6 @@
 #include "ui_speed.h"
 #include "ui_action.h"
 #include "ui_dealership.h"
-#include "ui_glow.h"
 #include "replay.h"
 #include "ui_replay.h"
 
@@ -2059,10 +2058,6 @@ static void update_draw_frame(void) {
     DrawTexturePro(canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
                    (Rectangle){ l.ox, l.oy, CANVAS_W * l.scale, CANVAS_H * l.scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
     if (use_post) EndShaderMode();
-    /* Ambient light over the UI only - never the table, which has its own. One call,
-       on top of what was just blitted. UI_GLOW.md owns this line. */
-    if (screen != SCREEN_GAME)
-        ui_glow_draw_ui_pass(canvas.texture, (Rectangle){ l.ox, l.oy, CANVAS_W * l.scale, CANVAS_H * l.scale });
     EndDrawing();
 
     if (shot_frame > 0 && frame_count >= shot_frame) { TakeScreenshot("screenshot.png"); quit_requested = 1; }

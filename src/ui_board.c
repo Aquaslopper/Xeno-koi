@@ -9,6 +9,7 @@
 #include "ui_audio.h"
 #include "ui_speed.h"
 #include "storage.h"
+#include "ui_glow.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1277,8 +1278,12 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (board_table_skin_active() && ba->table_skins[s_table_selected].overlay.id > 0) {
         board_sync_crt_textures();
         const bool crt = (settings.crt_tables != 0 && s_table_overlay_crt[s_table_selected].id > 0);
-        DrawTexture(crt ? s_table_overlay_crt[s_table_selected]
-                        : ba->table_skins[s_table_selected].overlay, 0, 0, WHITE);
+        Texture2D worn = crt ? s_table_overlay_crt[s_table_selected]
+                             : ba->table_skins[s_table_selected].overlay;
+        DrawTexture(worn, 0, 0, WHITE);
+        /* Light over the casing the table is wearing - the same texture, whatever art
+           it is. UI_GLOW.md owns this line. */
+        ui_glow_draw_table_overlay(worn, (Rectangle){ 0.0f, 0.0f, (float)worn.width, (float)worn.height });
     }
 
     /* 2. Table Chrome, Status, Combos & Left Column (all behind cards) */

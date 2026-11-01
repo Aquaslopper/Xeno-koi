@@ -3,10 +3,12 @@
 
 #include "raylib.h"
 
-/* Ambient light over the UI screens. UI_GLOW.md is the specification - where it
-   draws, what it may never touch, and what every constant below does.
-   One call site: src/ui_main.c, after the canvas blit, UI screens only. */
+/* Light over the table casing overlay - the transparent overlay art a map is wearing,
+   whichever one that is: the map's own overlay, or the CRT pair when the casing
+   setting is on. Not the card bezels, not the menus.
+   UI_GLOW.md is the specification. One call site: src/ui_board.c, immediately after
+   the overlay is drawn. */
 
-void ui_glow_draw_ui_pass(Texture2D frame, Rectangle dest);
+void ui_glow_draw_table_overlay(Texture2D overlay, Rectangle dest);
 
 #endif
