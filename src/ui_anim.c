@@ -96,6 +96,8 @@ void anim_update(AnimState *a, float dt) {
             motion_set_instant(a->card_id, a->target_pos, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
         } else if (a->type == ANIM_CPU_FLY) {
             motion_set_instant(a->cpu_card, a->target_pos, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
+        } else if (a->type == ANIM_GLIDE_RETURN) {
+            motion_set_instant(a->card_id, a->target_pos, (Vector2){ HAND_CARD_W, HAND_CARD_H });
         }
         if (a->type != ANIM_CPU_THINK && a->type != ANIM_CPU_FLY && a->type != ANIM_STOCK_FLY) {
             a->active = 0;
@@ -116,6 +118,8 @@ void anim_update(AnimState *a, float dt) {
             motion_set_instant(a->card_id, a->current_pos, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
         } else if (a->type == ANIM_CPU_FLY) {
             motion_set_instant(a->cpu_card, a->current_pos, (Vector2){ FIELD_CARD_W, FIELD_CARD_H });
+        } else if (a->type == ANIM_GLIDE_RETURN) {
+            motion_set_instant(a->card_id, a->current_pos, (Vector2){ HAND_CARD_W, HAND_CARD_H });
         }
     } else if (a->type == ANIM_CAPTURE_FLY) {
         for (int i = 0; i < a->capture_count; i++) {

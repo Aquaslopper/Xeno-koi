@@ -153,6 +153,8 @@ static int s_ac_last_mt = 0;
 static int        s_mode_settings_open = 0;
 static int        s_mode_settings_page = 0;
 static int        s_plex_cfg_stage     = -1;
+static int        s_plex_cfg_bg        = -1;
+static int        s_plex_cfg_color     = -1;
 static int        s_ac_cfg_rounds      = 6;
 static Difficulty s_ac_cfg_diff        = DIFFICULTY_EASY;
 static int        s_ac_cfg_timer       = 15;
@@ -300,7 +302,7 @@ static const Rectangle k_briefing_rect = { 516.0f,  82.0f, 540.0f, 196.0f };
 static const Rectangle k_hiscore_rect  = { 516.0f, 302.0f, 160.0f,  48.0f };
 static const Rectangle k_settings_rect = { 706.0f, 302.0f, 160.0f,  48.0f };
 static const Rectangle k_start_rect    = { 896.0f, 302.0f, 160.0f,  48.0f };
-static const Rectangle k_mode_cfg_rect = { 516.0f, 362.0f, 540.0f, 222.0f };
+static const Rectangle k_mode_cfg_rect = { 516.0f, 362.0f, 540.0f, 266.0f };
 /* Six identical buttons on a 26 px gutter, centred as one block: the old row ran
    156/152/170/170/170/196 wide, so OPTION was 44 px fatter than LOGFILE for no
    reason but label length, and the row read as six different controls. 158 px is
@@ -616,6 +618,8 @@ void plexus_load(void) {
     s_mode_settings_open = 0;
     s_mode_settings_page = 0;
     s_plex_cfg_stage = -1;
+    s_plex_cfg_bg = -1;
+    s_plex_cfg_color = -1;
     s_ac_cfg_rounds = 6;
     s_ac_cfg_diff = DIFFICULTY_EASY;
     s_ac_cfg_timer = 15;
@@ -995,11 +999,30 @@ static int clamped_tr_opponent(void) {
 static const char *const k_plex_stage_names[TABLE_DESIGN_COUNT] = {
     "CRT", "CITY", "CASTLE", "HOLE", "ARCTIC", "HARVEST", "FACE", "REALM"
 };
+static const char *const k_plex_bg_names[8] = {
+    "HARVEST", "HOLE", "ARCTIC", "CASTLE", "CITY", "DEUS", "FACE", "REALM"
+};
+static const int k_plex_bg_choices[] = { 0, 1, 2, 3, 4, 6, 7 };
+static const int k_plex_color_choices[] = {
+    TERMINAL_THEME_GREEN, TERMINAL_THEME_AMBER, TERMINAL_THEME_TEAL,
+    TERMINAL_THEME_CRIMSON, TERMINAL_THEME_VIOLET, TERMINAL_THEME_GOLD,
+    TERMINAL_THEME_RUST, TERMINAL_THEME_BLOOD, TERMINAL_THEME_SAND
+};
 static const int k_plex_map_bg[TABLE_DESIGN_COUNT] = { -1, 4, 3, 1, 2, 0, 6, 7 };
 static const int k_plex_map_color[TABLE_DESIGN_COUNT] = {
     -1, TERMINAL_THEME_RUST, TERMINAL_THEME_GOLD, TERMINAL_THEME_SAND,
     TERMINAL_THEME_TEAL, TERMINAL_THEME_BLOOD, TERMINAL_THEME_CRIMSON, TERMINAL_THEME_VIOLET
 };
+
+static int clamped_camp_bg(void) {
+    int bg = s_cfg_override_active ? s_saved_camp_bg : settings.background;
+    return (bg < 0 || bg >= 8 || bg == 5) ? 0 : bg;
+}
+
+static int clamped_camp_color(void) {
+    int tc = s_cfg_override_active ? s_saved_camp_tcol : settings.terminal_color;
+    return (tc < 0 || tc > TERMINAL_THEME_SAND || tc == TERMINAL_THEME_DARK) ? TERMINAL_THEME_TEAL : tc;
+}
 
 static int effective_plex_stage(void) {
     if (s_plex_cfg_stage >= 0 && s_plex_cfg_stage < TABLE_DESIGN_COUNT) return s_plex_cfg_stage;
@@ -1007,21 +1030,42 @@ static int effective_plex_stage(void) {
     return (td >= 0 && td < TABLE_DESIGN_COUNT) ? td : 0;
 }
 
-static void apply_plex_stage_settings(GameSettings *s) {
-    if (s_plex_cfg_stage >= 0 && s_plex_cfg_stage < TABLE_DESIGN_COUNT) {
-        s->table_design = s_plex_cfg_stage;
-        if (s_plex_cfg_stage > TABLE_DESIGN_CRT) {
-            s->background     = k_plex_map_bg[s_plex_cfg_stage];
-            s->terminal_color = k_plex_map_color[s_plex_cfg_stage];
-        } else {
-            s->background     = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-            s->terminal_color = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
-        }
-    } else {
-        s->table_design   = s_saved_camp_table;
-        s->background     = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-        s->terminal_color = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+static int effective_plex_bg(void) {
+    return (s_plex_cfg_bg >= 0 && s_plex_cfg_bg < 8 && s_plex_cfg_bg != 5) ? s_plex_cfg_bg : clamped_camp_bg();
+}
+
+static int effective_plex_color(void) {
+    return (s_plex_cfg_color >= 0 && s_plex_cfg_color <= TERMINAL_THEME_SAND &&
+            s_plex_cfg_color != TERMINAL_THEME_DARK) ? s_plex_cfg_color : clamped_camp_color();
+}
+
+static int plex_cycle_bg(int current, int dir) {
+    int count = (int)(sizeof(k_plex_bg_choices) / sizeof(k_plex_bg_choices[0]));
+    int idx = 0;
+    for (int i = 0; i < count; i++) {
+        if (k_plex_bg_choices[i] == current) { idx = i; break; }
     }
+    return k_plex_bg_choices[(idx + count + dir) % count];
+}
+
+static int plex_cycle_color(int current, int dir) {
+    int count = (int)(sizeof(k_plex_color_choices) / sizeof(k_plex_color_choices[0]));
+    int idx = 0;
+    for (int i = 0; i < count; i++) {
+        if (k_plex_color_choices[i] == current) { idx = i; break; }
+    }
+    return k_plex_color_choices[(idx + count + dir) % count];
+}
+
+static void apply_plex_stage_settings(GameSettings *s) {
+    s->table_design   = effective_plex_stage();
+    s->background     = effective_plex_bg();
+    s->terminal_color = effective_plex_color();
+}
+
+static void sync_plex_tab_theme(void) {
+    int camp_tc = s_cfg_override_active ? s_saved_camp_tcol : settings.terminal_color;
+    theme_set((s_active_tab >= 2) ? effective_plex_color() : camp_tc);
 }
 
 static void snapshot_campaign_settings(const GameSettings *s) {
@@ -1038,19 +1082,21 @@ static void snapshot_campaign_settings(const GameSettings *s) {
 }
 
 void plexus_restore_match_settings(GameSettings *s, BoardAssets *ba) {
-    if (!s_cfg_override_active || !s) return;
-    s->rounds           = s_saved_camp_rounds;
-    s->difficulty       = s_saved_camp_diff;
-    s->master_timer     = s_saved_camp_timer;
-    s->ruleset          = s_saved_camp_ruleset;
-    s->current_opponent = s_saved_camp_opponent;
-    s->background       = s_saved_camp_bg;
-    s->terminal_color   = s_saved_camp_tcol;
-    s->table_design     = s_saved_camp_table;
-    if (ba) ba->current_bg = s->background;
+    if (!s) return;
+    if (s_cfg_override_active) {
+        s->rounds           = s_saved_camp_rounds;
+        s->difficulty       = s_saved_camp_diff;
+        s->master_timer     = s_saved_camp_timer;
+        s->ruleset          = s_saved_camp_ruleset;
+        s->current_opponent = s_saved_camp_opponent;
+        s->background       = s_saved_camp_bg;
+        s->terminal_color   = s_saved_camp_tcol;
+        s->table_design     = s_saved_camp_table;
+        if (ba) ba->current_bg = s->background;
+        ai_set_opponent(s->current_opponent);
+        s_cfg_override_active = 0;
+    }
     theme_set(s->terminal_color);
-    ai_set_opponent(s->current_opponent);
-    s_cfg_override_active = 0;
 }
 
 void plexus_sync_match_settings(GameSettings *s, BoardAssets *ba) {
@@ -1228,21 +1274,19 @@ static void get_ruleset_box_colors(Ruleset rs, Color *out_fill, Color *out_bdr) 
 static Rectangle plex_stage_card_rect(int map) {
     return (Rectangle){
         534.0f + (float)(map % 4) * 129.0f,
-        k_mode_cfg_rect.y + 40.0f + (float)(map / 4) * 74.0f,
-        117.0f, 66.0f
+        k_mode_cfg_rect.y + 40.0f + (float)(map / 4) * 63.0f,
+        117.0f, 58.0f
     };
 }
 
-static void draw_plex_stage_card(const BoardAssets *ba, int map, int cur_stage, Vector2 vm) {
+static void draw_plex_stage_card(const BoardAssets *ba, int map, int cur_stage, int cur_bg, Vector2 vm) {
     Rectangle card = plex_stage_card_rect(map);
     int hov = CheckCollisionPointRec(vm, card);
     int sel = (map == cur_stage);
-    int camp_bg = s_cfg_override_active ? s_saved_camp_bg : settings.background;
-    if (camp_bg < 0 || camp_bg >= 8 || camp_bg == 5) camp_bg = 0;
-    int preview_bg = (map == TABLE_DESIGN_CRT) ? camp_bg : k_plex_map_bg[map];
+    int preview_bg = sel ? cur_bg : ((map == TABLE_DESIGN_CRT) ? cur_bg : k_plex_map_bg[map]);
 
     DrawRectangleRec(card, hov ? COLOR_BTN_HOVER_BG : PLEXUS_SUBBOX_BG);
-    Rectangle art = { floorf(card.x + (card.width - 82.0f) * 0.5f), card.y + 3.0f, 82.0f, 46.0f };
+    Rectangle art = { floorf(card.x + (card.width - 72.0f) * 0.5f), card.y + 3.0f, 72.0f, 40.0f };
     DrawRectangleRec(art, (Color){ 5, 5, 5, 255 });
     if (ba && preview_bg >= 0 && preview_bg < 8 && ba->bgs[preview_bg].id > 0) {
         DrawTexturePro(ba->bgs[preview_bg], (Rectangle){ 0, 0, 1280, 720 }, art,
@@ -1256,9 +1300,9 @@ static void draw_plex_stage_card(const BoardAssets *ba, int map, int cur_stage, 
     DrawRectangleLinesEx(card, (sel || hov) ? 2.0f : 1.0f,
                          sel ? COLOR_PHOSPHOR : (hov ? COLOR_PHOSPHOR_DIM : (Color){ 100, 100, 100, 150 }));
     if (sel) ui_theme_draw_panel_flares(card);
-    Vector2 lsz = MeasureTextEx(font_body, k_plex_stage_names[map], 13.0f, 1.0f);
+    Vector2 lsz = MeasureTextEx(font_body, k_plex_stage_names[map], 12.5f, 1.0f);
     draw_text_snapped(font_body, k_plex_stage_names[map],
-                      card.x + (card.width - lsz.x) * 0.5f, card.y + 50.0f, 13.0f, 1.0f,
+                      card.x + (card.width - lsz.x) * 0.5f, card.y + 44.0f, 12.5f, 1.0f,
                       sel ? COLOR_PHOSPHOR : (hov ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM));
 }
 
@@ -1283,15 +1327,45 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
     const float lx = 534.0f;
     const Color mast_c = { 255,  70, 70, 255 };
     int cur_stage = effective_plex_stage();
+    int cur_bg    = effective_plex_bg();
+    int cur_col   = effective_plex_color();
+    const char *bg_name  = (cur_bg >= 0 && cur_bg < 8) ? k_plex_bg_names[cur_bg] : "HARVEST";
+    const char *col_name = theme_get(cur_col).name;
 
     if (stage_page) {
         for (int m = 0; m < TABLE_DESIGN_COUNT; m++) {
-            draw_plex_stage_card(ba, m, cur_stage, vm);
+            draw_plex_stage_card(ba, m, cur_stage, cur_bg, vm);
         }
-        draw_text_snapped(font_body, TextFormat("ACTIVE STAGE: %s", k_plex_stage_names[cur_stage]),
-                          lx, (k_mode_cfg_rect.y + 191.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        DrawLine((int)k_mode_cfg_rect.x + 18, (int)(k_mode_cfg_rect.y + 167.0f),
+                 (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), (int)(k_mode_cfg_rect.y + 167.0f), COLOR_PHOSPHOR_DIM);
+
+        draw_text_snapped(font_body, "BACKGROUND", lx, (k_mode_cfg_rect.y + 177.0f), 13.0f, 0.8f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){ 662.0f, (k_mode_cfg_rect.y + 172.0f),  30.0f, 24.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){ 696.0f, (k_mode_cfg_rect.y + 172.0f), 168.0f, 24.0f },
+                          bg_name, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR, COLOR_TEXT_INFO);
+        draw_cfg_step_btn((Rectangle){ 868.0f, (k_mode_cfg_rect.y + 172.0f),  30.0f, 24.0f }, ">", vm, 1);
+        if (ba && cur_bg >= 0 && cur_bg < 8 && ba->bgs[cur_bg].id > 0) {
+            draw_text_snapped(font_body, "PREVIEW", 926.0f, (k_mode_cfg_rect.y + 178.0f), 11.5f, 0.5f, COLOR_TEXT_INFO_DIM);
+            Rectangle prev_r = { 990.0f, (k_mode_cfg_rect.y + 171.0f), 48.0f, 27.0f };
+            DrawTexturePro(ba->bgs[cur_bg], (Rectangle){ 0, 0, 1280, 720 }, prev_r, (Vector2){ 0, 0 }, 0.0f, WHITE);
+            DrawRectangleLinesEx(prev_r, 1.0f, COLOR_PHOSPHOR);
+        }
+
+        draw_text_snapped(font_body, "TERMINAL COLOR", lx, (k_mode_cfg_rect.y + 205.0f), 13.0f, 0.8f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){ 662.0f, (k_mode_cfg_rect.y + 200.0f),  30.0f, 24.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){ 696.0f, (k_mode_cfg_rect.y + 200.0f), 168.0f, 24.0f },
+                          col_name, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR, COLOR_TEXT_INFO);
+        draw_cfg_step_btn((Rectangle){ 868.0f, (k_mode_cfg_rect.y + 200.0f),  30.0f, 24.0f }, ">", vm, 1);
+        draw_text_snapped(font_body, "GLOBAL", 926.0f, (k_mode_cfg_rect.y + 206.0f), 11.5f, 0.7f, COLOR_TEXT_INFO_DIM);
+        Rectangle swatch_r = { 990.0f, (k_mode_cfg_rect.y + 200.0f), 48.0f, 24.0f };
+        DrawRectangleRec(swatch_r, theme_get(cur_col).base);
+        DrawRectangleLinesEx(swatch_r, 1.0f, COLOR_PHOSPHOR);
+
+        draw_text_snapped(font_body, TextFormat("STAGE: %s  //  %s  //  %s",
+                                                k_plex_stage_names[cur_stage], bg_name, col_name),
+                          lx, (k_mode_cfg_rect.y + 235.0f), 14.0f, 0.9f, COLOR_TEXT_INFO_DIM);
         if (s_active_tab == 3 || s_active_tab == 4) {
-            draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f }, "< PAGE 1", vm, 1);
+            draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 229.0f), 112.0f, 27.0f }, "< PAGE 1", vm, 1);
         }
         return;
     }
@@ -1300,38 +1374,34 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
         if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
         Color rfill, rbdr;
         get_ruleset_box_colors(RULESET_KK_ADD_10, &rfill, &rbdr);
-        draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 45.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-        draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 40.0f), 364.0f, 28.0f },
+        draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 49.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 44.0f), 364.0f, 28.0f },
                          "[ KK-ADD-10 (LOCKED) ]", rfill, rbdr, COLOR_TEXT_INFO);
 
-        draw_text_snapped(font_body, "Rounds:", lx, (k_mode_cfg_rect.y + 80.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 75.0f),  38.0f, 28.0f }, "-", vm, s_ac_cfg_rounds > 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 75.0f), 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Rounds:", lx, (k_mode_cfg_rect.y + 87.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 82.0f),  38.0f, 28.0f }, "-", vm, s_ac_cfg_rounds > 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 82.0f), 276.0f, 28.0f },
                           TextFormat("%d ROUNDS", s_ac_cfg_rounds), PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 75.0f),  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 82.0f),  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
 
         Color dc = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_PHOSPHOR;
         const char *d_lbl = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? "MASTER" :
                             (s_ac_cfg_diff == DIFFICULTY_HARD)   ? "HARD" : "EASY";
-        draw_text_snapped(font_body, "Difficulty:", lx, (k_mode_cfg_rect.y + 115.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 110.0f),  38.0f, 28.0f }, "<", vm, 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 110.0f), 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Difficulty:", lx, (k_mode_cfg_rect.y + 125.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 120.0f),  38.0f, 28.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 120.0f), 276.0f, 28.0f },
                           d_lbl, PLEXUS_SUBBOX_BG, dc, (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 110.0f),  38.0f, 28.0f }, ">", vm, 1);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 120.0f),  38.0f, 28.0f }, ">", vm, 1);
 
-        draw_text_snapped(font_body, "Turn Timer:", lx, (k_mode_cfg_rect.y + 150.0f), 17.0f, 1.1f,
+        draw_text_snapped(font_body, "Turn Timer:", lx, (k_mode_cfg_rect.y + 163.0f), 17.0f, 1.1f,
                           (s_ac_cfg_diff == DIFFICULTY_MASTER) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
-            draw_cfg_toggle_chip((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
-            draw_cfg_toggle_chip((Rectangle){ 860.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 158.0f), 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 860.0f, (k_mode_cfg_rect.y + 158.0f), 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
         } else {
-            draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 364.0f, 28.0f },
+            draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 158.0f), 364.0f, 28.0f },
                              "[ MASTER ONLY ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
         }
-
-        draw_text_snapped(font_body, TextFormat("Stage: %s  (Campaign untouched)", k_plex_stage_names[cur_stage]),
-                          lx, (k_mode_cfg_rect.y + 191.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-        draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f }, "PAGE 2 >", vm, 1);
     } else {
         if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
         draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 45.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
@@ -1375,10 +1445,19 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
                           opp_txt, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
         draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 145.0f),  38.0f, 28.0f }, ">", vm, unlocked > 1);
 
-        draw_text_snapped(font_body, TextFormat("Condition: [ NONE ]   //   Stage: %s", k_plex_stage_names[cur_stage]),
-                          lx, (k_mode_cfg_rect.y + 191.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-        draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f }, "PAGE 2 >", vm, 1);
+        draw_text_snapped(font_body, "Condition:", lx, (k_mode_cfg_rect.y + 185.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 180.0f),  38.0f, 28.0f }, "<", vm, 0);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 180.0f), 276.0f, 28.0f },
+                          "[ NONE ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 180.0f),  38.0f, 28.0f }, ">", vm, 0);
     }
+
+    DrawLine((int)k_mode_cfg_rect.x + 18, (int)(k_mode_cfg_rect.y + 219.0f),
+             (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), (int)(k_mode_cfg_rect.y + 219.0f), COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_body, TextFormat("STAGE: %s  //  %s  //  %s",
+                                            k_plex_stage_names[cur_stage], bg_name, col_name),
+                      lx, (k_mode_cfg_rect.y + 235.0f), 14.0f, 0.9f, COLOR_TEXT_INFO_DIM);
+    draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 229.0f), 112.0f, 27.0f }, "PAGE 2 >", vm, 1);
 }
 
 static int handle_mode_settings_click(Vector2 vm) {
@@ -1396,44 +1475,70 @@ static int handle_mode_settings_click(Vector2 vm) {
     if (stage_page) {
         for (int m = 0; m < TABLE_DESIGN_COUNT; m++) {
             if (CheckCollisionPointRec(vm, plex_stage_card_rect(m))) {
+                if (s_plex_cfg_bg < 0)    s_plex_cfg_bg    = effective_plex_bg();
+                if (s_plex_cfg_color < 0) s_plex_cfg_color = effective_plex_color();
                 s_plex_cfg_stage = m;
+                if (m > TABLE_DESIGN_CRT) {
+                    s_plex_cfg_bg    = k_plex_map_bg[m];
+                    s_plex_cfg_color = k_plex_map_color[m];
+                }
+                theme_set(effective_plex_color());
                 return 1;
             }
         }
+        int bg_dir = 0;
+        if (CheckCollisionPointRec(vm, (Rectangle){ 662.0f, (k_mode_cfg_rect.y + 172.0f), 30.0f, 24.0f })) bg_dir = -1;
+        else if (CheckCollisionPointRec(vm, (Rectangle){ 696.0f, (k_mode_cfg_rect.y + 172.0f), 202.0f, 24.0f })) bg_dir = 1;
+        if (bg_dir) {
+            if (s_plex_cfg_stage < 0) s_plex_cfg_stage = effective_plex_stage();
+            if (s_plex_cfg_color < 0) s_plex_cfg_color = effective_plex_color();
+            s_plex_cfg_bg = plex_cycle_bg(effective_plex_bg(), bg_dir);
+            return 1;
+        }
+        int col_dir = 0;
+        if (CheckCollisionPointRec(vm, (Rectangle){ 662.0f, (k_mode_cfg_rect.y + 200.0f), 30.0f, 24.0f })) col_dir = -1;
+        else if (CheckCollisionPointRec(vm, (Rectangle){ 696.0f, (k_mode_cfg_rect.y + 200.0f), 202.0f, 24.0f })) col_dir = 1;
+        if (col_dir) {
+            if (s_plex_cfg_stage < 0) s_plex_cfg_stage = effective_plex_stage();
+            if (s_plex_cfg_bg < 0)    s_plex_cfg_bg    = effective_plex_bg();
+            s_plex_cfg_color = plex_cycle_color(effective_plex_color(), col_dir);
+            theme_set(s_plex_cfg_color);
+            return 1;
+        }
         if ((s_active_tab == 3 || s_active_tab == 4) &&
-            CheckCollisionPointRec(vm, (Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f })) {
+            CheckCollisionPointRec(vm, (Rectangle){ 926.0f, (k_mode_cfg_rect.y + 229.0f), 112.0f, 27.0f })) {
             s_mode_settings_page = 0;
             return 1;
         }
         return 0;
     }
 
-    if (CheckCollisionPointRec(vm, (Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f })) {
+    if (CheckCollisionPointRec(vm, (Rectangle){ 926.0f, (k_mode_cfg_rect.y + 229.0f), 112.0f, 27.0f })) {
         s_mode_settings_page = 1;
         return 1;
     }
 
     if (s_active_tab == 3) {
         if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 75.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 82.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
             s_ac_cfg_rounds--; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 75.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds < 12) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 82.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds < 12) {
             s_ac_cfg_rounds++; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 110.0f), 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 120.0f), 38.0f, 28.0f })) {
             s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 2) % 3);
             plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 110.0f), 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 120.0f), 38.0f, 28.0f })) {
             s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 1) % 3);
             plexus_save(); return 1;
         }
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
-            if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f })) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 158.0f), 178.0f, 28.0f })) {
                 s_ac_cfg_timer = 15; plexus_save(); return 1;
             }
-            if (CheckCollisionPointRec(vm, (Rectangle){ 860.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f })) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 860.0f, (k_mode_cfg_rect.y + 158.0f), 178.0f, 28.0f })) {
                 s_ac_cfg_timer = 30; plexus_save(); return 1;
             }
         }
@@ -3398,6 +3503,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         s_active_tab       = 0;
         s_mode_settings_open = 0;
         s_mode_settings_page = 0;
+        sync_plex_tab_theme();
         if (!is_deus_spine_active() && is_story_month_unlocked(s_selected_month)) {
             s_story_sel_month = s_selected_month;
         }
@@ -3413,6 +3519,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                 s_active_tab = 0;
                 s_mode_settings_open = 0;
                 s_mode_settings_page = 0;
+                sync_plex_tab_theme();
                 if (out_clicked) *out_clicked = 1;
                 return ACT_NONE;
             }
@@ -3575,6 +3682,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                 plexus_save();
             }
             s_active_tab = next_tab;
+            sync_plex_tab_theme();
             if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
         }
