@@ -4,7 +4,6 @@
 # format: <path><TAB><exact line><TAB># <why it matters>
 src/ui_board.c	        if (round_reset || !action_card_is_mode_active()) {	# envelope reset gate: a Plex match must not inherit the previous match's meter
 src/ui_board.c	    float env_dt = action_card_is_paused() ? 0.0f : frame_dt;	# freeze gate: the meter envelope stops while the badge event is paused
-src/ui_board.c	            reverb_curve = 0.53222625f; /* 85% on the S-curve */	# peak clamp: caps the meter at 85 percent of the S-curve
 src/ui_board.c	    float ac_card_lvl = action_card_begin_table(g, round_reset, reverb_synergy);	# meter input: the mode's right-hand meter is fed from the reverb envelope
 src/ui_main.c	        if (!plexus_action_card_is_active()) settings.ruleset = RULESET_YAKUZA;	# ruleset lock: keeps the mode on KK-ADD-10 instead of the campaign Yakuza override
 src/ui_main.c	    if (ac_mode) settings.ruleset = RULESET_KK_ADD_10;	# ruleset lock: the mode overwrites the shared settings with KK-ADD-10
