@@ -356,8 +356,11 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
    from the card version, all deliberate:
 
      - taps are clamped to the texture, so the edges of the art cannot wrap;
-     - the "solid interior" alpha test is replaced by a brightness window (u_tune.z/.w),
-       because an overlay has no transparent cavity to keep light out of;
+     - the same 8-neighbour opacity test as the card, for the same reason. Measured on
+       the shipped art (the overlay.png of all seven maps): 69-76% of it is FULLY
+       transparent and 1-10% is semi-transparent, so the light is kept inside the painted
+       casing exactly as it is kept out of a card cavity. There is no brightness window
+       standing in for it any more - that was an assumption, and it was wrong;
      - bloom width is scaled by u_tune.y (the high-share term);
      - the final alpha is multiplied by the vertex alpha, which is max_alpha.
 
@@ -374,12 +377,17 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    vec4 cr = " TEX "(texture0, uvc(uv + vec2(d.x, 0.0)));\n"                         \
     "    vec4 cu = " TEX "(texture0, uvc(uv - vec2(0.0, d.y)));\n"                         \
     "    vec4 cd = " TEX "(texture0, uvc(uv + vec2(0.0, d.y)));\n"                         \
+    "    float diag_a = min(min(" TEX "(texture0, uvc(uv - d)).a,\n"                        \
+    "        " TEX "(texture0, uvc(uv + vec2(d.x, -d.y))).a),\n"                            \
+    "        min(" TEX "(texture0, uvc(uv + vec2(-d.x, d.y))).a,\n"                         \
+    "        " TEX "(texture0, uvc(uv + d)).a));\n"                                         \
+    "    float min8 = min(min(min(cl.a, cr.a), min(cu.a, cd.a)), diag_a);\n"                \
     "    float hc = bval(c.rgb);\n"                                                        \
     "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
     "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.12);\n"                          \
-    "    float solid = smoothstep(0.35, 0.85, c.a);\n"                                      \
+    "    float solid = smoothstep(0.91, 0.98, c.a) * smoothstep(0.85, 0.95, min8);\n"       \
     "    float hi_edge = max(u_tune.w, u_tune.z + 0.001);\n"                                \
-    "    float mask = solid * smoothstep(0.02, 0.10, hc) * smoothstep(u_tune.z, hi_edge, hc / peak);\n" \
+    "    float mask = solid * smoothstep(0.08, 0.18, hc) * smoothstep(u_tune.z, hi_edge, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"                                         \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n"                                         \
     "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - uv) * vec2(0.70, 1.0);\n" \

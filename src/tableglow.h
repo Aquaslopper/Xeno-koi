@@ -42,9 +42,15 @@ typedef struct TableGlowSettings {
     int   key_toggle;           /* key that flips it. KEY_F8 unless the game uses it. */
 
     /* ---- the light itself ---------------------------------------------------- */
-    float radius_px;            /* how far the shader looks for a brightness gradient,
-                                   in canvas pixels. 4..40, default 16.
-                                   Too small: nothing lights. Too large: soft mush.     */
+    float radius_px;            /* how far the shader looks, in canvas pixels. 4..40,
+                                   default 16. It does two jobs, exactly as on the card:
+                                   it is the reach of the brightness gradient, and it is
+                                   how far inside the art a pixel must sit from ANY
+                                   transparency before it may light (the 8-neighbour
+                                   opacity test uses the same stencil). Measured on the
+                                   city overlay: 3.3% of the image lights at 4 px, 1.9% at
+                                   16 px. Too small: nothing lights. Too large: only the
+                                   fattest parts of the casing do.                      */
     float luminance_lo;         /* a pixel may catch light only if it is at least this
                                    share of its neighbourhood's brightest pixel. 0..1,
                                    default 0.42. Raise it to light fewer, sharper
