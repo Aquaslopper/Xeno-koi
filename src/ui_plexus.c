@@ -1,6 +1,7 @@
 #include "ui_plexus.h"
 #include "campaign.h"
 #include "cards.h"
+#include "ui_combos.h"
 #include "ui_motion.h"
 #include "ui_speed.h"
 #include "ui_action.h"
@@ -4296,6 +4297,9 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
                 if (!board_table_skin_active())
                     DrawRectangleLinesEx((Rectangle){ hr.x - 3.0f, hr.y - 3.0f, hr.width + 6.0f, hr.height + 6.0f },
                                          2.5f, COLOR_PHOSPHOR);
+                /* One short instruction, since a glow alone does not say "click me". */
+                draw_text_snapped(font_body, "CLICK THIS CARD", hr.x - 30.0f, hr.y - 26.0f,
+                                  16.0f, 1.0f, COLOR_PHOSPHOR);
             }
         }
         Rectangle fr = motion_get_rect(target_field_cid);
@@ -4318,11 +4322,55 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
     }
 }
 
+/* --- Coach marks: Koi-Koi tutorial only (card 3, TUT1_* steps) ----------------
+   The board guides (glowing playable card, target card, left scoring box) are drawn
+   in plexus_tutorial_draw_board_guides() BEFORE this function runs, and the old flat
+   dim was painted straight over them, which is why every pointer read as barely
+   there. For card 3 the dim now leaves a lit hole around the subject of the panel,
+   so the guide underneath stays bright. Presentation only: no phase, timer, input
+   gate or rule is touched, and cards 1 and 2 keep the flat dim untouched. */
+static int tut_kk_focus_rect(TutorialStep st, Rectangle *out) {
+    const float pad = 10.0f;
+    Rectangle r;
+    if (st == TUT1_PANEL_INTRO) {
+        /* "play 08-A Geese from your hand": the hand band, clear of the panel. */
+        r = (Rectangle){ 330.0f, 552.0f, 760.0f, 162.0f };
+    } else if (st == TUT1_PANEL_DECK_DRAW) {
+        /* Deliberately no hole: this panel sits on top of the stock pile, so a
+           spotlight there would be hidden behind the panel. Flat dim instead. */
+        return 0;
+    } else if (st == TUT1_PANEL_LEFT_AREA) {
+        r = (Rectangle){ 9.0f, 505.0f, 261.0f, 206.0f };
+    } else if (st == TUT1_PANEL_TRY_COMBO) {
+        r = combos_panel_rect(0);
+    } else {
+        return 0;
+    }
+    *out = (Rectangle){ r.x - pad, r.y - pad, r.width + 2.0f * pad, r.height + 2.0f * pad };
+    return 1;
+}
+
+static void draw_tut_scrim(Rectangle hole, unsigned char alpha) {
+    Color c = { 0, 0, 0, alpha };
+    float x0 = fmaxf(0.0f, hole.x), y0 = fmaxf(0.0f, hole.y);
+    float x1 = fminf(1280.0f, hole.x + hole.width), y1 = fminf(720.0f, hole.y + hole.height);
+    if (y0 > 0.0f)           DrawRectangle(0, 0, 1280, (int)y0, c);
+    if (y1 < 720.0f)         DrawRectangle(0, (int)y1, 1280, 720 - (int)y1, c);
+    if (x0 > 0.0f)           DrawRectangle(0, (int)y0, (int)x0, (int)(y1 - y0), c);
+    if (x1 < 1280.0f)        DrawRectangle((int)x1, (int)y0, 1280 - (int)x1, (int)(y1 - y0), c);
+    DrawRectangleLinesEx((Rectangle){ x0, y0, x1 - x0, y1 - y0 }, 2.0f, COLOR_PHOSPHOR);
+}
+
 void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     if (!s_tut_active || !tut_step_is_frozen(s_tut_step)) return;
 
     if (s_tut_step != TUT1_PANEL_KOI_DECIDE) {
-        DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, (s_tut_step == TUT2_PANEL_NO_HESITATION) ? 110 : 145 });
+        Rectangle focus;
+        if (s_tut_card_id == 3 && tut_kk_focus_rect(s_tut_step, &focus)) {
+            draw_tut_scrim(focus, 150);
+        } else {
+            DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, (s_tut_step == TUT2_PANEL_NO_HESITATION) ? 110 : 145 });
+        }
     }
     if (s_tut_card_id == 2 && s_tut_step != TUT2_PANEL_NO_HESITATION) {
         float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
