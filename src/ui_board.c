@@ -543,6 +543,46 @@ static const char *const k_bezel_shine_fs =
 #endif
 #undef BEZEL_SHINE_BODY
 
+/* CRT casing, an option that sits on top of any forged table rather than replacing it:
+   the map's own overlay and bezel are drawn through this shader instead of straight.
+   Silhouette, bevel shading and alpha are that map's art untouched - only the colour is
+   remapped, luminance first, so the painted leather of CITY and the cut metal of CASTLE
+   both come out in the same green-teal phosphor palette. Scanlines are not added here;
+   the global CRT Filter already lays those over the whole screen. */
+#define CRT_TINT_BODY(TEX_FN, OUT_FRAG) \
+    "void main() {\n" \
+    "    vec4 c = " TEX_FN "(texture0, fragTexCoord);\n" \
+    "    float l = pow(clamp(dot(c.rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0), 0.86);\n" \
+    "    vec3 o = mix(vec3(0.006, 0.030, 0.031), vec3(0.020, 0.130, 0.132), clamp(l * 3.0, 0.0, 1.0));\n" \
+    "    o = mix(o, vec3(0.090, 0.430, 0.420), clamp((l - 0.333) * 3.0, 0.0, 1.0));\n" \
+    "    o = mix(o, vec3(0.560, 0.960, 0.930), clamp((l - 0.666) * 3.0, 0.0, 1.0));\n" \
+    "    o = mix(o, vec3(0.870, 1.000, 0.985), smoothstep(0.90, 1.0, l));\n" \
+    "    " OUT_FRAG " = vec4(o, c.a);\n" \
+    "}\n"
+
+#ifdef __EMSCRIPTEN__
+static const char *const k_crt_tint_fs =
+    "#version 100\n"
+    "precision mediump float;\n"
+    "varying vec2 fragTexCoord;\n"
+    "varying vec4 fragColor;\n"
+    "uniform sampler2D texture0;\n"
+    "uniform vec4 colDiffuse;\n"
+    CRT_TINT_BODY("texture2D", "gl_FragColor");
+#else
+static const char *const k_crt_tint_fs =
+    "#version 330\n"
+    "in vec2 fragTexCoord;\n"
+    "in vec4 fragColor;\n"
+    "uniform sampler2D texture0;\n"
+    "uniform vec4 colDiffuse;\n"
+    "out vec4 finalColor;\n"
+    CRT_TINT_BODY("texture", "finalColor");
+#endif
+#undef CRT_TINT_BODY
+
+static Shader s_crt_tint_shader = { 0 };
+
 static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha);
 
 void board_load_assets(BoardAssets *ba) {
@@ -588,6 +628,7 @@ void board_load_assets(BoardAssets *ba) {
                  ts->ready ? "ready" : "missing assets/maps folder files");
     }
     s_bezel_shine_shader = LoadShaderFromMemory(0, k_bezel_shine_fs);
+    s_crt_tint_shader = LoadShaderFromMemory(0, k_crt_tint_fs);
     s_bezel_shine_phase_loc = (s_bezel_shine_shader.id > 0)
         ? GetShaderLocation(s_bezel_shine_shader, "u_phase") : -1;
     s_draw_bezel_shine_fn = board_draw_table_bezel_shine;
@@ -662,6 +703,10 @@ void board_unload_assets(BoardAssets *ba) {
         UnloadShader(s_bezel_shine_shader);
         s_bezel_shine_shader = (Shader){ 0 };
     }
+    if (s_crt_tint_shader.id > 0) {
+        UnloadShader(s_crt_tint_shader);
+        s_crt_tint_shader = (Shader){ 0 };
+    }
     s_bezel_shine_phase_loc = -1;
     s_draw_bezel_shine_fn = NULL;
     for (int i = 0; i < 8; i++) {
@@ -680,6 +725,25 @@ int board_table_skin_active(void) {
 }
 
 void board_set_table_bezel_muted(int muted) { s_bezel_muted = muted; }
+
+/* CRT casing toggle (settings.crt_tables). Deliberately separate from
+   board_table_skin_active(): that one answers "is there art to draw", this one answers
+   "draw it in phosphor". Both must hold before the shader is bound. */
+static int crt_tint_on(void) {
+    return settings.crt_tables != 0 && s_crt_tint_shader.id > 0;
+}
+
+/* Overlay art for the table pickers: same texture, same optional tint, so a thumbnail
+   cannot promise a brown casing the table then renders green. */
+void board_draw_table_overlay(const BoardAssets *ba, int slot, Rectangle dest) {
+    if (!ba || slot <= TABLE_DESIGN_CRT || slot >= BOARD_TABLE_SLOTS) return;
+    const Texture2D tex = ba->table_skins[slot].overlay;
+    if (tex.id <= 0) return;
+    if (crt_tint_on()) BeginShaderMode(s_crt_tint_shader);
+    DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height }, dest,
+                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+    if (crt_tint_on()) EndShaderMode();
+}
 
 Rectangle board_get_hand_card_rect(int index, int total_cards, int hovered) {
     float step = 96.0f, total_w = (total_cards > 0) ? ((total_cards - 1) * step + HAND_CARD_W) : 0;
@@ -901,9 +965,11 @@ static void board_draw_table_bezel(const BoardAssets *ba, Rectangle dest) {
     Rectangle bd = { cx - cav_cx * s * squeeze, cy - cav_cy * s,
                      (float)ts->bezel.width * s * squeeze,
                      (float)ts->bezel.height * s };
+    if (crt_tint_on()) BeginShaderMode(s_crt_tint_shader);
     DrawTexturePro(ts->bezel,
                    (Rectangle){ 0, 0, (float)ts->bezel.width, (float)ts->bezel.height },
                    bd, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    if (crt_tint_on()) EndShaderMode();
 }
 
 void board_draw_card(const BoardAssets *ba, int card_id, Rectangle dest) {
@@ -1197,7 +1263,9 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
        below every live element - text, counts, minis and cards draw over it, and the
        CRT fills/hairlines they'd otherwise sit in are gated off while it is active. */
     if (board_table_skin_active() && ba->table_skins[s_table_selected].overlay.id > 0) {
+        if (crt_tint_on()) BeginShaderMode(s_crt_tint_shader);
         DrawTexture(ba->table_skins[s_table_selected].overlay, 0, 0, WHITE);
+        if (crt_tint_on()) EndShaderMode();
     }
 
     /* 2. Table Chrome, Status, Combos & Left Column (all behind cards) */

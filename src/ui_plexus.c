@@ -1323,9 +1323,7 @@ static void draw_plex_stage_card(const BoardAssets *ba, int map, int cur_stage, 
                        (Vector2){ 0, 0 }, 0.0f, WHITE);
     }
     if (ba && map > TABLE_DESIGN_CRT && ba->table_skins[map].ready) {
-        const Texture2D overlay = ba->table_skins[map].overlay;
-        DrawTexturePro(overlay, (Rectangle){ 0, 0, (float)overlay.width, (float)overlay.height }, art,
-                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+        board_draw_table_overlay(ba, map, art);
     }
     DrawRectangleLinesEx(card, (sel || hov) ? 2.0f : 1.0f,
                          sel ? COLOR_PHOSPHOR : (hov ? COLOR_PHOSPHOR_DIM : (Color){ 100, 100, 100, 150 }));

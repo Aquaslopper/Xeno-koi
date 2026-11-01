@@ -43,6 +43,8 @@ typedef struct {
     unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
     int table_design;      /* card table skin (TABLE_DESIGN_* above): 0 = CRT (shipped,
                               default), 1..7 = the map slots in assets/maps/<name>/. */
+    int crt_tables;        /* 0: a map table keeps its painted casing, 1: every map
+                              table is drawn in CRT phosphor instead. Off by default. */
 } GameSettings;
 
 typedef enum {

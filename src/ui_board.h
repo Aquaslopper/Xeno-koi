@@ -49,6 +49,11 @@ void board_unload_assets(BoardAssets *ba);
    (tables/table_<name>/). */
 int board_table_skin_active(void);
 
+/* Draw one forged table's overlay art into dest, in CRT phosphor when the player turned
+   settings.crt_tables on. Use this for pickers and previews instead of a raw
+   DrawTexturePro, so thumbnails match the table. */
+void board_draw_table_overlay(const BoardAssets *ba, int slot, Rectangle dest);
+
 /* Mute the card bezel for presentation draws that are not table cards (the
    capture-info hover preview): board_set_table_bezel_muted(1), draw, then (0). */
 void board_set_table_bezel_muted(int muted);

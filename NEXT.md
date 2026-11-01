@@ -52,6 +52,16 @@ Six buttons: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION. Hov
 the button or mode is and how it scores. No hidden layer, no hover fly-outs, one state
 instead of six. Not yet seen on a screen.
 
+## 2b. CRT casing for any table — built, waiting on one look
+
+`settings.crt_tables`, toggled as `CRT CASING: ON/OFF` on STAGE // MAP SELECT, runs any
+forged table in phosphor without replacing its art. The map's own overlay and bezel are
+drawn through `k_crt_tint_fs` instead of straight, so silhouette, bevels and alpha stay the
+map's and only the colour is remapped — CASTLE still looks like CASTLE. Pickers go through
+`board_draw_table_overlay()`, so a thumbnail cannot promise brown and render green. Off by
+default, saved as `crt_tables` in `settings.txt`. Not yet seen on a screen; if it reads too
+dark, the three ramp stops are the first line of the shader to touch.
+
 ## 3. Month 02 onwards: my words, one card at a time
 
 `k_story_beats[48]` in `src/ui_plexus.c`, index = month * 4 + slot. Every card already has

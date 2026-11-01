@@ -58,6 +58,9 @@ static Rectangle campaign_map_card(int map) {
     return (Rectangle){ 579.0f + (map % 4) * 136.0f, 278.0f + (map / 4) * 88.0f, 126.0f, 84.0f };
 }
 
+/* Sits on the title row, right of "STAGE // MAP SELECT", above the card grid. */
+static const Rectangle k_crt_toggle_rect = { 944.0f, 251.0f, 170.0f, 25.0f };
+
 static void campaign_apply_map_defaults(GameSettings *settings, int map) {
     if (!settings || map < 0 || map >= TABLE_DESIGN_COUNT) return;
     settings->table_design = map;
@@ -100,9 +103,7 @@ static void campaign_draw_map_card(const BoardAssets *ba, const GameSettings *se
                        (Vector2){ 0, 0 }, 0.0f, WHITE);
     }
     if (map > TABLE_DESIGN_CRT && ba->table_skins[map].ready) {
-        const Texture2D overlay = ba->table_skins[map].overlay;
-        DrawTexturePro(overlay, (Rectangle){ 0, 0, (float)overlay.width, (float)overlay.height }, art,
-                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+        board_draw_table_overlay(ba, map, art);
     }
     DrawRectangleLinesEx(card, (map == settings->table_design || hover) ? 2.0f : 1.0f,
                          (map == settings->table_design) ? COLOR_PHOSPHOR :
@@ -232,6 +233,10 @@ static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settin
 static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *settings,
                                      Vector2 vm, int enabled) {
     DrawTextEx(font_title, "STAGE // MAP SELECT", (Vector2){ 580.0f, 258.0f }, 20.0f, 1.0f, COLOR_PHOSPHOR);
+    /* Casing style, not another table: any map you pick can be rendered in CRT phosphor. */
+    draw_btn_custom(k_crt_toggle_rect,
+                    settings->crt_tables ? "CRT CASING: ON" : "CRT CASING: OFF", 12, vm,
+                    settings->crt_tables ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
     for (int i = 0; i < TABLE_DESIGN_COUNT; i++) campaign_draw_map_card(ba, settings, i, vm);
 
     Color active = enabled ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM;
@@ -435,6 +440,11 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
     }
 
     if (*out_selected < unlocked_opponents && s_campaign_page == CAMPAIGN_PAGE_STAGE) {
+        if (CheckCollisionPointRec(vm, k_crt_toggle_rect)) {
+            settings->crt_tables = settings->crt_tables ? 0 : 1;
+            storage_save_settings(settings);
+            return 0;   /* restyle in place: no page change, no reload */
+        }
         for (int map = 0; map < TABLE_DESIGN_COUNT; map++) {
             if (CheckCollisionPointRec(vm, campaign_map_card(map))) {
                 campaign_apply_map_defaults(settings, map);
