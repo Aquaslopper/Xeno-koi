@@ -60,8 +60,8 @@ static Texture2D s_intro_ui_tex = { 0 };
    The token has no personality on purpose: it reports, it does not joke. */
 static int   s_badge_seen = 0;   /* persisted: tour already finished */
 static int   s_badge_step = 0;   /* 0..D_BADGE_STEPS-1 while running */
-static float s_badge_blend = 1.0f; /* 0..1 flight between two stops */
-static Vector2 s_badge_prev = { 0.0f, 0.0f };
+static float s_badge_blend = 0.0f; /* 0..1 flight between two stops */
+static Vector2 s_badge_prev = { 664.0f, 412.0f };
 #define D_BADGE_STEPS 8
 static void draw_badge_tour(Vector2 vm);
 static int s_selected_month = 0; /* 0..11 */
@@ -611,7 +611,8 @@ void plexus_load(void) {
     s_intro_reveal_t = 0.0f;
     s_badge_seen = 0;
     s_badge_step = 0;
-    s_badge_blend = 1.0f;
+    s_badge_blend = 0.0f;
+    s_badge_prev = (Vector2){ 664.0f, 412.0f };
     s_tr_runs = 0;
     s_tr_wins = 0;
     s_tr_losses = 0;
@@ -3056,7 +3057,56 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
         char sc_line1[96];
         char sc_line2[96];
         char sc_line3[96];
-        if (s_active_tab == 0) {
+        int hover_bottom = -1;
+        if (s_intro_seen && s_badge_seen && !s_hiscore_open) {
+            for (int bi = 0; bi < 6; bi++) {
+                if (CheckCollisionPointRec(vm, k_bottom_rects[bi])) {
+                    hover_bottom = bi;
+                    break;
+                }
+            }
+        }
+        if (hover_bottom == 0) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SAVE & BACK");
+            snprintf(sub, sizeof(sub), "CHECKPOINT & EXIT TO TITLE SCREEN");
+            line1 = "Writes Plex progress, unlocks, and records to disk.";
+            line2 = "Returns to the main menu without losing your place.";
+            line3 = "Shortcut: ESC also saves and exits the Plex.";
+        } else if (hover_bottom == 1) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  LOGFILE");
+            snprintf(sub, sizeof(sub), "STORY  //  TRAINING  //  MATCHES  //  ATLAS");
+            line1 = "Reads unlocked monthly logs and Plex record totals.";
+            line2 = "Reviews completed Spine, Speedcoin & Action runs.";
+            line3 = "Inspects all 48 Hanafuda and Deus cards in Atlas.";
+        } else if (hover_bottom == 2) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
+            snprintf(sub, sizeof(sub), "TIMED SOLO CAPTURE  //  180s CLOCK");
+            line1 = "14 field cards, 8 in hand, no CPU. Drop fast and clean.";
+            line2 = "Score: Wave yaku + 1 bonus PT per 5 Speedcoins.";
+            line3 = is_speedcoin_bottom_unlocked()
+                    ? "+10s per 10 MP, -10s per miss; 30 MP deals Hand 2."
+                    : "Unlocks on the bar at Month 04 (taught in Month 01).";
+        } else if (hover_bottom == 3) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
+            snprintf(sub, sizeof(sub), "KK-ADD-10 KOI-KOI  //  FIVE TABLE HORRORS");
+            line1 = "Koi-Koi vs CPU with twin pulse and fluid meters.";
+            line2 = "Score: KK-ADD-10 yaku + mults; Gold Coin +10 PTS.";
+            line3 = is_action_card_bottom_unlocked()
+                    ? "Below 50% fluid, the sigil strikes the turn player."
+                    : "Unlocks on the bar at Month 08 (taught in Month 01).";
+        } else if (hover_bottom == 4) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
+            snprintf(sub, sizeof(sub), "FREE MATCH  //  CUSTOM RULESET & OPPONENT");
+            line1 = "Practice against any unlocked campaign opponent.";
+            line2 = "Score: Uses chosen ruleset, rounds, and turn timer.";
+            line3 = "Tracks Plex W-L and best score; no campaign coins.";
+        } else if (hover_bottom == 5) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  OPTION");
+            snprintf(sub, sizeof(sub), "AUDIO  //  DISPLAY  //  TERMINAL THEME");
+            line1 = "Adjusts master, music, SFX, and DSP effect levels.";
+            line2 = "Switches terminal phosphor palettes and CRT/bloom.";
+            line3 = "Changes apply immediately across the Plex and table.";
+        } else if (s_active_tab == 0) {
             const char *deus_p = is_deus_spine_active() ? "DEUS // " : "";
             if (s_selected_month == 0) {
                 static const char * const k_tut_titles[4] = {
@@ -3405,7 +3455,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
     if (!s_badge_seen) {
         if (s_badge_blend >= 1.0f) {
             s_badge_step++;
-            s_badge_blend = 0.0f; /* s_badge_prev already holds the token's last drawn position */
+            s_badge_blend = 0.0f;
             if (s_badge_step >= D_BADGE_STEPS) {
                 s_badge_seen = 1;
                 s_badge_step = 0;
@@ -4183,7 +4233,11 @@ static int tut_step_is_frozen(TutorialStep st) {
 }
 
 static Rectangle tut_panel_rect_for_step(TutorialStep st) {
-    if (st == TUT1_PANEL_KOI_DECIDE) return (Rectangle){ 260.0f, 26.0f, 760.0f, 178.0f };
+    if (st == TUT1_PANEL_INTRO)      return (Rectangle){ 300.0f,  24.0f, 680.0f, 250.0f };
+    if (st == TUT1_PANEL_DECK_DRAW)  return (Rectangle){ 300.0f, 464.0f, 680.0f, 224.0f };
+    if (st == TUT1_PANEL_LEFT_AREA)  return (Rectangle){ 310.0f, 476.0f, 660.0f, 224.0f };
+    if (st == TUT1_PANEL_TRY_COMBO)  return (Rectangle){ 380.0f,  24.0f, 680.0f, 250.0f };
+    if (st == TUT1_PANEL_KOI_DECIDE) return (Rectangle){ 260.0f,  26.0f, 760.0f, 178.0f };
     if (st == TUT2_PANEL_NO_HESITATION) return (Rectangle){ 266.0f, 175.0f, 748.0f, 340.0f };
     if (st >= TUT2_PANEL_CORE && st <= TUT2_PANEL_HAND2) return (Rectangle){ 410.0f, 145.0f, 748.0f, 360.0f };
     if (st == TUT3_PANEL_METERS)  return (Rectangle){ 440.0f, 142.0f, 636.0f, 382.0f };
@@ -4322,6 +4376,30 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
     return 1;
 }
 
+static Rectangle s_tut_kk_hand_rect  = { 0 };
+static Rectangle s_tut_kk_field_rect = { 0 };
+
+static void draw_tut_coach_ring(Rectangle r, float pulse) {
+    if (r.width <= 0.0f || r.height <= 0.0f) return;
+    Rectangle inner = { r.x - 4.0f, r.y - 4.0f, r.width + 8.0f, r.height + 8.0f };
+    Rectangle outer = { r.x - 8.0f, r.y - 8.0f, r.width + 16.0f, r.height + 16.0f };
+    Color c_out = COLOR_PHOSPHOR;
+    c_out.a = (unsigned char)(140.0f * pulse);
+    DrawRectangleLinesEx(outer, 1.5f, c_out);
+    DrawRectangleLinesEx(inner, 2.5f, COLOR_PHOSPHOR);
+}
+
+static void draw_tut_coach_pill(float cx, float y, const char *txt) {
+    Vector2 ts = MeasureTextEx(font_title, txt, 13.5f, 1.0f);
+    float pw = ts.x + 20.0f, ph = 24.0f;
+    float px = fmaxf(8.0f, fminf(1272.0f - pw, floorf(cx - pw * 0.5f)));
+    float py = fmaxf(8.0f, floorf(y));
+    Rectangle pill = { px, py, pw, ph };
+    DrawRectangleRec(pill, PLEXUS_PANEL_BG);
+    DrawRectangleLinesEx(pill, 1.5f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, txt, px + 10.0f, py + 5.0f, 13.5f, 1.0f, COLOR_PHOSPHOR);
+}
+
 void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g) {
     (void)ba;
     if (!s_tut_active || !g) return;
@@ -4329,9 +4407,35 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
     float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
     int allowed = plexus_tutorial_allowed_hand_card(g);
 
+    if (s_tut_card_id == 3) {
+        int want_hand = (s_tut_step == TUT1_PANEL_INTRO || s_tut_step == TUT1_PLAY_MOON) ? 29 :
+                        (s_tut_step == TUT1_PANEL_TRY_COMBO || s_tut_step == TUT1_PLAY_SAKE) ? 34 : -1;
+        int want_field = (s_tut_step == TUT1_PANEL_INTRO || s_tut_step == TUT1_PLAY_MOON) ? 28 :
+                         (s_tut_step == TUT1_PANEL_DECK_DRAW) ? 38 :
+                         (s_tut_step == TUT1_PANEL_TRY_COMBO || s_tut_step == TUT1_PLAY_SAKE) ? 32 : -1;
+        s_tut_kk_hand_rect  = (Rectangle){ 0 };
+        s_tut_kk_field_rect = (Rectangle){ 0 };
+        if (want_hand >= 0) {
+            for (int i = 0; i < g->hand_count[0]; i++) {
+                if (g->hand[0][i] == want_hand) {
+                    Rectangle hr = motion_get_rect(want_hand);
+                    if (hr.width <= 0.0f) hr = board_get_hand_card_rect(i, g->hand_count[0], 0);
+                    s_tut_kk_hand_rect = hr;
+                    break;
+                }
+            }
+        }
+        if (want_field >= 0) {
+            Rectangle fr = motion_get_rect(want_field);
+            if (fr.width <= 0.0f) fr = board_get_field_card_rect_of(g, want_field);
+            s_tut_kk_field_rect = fr;
+        }
+    }
+
     /* Dim locked hand cards and highlight the single allowed hand card + target table card */
     if (allowed >= 0 && g->current_player == 0 && g->phase == PHASE_TURN_HAND) {
         int target_field_cid = (allowed == 29) ? 28 : 32;
+        Rectangle allowed_hr = { 0 };
         for (int i = 0; i < g->hand_count[0]; i++) {
             int cid = g->hand[0][i];
             Rectangle hr = motion_get_rect(cid);
@@ -4339,22 +4443,25 @@ void plexus_tutorial_draw_board_guides(const BoardAssets *ba, const GameState *g
             if (cid != allowed) {
                 DrawRectangleRec(hr, (Color){ 0, 0, 0, 175 });
             } else {
+                allowed_hr = hr;
                 board_draw_card_glow(hr, pulse);
-                if (!board_table_skin_active())
-                    DrawRectangleLinesEx((Rectangle){ hr.x - 3.0f, hr.y - 3.0f, hr.width + 6.0f, hr.height + 6.0f },
-                                         2.5f, COLOR_PHOSPHOR);
-                /* One short instruction, since a glow alone does not say "click me". */
-                draw_text_snapped(font_body, "CLICK THIS CARD", hr.x - 30.0f, hr.y - 26.0f,
-                                  16.0f, 1.0f, COLOR_PHOSPHOR);
+                draw_tut_coach_ring(hr, pulse);
             }
         }
         Rectangle fr = motion_get_rect(target_field_cid);
         if (fr.width <= 0.0f) fr = board_get_field_card_rect_of(g, target_field_cid);
+        if (fr.width > 0.0f && allowed_hr.width > 0.0f) {
+            DrawLineEx((Vector2){ allowed_hr.x + allowed_hr.width * 0.5f, allowed_hr.y - 6.0f },
+                       (Vector2){ fr.x + fr.width * 0.5f, fr.y + fr.height + 6.0f },
+                       1.5f, COLOR_PHOSPHOR_DIM);
+        }
         if (fr.width > 0.0f) {
             board_draw_card_glow(fr, pulse);
-            if (!board_table_skin_active())
-                DrawRectangleLinesEx((Rectangle){ fr.x - 3.0f, fr.y - 3.0f, fr.width + 6.0f, fr.height + 6.0f },
-                                     2.5f, COLOR_PHOSPHOR);
+            draw_tut_coach_ring(fr, pulse);
+            draw_tut_coach_pill(fr.x + fr.width * 0.5f, fr.y - 32.0f, "2. MATCH HERE");
+        }
+        if (allowed_hr.width > 0.0f) {
+            draw_tut_coach_pill(allowed_hr.x + allowed_hr.width * 0.5f, allowed_hr.y - 32.0f, "1. CLICK THIS CARD");
         }
     }
 
@@ -4379,12 +4486,11 @@ static int tut_kk_focus_rect(TutorialStep st, Rectangle *out) {
     const float pad = 10.0f;
     Rectangle r;
     if (st == TUT1_PANEL_INTRO) {
-        /* "play 08-A Geese from your hand": the hand band, clear of the panel. */
-        r = (Rectangle){ 330.0f, 552.0f, 760.0f, 162.0f };
+        /* Keep both [08-B Moon] on the lower field row and [08-A Geese] in hand lit. */
+        r = (Rectangle){ 320.0f, 300.0f, 640.0f, 412.0f };
     } else if (st == TUT1_PANEL_DECK_DRAW) {
-        /* Deliberately no hole: this panel sits on top of the stock pile, so a
-           spotlight there would be hidden behind the panel. Flat dim instead. */
-        return 0;
+        /* Stock pile {330, 262, 76, 124} and the drawn deck card flying onto the field. */
+        r = (Rectangle){ 320.0f, 252.0f, 524.0f, 190.0f };
     } else if (st == TUT1_PANEL_LEFT_AREA) {
         r = (Rectangle){ 9.0f, 505.0f, 261.0f, 206.0f };
     } else if (st == TUT1_PANEL_TRY_COMBO) {
@@ -4440,7 +4546,7 @@ static Rectangle badge_panel_rect(Rectangle t) {
     const float w = 430.0f, h = 84.0f;
     float x, y;
     if (t.y > 600.0f)      { x = t.x + t.width * 0.5f - w * 0.5f; y = t.y - h - 18.0f; }
-    else if (t.x > 1000.0f){ x = t.x - w - 26.0f;                 y = t.y + t.height * 0.5f - h * 0.5f; }
+    else if (t.x > 1000.0f){ x = t.x - w - 62.0f;                 y = t.y + t.height * 0.5f - h * 0.5f; }
     else                   { x = t.x - 30.0f;                     y = t.y + t.height + 22.0f; }
     if (x < 12.0f) x = 12.0f;
     if (x > 1268.0f - w) x = 1268.0f - w;
@@ -4514,12 +4620,13 @@ static void draw_badge_tour(Vector2 vm) {
     }
 
     draw_badge_token(c, 1.0f);
-    s_badge_prev = c;
+    if (s_badge_blend >= 1.0f) s_badge_prev = to;
 }
 
 void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     if (!s_tut_active || !tut_step_is_frozen(s_tut_step)) return;
 
+    float kk_pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
     if (s_tut_step != TUT1_PANEL_KOI_DECIDE) {
         Rectangle focus;
         if (s_tut_card_id == 3 && tut_kk_focus_rect(s_tut_step, &focus)) {
@@ -4556,6 +4663,48 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
 
     Rectangle pr = tut_panel_rect_for_step(s_tut_step);
     Rectangle cr = tut_continue_rect_for_panel(pr);
+
+    /* Coach-mark rings and leader lines for the Koi-Koi tutorial (card 3) */
+    if (s_tut_card_id == 3) {
+        if (s_tut_step == TUT1_PANEL_INTRO) {
+            draw_tut_coach_ring(s_tut_kk_hand_rect, kk_pulse);
+            draw_tut_coach_ring(s_tut_kk_field_rect, kk_pulse);
+            if (s_tut_kk_hand_rect.width > 0.0f && s_tut_kk_field_rect.width > 0.0f) {
+                DrawLineEx((Vector2){ s_tut_kk_hand_rect.x + s_tut_kk_hand_rect.width * 0.5f, s_tut_kk_hand_rect.y - 6.0f },
+                           (Vector2){ s_tut_kk_field_rect.x + s_tut_kk_field_rect.width * 0.5f, s_tut_kk_field_rect.y + s_tut_kk_field_rect.height + 6.0f },
+                           1.5f, COLOR_PHOSPHOR_DIM);
+                DrawLineEx((Vector2){ pr.x + pr.width * 0.5f, pr.y + pr.height },
+                           (Vector2){ s_tut_kk_field_rect.x + s_tut_kk_field_rect.width * 0.5f, s_tut_kk_field_rect.y - 6.0f },
+                           1.5f, COLOR_PHOSPHOR_DIM);
+            }
+        } else if (s_tut_step == TUT1_PANEL_DECK_DRAW) {
+            Rectangle stock_r = { 330.0f, 262.0f, 76.0f, 124.0f };
+            draw_tut_coach_ring(stock_r, kk_pulse);
+            draw_tut_coach_ring(s_tut_kk_field_rect, kk_pulse);
+            DrawLineEx((Vector2){ stock_r.x + stock_r.width * 0.5f, pr.y },
+                       (Vector2){ stock_r.x + stock_r.width * 0.5f, stock_r.y + stock_r.height + 6.0f },
+                       1.5f, COLOR_PHOSPHOR_DIM);
+        } else if (s_tut_step == TUT1_PANEL_LEFT_AREA) {
+            Rectangle left_r = { 9.0f, 505.0f, 261.0f, 206.0f };
+            draw_tut_coach_ring(left_r, kk_pulse);
+            DrawLineEx((Vector2){ pr.x, 588.0f }, (Vector2){ left_r.x + left_r.width + 6.0f, 588.0f },
+                       1.5f, COLOR_PHOSPHOR_DIM);
+        } else if (s_tut_step == TUT1_PANEL_TRY_COMBO) {
+            Rectangle combo_r = combos_panel_rect(0);
+            draw_tut_coach_ring(combo_r, kk_pulse);
+            draw_tut_coach_ring(s_tut_kk_hand_rect, kk_pulse);
+            draw_tut_coach_ring(s_tut_kk_field_rect, kk_pulse);
+            DrawLineEx((Vector2){ pr.x + pr.width, pr.y + pr.height * 0.5f },
+                       (Vector2){ combo_r.x - 6.0f, combo_r.y + 44.0f },
+                       1.5f, COLOR_PHOSPHOR_DIM);
+        } else if (s_tut_step == TUT1_PANEL_KOI_DECIDE) {
+            Rectangle koi_btn   = { 280.0f, 520.0f, 320.0f, 60.0f };
+            Rectangle shobu_btn = { 680.0f, 520.0f, 320.0f, 60.0f };
+            draw_tut_coach_ring(koi_btn, kk_pulse);
+            draw_tut_coach_ring(shobu_btn, kk_pulse);
+        }
+    }
+
     DrawRectangleRec(pr, PLEXUS_PANEL_BG);
     ui_draw_panel_border(pr, COLOR_PHOSPHOR);
 
@@ -4581,132 +4730,103 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                               x, pr.y + pr.height - 82.0f, 15.0f, 1.05f, COLOR_PHOSPHOR_DIM);
         }
     } else if (s_tut_step == TUT1_PANEL_INTRO) {
-        draw_text_snapped(font_title, "ENTITY 001 -- INFORMATIONAL UPGRADE INITIATED",
+        draw_text_snapped(font_title, "STEP 1 OF 5  //  MATCH BY MONTH PLANT",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
-        DrawLine((int)x, (int)(y + 30.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 30.0f), COLOR_PHOSPHOR_DIM);
-
-        draw_text_snapped(font_title,
-                          "Match cards from your hand or the deck with the table's",
-                          x, y + 44.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_title,
-                          "matching monthly flora to capture them.",
-                          x, y + 68.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
-                          "Once you build a scoring combination, you can cash out your points",
-                          x, y + 98.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,
-                          "immediately or call \"Koi-Koi\" to risk them for a higher score.",
-                          x, y + 122.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_title,
                           "Each of the 12 months has 4 cards sharing the same plant.",
-                          x, y + 154.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+                          x, y + 40.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,
+                          "Match a hand card to a table card of the same month to take both.",
+                          x, y + 66.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
 
-        /* Visual card preview of the move to play: 08-A Geese -> 08-B Moon */
-        Rectangle c_hand  = { x + 18.0f,  y + 190.0f, 64.0f, 100.0f };
-        Rectangle c_table = { x + 150.0f, y + 190.0f, 64.0f, 100.0f };
+        Rectangle c_hand  = { x + 10.0f,  y + 102.0f, 52.0f, 82.0f };
+        Rectangle c_table = { x + 114.0f, y + 102.0f, 52.0f, 82.0f };
         if (ba) {
             board_draw_card(ba, 29, c_hand);
             board_draw_card(ba, 28, c_table);
         }
         DrawRectangleLinesEx(c_hand,  2.0f, COLOR_PHOSPHOR);
         DrawRectangleLinesEx(c_table, 2.0f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "->", x + 100.0f, y + 228.0f, 24.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "YOUR MOVE: CAPTURE THE MOON",
-                          x + 236.0f, y + 206.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_body, "Play [08-A Geese] from your hand onto",
-                          x + 236.0f, y + 236.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body, "[08-B Moon] on the table (Month 8 Susuki).",
-                          x + 236.0f, y + 260.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_title, "->", x + 74.0f, y + 132.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "DO THIS NOW: CAPTURE THE MOON",
+                          x + 184.0f, y + 110.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "Click [08-A Geese] in hand, then [08-B Moon]",
+                          x + 184.0f, y + 138.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "on the table (Month 08 Susuki).",
+                          x + 184.0f, y + 162.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     } else if (s_tut_step == TUT1_PANEL_DECK_DRAW) {
-        draw_text_snapped(font_title, "DECK DRAW // AUTOMATIC SECOND STEP",
-                          x, y, 20.0f, 1.3f, COLOR_PHOSPHOR);
-        DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_title, "STEP 2 OF 5  //  AUTOMATIC DECK DRAW",
+                          x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
+        DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
+        draw_text_snapped(font_body,
+                          "Every hand play is followed by an automatic stock draw.",
+                          x, y + 40.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body,
+                          "The top card of the stock pile flips and flies onto the table.",
+                          x, y + 66.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
 
-        draw_text_snapped(font_title,
-                          "Every hand play is followed by an automatic deck draw.",
-                          x, y + 52.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,
-                          "Right after you play a card from your hand, the top card of the",
-                          x, y + 90.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,
-                          "deck flips and flies onto the table.",
-                          x, y + 116.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,
-                          "If the drawn deck card matches a month on the table, it captures",
-                          x, y + 150.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_body,
-                          "that card too; otherwise, it stays on the table.",
-                          x, y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-
-        Rectangle c_back = { x + 18.0f,  y + 210.0f, 58.0f, 92.0f };
-        Rectangle c_draw = { x + 136.0f, y + 210.0f, 58.0f, 92.0f };
+        Rectangle c_back = { x + 10.0f,  y + 98.0f, 50.0f, 78.0f };
+        Rectangle c_draw = { x + 114.0f, y + 98.0f, 50.0f, 78.0f };
         if (ba) {
             board_draw_card_back(ba, c_back);
             board_draw_card(ba, 38, c_draw);
         }
         DrawRectangleLinesEx(c_back, 1.5f, COLOR_PHOSPHOR_DIM);
         DrawRectangleLinesEx(c_draw, 2.0f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "->", x + 90.0f, y + 244.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_body, "Deck card drawn onto the table.",
-                          x + 214.0f, y + 246.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "->", x + 74.0f, y + 126.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "If it matches a table month, it captures too;",
+                          x + 184.0f, y + 112.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "otherwise it stays on the table.",
+                          x + 184.0f, y + 138.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
     } else if (s_tut_step == TUT1_PANEL_LEFT_AREA) {
-        draw_text_snapped(font_title, "SCORING AREA // LEFT SIDE PANEL",
-                          x, y, 20.0f, 1.3f, COLOR_PHOSPHOR);
-        DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
-
-        draw_text_snapped(font_title,
-                          "Captured cards move into your scoring area to build",
-                          x, y + 54.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-        draw_text_snapped(font_title,
-                          "specific point-generating combinations, or yaku.",
-                          x, y + 80.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_title, "STEP 3 OF 5  //  SCORING AREA (LEFT LANES)",
+                          x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
+        DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
-                          "Collecting enough cards of the same type like brights, ribbons,",
-                          x, y + 124.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                          "Captured cards sort into four lanes on the left: Brights (B),",
+                          x, y + 42.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
-                          "or animals instantly completes a combo and allows you to",
-                          x, y + 150.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                          "Animals (A), Ribbons (R), and Plains (P) to build yaku combos.",
+                          x, y + 68.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
-                          "declare \"Koi-Koi\" or \"Shobu\" to end the round.",
-                          x, y + 176.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                          "<-- Your [08-B Moon] and [08-A Geese] are banked here.",
+                          x, y + 104.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
         draw_text_snapped(font_body,
-                          "<-- Your captured [08-B Moon] and [08-A Geese] are now stored",
-                          x, y + 224.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_body,
-                          "    in your left-side scoring area.",
-                          x, y + 250.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+                          "Hover any captured mini-card to inspect it.",
+                          x, y + 132.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
     } else if (s_tut_step == TUT1_PANEL_TRY_COMBO) {
-        draw_text_snapped(font_title, "NEXT OBJECTIVE // FORM A COMBO",
-                          x, y, 20.0f, 1.3f, COLOR_PHOSPHOR);
-        DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
-
-        draw_text_snapped(font_title,
-                          "Try forming a combo now to view the Koi-Koi screen.",
-                          x, y + 60.0f, 20.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_title, "STEP 4 OF 5  //  FORM A COMBO (YAKU)",
+                          x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
+        DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
-                          "On your next turn, play your Month 09 card [09-P1 Plain] to",
-                          x, y + 106.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                          "The right sidebar tracks your closest yaku combinations.",
+                          x, y + 40.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
-                          "capture [09-A Sake Cup] and complete Moon + Sake (5 PTS)!",
-                          x, y + 132.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+                          "Capture [09-A Sake Cup] with your [08-B Moon] for Moon Viewing!",
+                          x, y + 66.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
 
-        Rectangle c_moon = { x + 18.0f,  y + 178.0f, 64.0f, 100.0f };
-        Rectangle c_sake = { x + 136.0f, y + 178.0f, 64.0f, 100.0f };
+        Rectangle c_moon = { x + 10.0f,  y + 102.0f, 52.0f, 82.0f };
+        Rectangle c_sake = { x + 114.0f, y + 102.0f, 52.0f, 82.0f };
         if (ba) {
             board_draw_card(ba, 28, c_moon);
             board_draw_card(ba, 32, c_sake);
         }
         DrawRectangleLinesEx(c_moon, 2.0f, COLOR_PHOSPHOR);
         DrawRectangleLinesEx(c_sake, 2.0f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "+", x + 98.0f, y + 216.0f, 24.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "+", x + 76.0f, y + 132.0f, 22.0f, 1.2f, COLOR_PHOSPHOR);
         draw_text_snapped(font_title, "TSUKIMI-ZAKE (MOON VIEWING): 5 PTS",
-                          x + 216.0f, y + 216.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+                          x + 184.0f, y + 110.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_body, "DO THIS NOW: Play [09-P1 Plain]",
+                          x + 184.0f, y + 138.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
+        draw_text_snapped(font_body, "onto [09-A Sake Cup] on the table.",
+                          x + 184.0f, y + 162.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     } else if (s_tut_step == TUT1_PANEL_KOI_DECIDE) {
-        draw_text_snapped(font_title, "You have completed a combo!",
-                          x, y, 21.0f, 1.3f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "STEP 5 OF 5  //  KOI-KOI OR SHOBU",
+                          x, y, 20.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 30.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 30.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
-                          "Select \"KOI-KOI (CONTINUE)\" to keep playing for more points, or",
+                          "Select \"KOI-KOI (CONTINUE)\" to keep playing for higher multipliers, or",
                           x, y + 46.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,
                           "select \"SHOBU (BANK & END)\" to bank your points and win the round.",
