@@ -40,6 +40,11 @@ typedef struct TableGlowSettings {
     /* ---- on / off ------------------------------------------------------------ */
     int   enabled;              /* 1 = draw the glow. F8 flips this at runtime.       */
     int   key_toggle;           /* key that flips it. KEY_F8 unless the game uses it. */
+    int   key_debug;            /* key that shows the live numbers (LUFS, high share,
+                                   BPM, final alpha) in the top-right corner. KEY_F7.
+                                   Off by default; with it off nothing is drawn. This is
+                                   how you tell "the meter is dead" from "the mapping is
+                                   too timid" without guessing.                          */
 
     /* ---- the light itself ---------------------------------------------------- */
     float radius_px;            /* how far the shader looks, in canvas pixels. 2..40,
@@ -49,6 +54,8 @@ typedef struct TableGlowSettings {
                                    light (the 8-neighbour opacity test uses the same
                                    stencil). Too small: the gradient gets noisy. Too large:
                                    only the fattest parts of the casing can light.        */
+    float core_gain;            /* strength of the sharp head. 0.02..2, default 0.20.  */
+    float bloom_gain;           /* strength of the halo. 0..2, default 0.10.           */
     float core_uv;              /* radius of the sharp head's falloff, in texture UV.
                                    0.02..0.60, default 0.10 (= 128 px at 1280 wide).      */
     float bloom_uv;             /* radius of the broad halo around each head, in UV.
@@ -76,29 +83,42 @@ typedef struct TableGlowSettings {
                                    so the card's floor threw away 46-83% of the table.   */
     float black_hi;             /* where that floor reaches full light. Must be above
                                    black_lo. Default 0.050.                              */
-    float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.88.
-                                   This is the single "how strong" knob.                */
+    float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.35.
+                                   This is the single "how strong" knob. It was 0.88,
+                                   which on a dark painted table washed the score out.  */
     float intensity;            /* multiplier on top of the loudness term. 0..2,
                                    default 1.00. Use it to audition 0.5 quickly.        */
 
     /* ---- loudness -> brightness ---------------------------------------------- */
-    float brightness_base;      /* glow with no music at all. 0..1, default 0.55.      */
+    float brightness_base;      /* glow with no music at all. 0..1, default 0.08.
+                                   Keep this low: it is the part of the light the music
+                                   does NOT move, and a high base is what makes an effect
+                                   look like it ignores the music.                       */
     float brightness_per_lufs;  /* how much loudness adds at lufs_ceil_db. 0..1,
-                                   default 0.45. brightness_base + this = 1.0 at the
-                                   ceiling, so the light never clips past full.        */
-    float lufs_floor_db;        /* loudness mapped to zero: -70..0, default -40.
-                                   Narrow the gap to lufs_ceil_db for more movement.    */
-    float lufs_ceil_db;         /* loudness mapped to full: -40..0, default -10.       */
+                                   default 0.92. brightness_base + this = 1.0 at the
+                                   ceiling, so the whole range is used: 0.08 when the
+                                   passage is at lufs_floor_db, 1.00 at lufs_ceil_db.    */
+    float lufs_floor_db;        /* loudness mapped to zero: -70..0, default -32.
+                                   A real track's momentary loudness swings inside a few
+                                   dB. The old -40..-10 range squeezed a whole song into
+                                   the top fifth of the mapping, which is why the light
+                                   looked like it ignored the music.                     */
+    float lufs_ceil_db;         /* loudness mapped to full: -40..0, default -10.
+                                   Set the floor ~4 dB under your quietest passage and the
+                                   ceiling ~2 dB over your loudest, and press F7 to watch
+                                   the number while the track plays.                     */
     float lufs_attack_ms;       /* how fast brightness rises. 10..2000, default 120.   */
     float lufs_release_ms;      /* how slow it falls. 10..2000, default 450. Slower
                                    release = more breathing, less flicker.             */
 
     /* ---- high share -> bloom -------------------------------------------------- */
     float bloom_base;           /* halo RADIUS multiplier for a dark tone, applied to
-                                   bloom_uv. 0.2..2,
-                                   default 0.85.                                       */
+                                   bloom_uv. 0.2..2, default 0.45,
+                                                                                        */
     float bloom_per_high;       /* added to that when the high band is all there is,
-                                   0..1.5, default 0.55.                                */
+                                   0..1.5, default 1.20 - so the halo radius runs from
+                                   0.45x to 1.65x across a track's high end, instead of
+                                   moving by a few percent and looking inert.           */
     float high_smooth_ms;       /* how lazily the halo follows the tone. 20..2000,
                                    default 350.                                        */
 

@@ -71,22 +71,24 @@
    -------------------------------------------------------------------------- */
 #define TGLOW_DEF_ENABLED           1
 #define TGLOW_DEF_RADIUS_PX         4.0f
+#define TGLOW_DEF_CORE_GAIN        0.20f
+#define TGLOW_DEF_BLOOM_GAIN       0.10f
 #define TGLOW_DEF_CORE_UV          0.10f
 #define TGLOW_DEF_BLOOM_UV         0.45f
 #define TGLOW_DEF_BLACK_LO         0.015f
 #define TGLOW_DEF_BLACK_HI         0.050f
 #define TGLOW_DEF_LUM_LO            0.42f
 #define TGLOW_DEF_LUM_HI            0.72f
-#define TGLOW_DEF_MAX_ALPHA         0.88f
+#define TGLOW_DEF_MAX_ALPHA         0.35f
 #define TGLOW_DEF_INTENSITY         1.00f
-#define TGLOW_DEF_BRIGHT_BASE       0.55f
-#define TGLOW_DEF_BRIGHT_PER_LUFS   0.45f
-#define TGLOW_DEF_LUFS_FLOOR      (-40.0f)
+#define TGLOW_DEF_BRIGHT_BASE       0.08f
+#define TGLOW_DEF_BRIGHT_PER_LUFS   0.92f
+#define TGLOW_DEF_LUFS_FLOOR      (-32.0f)
 #define TGLOW_DEF_LUFS_CEIL       (-10.0f)
 #define TGLOW_DEF_LUFS_ATTACK_MS  120.0f
 #define TGLOW_DEF_LUFS_RELEASE_MS 450.0f
-#define TGLOW_DEF_BLOOM_BASE        0.85f
-#define TGLOW_DEF_BLOOM_PER_HIGH    0.55f
+#define TGLOW_DEF_BLOOM_BASE        0.45f
+#define TGLOW_DEF_BLOOM_PER_HIGH    1.20f
 #define TGLOW_DEF_HIGH_SMOOTH_MS  350.0f
 #define TGLOW_DEF_SPEED_BASE        0.52f
 #define TGLOW_DEF_BPM_REF          96.0f
@@ -97,7 +99,10 @@
 TableGlowSettings tableglow = {
     .enabled             = TGLOW_DEF_ENABLED,
     .key_toggle          = KEY_F8,
+    .key_debug           = KEY_F7,
     .radius_px           = TGLOW_DEF_RADIUS_PX,
+    .core_gain           = TGLOW_DEF_CORE_GAIN,
+    .bloom_gain          = TGLOW_DEF_BLOOM_GAIN,
     .core_uv             = TGLOW_DEF_CORE_UV,
     .bloom_uv            = TGLOW_DEF_BLOOM_UV,
     .luminance_lo        = TGLOW_DEF_LUM_LO,
@@ -420,11 +425,12 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    float bw  = max(u_tune.y, 0.05);\n"                                                \
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n"                                         \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n"                                         \
-    "    float core  = lit * gain * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * 0.55;\n" \
-    "    float bloom = lit * gain * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * 0.35;\n" \
+    "    float core  = lit * gain * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * u_gain.x;\n" \
+    "    float bloom = lit * gain * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * u_gain.y;\n" \
+    "    vec3 tint = fragColor.rgb * (0.20 + 0.80 * min(hc * 3.0, 1.0));\n"                 \
     "    float raw = (core + bloom) * u_tune.x;\n"                                          \
     "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                       \
-    "    " OUT " = vec4(fragColor.rgb, a);\n"                                               \
+    "    " OUT " = vec4(tint, a);\n"                                               \
     "}\n"                                                                                   \
 
 #ifdef __EMSCRIPTEN__
@@ -438,6 +444,7 @@ static const char *const k_tableglow_fs =
     "uniform vec4 u_phase;\n"
     "uniform vec4 u_tune;\n"
     "uniform vec4 u_shape;\n"
+    "uniform vec4 u_gain;\n"
     TGLOW_SHADER_BODY("texture2D", "gl_FragColor");
 #else
 static const char *const k_tableglow_fs =
@@ -449,6 +456,7 @@ static const char *const k_tableglow_fs =
     "uniform vec4 u_phase;\n"
     "uniform vec4 u_tune;\n"
     "uniform vec4 u_shape;\n"
+    "uniform vec4 u_gain;\n"
     "out vec4 finalColor;\n"
     TGLOW_SHADER_BODY("texture", "finalColor");
 #endif
@@ -462,6 +470,7 @@ static int    s_shader_tried;
 static int    s_phase_loc = -1;
 static int    s_tune_loc = -1;
 static int    s_shape_loc = -1;
+static int    s_gain_loc = -1;
 static float  s_phase_a, s_phase_b;
 static float  s_bright_vis = -1.0f;      /* <0 = not seeded yet, snap on first frame */
 static float  s_bloom_vis = -1.0f;
@@ -474,6 +483,7 @@ static void tg_shader_init(void) {
         s_phase_loc = GetShaderLocation(s_shader, "u_phase");
         s_tune_loc  = GetShaderLocation(s_shader, "u_tune");
         s_shape_loc = GetShaderLocation(s_shader, "u_shape");
+        s_gain_loc  = GetShaderLocation(s_shader, "u_gain");
         TraceLog(LOG_INFO, "tableglow: linked - %s", TABLEGLOW_ENABLED ? "on" : "off");
     } else {
         TraceLog(LOG_WARNING, "tableglow: shader failed to load, table light disabled");
@@ -487,16 +497,12 @@ static float tg_approach(float now, float target, float tau_ms, float dt) {
     return now + (target - now) * k;
 }
 
-void tableglow_draw_overlay(Texture2D overlay, float dt) {
-#if !TABLEGLOW_ENABLED
-    (void)overlay; (void)dt;
-#else
-    /* F8 works in both directions, so it is checked before the enabled guard. */
-    if (IsKeyPressed(tableglow.key_toggle)) {
-        tableglow.enabled = tableglow.enabled ? 0 : 1;
-        TraceLog(LOG_INFO, "tableglow: %s", tableglow.enabled ? "on" : "off");
-    }
-    if (!tableglow.enabled) return;
+static int   s_debug;              /* F7 readout, off unless asked for               */
+static float s_dbg_alpha;          /* last frame's alpha at a head, for the readout  */
+static int   s_dbg_live;
+static float s_dbg_lufs, s_dbg_share, s_dbg_bpm;
+
+static void tg_draw_light(Texture2D overlay, float dt) {
     if (overlay.id <= 0 || overlay.width <= 0 || overlay.height <= 0) return;
 
     tg_shader_init();
@@ -511,6 +517,7 @@ void tableglow_draw_overlay(Texture2D overlay, float dt) {
     float share = (float)__atomic_load_n(&s_pub_high, __ATOMIC_RELAXED) / 10000.0f;
     float bpm_p = (float)__atomic_load_n(&s_pub_bpm, __ATOMIC_RELAXED) / 100.0f;
     if (!live) { lufs = tableglow.lufs_floor_db; share = 0.0f; }
+    s_dbg_live = live; s_dbg_lufs = lufs; s_dbg_share = share;
 
     /* ---- loudness -> brightness --------------------------------------------- */
     float span = tableglow.lufs_ceil_db - tableglow.lufs_floor_db;
@@ -536,6 +543,7 @@ void tableglow_draw_overlay(Texture2D overlay, float dt) {
     bpm = tg_clampf(bpm, tableglow.bpm_min, tableglow.bpm_max);
     float ref = (tableglow.bpm_ref > 1.0f) ? tableglow.bpm_ref : 96.0f;
     float rate = tableglow.speed_base * (bpm / ref);          /* rad/s on the light circle */
+    s_dbg_bpm = bpm;
     s_phase_a = fmodf(s_phase_a + dt * rate, 6.28318530718f);
     s_phase_b = fmodf(s_phase_b - dt * rate * 0.7115f, 6.28318530718f);   /* the cards' 0.52 : 0.37 */
 
@@ -557,10 +565,18 @@ void tableglow_draw_overlay(Texture2D overlay, float dt) {
     float black_hi = tg_clampf(tableglow.black_hi, 0.0f, 0.30f);
     if (black_hi <= black_lo) black_hi = black_lo + 0.001f;
     float shape[4] = { core_uv * core_uv, bloom_uv * bloom_uv, black_lo, black_hi };
+    float gain[4]  = { tg_clampf(tableglow.core_gain,  0.02f, 2.0f),
+                       tg_clampf(tableglow.bloom_gain, 0.0f,  2.0f), 0.0f, 0.0f };
 
     if (s_phase_loc >= 0) SetShaderValue(s_shader, s_phase_loc, phase, SHADER_UNIFORM_VEC4);
     if (s_tune_loc  >= 0) SetShaderValue(s_shader, s_tune_loc,  tune,  SHADER_UNIFORM_VEC4);
     if (s_shape_loc >= 0) SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
+    if (s_gain_loc  >= 0) SetShaderValue(s_shader, s_gain_loc,  gain,  SHADER_UNIFORM_VEC4);
+
+    {
+        float head_raw = (tableglow.core_gain * 1.0f + tableglow.bloom_gain) * s_bright_vis;
+        s_dbg_alpha = (1.0f - expf(-head_raw * 1.65f)) * tg_clampf(tableglow.max_alpha, 0.0f, 1.0f);
+    }
 
     Color tint = { 250, 246, 238,
                    (unsigned char)(tg_clampf(tableglow.max_alpha, 0.0f, 1.0f) * 255.0f) };
@@ -573,6 +589,43 @@ void tableglow_draw_overlay(Texture2D overlay, float dt) {
     DrawTexturePro(overlay, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
     EndShaderMode();
     EndBlendMode();
+}
+
+/* The readout. Drawn last, so it stays readable on top of the light it describes.
+   Nothing here runs unless F7 was pressed: no text, no rectangle, no state. */
+static void tg_draw_readout(void) {
+    if (!s_debug) return;
+    const Color ink = { 235, 240, 235, 255 };
+    const Color bg  = { 0, 0, 0, 170 };
+    const char *lines[5];
+    lines[0] = TextFormat("tableglow %s   live %d", tableglow.enabled ? "ON" : "OFF", s_dbg_live);
+    lines[1] = TextFormat("lufs %.1f  ->  bright %.2f", s_dbg_lufs, s_bright_vis);
+    lines[2] = TextFormat("high %.2f  ->  bloom %.2f", s_dbg_share, s_bloom_vis);
+    lines[3] = TextFormat("bpm %.0f  ->  rate %.2f", s_dbg_bpm, tableglow.speed_base);
+    lines[4] = TextFormat("alpha %.3f   gain %.2f/%.2f", s_dbg_alpha,
+                          tableglow.core_gain, tableglow.bloom_gain);
+    int w = 0;
+    for (int i = 0; i < 5; i++) {
+        int lw = MeasureText(lines[i], 16);
+        if (lw > w) w = lw;
+    }
+    DrawRectangle(1272 - w - 10, 6, w + 20, 5 * 20 + 8, bg);
+    for (int i = 0; i < 5; i++) DrawText(lines[i], 1278 - w - 4, 10 + i * 20, 16, ink);
+}
+
+void tableglow_draw_overlay(Texture2D overlay, float dt) {
+#if !TABLEGLOW_ENABLED
+    (void)overlay; (void)dt;
+#else
+    /* F8 works in both directions, so it is checked before the enabled guard. */
+    if (IsKeyPressed(tableglow.key_toggle)) {
+        tableglow.enabled = tableglow.enabled ? 0 : 1;
+        TraceLog(LOG_INFO, "tableglow: %s", tableglow.enabled ? "on" : "off");
+    }
+    if (IsKeyPressed(tableglow.key_debug)) s_debug = !s_debug;
+
+    if (tableglow.enabled) tg_draw_light(overlay, dt);
+    tg_draw_readout();
 #endif
 }
 
