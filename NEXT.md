@@ -100,11 +100,17 @@ match that opens the story. This needs a branch ABOVE the `== 3` test (the note 
 
 ## Cutting a release
 
-The version is printed bottom-right on the title screen and comes from `src/version.h`.
-Bump `XENO_KOI_VERSION` in the same commit that tags the release, so the number on the
-screen and the number on the release page cannot drift. Take the exe from the Actions run
-for `main` (Windows artifact `XenoKoi_Windows`), never from whichever PR build is on top
-of the list.
+The version on the title screen is compiled in (`src/version.h`). Nothing reads the git
+tag: by the time a release tag exists, the exe inside the zip is already built and frozen.
+So the order is fixed -
+
+1. set `XENO_KOI_VERSION` to the new number, commit, merge to `main`;
+2. wait for the build on `main`, download the `XenoKoi_Windows` artifact from THAT run
+   (never from a PR build - they share the artifact name);
+3. upload it to the new release, which creates the tag.
+
+Skip step 1 and the exe says the old number under the new tag. That is the whole
+mechanism - the number is chosen by hand before the build, not derived from the tag.
 
 ## How to check a change
 
