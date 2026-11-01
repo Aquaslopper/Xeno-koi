@@ -109,6 +109,13 @@ cards, run `python3 tools/gen_wiki_tables.py` and commit the result; CI checks i
 The masthead band and the buttons at the top of this file are generated the same way, from the shipped art, by
 `tools/make_readme_art.py`.
 
+## License
+
+XENO/KOI is released under the **MIT License** — see [`LICENSE`](LICENSE). Play it, fork it,
+change it, ship your own version; keep the copyright notice with it. The music is Aquaslopper's
+own work, and the bundled fonts and raylib keep their own licences — both are noted in
+[`Credits.md`](Credits.md).
+
 ## Building from Source
 
 For developers wishing to compile the game from source:
