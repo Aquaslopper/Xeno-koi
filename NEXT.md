@@ -55,12 +55,13 @@ instead of six. Not yet seen on a screen.
 ## 2b. CRT casing for any table — built, waiting on one look
 
 `settings.crt_tables`, toggled as `CRT CASING: ON/OFF` on STAGE // MAP SELECT, runs any
-forged table in phosphor without replacing its art. The map's own overlay and bezel are
-drawn through `k_crt_tint_fs` instead of straight, so silhouette, bevels and alpha stay the
-map's and only the colour is remapped — CASTLE still looks like CASTLE. Pickers go through
-`board_draw_table_overlay()`, so a thumbnail cannot promise brown and render green. Off by
-default, saved as `crt_tables` in `settings.txt`. Not yet seen on a screen; if it reads too
-dark, the three ramp stops are the first line of the shader to touch.
+forged table as glowing phosphor line art without replacing its art. It is real baked art,
+not a tint: `tools/crt_casing.py` reads each map's `overlay.png` and `bezel.png` and writes
+`crt_overlay.png` / `crt_bezel.png` beside them — Sobel edges, three glow octaves, phosphor
+ramp, hollow interiors with a dark floor so text stays readable. Silhouette, ornaments and
+the card cavity are that map's own. Rerun the tool after editing a map's art;
+`--check` fails when a pair is stale. Runtime just picks the texture, so desktop and web
+agree. Off by default, saved as `crt_tables`. Not yet seen on a screen.
 
 ## 3. Month 02 onwards: my words, one card at a time
 
