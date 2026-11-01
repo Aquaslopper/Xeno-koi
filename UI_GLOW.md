@@ -26,9 +26,9 @@ allowed to be slow.
 
 | Piece | Path |
 |---|---|
-| the effect and its shader | `src/ui_glow.c` (new) |
-| the interface | `src/ui_glow.h` (new) - one prototype, points at this file |
-| the call | `src/ui_main.c` - one line, after the canvas blit, UI screens only |
+| the effect and its shader | `src/ui_glow.c` - `ui_glow_draw_ui_pass()` |
+| the interface | `src/ui_glow.h` - one prototype, points at this file |
+| the call | `src/ui_main.c:2064` - one line, after the canvas blit, `screen != SCREEN_GAME` |
 
 Rules, all of them consequences of the first:
 
@@ -51,21 +51,27 @@ under `tests/` changes.
 ## 3. What it draws
 
 A single additive pass over the frame the UI is already rendered into. Nothing new is
-rendered and no screen is re-drawn: `ui_main.c` hands over `canvas.texture` and the module
-draws it a second time, on top of itself, through its own shader.
+rendered and no screen is re-drawn: `ui_main.c` hands over `canvas.texture`, the rectangle it
+was just blitted to, and the module draws that frame again on top of itself, through its own
+shader.
 
-- **The normal is inferred, not modelled.** Four extra taps around each pixel give a
-  luminance gradient left/right and up/down; that gradient is the normal. Two light points
-  drift on wide, slow ellipses, and where the normal lines up with a light, a specular is
-  added. This is the card glint's math, not the card glint's code (see §4).
-- **Only edges catch it.** A sharpness threshold drops anything with a soft gradient, so
-  panel borders, box outlines, rules and text edges glint while painted backgrounds and
-  photographs stay dark. That is what makes it read as structure rather than a wash.
-- **Lighter than the cards, on purpose.** The cards need their glint as an easy-mode helper
-  and keep it untouched. The UI light runs at roughly a third of that intensity, slower than
-  the card's orbit, with wider and softer falloff - it should be noticeable when you look for
-  it and never in the way when you do not.
-- **Colour:** `g_theme.base`, additive, so it adds light rather than tinting what it crosses.
+- **The normal is inferred, not modelled.** Five taps give a luminance gradient
+  left/right and up/down (`g = (hl - hr, hu - hd) / peak`); that gradient is the normal,
+  `n = normalize(vec3(g * 2.2, 1.0))`. This is the card glint's math, not the card glint's
+  code - see §8 for what differs and why.
+- **Only edges catch it.** `edge = smoothstep(UI_GLOW_EDGE, UI_GLOW_EDGE + 0.30, length(g))`,
+  so panel borders, box outlines, rules and text edges glint while painted backgrounds and
+  photographs stay dark. The card glint's `solid` gate is alpha-based and cannot be used
+  here; §8 explains why.
+- **Two lights, two pool widths.** `exp(-dot(t, t) / UI_GLOW_FALLOFF_A)` for the near light
+  and `UI_GLOW_FALLOFF_B` for the far one, each multiplied by a half-vector specular
+  `0.20 + 0.80 * pow(nd, 3.0)`, then compressed:
+  `a = 0.55 * (1 - exp(-edge * core * UI_GLOW_INTENSITY * 2.2))`.
+- **Colour:** the tint. The shader emits `vec4(fragColor.rgb, a)` untouched and only decides
+  where light lands, so the colour is `g_theme.base` passed from C - the same mechanism the
+  card glint uses with its near-white constant.
+- **Lighter than the cards, on purpose:** peak alpha lands near 0.35 against the card glint's
+  0.88, and the orbit is slower. The cards keep their intensity: it is easy-mode feedback.
 - **Screens:** UI only - title, main hub, Pancratium, Options, Stats, Plex, campaign. Not the
   game table, which already carries the casing, the card glint, the ash and the embers.
 
@@ -89,22 +95,43 @@ draws it a second time, on top of itself, through its own shader.
 - **Gameplay.** No engine, no turn, no gate, no timing, no input.
 - **Tests.** Nothing added, nothing changed; `tests/` is locked.
 
-## 5. Tuning surface
+## 5. Tuning surface - how to change it in six months
 
-`UI_GLOW_INTENSITY`, `UI_GLOW_SHARPNESS`, `UI_GLOW_RADIUS` and the two orbit speeds in
-`src/ui_glow.c`. That is the whole list. `UI_GLOW_INTENSITY 0` is the off switch.
+Every number is a `#define` at the top of `src/ui_glow.c`, compiled in. There is no settings
+file and no Options row (§2), so changing the glow means changing one of these and rebuilding.
+
+| Constant | Now | What it does | Sane range |
+|---|---|---|---|
+| `UI_GLOW_INTENSITY` | `0.22` | overall strength of the pass. **`0.0` switches the whole thing off** | 0.00 - 0.60 |
+| `UI_GLOW_SPEED_A` | `0.043` | light A, laps per second | 0.005 - 0.15 |
+| `UI_GLOW_SPEED_B` | `0.031` | light B, laps per second. Keep it incommensurate with A | 0.005 - 0.15 |
+| `UI_GLOW_EDGE` | `0.10` | gradient at which an edge starts to catch. Higher = fewer edges light up | 0.03 - 0.30 |
+| `UI_GLOW_FALLOFF_A` | `0.075` | pool width of the near light, in UV squared. Higher = wider, softer | 0.03 - 0.40 |
+| `UI_GLOW_FALLOFF_B` | `0.220` | pool width of the far light, same units | 0.03 - 0.40 |
+| `UI_GLOW_SAMPLE_PX` | `1.45` | how far apart the neighbours are sampled for the normal, in pixels | 1.0 - 3.0 |
+
+Recipe, months later:
+
+1. Open `src/ui_glow.c`; the seven defines are the first thing in the file.
+2. Change one. If it looks wrong, change it back - nothing else depends on these numbers.
+3. `./build.sh` and look at a menu screen.
+
+If a change to the glow needs an edit in any other file, stop: §2 says the change is wrong.
 
 ## 6. Not settled
 
-**Intensity and speed**, and only those. The form is decided: an inferred-normal specular
-pass, the same idea the cards use, lighter. What remains is judgement on a display - if it
-reads too strong or too quick, it is two constants and nothing else.
+Only judgement: whether the intensity and speed above read right on a display. The form is
+decided and built. Anything that would need a change outside `src/ui_glow.c` is a new
+decision for the owner, not a tweak.
 
 ## 7. Verification
 
 - `-fsyntax-only` sweep of `src/*.c` at `-Wall -Wextra -Werror`.
 - `./build.sh test`, `./tools/action_guard.sh`, `./tools/tests_guard.sh`,
   `python3 tools/gen_wiki_tables.py --check`.
+- The shader is compiled at runtime by the driver (`LoadShaderFromMemory`). If it fails to
+  load, `ui_glow_draw_ui_pass()` returns without drawing anything - the UI is unaffected,
+  it simply has no ambient light. No error path can leave the screen half-drawn.
 
 **Not covered by any test:** the feel. No test asserts that light reads well; that is judged
 on a display, by the owner.
