@@ -26,16 +26,18 @@ allowed to be slow.
 
 | Piece | Path |
 |---|---|
-| the effect | `src/ui_glow.c` (new) |
+| the effect and its shader | `src/ui_glow.c` (new) |
 | the interface | `src/ui_glow.h` (new) - one prototype, points at this file |
-| the call | `src/ui_main.c` - one line, at the end of the non-game branch of the canvas draw |
+| the call | `src/ui_main.c` - one line, after the canvas blit, UI screens only |
 
 Rules, all of them consequences of the first:
 
 - **One call site.** Not one per screen. `ui_main.c` already decides what a screen draws;
   six call sites would be six places to forget.
-- **The module reads two things from the rest of the program:** `g_theme.base` and
-  `CANVAS_W` / `CANVAS_H`. It writes nothing outside its own file.
+- **The module receives the frame and nothing else that matters:** the texture the UI was
+  already drawn into (`canvas.texture`), the rectangle it was blitted to - so the pass lands
+  exactly on top of it, letterboxing and the canvas's vertical flip included - and
+  `g_theme.base` for the colour. It writes nothing outside its own file.
 - **If a change to the glow needs a line in any other file, the change is wrong.** Stop,
   write it here first, and let the owner decide.
 - **No `storage.c` / `storage.h`, no Options row.** No setting means nothing to save, load,
@@ -48,23 +50,35 @@ under `tests/` changes.
 
 ## 3. What it draws
 
-- **Colour:** `g_theme.base`. TEAL, AMBER, CRIMSON, VIOLET, DARK and GOLD all work with no
-  extra state.
-- **Motion:** two loops at 0.043 and 0.031 laps per second. They share no small multiple, so
-  the pair never settles into the same formation twice.
-- **Form:** a stack of circles, rim inwards, one alpha step each. No shader, no texture, no
-  allocation, nothing to unload.
-- **Strength:** peak additive alpha 48/255 (about 19%) at the centre of a pool, fading to
-  nothing at the rim. Additive means it adds light - it does not tint what it crosses.
+A single additive pass over the frame the UI is already rendered into. Nothing new is
+rendered and no screen is re-drawn: `ui_main.c` hands over `canvas.texture` and the module
+draws it a second time, on top of itself, through its own shader.
+
+- **The normal is inferred, not modelled.** Four extra taps around each pixel give a
+  luminance gradient left/right and up/down; that gradient is the normal. Two light points
+  drift on wide, slow ellipses, and where the normal lines up with a light, a specular is
+  added. This is the card glint's math, not the card glint's code (see §4).
+- **Only edges catch it.** A sharpness threshold drops anything with a soft gradient, so
+  panel borders, box outlines, rules and text edges glint while painted backgrounds and
+  photographs stay dark. That is what makes it read as structure rather than a wash.
+- **Lighter than the cards, on purpose.** The cards need their glint as an easy-mode helper
+  and keep it untouched. The UI light runs at roughly a third of that intensity, slower than
+  the card's orbit, with wider and softer falloff - it should be noticeable when you look for
+  it and never in the way when you do not.
+- **Colour:** `g_theme.base`, additive, so it adds light rather than tinting what it crosses.
 - **Screens:** UI only - title, main hub, Pancratium, Options, Stats, Plex, campaign. Not the
   game table, which already carries the casing, the card glint, the ash and the embers.
 
 ## 4. Boundaries - what it does not touch
 
 - **Cards.** `k_bezel_shine_fs`, `board_draw_table_bezel_shine()` and `board_draw_card_glow()`
-  in `src/ui_board.c` belong to the card glint: a specular over a card's own metal. This is
-  ambient light in the room. They share no code, no shader and no uniforms, and
-  `src/ui_board.c` does not change.
+  in `src/ui_board.c` belong to the card glint: a specular over a card's own metal, and an
+  easy-mode helper. `src/ui_board.c` does not change, and neither does that shader.
+- **No shared shader.** The normal-from-luminance math is re-derived inside `ui_glow.c`
+  rather than imported from the card shader - about twenty lines of GLSL, deliberately
+  duplicated. Sharing it would make a change to the easy-mode card glint able to move the UI
+  light, and a change here able to move the cards. Two systems that look similar stay two
+  systems; duplication is the cheaper of the two costs.
 - **Themes.** `src/ui_theme.c` owns the themes, the panel flares and the glyph tracing. The
   glow reads `g_theme.base` and is not part of that file.
 - **Audio.** Nothing here reads or writes the mixer, the reverb, the beat or any audio state.
@@ -77,16 +91,14 @@ under `tests/` changes.
 
 ## 5. Tuning surface
 
-`UI_AMBIENT_PEAK`, `UI_AMBIENT_RADIUS` and the two speeds in `src/ui_glow.c`. That is the
-whole list. `UI_AMBIENT_PEAK 0` is the off switch.
+`UI_GLOW_INTENSITY`, `UI_GLOW_SHARPNESS`, `UI_GLOW_RADIUS` and the two orbit speeds in
+`src/ui_glow.c`. That is the whole list. `UI_GLOW_INTENSITY 0` is the off switch.
 
 ## 6. Not settled
 
-**Pools or lines.** §3 describes two drifting pools. The alternative is a highlight that
-lands only on panel borders, box outlines and text edges, so the UI's structure glints while
-flat areas stay dark. Different looks, different code, same module: whichever wins, §3 is
-rewritten in the same commit and nothing outside `src/ui_glow.c` moves. That is what the
-module boundary is for.
+**Intensity and speed**, and only those. The form is decided: an inferred-normal specular
+pass, the same idea the cards use, lighter. What remains is judgement on a display - if it
+reads too strong or too quick, it is two constants and nothing else.
 
 ## 7. Verification
 
