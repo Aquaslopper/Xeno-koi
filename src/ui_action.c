@@ -736,7 +736,7 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
         s_grey_lock    = 0;
     }
     if (s_grey_lock) {
-        if (reverb_synergy <= 0.50f) {
+        if (reverb_synergy <= 0.60f) {
             s_grey_lock    = 0;
             s_peak_buf_sec = 0.0f;
         }
@@ -746,14 +746,14 @@ void action_card_draw_meters(const BoardAssets *ba, const GameState *g,
             if (s_peak_buf_sec >= 5.0f) {
                 s_grey_lock          = 1;
                 s_peak_buf_sec       = 0.0f;
-                s_action_added_hold  = 0.50f;
+                s_action_added_hold  = 0.60f;
                 s_action_added_timer = 0.0f;
             }
         }
     } else {
         s_peak_buf_sec = 0.0f;
     }
-    float added_lvl = s_grey_lock ? 0.50f : reverb_synergy;
+    float added_lvl = s_grey_lock ? 0.60f : reverb_synergy;
     float grey_lvl  = s_grey_lock ? reverb_synergy : 0.0f;
     int right_full = (added_lvl >= 0.98f);
     int trigger_quartile = (settings.difficulty == DIFFICULTY_EASY) ? 1 :
