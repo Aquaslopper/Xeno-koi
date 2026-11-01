@@ -16,8 +16,20 @@ pulsing phosphor rings and leader lines in `plexus_tutorial_draw_panel()`, and l
 callout pills (`1. CLICK THIS CARD` -> `2. MATCH HERE`) in
 `plexus_tutorial_draw_board_guides()`. Advances on click only.
 
-Rule: presentation only. No phase, no timer, no input gate, no rule changes. Card 2
-(Action Card) and card 3 (Speedcoin) tutorials are untouched. Not yet seen on a screen.
+Rule: presentation only. No phase, no timer, no input gate, no rule changes. Not yet seen
+on a screen.
+
+## 1a. The other two tutorials, same language — built, waiting on one look
+
+Speedcoin and Action Card now borrow the same coach marks as Koi-Koi instead of drawing
+their own flat boxes. `tut_sc_focus_rect()` gives Speedcoin a real spotlight scrim
+(CORE, SYNC, PARASITE/HAND2); the flat dim stays on `NO_HESITATION` on purpose, because
+that step is reading the score screen. Each frozen step rings its subject and labels it:
+`YOUR SCORE + CLOCK`, `SPEEDBAR`, `THE STOCK`, `AUDIO PULSE`, `RESERVOIR`. Action Card
+keeps its flat dim — the meters frame the panel, so a cut-out there would light the middle
+of the board and nothing else. Red stays on the parasite pile and the wine reservoir. The
+`DrawRectangleLinesEx` outlines are gone; what a step asks for is unchanged. Not yet seen
+on a screen.
 
 ## 1b. D-badge tour — built, waiting on one look
 
@@ -39,6 +51,17 @@ Six buttons: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION. Hov
 `k_bottom_rects[0..5]` in `plexus_draw_ui_chrome()` drives `k_briefing_rect` with what
 the button or mode is and how it scores. No hidden layer, no hover fly-outs, one state
 instead of six. Not yet seen on a screen.
+
+## 2b. CRT casing for any table — built, waiting on one look
+
+`settings.crt_tables`, toggled as `CRT CASING: ON/OFF` on STAGE // MAP SELECT, runs any
+forged table as glowing phosphor line art without replacing its art. It is real baked art,
+not a tint: `tools/crt_casing.py` reads each map's `overlay.png` and `bezel.png` and writes
+`crt_overlay.png` / `crt_bezel.png` beside them — Sobel edges, three glow octaves, phosphor
+ramp, hollow interiors with a dark floor so text stays readable. Silhouette, ornaments and
+the card cavity are that map's own. Rerun the tool after editing a map's art;
+`--check` fails when a pair is stale. Runtime just picks the texture, so desktop and web
+agree. Off by default, saved as `crt_tables`. Not yet seen on a screen.
 
 ## 3. Month 02 onwards: my words, one card at a time
 

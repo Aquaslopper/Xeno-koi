@@ -1323,9 +1323,7 @@ static void draw_plex_stage_card(const BoardAssets *ba, int map, int cur_stage, 
                        (Vector2){ 0, 0 }, 0.0f, WHITE);
     }
     if (ba && map > TABLE_DESIGN_CRT && ba->table_skins[map].ready) {
-        const Texture2D overlay = ba->table_skins[map].overlay;
-        DrawTexturePro(overlay, (Rectangle){ 0, 0, (float)overlay.width, (float)overlay.height }, art,
-                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+        board_draw_table_overlay(ba, map, art);
     }
     DrawRectangleLinesEx(card, (sel || hov) ? 2.0f : 1.0f,
                          sel ? COLOR_PHOSPHOR : (hov ? COLOR_PHOSPHOR_DIM : (Color){ 100, 100, 100, 150 }));
@@ -4502,6 +4500,17 @@ static int tut_kk_focus_rect(TutorialStep st, Rectangle *out) {
     return 1;
 }
 
+/* Speedcoin tutorial (card 2) and Action Card tutorial (card 1): the thing each
+   frozen panel is describing. Same purpose as tut_kk_focus_rect() - the scrim
+   leaves it lit instead of burying it, and the coach ring goes around it. */
+static int tut_sc_focus_rect(TutorialStep st, Rectangle *out) {
+    if (st == TUT2_PANEL_CORE)     { *out = (Rectangle){    9.0f,   9.0f, 261.0f, 205.0f }; return 1; }
+    if (st == TUT2_PANEL_SYNC)     { *out = (Rectangle){ 1157.0f, 659.0f, 118.0f,  46.0f }; return 1; }
+    if (st == TUT2_PANEL_PARASITE ||
+        st == TUT2_PANEL_HAND2)    { *out = (Rectangle){  326.0f, 258.0f,  84.0f, 132.0f }; return 1; }
+    return 0;
+}
+
 static void draw_tut_scrim(Rectangle hole, unsigned char alpha) {
     Color c = { 0, 0, 0, alpha };
     float x0 = fmaxf(0.0f, hole.x), y0 = fmaxf(0.0f, hole.y);
@@ -4631,34 +4640,32 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         Rectangle focus;
         if (s_tut_card_id == 3 && tut_kk_focus_rect(s_tut_step, &focus)) {
             draw_tut_scrim(focus, 150);
+        } else if (s_tut_card_id == 2 && tut_sc_focus_rect(s_tut_step, &focus)) {
+            draw_tut_scrim(focus, 150);
         } else {
             DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, (s_tut_step == TUT2_PANEL_NO_HESITATION) ? 110 : 145 });
         }
     }
     if (s_tut_card_id == 2 && s_tut_step != TUT2_PANEL_NO_HESITATION) {
-        float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
         if (s_tut_step == TUT2_PANEL_CORE || s_tut_step == TUT2_PANEL_SYNC || s_tut_step == TUT2_PANEL_PARASITE) {
             Rectangle hl = (s_tut_step == TUT2_PANEL_CORE) ? (Rectangle){ 9.0f, 9.0f, 261.0f, 205.0f } :
                            (s_tut_step == TUT2_PANEL_SYNC) ? (Rectangle){ 1157.0f, 659.0f, 118.0f, 46.0f } :
                                                              (Rectangle){ 326.0f, 258.0f, 84.0f, 132.0f };
             Color hc = (s_tut_step == TUT2_PANEL_PARASITE) ? COLOR_RED : COLOR_PHOSPHOR;
-            DrawRectangleLinesEx(hl, 3.0f, hc);
-            hc.a = (unsigned char)(58.0f * pulse);
+            hc.a = (unsigned char)(58.0f * kk_pulse);
             DrawRectangleRec(hl, hc);
         } else if (s_tut_step == TUT2_PANEL_HAND2) {
             Rectangle sr = { 330.0f, 262.0f, 76.0f, 124.0f }, fb = { 326.0f, 258.0f, 84.0f, 132.0f };
-            board_draw_card_glow(sr, 0.72f + 0.28f * pulse);
+            board_draw_card_glow(sr, 0.72f + 0.28f * kk_pulse);
             if (ba) board_draw_card_back(ba, sr);
-            DrawRectangleLinesEx(fb, 2.0f, COLOR_PHOSPHOR);
             ui_theme_set_panel_flare_glow(fb, 1.0f);
             ui_theme_draw_panel_flares(fb);
         }
     } else if (s_tut_card_id == 1) {
-        float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 5.0f);
         Rectangle hl_l = { 402.0f, 129.0f, 38.0f, 309.0f }, hl_r = { 1076.0f, 136.0f, 26.0f, 302.0f };
         Color lc = COLOR_PHOSPHOR, rc = { 224, 136, 146, 255 };
-        DrawRectangleLinesEx(hl_l, 2.5f, lc); lc.a = (unsigned char)(52.0f * pulse); DrawRectangleRec(hl_l, lc);
-        DrawRectangleLinesEx(hl_r, 2.5f, rc); rc.a = (unsigned char)(56.0f * pulse); DrawRectangleRec(hl_r, rc);
+        lc.a = (unsigned char)(52.0f * kk_pulse); DrawRectangleRec(hl_l, lc);
+        rc.a = (unsigned char)(56.0f * kk_pulse); DrawRectangleRec(hl_r, rc);
     }
 
     Rectangle pr = tut_panel_rect_for_step(s_tut_step);
@@ -4703,6 +4710,44 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
             draw_tut_coach_ring(koi_btn, kk_pulse);
             draw_tut_coach_ring(shobu_btn, kk_pulse);
         }
+    }
+
+    /* Same coach-mark language as the Koi-Koi tutorial, for the other two: ring
+       whatever the panel is describing and label it. One pill per step, placed
+       in dead space beside its subject, and a leader line only when the gap is
+       wide enough to read. Nothing here changes what a step asks for. */
+    if (s_tut_card_id == 2) {
+        Rectangle subj;
+        if (s_tut_step != TUT2_PANEL_NO_HESITATION && tut_sc_focus_rect(s_tut_step, &subj)) {
+            draw_tut_coach_ring(subj, kk_pulse);
+            if (s_tut_step == TUT2_PANEL_CORE) {
+                draw_tut_coach_pill(subj.x + subj.width * 0.5f, subj.y + subj.height + 8.0f,
+                                    "YOUR SCORE + CLOCK");
+                DrawLineEx((Vector2){ pr.x, subj.y + subj.height * 0.5f },
+                           (Vector2){ subj.x + subj.width + 10.0f, subj.y + subj.height * 0.5f },
+                           1.5f, COLOR_PHOSPHOR_DIM);
+            } else if (s_tut_step == TUT2_PANEL_SYNC) {
+                /* The speedbar is boxed into the bottom-right column under PAUSE and
+                   RESTART, so the label sits in the free strip to its left. */
+                draw_tut_coach_pill(1050.0f, 620.0f, "SPEEDBAR");
+                DrawLineEx((Vector2){ 1128.0f, 632.0f }, (Vector2){ 1157.0f, 682.0f },
+                           1.5f, COLOR_PHOSPHOR_DIM);
+            } else {
+                draw_tut_coach_pill(subj.x + 24.0f, subj.y + subj.height + 8.0f, "THE STOCK");
+                DrawLineEx((Vector2){ pr.x, subj.y + subj.height * 0.5f },
+                           (Vector2){ subj.x + subj.width + 10.0f, subj.y + subj.height * 0.5f },
+                           1.5f, COLOR_PHOSPHOR_DIM);
+            }
+        }
+    } else if (s_tut_card_id == 1 &&
+               (s_tut_step == TUT3_PANEL_METERS || s_tut_step == TUT3_PANEL_HORRORS)) {
+        Rectangle lmeter = { 402.0f, 129.0f, 38.0f, 309.0f };
+        Rectangle rmeter = { 1076.0f, 136.0f, 26.0f, 302.0f };
+        draw_tut_coach_ring(lmeter, kk_pulse);
+        draw_tut_coach_ring(rmeter, kk_pulse);
+        /* 96 keeps both labels clear of the taller HORRORS panel, whose top is 126. */
+        draw_tut_coach_pill(lmeter.x + lmeter.width * 0.5f, 96.0f, "AUDIO PULSE");
+        draw_tut_coach_pill(rmeter.x + rmeter.width * 0.5f, 96.0f, "RESERVOIR");
     }
 
     DrawRectangleRec(pr, PLEXUS_PANEL_BG);
@@ -4849,7 +4894,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                 "The Construct detects blind firing and reckless harvesting.", "",
                 "- Three consecutive FAILURES (Miss Hits) activate INVERSION.",
                 "- The Atrium constricts:",
-                "  Instead of dispensing new fragments, the STOCK pile ({330, 262})",
+                "  Instead of dispensing new fragments, the STOCK pile marked left",
                 "  CONSUMES an already captured field card back into its maw.", "",
                 "- Land ONE precise match to calm the system and restore normal stock flow." } },
             { TUT2_PANEL_HAND2, "// THE SECOND MATURATION (HAND 2) //", 2, {
