@@ -504,6 +504,30 @@ static void begin_new_match(int trk) {
     else audio_set_reverb(0.0f);
 }
 
+static const Rectangle k_sc_gameover_retry_rect = { 530.0f, 394.0f, 220.0f, 46.0f };
+
+static void restart_finished_speedcoin_run(void) {
+    int run_waves = speed_mode_wave();
+    int run_coins = speed_bar_total();
+    int run_streak = speed_mode_run_best_streak();
+    plexus_speedcoin_bank_wave(&g);
+    int bonus_pts = speed_bar_apply_match_bonus(&g);
+    plexus_speedcoin_finish_run(g.total_score[0], run_waves, run_coins, bonus_pts, run_streak);
+    plexus_speedcoin_restart_run();
+    begin_new_match(0);
+}
+
+static void draw_speedcoin_try_again_btn(Vector2 vm) {
+    Rectangle r = k_sc_gameover_retry_rect;
+    int hov = CheckCollisionPointRec(vm, r);
+    DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : (Color){ 0, 0, 0, 230 });
+    ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
+    Vector2 ts = MeasureTextEx(font_title, "TRY AGAIN", 18.0f, 1.2f);
+    Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - 18.0f) * 0.5f) };
+    DrawTextEx(font_title, "TRY AGAIN", pos, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    if (hov) ui_theme_draw_text_flares(font_title, "TRY AGAIN", pos, 18.0f, 1.2f, COLOR_PHOSPHOR);
+}
+
 static float get_flight_duration(int s) { return (s == 0) ? 0.60f : (s == 1) ? 0.60f : 0.60f; }
 static float get_think_duration(int s)  { return (s == 0) ? 0.40f : (s == 1) ? 0.30f : 0.20f; }
 
@@ -1344,6 +1368,12 @@ static void update_draw_frame(void) {
             else if (!is_paused && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.on) {
                 if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 560, 112, 40 })) { audio_play_click(&audio); is_paused = 1; confirm_restart = 0; pause_toggled = 1; }
                 else if (CheckCollisionPointRec(vm, (Rectangle){ 1160, 610, 112, 40 })) { audio_play_click(&audio); begin_new_match(0); restarted_now = 1; }
+                else if (speedcoin_gameover_timer > 0.0f && !plexus_tutorial_is_active() &&
+                         CheckCollisionPointRec(vm, k_sc_gameover_retry_rect)) {
+                    audio_play_click(&audio);
+                    restart_finished_speedcoin_run();
+                    restarted_now = 1;
+                }
             }
 
             if (is_paused && !pause_toggled) {
@@ -1963,7 +1993,11 @@ static void update_draw_frame(void) {
             }
         }
         ui_theme_set_global_flare_boost(0.0f, 1.0f);
-        if (sc_ending) screens_draw_banner("GAME OVER");
+        if (sc_ending) {
+            screens_draw_banner("GAME OVER");
+            if (speedcoin_gameover_timer > 0.0f && !plexus_tutorial_is_active() && !is_paused)
+                draw_speedcoin_try_again_btn(vm);
+        }
         else if (anim.active && anim.type == ANIM_BANNER) screens_draw_banner(anim.banner_text);
         if (!replay_running && round_banner_timer > 0.0f) draw_round_end_banner(&g, round_banner_timer);
         cinematic_draw();   /* a replay shows the round deal too */

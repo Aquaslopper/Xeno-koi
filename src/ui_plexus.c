@@ -4547,6 +4547,11 @@ void plexus_speedcoin_close_result(void) {
     s_speedcoin_result_view = 0;
 }
 
+void plexus_speedcoin_restart_run(void) {
+    s_speedcoin_result_view = 0;
+    s_speedcoin_active = 1;
+}
+
 void plexus_speedcoin_setup_wave(GameState *g, int wave_num) {
     if (!g) return;
     int w = (wave_num > 0) ? wave_num : 1;
