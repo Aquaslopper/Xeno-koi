@@ -489,7 +489,8 @@ static const char *const k_tableglow_fs =
    ========================================================================== */
 static Shader s_shader = { 0 };
 static int    s_shader_tried;
-static int    s_shader_warned;
+static int   s_shader_warned;
+static int   s_said_hello;
 static int    s_phase_loc = -1;
 static int    s_tune_loc = -1;
 static int    s_shape_loc = -1;
@@ -532,12 +533,9 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     if (overlay.id <= 0 || overlay.width <= 0 || overlay.height <= 0) return;
 
     tg_shader_init();
-    if (s_shader.id <= 0) {
-        if (!s_shader_warned) {
-            s_shader_warned = 1;
-            TraceLog(LOG_WARNING, "tableglow: shader unavailable, nothing is drawn");
-        }
-        return;
+    if (s_shader.id <= 0 && !s_shader_warned) {
+        s_shader_warned = 1;
+        TraceLog(LOG_WARNING, "tableglow: shader unavailable, falling back to the plain pass");
     }
 
     if (dt < 0.0f) dt = 0.0f;
@@ -637,14 +635,41 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     Color tint = { 255, 255, 255,
                    (unsigned char)(tg_clampf(tableglow.max_alpha, 0.0f, 1.0f) * 255.0f) };
 
-    /* ---- draw --------------------------------------------------------------- */
+    /* ---- draw ---------------------------------------------------------------
+       Two passes over the same art.
+
+       1. A plain additive re-draw of the texture, scaled by the loudness term. It needs
+          no shader, no uniforms and no GLSL support of any kind, so the table breathes
+          even if the custom program is missing or the driver rejects it. The texture's
+          own alpha does the masking: transparent pixels of the overlay contribute
+          nothing to a SRC_ALPHA/ONE blend.
+       2. The directional pass below, which adds the bevel and the two heads. */
     Rectangle src = { 0, 0, (float)overlay.width, (float)overlay.height };
     Rectangle dst = { 0, 0, 1280.0f, 720.0f };
-    BeginBlendMode(BLEND_ADDITIVE);
-    BeginShaderMode(s_shader);
-    DrawTexturePro(overlay, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
-    EndShaderMode();
-    EndBlendMode();
+
+    float base = tg_clampf(s_bright_vis, 0.0f, 1.0f) * tg_clampf(tableglow.max_alpha, 0.0f, 1.0f);
+    base = tg_clampf(base * 0.34f, 0.0f, 1.0f);
+    if (base > 0.002f) {
+        Color flat = { 255, 255, 255, (unsigned char)(base * 255.0f) };
+        BeginBlendMode(BLEND_ADDITIVE);
+        DrawTexturePro(overlay, src, dst, (Vector2){ 0, 0 }, 0.0f, flat);
+        EndBlendMode();
+    }
+
+    if (s_shader.id > 0) {
+        BeginBlendMode(BLEND_ADDITIVE);
+        BeginShaderMode(s_shader);
+        DrawTexturePro(overlay, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
+        EndShaderMode();
+        EndBlendMode();
+    }
+
+    /* One line in the console, once: which path actually ran. */
+    if (!s_said_hello) {
+        s_said_hello = 1;
+        TraceLog(LOG_INFO, "tableglow: drawing %dx%d shader %d bright %.2f base %.3f",
+                 overlay.width, overlay.height, s_shader.id, s_bright_vis, base);
+    }
 }
 
 /* The readout. Drawn last, so it stays readable on top of the light it describes.
