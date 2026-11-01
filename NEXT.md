@@ -98,6 +98,14 @@ match that opens the story. This needs a branch ABOVE the `== 3` test (the note 
   (`WEB_MUSIC` in `build.sh`). Windows ships everything.
 - Licence: MIT, see `LICENSE`. Music is mine, art is AI-generated under my direction.
 
+## Cutting a release
+
+The version is printed bottom-right on the title screen and comes from `src/version.h`.
+Bump `XENO_KOI_VERSION` in the same commit that tags the release, so the number on the
+screen and the number on the release page cannot drift. Take the exe from the Actions run
+for `main` (Windows artifact `XenoKoi_Windows`), never from whichever PR build is on top
+of the list.
+
 ## How to check a change
 
 `./build.sh test` - engine suite, Koi-Koi trigger, guards, table UI, music/Options.
