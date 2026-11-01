@@ -50,6 +50,20 @@ static int   s_intro_seen = 0;
 static float s_intro_timer = 0.0f;
 static float s_intro_reveal_t = 0.0f;
 static Texture2D s_intro_ui_tex = { 0 };
+
+/* --- D-BADGE TOUR ---------------------------------------------------------
+   The Dealership token, off the table, acting as the Plex's informational guide.
+   It runs ONCE, on the first entry after the prologue is dismissed, walks the
+   player through the eight things on this screen - one short sentence each,
+   click to advance, like a visual-novel message window - and then leaves for
+   good. `s_badge_seen` is persisted in plexsave.txt so it never repeats.
+   The token has no personality on purpose: it reports, it does not joke. */
+static int   s_badge_seen = 0;   /* persisted: tour already finished */
+static int   s_badge_step = 0;   /* 0..D_BADGE_STEPS-1 while running */
+static float s_badge_blend = 1.0f; /* 0..1 flight between two stops */
+static Vector2 s_badge_prev = { 0.0f, 0.0f };
+#define D_BADGE_STEPS 8
+static void draw_badge_tour(Vector2 vm);
 static int s_selected_month = 0; /* 0..11 */
 static int s_selected_slot  = 3; /* 0..3 within current month (starts at bottom card 4 for Tutorial 1) */
 static int s_active_tab     = 0; /* 0: node briefing, 1: logfile window, 2..4: modes */
@@ -595,6 +609,9 @@ void plexus_load(void) {
     s_intro_seen = 0;
     s_intro_timer = 0.0f;
     s_intro_reveal_t = 0.0f;
+    s_badge_seen = 0;
+    s_badge_step = 0;
+    s_badge_blend = 1.0f;
     s_tr_runs = 0;
     s_tr_wins = 0;
     s_tr_losses = 0;
@@ -740,6 +757,8 @@ void plexus_load(void) {
                 s_story_read_mask = (unsigned int)(strtoul(v, NULL, 10) & 0xFFFu);
             } else if (strcmp(k, "intro_seen") == 0) {
                 s_intro_seen = (atoi(v) != 0) ? 1 : 0;
+            } else if (strcmp(k, "badge_seen") == 0) {
+                s_badge_seen = (atoi(v) != 0) ? 1 : 0;
             } else if (strcmp(k, "speed_drops") == 0) {
                 int d = atoi(v);
                 if (d >= 0) drops = d;
@@ -914,6 +933,7 @@ void plexus_save(void) {
             "selected_slot=%d\n"
             "story_read_mask=%u\n"
             "intro_seen=%d\n"
+            "badge_seen=%d\n"
             "speed_drops=%d\n"
             "speed_time_sum=%.4f\n"
             "speed_cover_sum=%.4f\n"
@@ -952,6 +972,7 @@ void plexus_save(void) {
             s_selected_month, s_selected_slot,
             s_story_read_mask & 0xFFFu,
             s_intro_seen ? 1 : 0,
+            s_badge_seen ? 1 : 0,
             drops, t_sum, c_sum, best_strk, life_mp,
             aud_trig, aud_peak, aud_hold,
             s_sc_runs, s_sc_best_wave,
@@ -1152,6 +1173,13 @@ Rectangle plexus_get_option_btn_rect(void) {
 }
 
 int plexus_close_subpanel(void) {
+    /* ESC during the D-badge tour skips it. Same end state as the last click. */
+    if (!s_badge_seen) {
+        s_badge_seen = 1;
+        s_badge_step = 0;
+        plexus_save();
+        return 1;
+    }
     if (s_hiscore_open) {
         s_hiscore_open = 0;
         return 1;
@@ -3351,6 +3379,7 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 45 });
     plexus_draw_ui_chrome(ba, st, vm);
     draw_plexus_hiscore_overlay(vm);
+    draw_badge_tour(vm);
 }
 
 ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
@@ -3367,6 +3396,23 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         return ACT_NONE;
     }
     if (s_intro_reveal_t > 0.0f && s_intro_reveal_t < 1.0f) {
+        return ACT_NONE;
+    }
+
+    /* D-badge tour: the whole screen is its home, so nothing underneath may be
+       clicked through it. A click advances one sentence; the last one ends the
+       tour and it never runs again (badge_seen is saved). */
+    if (!s_badge_seen) {
+        if (s_badge_blend >= 1.0f) {
+            s_badge_step++;
+            s_badge_blend = 0.0f; /* s_badge_prev already holds the token's last drawn position */
+            if (s_badge_step >= D_BADGE_STEPS) {
+                s_badge_seen = 1;
+                s_badge_step = 0;
+                plexus_save();
+            }
+        }
+        if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
 
@@ -4359,6 +4405,116 @@ static void draw_tut_scrim(Rectangle hole, unsigned char alpha) {
     if (x0 > 0.0f)           DrawRectangle(0, (int)y0, (int)x0, (int)(y1 - y0), c);
     if (x1 < 1280.0f)        DrawRectangle((int)x1, (int)y0, 1280 - (int)x1, (int)(y1 - y0), c);
     DrawRectangleLinesEx((Rectangle){ x0, y0, x1 - x0, y1 - y0 }, 2.0f, COLOR_PHOSPHOR);
+}
+
+/* --- D-BADGE TOUR stops ----------------------------------------------------
+   One sentence per stop, informational only - the token reports what a thing is
+   and never jokes. Order follows the eye: what you are reading, what you are
+   choosing, the bar, then the tutorial. It ends pointing at Month 01 because
+   that is where the player is supposed to go next. */
+typedef struct { Rectangle target; const char *line; } BadgeStop;
+static const BadgeStop k_badge_stops[D_BADGE_STEPS] = {
+    { { 516.0f,  82.0f, 540.0f, 196.0f },
+      "BRIEFING. The selected card is described here." },
+    { { 1076.0f,  94.0f,  80.0f, 500.0f },
+      "CARDS. Four per month. Select one to read it." },
+    { { 285.0f, 648.0f, 158.0f, 44.0f },
+      "LOGFILE. Story chapters, records, matches, atlas." },
+    { { 469.0f, 648.0f, 158.0f, 44.0f },
+      "SPEEDCOIN. Timed capture. Its own score." },
+    { { 653.0f, 648.0f, 158.0f, 44.0f },
+      "ACTION CARD. Koikoi with table events." },
+    { { 837.0f, 648.0f, 158.0f, 44.0f },
+      "TRAINING. A plain match. No campaign reward." },
+    { { 1021.0f, 648.0f, 158.0f, 44.0f },
+      "OPTION. Settings for this mode." },
+    { { 1092.0f, 496.0f,  56.0f,  88.0f },
+      "MONTH 01. Three tutorials. Start here." }
+};
+
+static Vector2 badge_home(void) { return (Vector2){ 664.0f, 412.0f }; }
+
+/* Panel above a bottom-bar stop, to the left of a right-column stop, and below
+   anything else - then clamped on screen. Deterministic: no overlap search. */
+static Rectangle badge_panel_rect(Rectangle t) {
+    const float w = 430.0f, h = 84.0f;
+    float x, y;
+    if (t.y > 600.0f)      { x = t.x + t.width * 0.5f - w * 0.5f; y = t.y - h - 18.0f; }
+    else if (t.x > 1000.0f){ x = t.x - w - 26.0f;                 y = t.y + t.height * 0.5f - h * 0.5f; }
+    else                   { x = t.x - 30.0f;                     y = t.y + t.height + 22.0f; }
+    if (x < 12.0f) x = 12.0f;
+    if (x > 1268.0f - w) x = 1268.0f - w;
+    if (y < 12.0f) y = 12.0f;
+    if (y > 708.0f - h) y = 708.0f - h;
+    return (Rectangle){ x, y, w, h };
+}
+
+static void draw_badge_token(Vector2 c, float scale) {
+    float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 3.4f);
+    DrawCircleV(c, 22.0f * scale, (Color){ 0, 0, 0, 190 });
+    DrawCircleLines((int)c.x, (int)c.y, 21.0f * scale, COLOR_PHOSPHOR);
+    DrawCircleLines((int)c.x, (int)c.y, 15.0f * scale, COLOR_PHOSPHOR_DIM);
+    Color glow = COLOR_PHOSPHOR;
+    glow.a = (unsigned char)(46.0f * pulse);
+    DrawCircleV(c, 19.0f * scale, glow);
+    const char *d = "D";
+    Vector2 sz = MeasureTextEx(font_title, d, 17.0f * scale, 0.6f);
+    DrawTextEx(font_title, d, (Vector2){ c.x - sz.x * 0.5f, c.y - sz.y * 0.5f },
+               17.0f * scale, 0.6f, COLOR_PHOSPHOR);
+}
+
+static void draw_badge_tour(Vector2 vm) {
+    (void)vm;
+    if (s_badge_seen || !s_intro_seen || s_intro_reveal_t > 0.0f) return;
+    if (s_badge_step < 0 || s_badge_step >= D_BADGE_STEPS) return;
+
+    float dt = GetFrameTime();
+    if (s_badge_blend < 1.0f) {
+        s_badge_blend += dt / 0.34f;
+        if (s_badge_blend > 1.0f) s_badge_blend = 1.0f;
+    }
+    float u = s_badge_blend * s_badge_blend * (3.0f - 2.0f * s_badge_blend);
+
+    Rectangle t = k_badge_stops[s_badge_step].target;
+    Rectangle pr = badge_panel_rect(t);
+    Vector2 to = (Vector2){ t.x - 26.0f, t.y + 20.0f };
+    if (s_badge_prev.x <= 0.0f && s_badge_prev.y <= 0.0f) s_badge_prev = badge_home();
+    Vector2 c = { s_badge_prev.x + (to.x - s_badge_prev.x) * u,
+                  s_badge_prev.y + (to.y - s_badge_prev.y) * u };
+
+    /* Light the subject, leave the rest dim. Same language as the tutorial scrim. */
+    draw_tut_scrim((Rectangle){ t.x - 10.0f, t.y - 10.0f, t.width + 20.0f, t.height + 20.0f }, 120);
+    float pulse = 0.55f + 0.45f * sinf((float)GetTime() * 3.4f);
+    Color ring = COLOR_PHOSPHOR;
+    ring.a = (unsigned char)(150.0f * pulse);
+    DrawRectangleLinesEx(t, 2.0f, ring);
+
+    /* Leader from the token to its message window. */
+    float ax = c.x, ay = c.y;
+    float bx = (pr.x < ax) ? pr.x + pr.width : pr.x;
+    float by = pr.y + pr.height * 0.5f;
+    if (ay < pr.y || ay > pr.y + pr.height) {
+        bx = pr.x + pr.width * 0.5f;
+        by = (ay < pr.y) ? pr.y : pr.y + pr.height;
+    }
+    DrawLineEx((Vector2){ ax, ay }, (Vector2){ bx, by }, 1.0f, COLOR_PHOSPHOR_DIM);
+
+    DrawRectangleRec(pr, PLEXUS_PANEL_BG);
+    ui_draw_panel_border(pr, COLOR_PHOSPHOR);
+    char stepbuf[16];
+    snprintf(stepbuf, sizeof(stepbuf), "%d / %d", s_badge_step + 1, D_BADGE_STEPS);
+    draw_text_snapped(font_title, "D-BADGE", pr.x + 18.0f, pr.y + 14.0f, 14.0f, 1.2f, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_body, stepbuf, pr.x + pr.width - 66.0f, pr.y + 14.0f, 13.0f, 1.0f, COLOR_PHOSPHOR_DIM);
+    draw_text_snapped(font_body, k_badge_stops[s_badge_step].line, pr.x + 18.0f, pr.y + 38.0f,
+                      15.0f, 1.0f, COLOR_TEXT_INFO);
+    /* Visual-novel caret: the click-to-advance tell. */
+    if (fmodf((float)GetTime(), 1.0f) < 0.55f) {
+        draw_text_snapped(font_body, "CLICK TO CONTINUE >", pr.x + 18.0f, pr.y + 60.0f,
+                          12.0f, 1.0f, COLOR_PHOSPHOR);
+    }
+
+    draw_badge_token(c, 1.0f);
+    s_badge_prev = c;
 }
 
 void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
