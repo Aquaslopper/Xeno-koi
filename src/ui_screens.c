@@ -1,5 +1,6 @@
 #include "ui_screens.h"
 #include "ui_replay.h"
+#include "version.h"
 #include "ui_speed.h"
 #include "storage.h"
 #include <stdio.h>
@@ -125,6 +126,16 @@ void screens_draw_start(const BoardAssets *ba, const GameStats *st, Vector2 vm, 
     const char *lbls[7] = { "START MATCH", "ATRIUM PLEX", "OPTION", "STATS", "SAVE", "CREDITS", "QUIT" };
     for (int i = 0; i < 7; i++) draw_btn((Rectangle){ 490, 320 + i * 50, 300, 40 }, lbls[i], 18, vm, COLOR_PHOSPHOR);
     if (saved_timer > 0.0f) draw_centered_text(font_body, "ALL FILES SAVED", 640.0f, 675.0f, 20.0f, 1.5f, COLOR_PHOSPHOR);
+    /* Build stamp, bottom-right (see src/version.h). Right-aligned to a 24 px margin on the
+       1280x720 canvas, on the last row, clear of the buttons (which end at y 660) and of
+       the centred SAVED note. Dim on purpose: it is reference, not a control. */
+    {
+        const float fsz = 14.0f, sp = 1.2f;
+        Vector2 vs = MeasureTextEx(font_body, XENO_KOI_VERSION, fsz, sp);
+        draw_text_ex_snapped(font_body, XENO_KOI_VERSION,
+                             (Vector2){ CANVAS_W - 24.0f - vs.x, CANVAS_H - 26.0f },
+                             fsz, sp, COLOR_PHOSPHOR_DIM);
+    }
 }
 
 ScreenAction screens_handle_start_click(Vector2 vm) {

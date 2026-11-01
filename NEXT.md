@@ -98,6 +98,20 @@ match that opens the story. This needs a branch ABOVE the `== 3` test (the note 
   (`WEB_MUSIC` in `build.sh`). Windows ships everything.
 - Licence: MIT, see `LICENSE`. Music is mine, art is AI-generated under my direction.
 
+## Cutting a release
+
+The version on the title screen is compiled in (`src/version.h`). Nothing reads the git
+tag: by the time a release tag exists, the exe inside the zip is already built and frozen.
+So the order is fixed -
+
+1. set `XENO_KOI_VERSION` to the new number, commit, merge to `main`;
+2. wait for the build on `main`, download the `XenoKoi_Windows` artifact from THAT run
+   (never from a PR build - they share the artifact name);
+3. upload it to the new release, which creates the tag.
+
+Skip step 1 and the exe says the old number under the new tag. That is the whole
+mechanism - the number is chosen by hand before the build, not derived from the tag.
+
 ## How to check a change
 
 `./build.sh test` - engine suite, Koi-Koi trigger, guards, table UI, music/Options.
