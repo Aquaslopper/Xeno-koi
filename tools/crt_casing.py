@@ -26,9 +26,14 @@ Geometry is never resampled, so the measured card cavity in k_bezel_cav[] (ui_bo
 stays correct for the CRT bezel too.
 
 Usage:
-  python3 tools/crt_casing.py            # every map that has an overlay
+  python3 tools/crt_casing.py            # every map still missing a pair
   python3 tools/crt_casing.py castle     # one or more maps by folder name
-  python3 tools/crt_casing.py --check    # exit 1 if a baked pair is missing or stale
+  python3 tools/crt_casing.py --force    # bake again, replacing what is there
+
+The baked pair is art once it exists. Hand-painted casing, a retouch, a reupload -
+none of it is "stale", and this tool has no way to know better. So it fills gaps and
+stops there: an existing crt_overlay.png or crt_bezel.png is left alone unless --force
+is passed, and there is no --check, because there is nothing to check against.
 """
 import math
 import os
@@ -231,8 +236,13 @@ def map_dirs(argv):
 
 
 def main(argv):
-    check = "--check" in argv
-    stale = []
+    force = "--force" in argv
+    unknown = [a for a in argv if a.startswith("-") and a != "--force"]
+    if unknown:
+        print("unknown option: %s" % ", ".join(unknown))
+        print("usage: crt_casing.py [map ...] [--force]")
+        return 2
+    kept = 0
     for name in map_dirs([a for a in argv if not a.startswith("-")]):
         folder = os.path.join(MAPS, name)
         for src_name, dst_name in (("overlay.png", "crt_overlay.png"),
@@ -241,21 +251,15 @@ def main(argv):
             dst = os.path.join(folder, dst_name)
             if not os.path.isfile(src):
                 continue
-            if check:
-                if (not os.path.isfile(dst) or
-                        os.path.getmtime(dst) < os.path.getmtime(src)):
-                    stale.append(os.path.relpath(dst, ROOT))
+            if os.path.isfile(dst) and not force:
+                kept += 1
                 continue
             w, h = bake(src, dst)
             print("%-8s %-14s %4dx%-4d -> %s" % (name, src_name, w, h,
                                                  os.path.relpath(dst, ROOT)))
-    if check:
-        if stale:
-            print("stale CRT casing (rerun tools/crt_casing.py):")
-            for p in stale:
-                print("  " + p)
-            return 1
-        print("CRT casing pairs are up to date.")
+    if kept:
+        print("%d baked pair%s already on disk, left as they are (--force to replace)."
+              % (kept, "" if kept == 1 else "s"))
     return 0
 
 
