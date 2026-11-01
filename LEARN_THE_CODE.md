@@ -2417,9 +2417,9 @@ callback clears the DSP state on the next buffer when the epoch changed.
 
 ---
 
-## 14. The two shaders
+## 14. The shaders
 
-Both exist in desktop (`#version 330`, `texture()`/`finalColor`) and web
+Every shader here exists in desktop (`#version 330`, `texture()`/`finalColor`) and web
 (`#version 100`, `texture2D()`/`gl_FragColor`) variants. Their moving-light
 and fog parameters can also differ; the equations below describe the web variant.
 
@@ -2542,6 +2542,39 @@ finalColor = vec4(color, baseColor.a) * colDiffuse * fragColor;
 ```
 
 `colDiffuse` and `fragColor` therefore scale the output including its alpha.
+
+### 14.3 `tableglow` (the table light, `src/tableglow.c`)
+
+One fragment shader, loaded in `board_load_assets()`-time from memory on first draw,
+drawn by `tableglow_draw_overlay()` over the very overlay texture `board_draw_table()`
+just blitted, under `BLEND_ADDITIVE`. It is the card bezel's light model (14.4) applied
+to 1280x720 painted casing, and it differs from the bezel in the three ways the art
+forced (all measured on the seven shipped `assets/maps/*/overlay.png`):
+
+* **Isotropic light space.** The two heads travel in `uv * u_aspect` (1.7778, 1.0), so
+  `core_uv`/`bloom_uv` are radii in height units and the lobe measures 0.99 H:V on
+  screen instead of the 1.78 a raw UV distance gives.
+* **Brightness gradient, two scales, as a GAIN.** `g` sums a 3 px and a 10 px tap pair;
+  `edge = smoothstep(edge_lo, edge_hi, length(g))`; `bevel = u_gain.w + (1-u_gain.w)*edge`
+  with `bevel_min` 0.10. The mask is `solid * floorGate * bevel` where `solid` is the
+  pixel's OWN alpha (the bezel's 8-neighbour test is meaningless on opaque panels) and
+  `floorGate` is a dead-pixel guard at 0.0015/0.010, not a style gate. Measured: 17-30 %
+  of the screen lit, mouldings 2.4-3.7x the plate at matched head intensity.
+* **A wash.** Two wide bands cross the casing (`u_time`, own clock) so the table is alive
+  between beats and the inlaid plates light as one passes. Total mean lift +0.032 to +0.052
+  luminance across the seven maps, peak clipping under 1 %.
+
+Colour comes from the art (`normalise(c.rgb)`), never a constant tint. `u_gain` is
+`(core, bloom, wash, bevel_min)`, `u_tune` is `(brightness, bloom width, edge_lo, edge_hi)`,
+`u_shape` is `(core_uv^2, bloom_uv^2, black_lo, black_hi)`.
+
+The brightness/bloom-width/speed inputs are measured by its own raylib stream processor
+(`tg_music_processor`, chained beside the reverb one): momentary LUFS (BS.1770-4
+K-weighted, 400 ms), a peak-referenced onset detector for tempo, and a 1.2 kHz one-pole
+split for the high share. It publishes four integers through atomics; all smoothing that
+affects the picture is on the render side. If the shader fails to load, the call logs a
+warning and falls back to a dim flat additive re-draw so the table is not dead while the
+cause is found. F8 toggles it, F7 shows the meters.
 
 ## Review questions
 

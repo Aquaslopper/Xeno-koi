@@ -28,6 +28,7 @@
 #include "ui_speed.h"
 #include "ui_action.h"
 #include "ui_dealership.h"
+#include "tableglow.h"
 #include "replay.h"
 #include "ui_replay.h"
 
@@ -927,6 +928,7 @@ static void update_draw_frame(void) {
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
     action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt);
+    tableglow_sync_music(&audio);   /* forged-table light: own music analyser, see tableglow.c */
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;

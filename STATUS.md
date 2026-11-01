@@ -1,8 +1,8 @@
-> **Development handoff (last updated 31 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 1 November 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 31 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
+**Last updated: 1 November 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
 
 ## Owner decisions: closed, do not reopen (29 October 2026)
 
@@ -32,6 +32,15 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 
 ## Status Summary
 ## Latest completed work
+
+### Table light on the seven forged tables (1 November 2026)
+
+- PR #226's music-driven table light was reported as "there but bad", then as "no light". Audited against the shipped art: the analyser was fine (the real `src/tableglow.c` compiled headlessly and published a level, -20 dBFS stereo sine reading 0.80 brightness on the intended curve), so the defect was in the fragment shader and the draw.
+- Three measured defects, all caused by copying the card bezel's constants onto 1280x720 painted casing: the two heads travelled in raw UV, so every lobe was stretched 1.78:1; mean lift was +0.014 luminance, invisible in play; and the inverted edge gate plus the bezel's 0.08 floor guaranteed that a flat inlaid panel could never light, so the frame read as a glowing skeleton with black holes.
+- Fixed in the shader: heads travel in `uv * u_aspect` (isotropic, measured 0.99 H:V against 1.78 before); the gradient is a GAIN (`bevel = bevel_min + (1 - bevel_min) * edge`) over two scales with the floor lowered to a 0.0015/0.010 dead-pixel guard; and two wide bands (`u_time`, own clock) wash across the casing so the plates light and the table is alive between beats. Colour stays art-derived. The flat additive fallback now runs **only** when the shader failed to load, not on every frame.
+- **Verified:** `./build.sh --verify /tmp/ans.txt` then `./build.sh test` (engine 500 matches, Koi-Koi trigger, table UI, music folder, Options pagination) — all pass; `./tools/action_guard.sh` 2 files / 11 points intact; `./tools/tests_guard.sh` 7 approved / 0 unapproved; `-std=c99 -O2 -Wall -Wextra` clean on `tableglow.c` for both the desktop and the `-D__EMSCRIPTEN__` GLSL variants; `ui_board.c`/`ui_main.c` call sites syntax-checked. Numbers measured on the seven shipped overlays with a numpy transcription of the shader: mean lift +0.032..+0.052, peak clipping <= 1 %, mask 17-30 % of screen, mouldings 2.4-3.7x the plate at matched head intensity.
+- **Not visually verified in engine:** no GPU/display in the sandbox. The renders in `/home/user/tableglow_fix_preview.png` (castle unlit / t=2.0 / t=5.5, realm, arctic, plus a 2x zoom of the right column) come from that transcription, not from raylib.
+- **Touched:** `src/tableglow.c`, `src/tableglow.h`, `src/ui_board.c`, `src/ui_main.c`, `LEARN_THE_CODE.md`, `STATUS.md`. **Did not touch:** `tests/`, `src/ui_action.{c,h}`, `src/ui_audio.c`, `tools/*guard*`, the analyser in `tableglow.c`, `assets/`.
 
 ### Pancratium opponent, difficulty and stage setup (31 October 2026)
 

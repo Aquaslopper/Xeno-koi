@@ -18,6 +18,12 @@ extern Font font_title;
 extern Font font_body;
 extern GameSettings settings;
 
+/* Forged-table light (src/tableglow.c): drawn over the table overlay, under everything
+   else. Declared weak on purpose - the headless table-UI test links this file without
+   tableglow.c, so an absent symbol must skip the call, not fail the link. Declared here
+   rather than through tableglow.h so ui_board.c keeps no dependency on the module. */
+extern void tableglow_draw_overlay(Texture2D overlay, float dt) __attribute__((weak));
+
 static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
     DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
 }
@@ -1279,6 +1285,11 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         const bool crt = (settings.crt_tables != 0 && s_table_overlay_crt[s_table_selected].id > 0);
         DrawTexture(crt ? s_table_overlay_crt[s_table_selected]
                         : ba->table_skins[s_table_selected].overlay, 0, 0, WHITE);
+        /* The cards get their light from the bezel shader; the table gets the same light
+           here, on the very texture that was just drawn (normal or CRT bake). */
+        if (tableglow_draw_overlay) tableglow_draw_overlay(crt ? s_table_overlay_crt[s_table_selected]
+                                                               : ba->table_skins[s_table_selected].overlay,
+                                                           frame_dt);
     }
 
     /* 2. Table Chrome, Status, Combos & Left Column (all behind cards) */
