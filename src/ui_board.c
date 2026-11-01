@@ -1,4 +1,5 @@
 #include "ui_board.h"
+#include "ui_table_glow.h"
 #include "ui_action.h"
 #include "ui_card_tooltip.h"
 #include "ui_capture_info.h"
@@ -656,6 +657,7 @@ void board_unload_assets(BoardAssets *ba) {
     if (ba->coin_gold.id > 0) UnloadTexture(ba->coin_gold);
     if (ba->coin_silver.id > 0) UnloadTexture(ba->coin_silver);
     if (ba->coin_bronze.id > 0) UnloadTexture(ba->coin_bronze);
+    table_glow_unload();
     board_unload_crt_textures();
     s_crt_textures_wanted = -1;
     for (int i = 1; i < BOARD_TABLE_SLOTS; i++) {
@@ -1277,8 +1279,10 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
     if (board_table_skin_active() && ba->table_skins[s_table_selected].overlay.id > 0) {
         board_sync_crt_textures();
         const bool crt = (settings.crt_tables != 0 && s_table_overlay_crt[s_table_selected].id > 0);
-        DrawTexture(crt ? s_table_overlay_crt[s_table_selected]
-                        : ba->table_skins[s_table_selected].overlay, 0, 0, WHITE);
+        Texture2D overlay = crt ? s_table_overlay_crt[s_table_selected]
+                                : ba->table_skins[s_table_selected].overlay;
+        DrawTexture(overlay, 0, 0, WHITE);
+        table_glow_draw(overlay, frame_dt);
     }
 
     /* 2. Table Chrome, Status, Combos & Left Column (all behind cards) */
