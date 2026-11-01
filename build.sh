@@ -118,11 +118,27 @@ if [ "$1" = "wasm" ]; then
     if [ ! -f "$RAYLIB_WEB_A" ] && [ -f "$RAYLIB_SRC/libraylib.a" ]; then
         RAYLIB_WEB_A="$RAYLIB_SRC/libraylib.a"
     fi
+    # The browser build stays slim: only the tracks named in WEB_MUSIC are packed
+    # into the download. Every other track stays in git and still ships in the
+    # Windows build, which copies assets/* whole. Override the list, e.g.
+    #   WEB_MUSIC="menu.mp3 game5.mp3" ./build.sh wasm
+    # audio_set_music_folder() skips any track that is not in the bundle, so a
+    # trimmed list cannot break loading.
+    WEB_MUSIC="${WEB_MUSIC:-menu.mp3 game1.mp3 game3.mp3}"
+    WEB_ASSETS="/tmp/xeno_web_assets"
+    rm -rf "$WEB_ASSETS"
+    mkdir -p "$WEB_ASSETS/music"
+    cp -rf assets/. "$WEB_ASSETS"/
+    find "$WEB_ASSETS/music" -maxdepth 1 -type f -name '*.mp3' -delete
+    for track in $WEB_MUSIC; do
+        [ -f "assets/music/$track" ] && cp -f "assets/music/$track" "$WEB_ASSETS/music/$track"
+    done
     mkdir -p dist/web
     emcc -Os -Wall -std=gnu99 -DPLATFORM_WEB src/*.c -Isrc -I"$RAYLIB_SRC" "$RAYLIB_WEB_A" \
         -sUSE_GLFW=3 -sASYNCIFY -sALLOW_MEMORY_GROWTH=1 -sTOTAL_MEMORY=134217728 \
         -sEXPORTED_RUNTIME_METHODS='["UTF8ToString","FS"]' \
-        --preload-file assets --shell-file web/shell.html -o dist/web/index.html
+        --preload-file "$WEB_ASSETS"@assets --shell-file web/shell.html -o dist/web/index.html
+    printf 'web bundle music: %s\n' "$(ls -1 "$WEB_ASSETS"/music/*.mp3 2>/dev/null | xargs -r -n1 basename | tr '\n' ' ')"
     exit 0
 fi
 
