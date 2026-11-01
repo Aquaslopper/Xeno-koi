@@ -72,15 +72,15 @@
    -------------------------------------------------------------------------- */
 #define TGLOW_DEF_ENABLED           1
 #define TGLOW_DEF_RADIUS_PX        12.0f
-#define TGLOW_DEF_CORE_GAIN        0.20f
-#define TGLOW_DEF_BLOOM_GAIN       0.10f
+#define TGLOW_DEF_CORE_GAIN        0.80f
+#define TGLOW_DEF_BLOOM_GAIN       0.62f
 #define TGLOW_DEF_CORE_UV          0.10f
 #define TGLOW_DEF_BLOOM_UV         0.45f
 #define TGLOW_DEF_BLACK_LO         0.015f
 #define TGLOW_DEF_BLACK_HI         0.050f
 #define TGLOW_DEF_LUM_LO           0.050f
 #define TGLOW_DEF_LUM_HI           0.300f
-#define TGLOW_DEF_MAX_ALPHA         0.35f
+#define TGLOW_DEF_MAX_ALPHA         0.68f
 #define TGLOW_DEF_INTENSITY         1.00f
 #define TGLOW_DEF_BRIGHT_BASE       0.08f
 #define TGLOW_DEF_BRIGHT_PER_LUFS   0.92f
@@ -424,7 +424,7 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    float core  = lit * gain * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * u_gain.x;\n" \
     "    float bloom = lit * gain * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * u_gain.y;\n" \
     "    vec3 hue  = c.rgb / max(max(c.r, max(c.g, c.b)), 0.02);\n"                         \
-    "    vec3 tint = fragColor.rgb * mix(vec3(1.0), hue, 0.55) * (0.25 + 0.75 * min(hc * 4.0, 1.0));\n" \
+    "    vec3 tint = fragColor.rgb * mix(vec3(1.0), hue, 0.55) * (0.62 + 0.38 * min(hc * 4.0, 1.0));\n" \
     "    float raw = (core + bloom) * u_tune.x;\n"                                          \
     "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                       \
     "    " OUT " = vec4(tint, a);\n"                                                        \
@@ -609,8 +609,9 @@ static void tg_draw_readout(void) {
         int lw = MeasureText(lines[i], 16);
         if (lw > w) w = lw;
     }
-    DrawRectangle(1272 - w - 10, 6, w + 20, 5 * 20 + 8, bg);
-    for (int i = 0; i < 5; i++) DrawText(lines[i], 1278 - w - 4, 10 + i * 20, 16, ink);
+    const int sw = GetScreenWidth();
+    DrawRectangle(sw - 8 - w - 10, 6, w + 20, 5 * 20 + 8, bg);
+    for (int i = 0; i < 5; i++) DrawText(lines[i], sw - 2 - w - 4, 10 + i * 20, 16, ink);
 }
 
 void tableglow_draw_overlay(Texture2D overlay, float dt) {

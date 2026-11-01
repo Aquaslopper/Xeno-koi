@@ -54,8 +54,13 @@ typedef struct TableGlowSettings {
                                    skirt. 12 px reads a moulding as a slope instead of as
                                    a 4 px speckle; the card uses 1.45 texels because a
                                    card is 90 px wide, this is 1280.                     */
-    float core_gain;            /* strength of the sharp head. 0.02..2, default 0.20.  */
-    float bloom_gain;           /* strength of the halo. 0..2, default 0.10.           */
+    float core_gain;            /* strength of the sharp head. 0.02..2, default 0.80.
+                                   These were 0.20/0.10 after the over-bright fix and
+                                   the effect vanished: rendered offscreen against the
+                                   shipped city overlay, the brightest pixel moved by
+                                   4/255. 0.80 puts a visible warm sheen on the
+                                   mouldings and still leaves the panel fill alone.  */
+    float bloom_gain;           /* strength of the halo. 0..2, default 0.62.            */
     float core_uv;              /* radius of the sharp head's falloff, in texture UV.
                                    0.02..0.60, default 0.10 (= 128 px at 1280 wide).      */
     float bloom_uv;             /* radius of the broad halo around each head, in UV.
@@ -82,9 +87,12 @@ typedef struct TableGlowSettings {
                                    so the card's floor threw away 46-83% of the table.   */
     float black_hi;             /* where that floor reaches full light. Must be above
                                    black_lo. Default 0.050.                              */
-    float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.35.
-                                   This is the single "how strong" knob. It was 0.88,
-                                   which on a dark painted table washed the score out.  */
+    float max_alpha;            /* ceiling of the additive pass. 0..1, default 0.68.
+                                   This is the single "how strong" knob. It was 0.88
+                                   with a flat white tint over a panel-wide mask, which
+                                   washed the score grey; 0.35 under the corrected mask
+                                   and the art-tinted colour was invisible. 0.68 is the
+                                   value that survives both faults.                      */
     float intensity;            /* multiplier on top of the loudness term. 0..2,
                                    default 1.00. Use it to audition 0.5 quickly.        */
 
