@@ -5,18 +5,18 @@
 #include <math.h>
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
-#define TABLE_GLOW_SPEED_A 0.52f
-#define TABLE_GLOW_SPEED_B -0.37f
-#define TABLE_GLOW_IDLE 0.36f
-#define TABLE_GLOW_THEME_MIX 0.40f /* 0 = white light, 1 = full terminal color */
+#define TABLE_GLOW_SPEED_A 0.20f
+#define TABLE_GLOW_SPEED_B -0.10f
+#define TABLE_GLOW_IDLE 0.25f
+#define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
 #define TABLE_GLOW_MUSIC_GAIN 0.64f
-#define TABLE_GLOW_LEVEL_GAIN 3.0f
-#define TABLE_GLOW_ATTACK 0.04f
-#define TABLE_GLOW_RELEASE 0.30f
-#define TABLE_GLOW_BLOOM_GAIN 0.65f /* additive halo strength, 0 disables */
-#define TABLE_GLOW_BLOOM_RADIUS 1.5f /* blur spacing in quarter-resolution pixels */
-#define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
-#define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
+#define TABLE_GLOW_LEVEL_GAIN 4.0f
+#define TABLE_GLOW_ATTACK 0.05f
+#define TABLE_GLOW_RELEASE 0.50f
+#define TABLE_GLOW_BLOOM_GAIN 2.65f /* additive halo strength, 0 disables */
+#define TABLE_GLOW_BLOOM_RADIUS 3.0f /* blur spacing in quarter-resolution pixels */
+#define TABLE_GLOW_BLOOM_W (CANVAS_W / 8)
+#define TABLE_GLOW_BLOOM_H (CANVAS_H / 8)
 
 /* Brightness cutoff per named table, before theme tint and music strength.
    0..1: below cutoff stays unlit; the next 0.10 fades smoothly into light.
@@ -24,13 +24,13 @@
    The selected normal/CRT artwork uses the same table-specific setting. */
 static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
     [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
-    [TABLE_DESIGN_CITY]    = 0.08f,
-    [TABLE_DESIGN_CASTLE]  = 0.30f,
-    [TABLE_DESIGN_HOLE]    = 0.08f,
-    [TABLE_DESIGN_ARCTIC]  = 0.08f,
-    [TABLE_DESIGN_HARVEST] = 0.08f,
-    [TABLE_DESIGN_FACE]    = 0.08f,
-    [TABLE_DESIGN_REALM]   = 0.08f
+    [TABLE_DESIGN_CITY]    = 0.20f,
+    [TABLE_DESIGN_CASTLE]  = 0.40f,
+    [TABLE_DESIGN_HOLE]    = 0.40f,
+    [TABLE_DESIGN_ARCTIC]  = 0.70f,
+    [TABLE_DESIGN_HARVEST] = 0.10f,
+    [TABLE_DESIGN_FACE]    = 0.20f,
+    [TABLE_DESIGN_REALM]   = 0.10f
 };
 
 static Shader s_shader;
