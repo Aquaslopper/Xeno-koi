@@ -20,6 +20,17 @@ Rule: this is presentation only. No phase, no timer, no input gate, no rule chan
 Card 2 (Action Card) and card 3 (Speedcoin) tutorials are the frozen and pinned modes -
 their panels can share a helper, but nothing in their sequence, pacing or logic changes.
 
+## 1b. D-badge tour — built, waiting on one look
+
+The token leaves the table and guides the first visit to the Plex: eight stops, one
+sentence each, click to advance, then it is gone (persisted as `badge_seen` in
+`plexsave.txt`). Copy is informational on purpose — it reports, it never jokes.
+
+Not yet seen on a screen. Tuning knobs, all in `src/ui_plexus.c`: the flight beat
+(`s_badge_blend += dt / 0.34f`), the scrim alpha (120), panel size in
+`badge_panel_rect()`, and `badge_home()` at (664, 412). If a stop's subject is
+wrong, only `k_badge_stops[]` changes.
+
 ## 2. Hover a Plex bottom button, the briefing panel explains it
 
 Six buttons: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION. Most players
