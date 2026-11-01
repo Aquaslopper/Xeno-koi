@@ -9,7 +9,7 @@ This game was developed entirely using the "vibe-coding" approach.
 
 ## Creator
 * **Code & Design:** Aquaslopper
-* **Music:** Aquaslopper — every track in `assets/music/` is his own work.
+* **Music:** Aquaslopper, as **Graf Punk** — every track in `assets/music/` is his own work.
 * **Art:** Aquaslopper directed it. The card atlas, the DEUS atlas, the backgrounds and the table art were generated with AI image tools under his direction.
 * **Platform:** The GitHub repository timestamp serves as proof of initial publication.
 
