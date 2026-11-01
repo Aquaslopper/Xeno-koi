@@ -8,17 +8,16 @@ Last updated: 1 November 2026.
 
 ---
 
-## 1. The Koi-Koi tutorial (card 3 of Month 01) reads badly
+## 1. The Koi-Koi tutorial (card 3 of Month 01) — built, waiting on one look
 
-The first thing a new player sees. It works, but it is a big text panel and a flat dim:
-no pointer at the card you must click, no spotlight on the thing being described.
+Coach marks added in `src/ui_plexus.c`: dimmed board with spotlight cutout in
+`tut_kk_focus_rect()`, compact non-overlapping panels in `tut_panel_rect_for_step()`,
+pulsing phosphor rings and leader lines in `plexus_tutorial_draw_panel()`, and live play
+callout pills (`1. CLICK THIS CARD` -> `2. MATCH HERE`) in
+`plexus_tutorial_draw_board_guides()`. Advances on click only.
 
-Wanted: coach marks. Dim the board, keep one rectangle lit, draw a ring on the card the
-step is about, and one short line saying what to do. Advance on the click, not on a timer.
-
-Rule: this is presentation only. No phase, no timer, no input gate, no rule changes.
-Card 2 (Action Card) and card 3 (Speedcoin) tutorials are the frozen and pinned modes -
-their panels can share a helper, but nothing in their sequence, pacing or logic changes.
+Rule: presentation only. No phase, no timer, no input gate, no rule changes. Card 2
+(Action Card) and card 3 (Speedcoin) tutorials are untouched. Not yet seen on a screen.
 
 ## 1b. D-badge tour — built, waiting on one look
 
@@ -26,17 +25,20 @@ The token leaves the table and guides the first visit to the Plex: eight stops, 
 sentence each, click to advance, then it is gone (persisted as `badge_seen` in
 `plexsave.txt`). Copy is informational on purpose — it reports, it never jokes.
 
+Flight interpolation fixed (`s_badge_prev` latched only when `s_badge_blend >= 1.0f` in
+`draw_badge_tour()` instead of overwritten every frame) and
+right-column panel clearance widened (`t.x - w - 62.0f` in `badge_panel_rect()`).
 Not yet seen on a screen. Tuning knobs, all in `src/ui_plexus.c`: the flight beat
 (`s_badge_blend += dt / 0.34f`), the scrim alpha (120), panel size in
 `badge_panel_rect()`, and `badge_home()` at (664, 412). If a stop's subject is
 wrong, only `k_badge_stops[]` changes.
 
-## 2. Hover a Plex bottom button, the briefing panel explains it
+## 2. Hover a Plex bottom button, the briefing panel explains it — built, waiting on one look
 
-Six buttons: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION. Most players
-never learn what Speedcoin or Action Card are. Hovering one should make the briefing card
-say what it is and how it scores. Replaces the "dropup menu" idea: no hidden layer, no
-hover fly-outs, one state instead of six.
+Six buttons: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION. Hovering
+`k_bottom_rects[0..5]` in `plexus_draw_ui_chrome()` drives `k_briefing_rect` with what
+the button or mode is and how it scores. No hidden layer, no hover fly-outs, one state
+instead of six. Not yet seen on a screen.
 
 ## 3. Month 02 onwards: my words, one card at a time
 
