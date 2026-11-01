@@ -25,10 +25,15 @@ background show through, which is what makes it read as a CRT rather than a pain
 Geometry is never resampled, so the measured card cavity in k_bezel_cav[] (ui_board.c)
 stays correct for the CRT bezel too.
 
+The baked pairs are hand-touchable: they are ordinary PNGs and the owner has already
+painted over them once. So the tool NEVER overwrites an existing pair unless --force is
+passed. A plain run fills in gaps and leaves finished art alone.
+
 Usage:
-  python3 tools/crt_casing.py            # every map that has an overlay
-  python3 tools/crt_casing.py castle     # one or more maps by folder name
-  python3 tools/crt_casing.py --check    # exit 1 if a baked pair is missing or stale
+  python3 tools/crt_casing.py             # fill in missing pairs, keep existing art
+  python3 tools/crt_casing.py castle      # one or more maps by folder name
+  python3 tools/crt_casing.py --force     # regenerate, destroying hand work
+  python3 tools/crt_casing.py --check     # exit 1 if a pair is missing
 """
 import math
 import os
@@ -232,7 +237,9 @@ def map_dirs(argv):
 
 def main(argv):
     check = "--check" in argv
-    stale = []
+    force = "--force" in argv
+    missing = []
+    kept = 0
     for name in map_dirs([a for a in argv if not a.startswith("-")]):
         folder = os.path.join(MAPS, name)
         for src_name, dst_name in (("overlay.png", "crt_overlay.png"),
@@ -241,21 +248,27 @@ def main(argv):
             dst = os.path.join(folder, dst_name)
             if not os.path.isfile(src):
                 continue
+            exists = os.path.isfile(dst)
             if check:
-                if (not os.path.isfile(dst) or
-                        os.path.getmtime(dst) < os.path.getmtime(src)):
-                    stale.append(os.path.relpath(dst, ROOT))
+                if not exists:
+                    missing.append(os.path.relpath(dst, ROOT))
+                continue
+            if exists and not force:
+                kept += 1        # hand-painted or already baked: not ours to overwrite
                 continue
             w, h = bake(src, dst)
             print("%-8s %-14s %4dx%-4d -> %s" % (name, src_name, w, h,
                                                  os.path.relpath(dst, ROOT)))
     if check:
-        if stale:
-            print("stale CRT casing (rerun tools/crt_casing.py):")
-            for p in stale:
+        if missing:
+            print("missing CRT casing pairs (run tools/crt_casing.py to bake them):")
+            for p in missing:
                 print("  " + p)
             return 1
-        print("CRT casing pairs are up to date.")
+        print("Every map has its CRT casing pair.")
+        return 0
+    if kept:
+        print("%d pair(s) already exist and were left alone (--force to regenerate)." % kept)
     return 0
 
 
