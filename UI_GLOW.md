@@ -1,67 +1,61 @@
-# UI glow
+# UI glow — where the code goes
 
-The cards keep their glint. This is a separate thing for the interface: light that moves on
-its own, in the active theme's colour, attached to nothing the player does.
-
-Nothing is built yet. This file is the shape, so the code does not have to be guessed at.
+A placement note, not a design note. The effect itself is small; the only question worth
+settling first is which file owns it, so nothing existing has to grow.
 
 ---
 
-## Not the card glint
+## The files
 
-Cards already have one: `k_bezel_shine_fs` and `board_draw_table_bezel_shine()` in
-`src/ui_board.c` - two lights orbiting a card's bezel, a specular over its metal, added when
-a card is held or placed.
+**New: `src/ui_glow.h`** — one line of interface.
 
-Nothing here reuses, exports, extends or edits it. If a change to the UI glow touches
-`src/ui_board.c`, the change is wrong.
+```c
+void ui_glow_draw_ambient(void);
+```
 
-## What it is
+**New: `src/ui_glow.c`** — the whole effect. Constants, one function, about 35 lines
+including the comment that explains it. Includes `raylib.h` and `ui_theme.h` (for `g_theme`
+and `CANVAS_W/H`) and nothing else.
 
-Two soft pools of the theme colour, drifting slowly over a UI screen, drawn additively.
-Light in the room, not a filter on the art: what it crosses keeps its colour and is simply
-brighter while the pool is over it.
+**One call in `src/ui_main.c`** — at the end of the non-game branch of the canvas draw,
+after `draw_hub_screen_state()` (~line 1941 today). One line, and it is the only line any
+existing source file gains.
 
-- **colour** - `g_theme.base`. TEAL, AMBER, CRIMSON, VIOLET, DARK and GOLD all work with no
-  extra state; change the theme and the light changes with it.
-- **motion** - two loops at 0.043 and 0.031 laps per second. They share no small multiple,
-  so the pair never settles into the same formation twice.
-- **softness** - a stack of circles, rim inwards, one alpha step each. No shader, no texture.
-- **strength** - peak additive alpha 48/255 (about 19%) at the centre of a pool, fading to
-  nothing at the rim.
+## Why there
 
-## Where it draws
+- **not `ui_theme.c`** — that file is the themes, the panel flares and the glyph tracing.
+  It is already one of the biggest in `src/`, and an ambient light is not a theme. Adding
+  to it is exactly the "make the file bigger" that should not happen.
+- **not `ui_board.c`** — cards. The card glint stays there and nothing here reaches into it.
+- **not one call per screen** — `ui_main.c` already owns the decision of what a screen
+  draws. One call covers title, hub, Pancratium, Options, Stats and Plex. Six call sites
+  would be six places to forget.
+- **no `storage.c` / no Options row** — no setting, so nothing to save, load or paginate.
 
-UI screens only: title, main hub, Pancratium, Options, Stats, Plex, campaign. Not the game
-table - the table already carries the casing, the card glint, the ash and the embers, and
-one more light there would be noise.
+## Build and tests
 
-One call, at the end of the non-game branch of the canvas draw in `src/ui_main.c`.
+`build.sh` compiles `src/*.c` (lines 83, 90, 137), so a new file is picked up by the Linux
+build, the Windows cross-compile and the web build with no edits to the script.
 
-## What it is not
+The test suite links explicit file lists, never `src/*.c`, so a new module is invisible to
+it and nothing under `tests/` changes.
 
-- no shader, no new texture, no file under `assets/`
-- no setting, no Options row: the constants sit at the top of the function, and
-  `UI_AMBIENT_PEAK 0` is the off switch
-- no hover trigger, no audio tie-in, no per-panel behaviour, no second copy for a second
-  screen
+## What does not change
 
-## Not settled
+- `src/ui_board.c`, `src/ui_theme.c`, `src/storage.c`, `src/storage.h` — untouched
+- every file under `assets/` — untouched, nothing read differently, nothing written
+- no shader strings, no textures, no allocation
 
-1. **Pools or lines?** Two drifting pools (above), or a highlight that lands only on panel
-   borders, box outlines and text edges, so the UI's structure glints while flat areas stay
-   dark. Different looks, different code.
-2. **The game table:** recommendation is no. It already has its own light.
-3. **A switch:** recommendation is none for now. If it earns one later, it becomes a real
-   setting then, in one place, not a flag threaded through the screens.
+## The look, in five lines
 
-## Cost
+Two soft pools of `g_theme.base` drifting over the screen at 0.043 and 0.031 laps per second;
+additive, so they add light rather than tint what they cross; peak 48/255 at the centre of a
+pool; constants at the top of the file; `UI_AMBIENT_PEAK 0` is the off switch.
 
-48 circle draws per frame while a UI screen is up, and one blend-mode change. No allocation,
-no load, nothing to unload.
+Settled: UI screens only, not the game table. Unsettled: pools versus a line-catching
+highlight — that is a change inside `ui_glow.c` and touches nothing else.
 
-## How it gets judged
+## When it is built
 
-On a screen, by eye. The numbers above are a starting point, not a spec - if it reads too
-strong or too quick, `UI_AMBIENT_PEAK`, `UI_AMBIENT_RADIUS` and the two speeds are the only
-things to touch.
+This file has done its job and can go, with its reasoning folded into the comment at the top
+of `src/ui_glow.c`.
