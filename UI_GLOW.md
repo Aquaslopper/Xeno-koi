@@ -108,3 +108,35 @@ reads too strong or too quick, it is two constants and nothing else.
 
 **Not covered by any test:** the feel. No test asserts that light reads well; that is judged
 on a display, by the owner.
+
+## 8. Reference: how the card glint actually works
+
+Read from `src/ui_board.c` as it stands, not from memory or from a summary. This section is
+read-only - it records the neighbour so the UI pass is understood as a deliberate
+re-derivation rather than a copy. Nothing here is a description of `ui_glow.c`.
+
+- **Shader:** `k_bezel_shine_fs` (:529 for `#version 100`, :539 for `#version 330`), body
+  `BEZEL_SHINE_BODY` (:490). Uniforms: `texture0`, `colDiffuse`, `u_phase`.
+- **The normal comes from luminance, not alpha.** Five taps; brightness is
+  `bval(v) = 0.45 * luma + 0.55 * max(r,g,b)` taken from RGB; the gradient
+  `g = vec2(hl - hr, hu - hd) / peak` becomes `n = normalize(vec3(g * 2.8, 1.0))`.
+- **Alpha decides where it is allowed.** `solid = smoothstep(0.91,0.98,c.a) *
+  smoothstep(0.85,0.95,min8)` - opaque pixel, opaque neighbours. Then
+  `mask = solid * smoothstep(0.08,0.18,hc) * smoothstep(0.42,0.72,hc/peak)`, so only
+  locally-raised areas catch it.
+- **Two lights, twice.** Ellipses in UV space; half-vector specular
+  `nd = max(dot(n, h), 0)` sharpened by `pow(nd, 4.5)`; per light a tight falloff
+  `exp(-d/0.040)` and a wide one `exp(-d/0.085)`, plus a bloom term; compressed into alpha
+  by `0.88 * (1 - exp(-raw * 1.65))`.
+- **The shader has no colour.** It outputs `vec4(fragColor.rgb, a)`; the RGB is the CPU tint
+  at :1051, `Color c = { 250, 246, 238, ... }`. The near-white is a C constant.
+- **Motion:** `u_phase = (t * 0.52 + seed, -t * 0.37 + 2.3 * seed, 1.45/width, 1.45/height)`,
+  with `seed` from the card's position so two cards never glint in step.
+- **Strength is the caller's:** `a = 0.36 + 0.84 * pulse^0.68`; held cards pass 1.0.
+- **Without a table skin** `board_draw_card_glow()` is not this at all - it is a plain
+  `DrawRectangleLinesEx` in `g_theme.base`.
+
+**What does not transfer.** The frame the UI is drawn into is opaque, so `c.a` is 1 at every
+pixel and the `solid` gate would pass all of it, flat backgrounds included. `ui_glow.c`
+therefore gates on gradient magnitude instead, and keeps the relative-brightness term. A
+literal copy of `solid` lights the whole screen.
