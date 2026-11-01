@@ -45,6 +45,7 @@ void         plexus_speedcoin_reverse_draw_finish(GameState *g);
 void         plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int run_bonus_pts, int run_best_streak);
 int          plexus_speedcoin_result_active(void);
 void         plexus_speedcoin_close_result(void);
+void         plexus_speedcoin_restart_run(void);
 void         plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Vector2 vm);
 ScreenAction plexus_handle_speedcoin_result_click(Vector2 vm, int *out_clicked);
 
