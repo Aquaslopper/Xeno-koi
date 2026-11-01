@@ -54,8 +54,10 @@ instead of six. Not yet seen on a screen.
 
 ## 2b. CRT casing for any table — built, waiting on one look
 
-`settings.crt_tables`, toggled as `CRT CASING: ON/OFF` on STAGE // MAP SELECT, runs any
-forged table as glowing phosphor line art without replacing its art. It is real baked art,
+`settings.crt_tables`, toggled as `CRT CASING: ON/OFF` on Pancratium's STAGE // MAP SELECT
+and as `CASING: ON/OFF` in the header of the Plex stage panel, runs any forged table as
+glowing phosphor line art without replacing its art. Same switch in both places: whichever
+you touch, the setting is global and saved. It is real baked art,
 not a tint: `tools/crt_casing.py` reads each map's `overlay.png` and `bezel.png` and writes
 `crt_overlay.png` / `crt_bezel.png` beside them — Sobel edges, three glow octaves, phosphor
 ramp, hollow interiors with a dark floor so text stays readable. Silhouette, ornaments and

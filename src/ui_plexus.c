@@ -1301,6 +1301,16 @@ static void get_ruleset_box_colors(Ruleset rs, Color *out_fill, Color *out_bdr) 
     }
 }
 
+/* CRT casing switch, same setting as the one on Pancratium's STAGE // MAP SELECT page
+   (settings.crt_tables), reachable from where the Plex picks a stage. It sits in the
+   panel header row, right of the title and left of the close box: it restyles the table
+   the stage uses, so it belongs beside the stage choice rather than inside a mode page.
+   Widths are measured, not guessed - "ACTION CARD  //  STAGE SELECT" in audiowide 16
+   ends at ~878 in a worst case, and the close box starts at 1014. */
+static Rectangle plex_casing_chip_rect(void) {
+    return (Rectangle){ 910.0f, k_mode_cfg_rect.y + 7.0f, 92.0f, 22.0f };
+}
+
 static Rectangle plex_stage_card_rect(int map) {
     return (Rectangle){
         534.0f + (float)(map % 4) * 129.0f,
@@ -1349,6 +1359,11 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
     draw_text_snapped(font_title, hdr, k_mode_cfg_rect.x + 18.0f, k_mode_cfg_rect.y + 10.0f,
                       16.0f, 1.3f, COLOR_PHOSPHOR);
     draw_cfg_step_btn((Rectangle){ 1014.0f, (k_mode_cfg_rect.y + 7.0f), 26.0f, 22.0f }, "X", vm, 1);
+    if (stage_page) {
+        draw_cfg_toggle_chip(plex_casing_chip_rect(),
+                             settings.crt_tables ? "CASING: ON" : "CASING: OFF",
+                             vm, settings.crt_tables != 0, COLOR_PHOSPHOR);
+    }
     DrawLine((int)k_mode_cfg_rect.x + 18, (int)(k_mode_cfg_rect.y + 34.0f),
              (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), (int)(k_mode_cfg_rect.y + 34.0f), COLOR_PHOSPHOR_DIM);
 
@@ -1501,6 +1516,11 @@ static int handle_mode_settings_click(Vector2 vm) {
 
     int stage_page = (s_active_tab == 2) || (s_mode_settings_page == 1);
     if (stage_page) {
+        if (CheckCollisionPointRec(vm, plex_casing_chip_rect())) {
+            settings.crt_tables = settings.crt_tables ? 0 : 1;
+            storage_save_settings(&settings);
+            return 1;
+        }
         for (int m = 0; m < TABLE_DESIGN_COUNT; m++) {
             if (CheckCollisionPointRec(vm, plex_stage_card_rect(m))) {
                 if (s_plex_cfg_bg < 0)    s_plex_cfg_bg    = effective_plex_bg();
