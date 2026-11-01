@@ -47,13 +47,13 @@ typedef struct TableGlowSettings {
                                    too timid" without guessing.                          */
 
     /* ---- the light itself ---------------------------------------------------- */
-    float radius_px;            /* how far the shader looks, in canvas pixels. 2..40,
-                                   default 4. It does two jobs, as on the card: it is the
-                                   reach of the brightness gradient, and how far inside the
-                                   art a pixel must sit from ANY transparency before it may
-                                   light (the 8-neighbour opacity test uses the same
-                                   stencil). Too small: the gradient gets noisy. Too large:
-                                   only the fattest parts of the casing can light.        */
+    float radius_px;            /* reach of the brightness gradient, in canvas pixels.
+                                   2..40, default 12. Only the gradient now: the light is
+                                   gated on the centre pixel's own alpha, not on its eight
+                                   neighbours, so this no longer doubles as an opacity
+                                   skirt. 12 px reads a moulding as a slope instead of as
+                                   a 4 px speckle; the card uses 1.45 texels because a
+                                   card is 90 px wide, this is 1280.                     */
     float core_gain;            /* strength of the sharp head. 0.02..2, default 0.20.  */
     float bloom_gain;           /* strength of the halo. 0..2, default 0.10.           */
     float core_uv;              /* radius of the sharp head's falloff, in texture UV.
@@ -64,16 +64,15 @@ typedef struct TableGlowSettings {
                                    has bloom NARROWER than its core, which reads as a
                                    tight halo on a 90 px bezel and as nothing at all on
                                    a 1280 px table.                                     */
-    float luminance_lo;         /* a pixel may catch light only if it is at least this
-                                   share of its neighbourhood's brightest pixel. 0..1,
-                                   default 0.42. Raise it to light fewer, sharper
-                                   details; lower it for a broader glow.                */
-    float luminance_hi;         /* where that ramp reaches full strength. Must be above
-                                   luminance_lo. Default 0.72.
-                                   On the card this ramp is a GATE - a pixel below it
-                                   catches no light. Here it is a GAIN: the table body
-                                   keeps its light and the ridges simply burn brighter.
-                                   A gate left whole cells of the art completely dark.   */
+    float luminance_lo;         /* ABSOLUTE brightness where the ridge gain starts.
+                                   0..0.5, default 0.050. This used to be a share of the
+                                   neighbourhood's brightest pixel; on dark painted art that
+                                   test is dominated by the divisor's floor, so flat panels
+                                   scored higher than real mouldings and the light came out
+                                   as speckle with no direction. Absolute brightness cannot
+                                   invert like that: it is the art's own exposure.          */
+    float luminance_hi;         /* where that gain reaches full strength. 0..1, default
+                                   0.300. Keep it above luminance_lo.                     */
     float black_lo;             /* near-black floor: brightness at or below this gets no
                                    light at all. 0..0.2, default 0.015.
                                    The card uses 0.08, which is right for a bezel and

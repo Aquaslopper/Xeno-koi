@@ -70,15 +70,15 @@
    DEFAULTS - one source of truth for the numbers documented in tableglow.h.
    -------------------------------------------------------------------------- */
 #define TGLOW_DEF_ENABLED           1
-#define TGLOW_DEF_RADIUS_PX         4.0f
+#define TGLOW_DEF_RADIUS_PX        12.0f
 #define TGLOW_DEF_CORE_GAIN        0.20f
 #define TGLOW_DEF_BLOOM_GAIN       0.10f
 #define TGLOW_DEF_CORE_UV          0.10f
 #define TGLOW_DEF_BLOOM_UV         0.45f
 #define TGLOW_DEF_BLACK_LO         0.015f
 #define TGLOW_DEF_BLACK_HI         0.050f
-#define TGLOW_DEF_LUM_LO            0.42f
-#define TGLOW_DEF_LUM_HI            0.72f
+#define TGLOW_DEF_LUM_LO           0.050f
+#define TGLOW_DEF_LUM_HI           0.300f
 #define TGLOW_DEF_MAX_ALPHA         0.35f
 #define TGLOW_DEF_INTENSITY         1.00f
 #define TGLOW_DEF_BRIGHT_BASE       0.08f
@@ -294,6 +294,7 @@ static void tg_publish_block(void) {
 
     /* Tempo. 0 means "not confident yet"; the render side falls back to bpm_ref. */
     float bpm = tg_bpm_from_intervals();
+    if (bpm > 0.0f) s_bpm_now = bpm;   /* the irregularity path returns this */
     __atomic_store_n(&s_pub_bpm, (unsigned int)(bpm * 100.0f + 0.5f), __ATOMIC_RELAXED);
     __atomic_store_n(&s_pub_live, 1u, __ATOMIC_RELAXED);
 }
@@ -398,19 +399,13 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    vec4 cr = " TEX "(texture0, uvc(uv + vec2(d.x, 0.0)));\n"                          \
     "    vec4 cu = " TEX "(texture0, uvc(uv - vec2(0.0, d.y)));\n"                          \
     "    vec4 cd = " TEX "(texture0, uvc(uv + vec2(0.0, d.y)));\n"                          \
-    "    float diag_a = min(min(" TEX "(texture0, uvc(uv - d)).a,\n"                        \
-    "                           " TEX "(texture0, uvc(uv + vec2(d.x, -d.y))).a),\n"         \
-    "                       min(" TEX "(texture0, uvc(uv + vec2(-d.x, d.y))).a,\n"          \
-    "                           " TEX "(texture0, uvc(uv + d)).a));\n"                      \
-    "    float min8 = min(min(min(cl.a, cr.a), min(cu.a, cd.a)), diag_a);\n"                \
     "    float hc = bval(c.rgb);\n"                                                         \
     "    float hl = bval(cl.rgb), hr = bval(cr.rgb), hu = bval(cu.rgb), hd = bval(cd.rgb);\n" \
-    "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.12);\n"                          \
-    "    float solid = smoothstep(0.91, 0.98, c.a) * smoothstep(0.85, 0.95, min8);\n"       \
+    "    float solid = smoothstep(0.35, 0.80, c.a);\n"                                      \
     "    float lit   = solid * smoothstep(u_shape.z, u_shape.w, hc);\n"                     \
-    "    float hi_edge = max(u_tune.w, u_tune.z + 0.001);\n"                                \
-    "    float ridge = smoothstep(u_tune.z, hi_edge, hc / peak);\n"                         \
-    "    float gain  = 0.35 + 0.65 * ridge;\n"                                              \
+    "    float hi_e  = max(u_tune.w, u_tune.z + 0.001);\n"                                  \
+    "    float gain  = 0.35 + 0.65 * clamp((hc - u_tune.z) / (hi_e - u_tune.z), 0.0, 1.0);\n" \
+    "    float peak  = max(max(max(hl, hr), max(hu, hd)), 0.02);\n"                         \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n"                                         \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n"                                         \
     "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - uv) * vec2(0.70, 1.0);\n" \
@@ -427,11 +422,12 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n"                                         \
     "    float core  = lit * gain * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * u_gain.x;\n" \
     "    float bloom = lit * gain * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * u_gain.y;\n" \
-    "    vec3 tint = fragColor.rgb * (0.20 + 0.80 * min(hc * 3.0, 1.0));\n"                 \
+    "    vec3 hue  = c.rgb / max(max(c.r, max(c.g, c.b)), 0.02);\n"                         \
+    "    vec3 tint = fragColor.rgb * mix(vec3(1.0), hue, 0.55) * (0.25 + 0.75 * min(hc * 4.0, 1.0));\n" \
     "    float raw = (core + bloom) * u_tune.x;\n"                                          \
     "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                       \
-    "    " OUT " = vec4(tint, a);\n"                                               \
-    "}\n"                                                                                   \
+    "    " OUT " = vec4(tint, a);\n"                                                        \
+    "}\n"                                                                                   
 
 #ifdef __EMSCRIPTEN__
 static const char *const k_tableglow_fs =
