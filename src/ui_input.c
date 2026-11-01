@@ -33,6 +33,30 @@ static float drop_cover(const GameState *g, Vector2 c, int target) {
     return (min_area > 0.0f) ? inter / min_area : 0.0f;
 }
 
+/* Hit-test drop centre `c` against the painted slot of each matching field card
+   (expanded by 14 px so adjacent matching cards have no dead seam between them
+   without bleeding into neighbouring slots). Returns index in `matches[0..mc-1]`
+   of the closest hit, or -1 when `c` is not near any matching card. */
+static int find_nearest_match_hit(const GameState *g, const int *matches, int mc, Vector2 c) {
+    const float pad = 14.0f;
+    int best_idx = -1;
+    float best_d2 = 0.0f;
+    for (int i = 0; i < mc; i++) {
+        Rectangle r = board_get_field_card_rect_of(g, matches[i]);
+        if (r.width <= 0.0f) continue;
+        Rectangle rg = { r.x - pad, r.y - pad, r.width + pad * 2.0f, r.height + pad * 2.0f };
+        if (!CheckCollisionPointRec(c, rg)) continue;
+        float dx = c.x - (r.x + r.width * 0.5f);
+        float dy = c.y - (r.y + r.height * 0.5f);
+        float d2 = dx * dx + dy * dy;
+        if (best_idx < 0 || d2 < best_d2) {
+            best_idx = i;
+            best_d2 = d2;
+        }
+    }
+    return best_idx;
+}
+
 static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2 c,
                          int allow_speed_grade) {
     int hand_idx = drag->idx;
@@ -74,84 +98,58 @@ static void resolve_drop(GameState *g, DragState *drag, AnimState *anim, Vector2
         board_hint_field_drop(card_id, c);
         engine_play_hand(g, card_id, -1);
         replay_rec_play(0, card_id, -1);
-    } else if (mc == 1) {
-        printf("DROP centre=(%d,%d) -> CAPTURE %s+%s\n",
-               (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
-        fflush(stdout);
-        cap_starts[1] = board_get_card_field_pos(g, matches[0]);
-        hit_pos = cap_starts[1];
-        grade_cover = drop_cover(g, c, matches[0]);
-        engine_play_hand(g, card_id, -1);
-        replay_rec_play(0, card_id, -1);
-        if (g->last_captured_count > 0) {
-            anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
-                               cap_starts, player_cap_dest, 0.50f);
+    } else {
+        int near_idx = find_nearest_match_hit(g, matches, mc, c);
+        if (near_idx < 0) {
+            Rectangle slot = board_get_hand_card_rect(hand_idx, g->hand_count[0], 0);
+            anim_start_glide(anim, card_id, drag->pos, (Vector2){ slot.x, slot.y }, 0.40f);
+            printf("DROP centre=(%d,%d) -> FAR DROP, returning hand[%d]=%s\n",
+                   (int)c.x, (int)c.y, hand_idx, CARDS[card_id].name);
+            fflush(stdout);
+            return;
         }
-    } else if (mc == 3) {
-        printf("DROP centre=(%d,%d) -> CAPTURE ALL FOUR for %s\n",
-               (int)c.x, (int)c.y, CARDS[card_id].name);
-        fflush(stdout);
-        int best_k = 0;
-        for (int k = 0; k < 3; k++) {
-            cap_starts[k + 1] = board_get_card_field_pos(g, matches[k]);
-            float ck = drop_cover(g, c, matches[k]);
-            if (k == 0 || ck > grade_cover) { grade_cover = ck; best_k = k; }
-        }
-        hit_pos = cap_starts[best_k + 1];
-        engine_play_hand(g, card_id, -1);
-        replay_rec_play(0, card_id, -1);
-        if (g->last_captured_count > 0) {
-            anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
-                               cap_starts, player_cap_dest, 0.50f);
-        }
-    } else if (mc == 2) {
-        /* Check if dropped directly onto one matching card (hit-test against the slot each card is
-           actually painted in, not its position in the field array) */
-        int hit0 = 0, hit1 = 0;
-        Rectangle r0 = board_get_field_card_rect_of(g, matches[0]);
-        Rectangle r1 = board_get_field_card_rect_of(g, matches[1]);
-        if (r0.width > 0.0f) {
-            Rectangle rg = { r0.x - 10, r0.y - 10, r0.width + 20, r0.height + 20 };
-            if (CheckCollisionPointRec(c, rg)) hit0 = 1;
-        }
-        if (r1.width > 0.0f) {
-            Rectangle rg = { r1.x - 10, r1.y - 10, r1.width + 20, r1.height + 20 };
-            if (CheckCollisionPointRec(c, rg)) hit1 = 1;
-        }
-
-        if (hit0 && !hit1) {
-            printf("DROP centre=(%d,%d) -> DIRECT CAPTURE %s+%s\n",
+        if (mc == 1) {
+            printf("DROP centre=(%d,%d) -> CAPTURE %s+%s\n",
                    (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[0]].name);
             fflush(stdout);
             cap_starts[1] = board_get_card_field_pos(g, matches[0]);
             hit_pos = cap_starts[1];
             grade_cover = drop_cover(g, c, matches[0]);
-            engine_play_hand(g, card_id, matches[0]);
-            replay_rec_play(0, card_id, matches[0]);
-            if (g->last_captured_count > 0) {
-                anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
-                                   cap_starts, player_cap_dest, 0.50f);
-            }
-        } else if (hit1 && !hit0) {
-            printf("DROP centre=(%d,%d) -> DIRECT CAPTURE %s+%s\n",
-                   (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[matches[1]].name);
-            fflush(stdout);
-            cap_starts[1] = board_get_card_field_pos(g, matches[1]);
-            hit_pos = cap_starts[1];
-            grade_cover = drop_cover(g, c, matches[1]);
-            engine_play_hand(g, card_id, matches[1]);
-            replay_rec_play(0, card_id, matches[1]);
-            if (g->last_captured_count > 0) {
-                anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
-                                   cap_starts, player_cap_dest, 0.50f);
-            }
-        } else {
-            printf("DROP centre=(%d,%d) -> 2-MATCH CHOICE for %s\n",
-                   (int)c.x, (int)c.y, CARDS[card_id].name);
-            fflush(stdout);
-            grade_cover = fmaxf(drop_cover(g, c, matches[0]), drop_cover(g, c, matches[1]));
             engine_play_hand(g, card_id, -1);
             replay_rec_play(0, card_id, -1);
+            if (g->last_captured_count > 0) {
+                anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
+                                   cap_starts, player_cap_dest, 0.50f);
+            }
+        } else if (mc == 2) {
+            int target = matches[near_idx];
+            printf("DROP centre=(%d,%d) -> DIRECT CAPTURE %s+%s\n",
+                   (int)c.x, (int)c.y, CARDS[card_id].name, CARDS[target].name);
+            fflush(stdout);
+            cap_starts[1] = board_get_card_field_pos(g, target);
+            hit_pos = cap_starts[1];
+            grade_cover = drop_cover(g, c, target);
+            engine_play_hand(g, card_id, target);
+            replay_rec_play(0, card_id, target);
+            if (g->last_captured_count > 0) {
+                anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
+                                   cap_starts, player_cap_dest, 0.50f);
+            }
+        } else if (mc == 3) {
+            printf("DROP centre=(%d,%d) -> CAPTURE ALL FOUR for %s\n",
+                   (int)c.x, (int)c.y, CARDS[card_id].name);
+            fflush(stdout);
+            for (int k = 0; k < 3; k++) {
+                cap_starts[k + 1] = board_get_card_field_pos(g, matches[k]);
+            }
+            hit_pos = cap_starts[near_idx + 1];
+            grade_cover = drop_cover(g, c, matches[near_idx]);
+            engine_play_hand(g, card_id, -1);
+            replay_rec_play(0, card_id, -1);
+            if (g->last_captured_count > 0) {
+                anim_start_capture(anim, 0, g->last_captured, g->last_captured_count,
+                                   cap_starts, player_cap_dest, 0.50f);
+            }
         }
     }
     if (g->ruleset == RULESET_KK_ADD_10) {
@@ -217,6 +215,7 @@ void input_handle_mouse(GameState *g, DragState *drag, AnimState *anim,
             drag->selected = 0;
             /* Click-to-play resolves normally but is never precision-graded. */
             resolve_drop(g, drag, anim, target, 0);
+            drag->idx = -1;
             return;
         }
     }
