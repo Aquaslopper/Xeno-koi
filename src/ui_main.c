@@ -802,17 +802,19 @@ static void update_draw_frame(void) {
         ClearBackground(BLACK);
         if (startup_stage == 1) {
             ClearBackground(WHITE);
-            DrawTriangle((Vector2){ 145.0f, 312.0f }, (Vector2){ 111.0f, 382.0f },
-                         (Vector2){ 179.0f, 382.0f }, RED);
-            DrawRectangle(142, 334, 6, 23, WHITE);
-            DrawRectangle(142, 363, 6, 6, WHITE);
+            DrawTriangle((Vector2){ 640.0f, 244.0f }, (Vector2){ 596.0f, 320.0f },
+                         (Vector2){ 684.0f, 320.0f }, BLACK);
+            DrawTriangle((Vector2){ 640.0f, 252.0f }, (Vector2){ 603.0f, 316.0f },
+                         (Vector2){ 677.0f, 316.0f }, (Color){ 255, 212, 0, 255 });
+            DrawRectangle(637, 271, 6, 24, BLACK);
+            DrawRectangle(637, 301, 6, 6, BLACK);
             const char *lines[] = {
                 "HIGH VOLUME AND PROLONGED LISTENING MAY DAMAGE YOUR HEARING.",
                 "PLEASE ADJUST YOUR VOLUME AND TAKE REGULAR BREAKS."
             };
             for (int i = 0; i < 2; i++) {
                 Vector2 size = MeasureTextEx(font_body, lines[i], 24.0f, 1.0f);
-                DrawTextEx(font_body, lines[i], (Vector2){ floorf((CANVAS_W - size.x) * 0.5f), 325.0f + i * 38.0f },
+                DrawTextEx(font_body, lines[i], (Vector2){ floorf((CANVAS_W - size.x) * 0.5f), 348.0f + i * 38.0f },
                            24.0f, 1.0f, BLACK);
             }
         } else {

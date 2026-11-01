@@ -151,6 +151,8 @@ static int s_ac_last_mt = 0;
 
 /* Per-mode Atrium Plex match settings (persisted in plexsave.txt; isolated from Campaign save) */
 static int        s_mode_settings_open = 0;
+static int        s_mode_settings_page = 0;
+static int        s_plex_cfg_stage     = -1;
 static int        s_ac_cfg_rounds      = 6;
 static Difficulty s_ac_cfg_diff        = DIFFICULTY_EASY;
 static int        s_ac_cfg_timer       = 15;
@@ -169,6 +171,7 @@ static Ruleset    s_saved_camp_ruleset  = RULESET_NINTENDO;
 static int        s_saved_camp_opponent = 0;
 static int        s_saved_camp_bg       = 0;
 static int        s_saved_camp_tcol     = 0;
+static int        s_saved_camp_table    = 0;
 
 /* Solo Speedcoin & Action Card modes (unlocked for testing; saved in plexsave.txt) */
 #define SPEEDCOIN_UNLOCKED_FOR_TESTING   1
@@ -611,6 +614,8 @@ void plexus_load(void) {
     s_ac_losses = 0;
     s_ac_best_score = 0;
     s_mode_settings_open = 0;
+    s_mode_settings_page = 0;
+    s_plex_cfg_stage = -1;
     s_ac_cfg_rounds = 6;
     s_ac_cfg_diff = DIFFICULTY_EASY;
     s_ac_cfg_timer = 15;
@@ -987,6 +992,38 @@ static int clamped_tr_opponent(void) {
     return s_tr_cfg_opponent;
 }
 
+static const char *const k_plex_stage_names[TABLE_DESIGN_COUNT] = {
+    "CRT", "CITY", "CASTLE", "HOLE", "ARCTIC", "HARVEST", "FACE", "REALM"
+};
+static const int k_plex_map_bg[TABLE_DESIGN_COUNT] = { -1, 4, 3, 1, 2, 0, 6, 7 };
+static const int k_plex_map_color[TABLE_DESIGN_COUNT] = {
+    -1, TERMINAL_THEME_RUST, TERMINAL_THEME_GOLD, TERMINAL_THEME_SAND,
+    TERMINAL_THEME_TEAL, TERMINAL_THEME_BLOOD, TERMINAL_THEME_CRIMSON, TERMINAL_THEME_VIOLET
+};
+
+static int effective_plex_stage(void) {
+    if (s_plex_cfg_stage >= 0 && s_plex_cfg_stage < TABLE_DESIGN_COUNT) return s_plex_cfg_stage;
+    int td = s_cfg_override_active ? s_saved_camp_table : settings.table_design;
+    return (td >= 0 && td < TABLE_DESIGN_COUNT) ? td : 0;
+}
+
+static void apply_plex_stage_settings(GameSettings *s) {
+    if (s_plex_cfg_stage >= 0 && s_plex_cfg_stage < TABLE_DESIGN_COUNT) {
+        s->table_design = s_plex_cfg_stage;
+        if (s_plex_cfg_stage > TABLE_DESIGN_CRT) {
+            s->background     = k_plex_map_bg[s_plex_cfg_stage];
+            s->terminal_color = k_plex_map_color[s_plex_cfg_stage];
+        } else {
+            s->background     = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
+            s->terminal_color = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+        }
+    } else {
+        s->table_design   = s_saved_camp_table;
+        s->background     = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
+        s->terminal_color = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+    }
+}
+
 static void snapshot_campaign_settings(const GameSettings *s) {
     if (s_cfg_override_active || !s) return;
     s_saved_camp_rounds   = s->rounds;
@@ -996,6 +1033,7 @@ static void snapshot_campaign_settings(const GameSettings *s) {
     s_saved_camp_opponent = s->current_opponent;
     s_saved_camp_bg       = s->background;
     s_saved_camp_tcol     = s->terminal_color;
+    s_saved_camp_table    = s->table_design;
     s_cfg_override_active = 1;
 }
 
@@ -1008,6 +1046,7 @@ void plexus_restore_match_settings(GameSettings *s, BoardAssets *ba) {
     s->current_opponent = s_saved_camp_opponent;
     s->background       = s_saved_camp_bg;
     s->terminal_color   = s_saved_camp_tcol;
+    s->table_design     = s_saved_camp_table;
     if (ba) ba->current_bg = s->background;
     theme_set(s->terminal_color);
     ai_set_opponent(s->current_opponent);
@@ -1025,8 +1064,7 @@ void plexus_sync_match_settings(GameSettings *s, BoardAssets *ba) {
         s->master_timer     = s_ac_cfg_timer;
         s->current_opponent = (s_saved_camp_opponent >= 0 && s_saved_camp_opponent < CAMPAIGN_OPPONENT_COUNT)
                               ? s_saved_camp_opponent : 0;
-        s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-        s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+        apply_plex_stage_settings(s);
         if (ba) ba->current_bg = s->background;
         theme_set(s->terminal_color);
     } else if (s_training_active) {
@@ -1038,8 +1076,7 @@ void plexus_sync_match_settings(GameSettings *s, BoardAssets *ba) {
         s->ruleset          = s_tr_cfg_ruleset;
         s->master_timer     = s_tr_cfg_timer;
         s->current_opponent = opp;
-        s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-        s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+        apply_plex_stage_settings(s);
         if (ba) ba->current_bg = s->background;
         theme_set(s->terminal_color);
     } else if (s_tut_active || s_speedcoin_active) {
@@ -1049,8 +1086,13 @@ void plexus_sync_match_settings(GameSettings *s, BoardAssets *ba) {
         s->difficulty       = DIFFICULTY_EASY;
         s->master_timer     = 30;
         s->current_opponent = 0;
-        s->background       = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
-        s->terminal_color   = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+        if (s_tut_active) {
+            s->table_design   = s_saved_camp_table;
+            s->background     = (s_saved_camp_bg == 5) ? 0 : s_saved_camp_bg;
+            s->terminal_color = (s_saved_camp_tcol == 5) ? 2 : s_saved_camp_tcol;
+        } else {
+            apply_plex_stage_settings(s);
+        }
         if (ba) ba->current_bg = s->background;
         theme_set(s->terminal_color);
     } else {
@@ -1069,6 +1111,7 @@ int plexus_close_subpanel(void) {
     }
     if (s_mode_settings_open) {
         s_mode_settings_open = 0;
+        s_mode_settings_page = 0;
         plexus_save();
         return 1;
     }
@@ -1182,14 +1225,55 @@ static void get_ruleset_box_colors(Ruleset rs, Color *out_fill, Color *out_bdr) 
     }
 }
 
-static void draw_mode_settings_panel(Vector2 vm) {
-    if (!s_mode_settings_open || (s_active_tab != 3 && s_active_tab != 4)) return;
+static Rectangle plex_stage_card_rect(int map) {
+    return (Rectangle){
+        534.0f + (float)(map % 4) * 129.0f,
+        k_mode_cfg_rect.y + 40.0f + (float)(map / 4) * 74.0f,
+        117.0f, 66.0f
+    };
+}
+
+static void draw_plex_stage_card(const BoardAssets *ba, int map, int cur_stage, Vector2 vm) {
+    Rectangle card = plex_stage_card_rect(map);
+    int hov = CheckCollisionPointRec(vm, card);
+    int sel = (map == cur_stage);
+    int camp_bg = s_cfg_override_active ? s_saved_camp_bg : settings.background;
+    if (camp_bg < 0 || camp_bg >= 8 || camp_bg == 5) camp_bg = 0;
+    int preview_bg = (map == TABLE_DESIGN_CRT) ? camp_bg : k_plex_map_bg[map];
+
+    DrawRectangleRec(card, hov ? COLOR_BTN_HOVER_BG : PLEXUS_SUBBOX_BG);
+    Rectangle art = { floorf(card.x + (card.width - 82.0f) * 0.5f), card.y + 3.0f, 82.0f, 46.0f };
+    DrawRectangleRec(art, (Color){ 5, 5, 5, 255 });
+    if (ba && preview_bg >= 0 && preview_bg < 8 && ba->bgs[preview_bg].id > 0) {
+        DrawTexturePro(ba->bgs[preview_bg], (Rectangle){ 0, 0, 1280, 720 }, art,
+                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+    }
+    if (ba && map > TABLE_DESIGN_CRT && ba->table_skins[map].ready) {
+        const Texture2D overlay = ba->table_skins[map].overlay;
+        DrawTexturePro(overlay, (Rectangle){ 0, 0, (float)overlay.width, (float)overlay.height }, art,
+                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+    }
+    DrawRectangleLinesEx(card, (sel || hov) ? 2.0f : 1.0f,
+                         sel ? COLOR_PHOSPHOR : (hov ? COLOR_PHOSPHOR_DIM : (Color){ 100, 100, 100, 150 }));
+    if (sel) ui_theme_draw_panel_flares(card);
+    Vector2 lsz = MeasureTextEx(font_body, k_plex_stage_names[map], 13.0f, 1.0f);
+    draw_text_snapped(font_body, k_plex_stage_names[map],
+                      card.x + (card.width - lsz.x) * 0.5f, card.y + 50.0f, 13.0f, 1.0f,
+                      sel ? COLOR_PHOSPHOR : (hov ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM));
+}
+
+static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
+    if (!s_mode_settings_open || (s_active_tab != 2 && s_active_tab != 3 && s_active_tab != 4)) return;
 
     DrawRectangleRec(k_mode_cfg_rect, PLEXUS_PANEL_BG);
     ui_draw_panel_border(k_mode_cfg_rect, COLOR_PHOSPHOR);
 
-    const char *hdr = (s_active_tab == 3) ? "ACTION CARD  //  MATCH SETTINGS"
-                                          : "TRAINING  //  MATCH SETTINGS";
+    int stage_page = (s_active_tab == 2) || (s_mode_settings_page == 1);
+    const char *hdr = (s_active_tab == 2) ? "SPEEDCOIN  //  STAGE SELECT" :
+                      (s_active_tab == 3) ? (stage_page ? "ACTION CARD  //  STAGE SELECT"
+                                                        : "ACTION CARD  //  MATCH SETTINGS")
+                                          : (stage_page ? "TRAINING  //  STAGE SELECT"
+                                                        : "TRAINING  //  MATCH SETTINGS");
     draw_text_snapped(font_title, hdr, k_mode_cfg_rect.x + 18.0f, k_mode_cfg_rect.y + 10.0f,
                       16.0f, 1.3f, COLOR_PHOSPHOR);
     draw_cfg_step_btn((Rectangle){ 1014.0f, (k_mode_cfg_rect.y + 7.0f), 26.0f, 22.0f }, "X", vm, 1);
@@ -1198,42 +1282,56 @@ static void draw_mode_settings_panel(Vector2 vm) {
 
     const float lx = 534.0f;
     const Color mast_c = { 255,  70, 70, 255 };
+    int cur_stage = effective_plex_stage();
+
+    if (stage_page) {
+        for (int m = 0; m < TABLE_DESIGN_COUNT; m++) {
+            draw_plex_stage_card(ba, m, cur_stage, vm);
+        }
+        draw_text_snapped(font_body, TextFormat("ACTIVE STAGE: %s", k_plex_stage_names[cur_stage]),
+                          lx, (k_mode_cfg_rect.y + 191.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        if (s_active_tab == 3 || s_active_tab == 4) {
+            draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f }, "< PAGE 1", vm, 1);
+        }
+        return;
+    }
 
     if (s_active_tab == 3) {
         if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
         Color rfill, rbdr;
         get_ruleset_box_colors(RULESET_KK_ADD_10, &rfill, &rbdr);
-        draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 47.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-        draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 42.0f), 364.0f, 28.0f },
+        draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 45.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
+        draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 40.0f), 364.0f, 28.0f },
                          "[ KK-ADD-10 (LOCKED) ]", rfill, rbdr, COLOR_TEXT_INFO);
 
-        draw_text_snapped(font_body, "Rounds:", lx, (k_mode_cfg_rect.y + 87.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 82.0f),  38.0f, 28.0f }, "-", vm, s_ac_cfg_rounds > 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 82.0f), 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Rounds:", lx, (k_mode_cfg_rect.y + 80.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 75.0f),  38.0f, 28.0f }, "-", vm, s_ac_cfg_rounds > 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 75.0f), 276.0f, 28.0f },
                           TextFormat("%d ROUNDS", s_ac_cfg_rounds), PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 82.0f),  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 75.0f),  38.0f, 28.0f }, "+", vm, s_ac_cfg_rounds < 12);
 
         Color dc = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_PHOSPHOR;
         const char *d_lbl = (s_ac_cfg_diff == DIFFICULTY_MASTER) ? "MASTER" :
                             (s_ac_cfg_diff == DIFFICULTY_HARD)   ? "HARD" : "EASY";
-        draw_text_snapped(font_body, "Difficulty:", lx, (k_mode_cfg_rect.y + 127.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
-        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 122.0f),  38.0f, 28.0f }, "<", vm, 1);
-        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 122.0f), 276.0f, 28.0f },
+        draw_text_snapped(font_body, "Difficulty:", lx, (k_mode_cfg_rect.y + 115.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
+        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 110.0f),  38.0f, 28.0f }, "<", vm, 1);
+        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 110.0f), 276.0f, 28.0f },
                           d_lbl, PLEXUS_SUBBOX_BG, dc, (s_ac_cfg_diff == DIFFICULTY_MASTER) ? mast_c : COLOR_TEXT_INFO);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 122.0f),  38.0f, 28.0f }, ">", vm, 1);
+        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 110.0f),  38.0f, 28.0f }, ">", vm, 1);
 
-        draw_text_snapped(font_body, "Turn Timer:", lx, (k_mode_cfg_rect.y + 167.0f), 17.0f, 1.1f,
+        draw_text_snapped(font_body, "Turn Timer:", lx, (k_mode_cfg_rect.y + 150.0f), 17.0f, 1.1f,
                           (s_ac_cfg_diff == DIFFICULTY_MASTER) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
-            draw_cfg_toggle_chip((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
-            draw_cfg_toggle_chip((Rectangle){ 860.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f }, "15 SEC", vm, s_ac_cfg_timer == 15, mast_c);
+            draw_cfg_toggle_chip((Rectangle){ 860.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f }, "30 SEC", vm, s_ac_cfg_timer == 30, mast_c);
         } else {
-            draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 162.0f), 364.0f, 28.0f },
+            draw_cfg_val_box((Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 364.0f, 28.0f },
                              "[ MASTER ONLY ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
         }
 
-        draw_text_snapped(font_body, "Saved independently in Atrium Plex (Campaign settings untouched).",
-                          lx, (k_mode_cfg_rect.y + 198.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        draw_text_snapped(font_body, TextFormat("Stage: %s  (Campaign untouched)", k_plex_stage_names[cur_stage]),
+                          lx, (k_mode_cfg_rect.y + 191.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f }, "PAGE 2 >", vm, 1);
     } else {
         if (s_tr_cfg_diff > DIFFICULTY_MASTER) s_tr_cfg_diff = DIFFICULTY_MASTER;
         draw_text_snapped(font_body, "Ruleset:", lx, (k_mode_cfg_rect.y + 45.0f), 17.0f, 1.1f, COLOR_PHOSPHOR);
@@ -1277,45 +1375,65 @@ static void draw_mode_settings_panel(Vector2 vm) {
                           opp_txt, PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_TEXT_INFO);
         draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 145.0f),  38.0f, 28.0f }, ">", vm, unlocked > 1);
 
-        draw_text_snapped(font_body, "Condition:", lx, (k_mode_cfg_rect.y + 185.0f), 17.0f, 1.1f, COLOR_PHOSPHOR_DIM);
-        draw_cfg_step_btn((Rectangle){  674.0f, (k_mode_cfg_rect.y + 180.0f),  38.0f, 28.0f }, "<", vm, 0);
-        draw_cfg_val_box ((Rectangle){  718.0f, (k_mode_cfg_rect.y + 180.0f), 276.0f, 28.0f },
-                          "[ NONE ]", PLEXUS_SUBBOX_BG, COLOR_PHOSPHOR_DIM, COLOR_PHOSPHOR_DIM);
-        draw_cfg_step_btn((Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 180.0f),  38.0f, 28.0f }, ">", vm, 0);
+        draw_text_snapped(font_body, TextFormat("Condition: [ NONE ]   //   Stage: %s", k_plex_stage_names[cur_stage]),
+                          lx, (k_mode_cfg_rect.y + 191.0f), 15.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+        draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f }, "PAGE 2 >", vm, 1);
     }
 }
 
 static int handle_mode_settings_click(Vector2 vm) {
-    if (!s_mode_settings_open || (s_active_tab != 3 && s_active_tab != 4)) return 0;
+    if (!s_mode_settings_open || (s_active_tab != 2 && s_active_tab != 3 && s_active_tab != 4)) return 0;
     if (!CheckCollisionPointRec(vm, k_mode_cfg_rect)) return 0;
 
     if (CheckCollisionPointRec(vm, (Rectangle){ 1014.0f, (k_mode_cfg_rect.y + 7.0f), 26.0f, 22.0f })) {
         s_mode_settings_open = 0;
-        plexus_save();
+        s_mode_settings_page = 0;
+        if (s_active_tab != 2) plexus_save();
+        return 1;
+    }
+
+    int stage_page = (s_active_tab == 2) || (s_mode_settings_page == 1);
+    if (stage_page) {
+        for (int m = 0; m < TABLE_DESIGN_COUNT; m++) {
+            if (CheckCollisionPointRec(vm, plex_stage_card_rect(m))) {
+                s_plex_cfg_stage = m;
+                return 1;
+            }
+        }
+        if ((s_active_tab == 3 || s_active_tab == 4) &&
+            CheckCollisionPointRec(vm, (Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f })) {
+            s_mode_settings_page = 0;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (CheckCollisionPointRec(vm, (Rectangle){ 926.0f, (k_mode_cfg_rect.y + 186.0f), 112.0f, 26.0f })) {
+        s_mode_settings_page = 1;
         return 1;
     }
 
     if (s_active_tab == 3) {
         if (s_ac_cfg_diff > DIFFICULTY_MASTER) s_ac_cfg_diff = DIFFICULTY_MASTER;
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 82.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 75.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds > 1) {
             s_ac_cfg_rounds--; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 82.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds < 12) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 75.0f), 38.0f, 28.0f }) && s_ac_cfg_rounds < 12) {
             s_ac_cfg_rounds++; plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 122.0f), 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 110.0f), 38.0f, 28.0f })) {
             s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 2) % 3);
             plexus_save(); return 1;
         }
-        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 122.0f), 38.0f, 28.0f })) {
+        if (CheckCollisionPointRec(vm, (Rectangle){ 1000.0f, (k_mode_cfg_rect.y + 110.0f), 38.0f, 28.0f })) {
             s_ac_cfg_diff = (Difficulty)(((int)s_ac_cfg_diff + 1) % 3);
             plexus_save(); return 1;
         }
         if (s_ac_cfg_diff == DIFFICULTY_MASTER) {
-            if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f })) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 674.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f })) {
                 s_ac_cfg_timer = 15; plexus_save(); return 1;
             }
-            if (CheckCollisionPointRec(vm, (Rectangle){ 860.0f, (k_mode_cfg_rect.y + 162.0f), 178.0f, 28.0f })) {
+            if (CheckCollisionPointRec(vm, (Rectangle){ 860.0f, (k_mode_cfg_rect.y + 145.0f), 178.0f, 28.0f })) {
                 s_ac_cfg_timer = 30; plexus_save(); return 1;
             }
         }
@@ -2971,17 +3089,18 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
         int start_locked = (s_active_tab == 0 && !slot_unlocked) ||
                            (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) ||
                            (s_active_tab == 3 && !is_action_card_bottom_unlocked());
-        /* Middle slot: SETTINGS on ACTION CARD and TRAINING, HISCORE on SPEEDCOIN
-           (that mode has nothing to configure). Left slot: HISCORE on ACTION CARD. */
-        if (s_active_tab == 2) {
-            draw_plexus_btn(k_settings_rect, "HISCORE", 18, vm, s_hiscore_open);
-        } else if (s_active_tab == 3 || s_active_tab == 4) {
-            if (s_active_tab == 3) draw_plexus_btn(k_hiscore_rect, "HISCORE", 18, vm, s_hiscore_open);
+        /* Middle slot: STAGE on SPEEDCOIN, SETTINGS on ACTION CARD and TRAINING.
+           Left slot: HISCORE on SPEEDCOIN and ACTION CARD. */
+        if (s_active_tab == 2 || s_active_tab == 3 || s_active_tab == 4) {
+            if (s_active_tab == 2 || s_active_tab == 3) {
+                draw_plexus_btn(k_hiscore_rect, "HISCORE", 18, vm, s_hiscore_open);
+            }
+            const char *cfg_lbl = (s_active_tab == 2) ? "STAGE" : "SETTINGS";
             if (start_locked) {
-                draw_plexus_locked_btn(k_settings_rect, "SETTINGS", 18);
+                draw_plexus_locked_btn(k_settings_rect, cfg_lbl, 18);
             } else {
-                draw_plexus_btn(k_settings_rect, "SETTINGS", 18, vm, s_mode_settings_open);
-                draw_mode_settings_panel(vm);
+                draw_plexus_btn(k_settings_rect, cfg_lbl, 18, vm, s_mode_settings_open);
+                draw_mode_settings_panel(ba, vm);
             }
         }
         if (start_locked) {
@@ -3156,8 +3275,8 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         return ACT_NONE;
     }
 
-    /* Per-mode Match Settings drawer (Action Card & Training) */
-    if (s_mode_settings_open && (s_active_tab == 3 || s_active_tab == 4)) {
+    /* Per-mode Match Settings / Stage drawer (Speedcoin, Action Card & Training) */
+    if (s_mode_settings_open && (s_active_tab == 2 || s_active_tab == 3 || s_active_tab == 4)) {
         if (handle_mode_settings_click(vm)) {
             if (out_clicked) *out_clicked = 1;
             return ACT_NONE;
@@ -3167,21 +3286,25 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         }
     }
 
-    /* HISCORE board: middle slot on SPEEDCOIN, left slot on ACTION CARD */
-    if ((s_active_tab == 2 && CheckCollisionPointRec(vm, k_settings_rect)) ||
-        (s_active_tab == 3 && CheckCollisionPointRec(vm, k_hiscore_rect))) {
+    /* HISCORE board: left slot on SPEEDCOIN and ACTION CARD */
+    if ((s_active_tab == 2 || s_active_tab == 3) && CheckCollisionPointRec(vm, k_hiscore_rect)) {
+        if (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) return ACT_NONE;
         if (s_active_tab == 3 && !is_action_card_bottom_unlocked()) return ACT_NONE;
         s_mode_settings_open = 0;
+        s_mode_settings_page = 0;
         s_hiscore_open = 1;
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
 
-    /* SETTINGS button next to START (only shown on Action Card & Training) */
-    if ((s_active_tab == 3 || s_active_tab == 4) && CheckCollisionPointRec(vm, k_settings_rect)) {
+    /* STAGE / SETTINGS button next to START (Speedcoin, Action Card & Training) */
+    if ((s_active_tab == 2 || s_active_tab == 3 || s_active_tab == 4) &&
+        CheckCollisionPointRec(vm, k_settings_rect)) {
+        if (s_active_tab == 2 && !is_speedcoin_bottom_unlocked()) return ACT_NONE;
         if (s_active_tab == 3 && !is_action_card_bottom_unlocked()) return ACT_NONE;
         s_mode_settings_open = !s_mode_settings_open;
-        if (!s_mode_settings_open) plexus_save();
+        s_mode_settings_page = (s_active_tab == 2) ? 1 : 0;
+        if (!s_mode_settings_open && s_active_tab != 2) plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
@@ -3274,6 +3397,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         s_selected_slot    = 3;
         s_active_tab       = 0;
         s_mode_settings_open = 0;
+        s_mode_settings_page = 0;
         if (!is_deus_spine_active() && is_story_month_unlocked(s_selected_month)) {
             s_story_sel_month = s_selected_month;
         }
@@ -3288,6 +3412,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                 s_selected_slot = i;
                 s_active_tab = 0;
                 s_mode_settings_open = 0;
+                s_mode_settings_page = 0;
                 if (out_clicked) *out_clicked = 1;
                 return ACT_NONE;
             }
@@ -3300,6 +3425,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             plexus_speedcoin_abort();
             plexus_action_card_abort();
             s_mode_settings_open = 0;
+            s_mode_settings_page = 0;
             s_training_result_view = 0;
             s_training_active = 1;
             if (out_clicked) *out_clicked = 1;
@@ -3310,6 +3436,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             plexus_tutorial_abort();
             plexus_action_card_abort();
             s_mode_settings_open = 0;
+            s_mode_settings_page = 0;
             s_training_active = 0;
             s_speedcoin_result_view = 0;
             s_speedcoin_active = 1;
@@ -3321,6 +3448,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             plexus_tutorial_abort();
             plexus_speedcoin_abort();
             s_mode_settings_open = 0;
+            s_mode_settings_page = 0;
             s_training_active = 0;
             s_action_card_active = 1;
             if (out_clicked) *out_clicked = 1;
@@ -3373,6 +3501,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             plexus_speedcoin_abort();
             plexus_action_card_abort();
             s_mode_settings_open = 0;
+            s_mode_settings_page = 0;
             tut_save_telemetry();
             s_tut_active  = 1;
             s_tut_card_id = cid;
@@ -3423,11 +3552,13 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
     /* Bottom Bar: index 0 is SAVE & BACK, 1..4 are tabs, 5 is OPTION */
     if (CheckCollisionPointRec(vm, k_bottom_rects[0])) {
         s_mode_settings_open = 0;
+        s_mode_settings_page = 0;
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_MENU;
     }
     if (CheckCollisionPointRec(vm, k_bottom_rects[5])) {
         s_mode_settings_open = 0;
+        s_mode_settings_page = 0;
         plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_OPTIONS;
@@ -3440,6 +3571,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             int next_tab = (i == 1 && s_active_tab == 1) ? 0 : i;
             if (next_tab != s_active_tab) {
                 s_mode_settings_open = 0;
+                s_mode_settings_page = 0;
                 plexus_save();
             }
             s_active_tab = next_tab;
