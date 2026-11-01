@@ -73,18 +73,18 @@
 #define TGLOW_DEF_ENABLED           1
 #define TGLOW_DEF_MICRO_PX          3.0f
 #define TGLOW_DEF_MESO_PX          10.0f
-#define TGLOW_DEF_CORE_GAIN        0.95f
-#define TGLOW_DEF_BLOOM_GAIN       0.72f
+#define TGLOW_DEF_CORE_GAIN        2.00f
+#define TGLOW_DEF_BLOOM_GAIN       1.60f
 #define TGLOW_DEF_CORE_UV          0.10f
 #define TGLOW_DEF_BLOOM_UV         0.45f
 #define TGLOW_DEF_BLACK_LO         0.015f
 #define TGLOW_DEF_BLACK_HI         0.050f
 #define TGLOW_DEF_EDGE_LO          0.080f
 #define TGLOW_DEF_EDGE_HI          0.450f
-#define TGLOW_DEF_MAX_ALPHA        0.70f
+#define TGLOW_DEF_MAX_ALPHA        1.00f
 #define TGLOW_DEF_INTENSITY         1.00f
-#define TGLOW_DEF_BRIGHT_BASE       0.08f
-#define TGLOW_DEF_BRIGHT_PER_LUFS   0.92f
+#define TGLOW_DEF_BRIGHT_BASE      0.35f
+#define TGLOW_DEF_BRIGHT_PER_LUFS  0.65f
 #define TGLOW_DEF_LUFS_FLOOR      (-32.0f)
 #define TGLOW_DEF_LUFS_CEIL       (-10.0f)
 #define TGLOW_DEF_LUFS_ATTACK_MS  120.0f
@@ -426,11 +426,11 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    vec3 n = normalize(vec3(clamp(g * 2.5, vec2(-1.0), vec2(1.0)), 1.0));\n"           \
     "    float solid = smoothstep(0.35, 0.80, c.a);\n"                                      \
     "    float lit = solid * smoothstep(u_shape.z, u_shape.w, hc) * (0.04 + 0.96 * edge);\n" \
-    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - uv) * vec2(0.70, 1.0);\n" \
+    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - uv) * u_aspect;\n" \
     "    float d1 = dot(t1, t1);\n"                                                         \
     "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n"           \
     "    float nd1 = max(dot(n, h1), 0.0);\n"                                               \
-    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - uv) * vec2(0.70, 1.0);\n" \
+    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - uv) * u_aspect;\n" \
     "    float d2 = dot(t2, t2);\n"                                                         \
     "    vec3 h2 = normalize(normalize(vec3(t2, 0.30)) + vec3(0.0, 0.0, 1.0));\n"           \
     "    float nd2 = max(dot(n, h2), 0.0);\n"                                               \
@@ -440,9 +440,13 @@ static void tg_music_processor(void *buffer, unsigned int frames) {
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n"                                         \
     "    float core  = lit * (exp(-d1 / u_shape.x) * s1 + exp(-d2 / u_shape.x) * s2) * u_gain.x;\n" \
     "    float bloom = lit * (exp(-d1 / (u_shape.y * bw)) + exp(-d2 / (u_shape.y * bw))) * u_gain.y;\n" \
+    "    float w1 = dot(uv - vec2(0.5), vec2(0.94, 0.34)) - 0.42 * sin(u_phase.z * 0.37);\n" \
+    "    float w2 = dot(uv - vec2(0.5), vec2(-0.31, 0.95)) - 0.38 * sin(u_phase.z * 0.23 + 1.7);\n" \
+    "    float swell = 0.62 * exp(-pow(w1 / 0.30, 2.0)) + 0.38 * exp(-pow(w2 / 0.24, 2.0));\n" \
+    "    float wash = solid * smoothstep(u_shape.z, u_shape.w, hc) * swell;\n"              \
     "    vec3 art  = c.rgb / max(max(c.r, max(c.g, c.b)), 0.02);\n"                         \
     "    vec3 tint = art * (0.55 + 0.45 * min(hc * 4.0, 1.0));\n"                           \
-    "    float raw = (core + bloom) * u_tune.x;\n"                                          \
+    "    float raw = (core + bloom + wash * u_gain.x * 0.18) * u_tune.x;\n"                 \
     "    float a = (1.0 - exp(-raw * 1.65)) * str;\n"                                       \
     "    OUT = vec4(tint, a);\n"                                                            \
     "}\n"                                                                                   
@@ -456,6 +460,7 @@ static const char *const k_tableglow_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform vec2 u_aspect;\n"
     "uniform vec4 u_tune;\n"
     "uniform vec4 u_shape;\n"
     "uniform vec4 u_gain;\n"
@@ -469,6 +474,7 @@ static const char *const k_tableglow_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform vec2 u_aspect;\n"
     "uniform vec4 u_tune;\n"
     "uniform vec4 u_shape;\n"
     "uniform vec4 u_gain;\n"
@@ -483,11 +489,13 @@ static const char *const k_tableglow_fs =
    ========================================================================== */
 static Shader s_shader = { 0 };
 static int    s_shader_tried;
+static int    s_shader_warned;
 static int    s_phase_loc = -1;
 static int    s_tune_loc = -1;
 static int    s_shape_loc = -1;
 static int    s_gain_loc = -1;
 static int    s_scale_loc = -1;
+static int    s_aspect_loc = -1;
 static float  s_bright_vis = -1.0f;      /* <0 = not seeded yet, snap on first frame */
 static float  s_bloom_vis = -1.0f;
 
@@ -501,6 +509,7 @@ static void tg_shader_init(void) {
         s_shape_loc = GetShaderLocation(s_shader, "u_shape");
         s_gain_loc  = GetShaderLocation(s_shader, "u_gain");
         s_scale_loc = GetShaderLocation(s_shader, "u_scale");
+        s_aspect_loc = GetShaderLocation(s_shader, "u_aspect");
         TraceLog(LOG_INFO, "tableglow: linked - %s", TABLEGLOW_ENABLED ? "on" : "off");
     } else {
         TraceLog(LOG_WARNING, "tableglow: shader failed to load, table light disabled");
@@ -523,7 +532,13 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     if (overlay.id <= 0 || overlay.width <= 0 || overlay.height <= 0) return;
 
     tg_shader_init();
-    if (s_shader.id <= 0) return;
+    if (s_shader.id <= 0) {
+        if (!s_shader_warned) {
+            s_shader_warned = 1;
+            TraceLog(LOG_WARNING, "tableglow: shader unavailable, nothing is drawn");
+        }
+        return;
+    }
 
     if (dt < 0.0f) dt = 0.0f;
     if (dt > 0.05f) dt = 0.05f;
@@ -575,7 +590,7 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     float lo = tg_clampf(tableglow.edge_lo, 0.0f, 4.0f);
     float hi = tg_clampf(tableglow.edge_hi, 0.0f, 4.0f);
     if (hi <= lo) hi = lo + 0.001f;
-    float phase[4] = { pha, phb, 0.0f, 0.0f };
+    float phase[4] = { pha, phb, (float)GetTime(), 0.0f };
     float tune[4]  = { s_bright_vis, s_bloom_vis, lo, hi };
     /* The two gradient scales, in texels of this overlay. */
     float micro = tg_clampf(tableglow.micro_px, 1.0f, 64.0f);
@@ -600,6 +615,17 @@ static void tg_draw_light(Texture2D overlay, float dt) {
     if (s_shape_loc >= 0) SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
     if (s_gain_loc  >= 0) SetShaderValue(s_shader, s_gain_loc,  gain,  SHADER_UNIFORM_VEC4);
     if (s_scale_loc >= 0) SetShaderValue(s_shader, s_scale_loc, scale, SHADER_UNIFORM_VEC4);
+
+    /* Isotropic light space. The field is 16:9, so a radius given in UV is not a radius
+       on screen: every head came out stretched 1.78x horizontally. Distances are
+       measured in height units instead - the same trick as assets/depth_fog.fs - so the
+       lobe is a circle in pixels whatever the aspect is. core_uv and bloom_uv keep their
+       meaning as radii in this space. */
+    {
+        const float dst_w = 1280.0f, dst_h = 720.0f;
+        float aspect[2] = { dst_w / dst_h, 1.0f };
+        if (s_aspect_loc >= 0) SetShaderValue(s_shader, s_aspect_loc, aspect, SHADER_UNIFORM_VEC2);
+    }
 
     {
         float head_raw = (tableglow.core_gain * 1.0f + tableglow.bloom_gain) * s_bright_vis;
