@@ -33,6 +33,13 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 ## Status Summary
 ## Latest completed work
 
+### Browser table framebuffer restoration (2 November 2026)
+
+- Fixed the forged-table glow pass restoring the wrong framebuffer on WebGL1: raylib 5.5's `rlGetActiveFramebuffer()` returns zero on GLES2, so the cards and HUD drawn after the overlay went to the screen instead of the game canvas. The web path now queries `GL_FRAMEBUFFER_BINDING`; desktop still uses raylib's query.
+- Passed: `RAYLIB_SRC=/tmp/raylib_repo/src ./build.sh test` (engine, rules, table UI, music, protected guards); strict desktop and Emscripten-path C syntax checks; temporary mocked framebuffer restoration checks for desktop and web, including default framebuffer and unavailable bloom buffers; `git diff --check`.
+- Could not run: `./build.sh wasm` - `emcc` is not installed. Browser/GPU visual playtesting and the production Pages deployment remain unverified; the fix must be rebuilt and deployed before it appears on the live site.
+- Touched: `src/ui_table_glow.c`, `LEARN_THE_CODE.md`, `STATUS.md`. Not touched: `tests/`, authored assets, Action Card code/guards, gameplay, audio or desktop rendering behavior.
+
 ### Subtle final-scene saturation boost (2 November 2026)
 
 - Added `POST_SATURATION` in `src/ui_main.c`, default 1.10 (1.00 restores neutral), passed once to matching desktop/browser postprocess shaders. Saturation is applied after existing bloom/CRT/gamma, preserving neutral grays and alpha; saturated values clamp to the display range. The postprocess pass stays active for non-neutral saturation even with bloom/CRT off and gamma neutral. No settings menu or persistence format added.
