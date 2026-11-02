@@ -5,18 +5,18 @@
 #include <math.h>
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
-#define TABLE_GLOW_SPEED_A 0.20f
-#define TABLE_GLOW_SPEED_B -0.10f
-#define TABLE_GLOW_IDLE 0.25f
+#define TABLE_GLOW_SPEED_A 0.18f
+#define TABLE_GLOW_SPEED_B -0.06f
+#define TABLE_GLOW_IDLE 0.42f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
 #define TABLE_GLOW_MUSIC_GAIN 0.64f
-#define TABLE_GLOW_LEVEL_GAIN 4.0f
+#define TABLE_GLOW_LEVEL_GAIN 3.0f
 #define TABLE_GLOW_ATTACK 0.05f
 #define TABLE_GLOW_RELEASE 0.50f
-#define TABLE_GLOW_BLOOM_GAIN 2.65f /* additive halo strength, 0 disables */
-#define TABLE_GLOW_BLOOM_RADIUS 3.0f /* blur spacing in quarter-resolution pixels */
-#define TABLE_GLOW_BLOOM_W (CANVAS_W / 8)
-#define TABLE_GLOW_BLOOM_H (CANVAS_H / 8)
+#define TABLE_GLOW_BLOOM_GAIN 3.65f /* additive halo strength, 0 disables */
+#define TABLE_GLOW_BLOOM_RADIUS 1.0f /* blur spacing in quarter-resolution pixels */
+#define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
+#define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
 
 /* Brightness cutoff per named table, before theme tint and music strength.
    0..1: below cutoff stays unlit; the next 0.10 fades smoothly into light.
@@ -24,12 +24,12 @@
    The selected normal/CRT artwork uses the same table-specific setting. */
 static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
     [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
-    [TABLE_DESIGN_CITY]    = 0.20f,
-    [TABLE_DESIGN_CASTLE]  = 0.40f,
-    [TABLE_DESIGN_HOLE]    = 0.40f,
-    [TABLE_DESIGN_ARCTIC]  = 0.70f,
-    [TABLE_DESIGN_HARVEST] = 0.10f,
-    [TABLE_DESIGN_FACE]    = 0.20f,
+    [TABLE_DESIGN_CITY]    = 0.15f,
+    [TABLE_DESIGN_CASTLE]  = 0.35f,
+    [TABLE_DESIGN_HOLE]    = 0.38f,
+    [TABLE_DESIGN_ARCTIC]  = 0.50f,
+    [TABLE_DESIGN_HARVEST] = 0.15f,
+    [TABLE_DESIGN_FACE]    = 0.18f,
     [TABLE_DESIGN_REALM]   = 0.10f
 };
 
@@ -91,8 +91,8 @@ static void table_glow_music_tap(void *buffer, unsigned int frames) {
     "    float str = fragColor.a * colDiffuse.a;\n" \
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
-    "    float core = mask * (exp(-d1 / 0.040) * s1 + exp(-d2 / 0.085) * s2) * 2.50;\n" \
-    "    float bloom = mask * (exp(-d1 / 0.038) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.028) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
+    "    float core = mask * (exp(-d1 / 0.020) * s1 + exp(-d2 / 0.045) * s2) * 2.50;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.042) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.032) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.60) * str;\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
