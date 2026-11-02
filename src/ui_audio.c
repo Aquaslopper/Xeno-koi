@@ -395,6 +395,7 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
         if (i < count) {
             SetMusicVolume(loaded[i], a->bgm_volume);
             AttachAudioStreamProcessor(loaded[i].stream, music_reverb_processor);
+            AttachAudioStreamProcessor(loaded[i].stream, table_glow_music_tap);
         }
     }
     a->game_track_count = count;

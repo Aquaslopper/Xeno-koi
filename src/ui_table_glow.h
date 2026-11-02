@@ -6,7 +6,7 @@ struct Texture;
 
 void table_glow_draw(struct Texture overlay, float dt, int table_design);
 void table_glow_unload(void);
-/* Read-only music stream tap; audio owns attachment before reverb. */
+/* Read-only music stream tap; audio owns attachment after the music DSP. */
 void table_glow_music_tap(void *buffer, unsigned int frames);
 
 #endif

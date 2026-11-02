@@ -43,20 +43,26 @@ static int s_attempted;
 static float s_phase_a, s_phase_b, s_level;
 static unsigned int s_music_peak;
 
-/* Read music before reverb; ui_audio.c owns stream attach/detach.
-   Raylib stream processors receive interleaved stereo float device frames.
-   Observe only: never alter samples or allocate on the audio thread. */
+/* Observe the completed music DSP output; ui_audio.c attaches this LAST.
+   Like the Action Card meter, publish only a normalized scalar atomically.
+   Never write PCM or feed the measured level into audio controls. */
 void table_glow_music_tap(void *buffer, unsigned int frames) {
     const float *pcm = buffer;
+    if (!pcm || frames == 0) return;
+    double sum = 0.0;
     float peak = 0.0f;
-    for (unsigned int i = 0; i < frames * 2; ++i) {
-        float v = fabsf(pcm[i]);
-        if (v > peak) peak = v;
+    for (unsigned int f = 0; f < frames; ++f) {
+        for (unsigned int channel = 0; channel < 2; ++channel) {
+            float v = pcm[f * 2 + channel];
+            if (!isfinite(v)) v = 0.0f;
+            sum += (double)v * v;
+            peak = fmaxf(peak, fabsf(v));
+        }
     }
-    unsigned int value = (unsigned int)(fminf(peak, 1.0f) * 1000000.0f);
-    unsigned int old = __atomic_load_n(&s_music_peak, __ATOMIC_RELAXED);
-    while (value > old && !__atomic_compare_exchange_n(&s_music_peak, &old, value,
-           0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {}
+    float rms = (float)sqrt(sum / ((double)frames * 2.0));
+    float level = fminf(1.0f, 0.80f * rms + 0.20f * peak);
+    __atomic_store_n(&s_music_peak, (unsigned int)(level * 1000000.0f),
+                     __ATOMIC_RELAXED);
 }
 
 #define TABLE_GLOW_BODY(TEX_FN, OUT_FRAG) \
