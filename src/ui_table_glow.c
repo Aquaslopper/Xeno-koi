@@ -11,6 +11,9 @@
 #define TABLE_GLOW_SIZE_B 0.002f
 #define TABLE_GLOW_HALO_SIZE_A 0.09f
 #define TABLE_GLOW_HALO_SIZE_B 0.19f
+/* Normalized local relief: flat pixels emit no light. Raise to isolate ridges. */
+#define TABLE_GLOW_RELIEF_MIN 0.015f
+#define TABLE_GLOW_RELIEF_FULL 0.12f
 #if TABLE_GLOW_LIGHT_COUNT < 1 || TABLE_GLOW_LIGHT_COUNT > 16
 #error TABLE_GLOW_LIGHT_COUNT must be between 1 and 16
 #endif
@@ -50,9 +53,9 @@ static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
 static Shader s_shader;
 static Shader s_blur_shader;
 static RenderTexture2D s_bloom[2];
-static int s_blur_step_loc = -1;
+static int s_blur_step_loc = -1, s_blur_gain_loc = -1;
 static int s_phase_loc = -1;
-static int s_lights_loc = -1, s_shape_loc = -1;
+static int s_lights_loc = -1, s_shape_loc = -1, s_relief_loc = -1;
 static int s_cutoff_loc = -1;
 static int s_attempted;
 static double s_light_clock;
@@ -145,6 +148,8 @@ void table_glow_sync_music(AudioAssets *audio, int active, int paused,
     "    float peak = max(max(max(hl, hr), max(hu, hd)), 0.12);\n" \
     "    float mask = solid * smoothstep(u_dark_cutoff, u_dark_cutoff + 0.10, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
+    "    float detail = max(length(g), max(max(abs(hc - hl), abs(hc - hr)), max(abs(hc - hu), abs(hc - hd))) / peak);\n" \
+    "    mask *= smoothstep(u_relief.x, u_relief.y, detail);\n" \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n" \
     "    float str = fragColor.a * colDiffuse.a;\n" \
     "    float core = 0.0, bloom = 0.0;\n" \
@@ -177,6 +182,7 @@ static const char *const k_table_glow_fs =
     "uniform vec4 u_phase;\n"
     "uniform vec2 u_lights[" GLOW_STRING(TABLE_GLOW_LIGHT_COUNT) "];\n"
     "uniform vec4 u_shape;\n"
+    "uniform vec2 u_relief;\n"
     "uniform float u_dark_cutoff;\n"
     TABLE_GLOW_BODY("texture2D", "gl_FragColor");
 #else
@@ -189,6 +195,7 @@ static const char *const k_table_glow_fs =
     "uniform vec4 u_phase;\n"
     "uniform vec2 u_lights[" GLOW_STRING(TABLE_GLOW_LIGHT_COUNT) "];\n"
     "uniform vec4 u_shape;\n"
+    "uniform vec2 u_relief;\n"
     "uniform float u_dark_cutoff;\n"
     "out vec4 finalColor;\n"
     TABLE_GLOW_BODY("texture", "finalColor");
@@ -207,20 +214,20 @@ static const char *const k_table_glow_fs =
 #define BLOOM_INTERFACE "#version 330\nin vec2 fragTexCoord;\nout vec4 finalColor;\n"
 #endif
 static const char *const k_blur_fs = BLOOM_INTERFACE
-    "uniform sampler2D texture0;\nuniform vec2 u_step;\n"
+    "uniform sampler2D texture0;\nuniform vec2 u_step;\nuniform float u_gain;\n"
     "void main() {\n"
     "vec3 c = " BLOOM_SAMPLE "(texture0, fragTexCoord).rgb * 0.227027;\n"
     "c += (" BLOOM_SAMPLE "(texture0, fragTexCoord + u_step * 1.384615).rgb + "
               BLOOM_SAMPLE "(texture0, fragTexCoord - u_step * 1.384615).rgb) * 0.316216;\n"
     "c += (" BLOOM_SAMPLE "(texture0, fragTexCoord + u_step * 3.230769).rgb + "
               BLOOM_SAMPLE "(texture0, fragTexCoord - u_step * 3.230769).rgb) * 0.070270;\n"
-    BLOOM_OUTPUT " = vec4(c, 1.0);\n}\n";
+    BLOOM_OUTPUT " = vec4(c * u_gain, 1.0);\n}\n";
 #undef BLOOM_SAMPLE
 #undef BLOOM_OUTPUT
 #undef BLOOM_INTERFACE
 
 static void table_glow_bloom(Texture2D overlay, Color tint) {
-    if (TABLE_GLOW_BLOOM_GAIN <= 0.0f || s_blur_step_loc < 0 ||
+    if (TABLE_GLOW_BLOOM_GAIN <= 0.0f || s_blur_step_loc < 0 || s_blur_gain_loc < 0 ||
         s_bloom[0].id == 0 || s_bloom[1].id == 0) return;
     /* The board is already inside its 1280x720 canvas. Raylib's texture modes
        do not nest automatically: explicitly restore that framebuffer afterwards. */
@@ -234,6 +241,8 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
         (Vector2){0, 0}, 0, tint);
     EndShaderMode();
     EndBlendMode();
+    float unity = 1.0f;
+    SetShaderValue(s_blur_shader, s_blur_gain_loc, &unity, SHADER_UNIFORM_FLOAT);
     for (int pass = 0; pass < 2; ++pass) {
         int source = pass == 0 ? 0 : 1, dest = 1 - source;
         BeginTextureMode(s_bloom[dest]);
@@ -255,11 +264,18 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
         canvas.texture.height = CANVAS_H;
         BeginTextureMode(canvas);
     }
+    /* Gain is a float in the compositor, not an overflowing 8-bit alpha.
+       A zero blur step makes this an identity sample with the requested gain. */
+    float zero_step[2] = {0, 0}, gain = fmaxf(0.0f, TABLE_GLOW_BLOOM_GAIN);
+    SetShaderValue(s_blur_shader, s_blur_step_loc, zero_step, SHADER_UNIFORM_VEC2);
+    SetShaderValue(s_blur_shader, s_blur_gain_loc, &gain, SHADER_UNIFORM_FLOAT);
     BeginBlendMode(BLEND_ADDITIVE);
+    BeginShaderMode(s_blur_shader);
     DrawTexturePro(s_bloom[0].texture,
         (Rectangle){0, 0, TABLE_GLOW_BLOOM_W, -TABLE_GLOW_BLOOM_H},
         (Rectangle){0, 0, CANVAS_W, CANVAS_H}, (Vector2){0, 0}, 0,
-        (Color){255, 255, 255, (unsigned char)(255 * TABLE_GLOW_BLOOM_GAIN)});
+        WHITE);
+    EndShaderMode();
     EndBlendMode();
 }
 
@@ -272,11 +288,14 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
             s_phase_loc = GetShaderLocation(s_shader, "u_phase");
             s_lights_loc = GetShaderLocation(s_shader, "u_lights");
             s_shape_loc = GetShaderLocation(s_shader, "u_shape");
+            s_relief_loc = GetShaderLocation(s_shader, "u_relief");
             s_cutoff_loc = GetShaderLocation(s_shader, "u_dark_cutoff");
         }
         s_blur_shader = LoadShaderFromMemory(0, k_blur_fs);
-        if (s_blur_shader.id > 0)
+        if (s_blur_shader.id > 0) {
             s_blur_step_loc = GetShaderLocation(s_blur_shader, "u_step");
+            s_blur_gain_loc = GetShaderLocation(s_blur_shader, "u_gain");
+        }
         for (int i = 0; i < 2; ++i) {
             s_bloom[i] = LoadRenderTexture(TABLE_GLOW_BLOOM_W, TABLE_GLOW_BLOOM_H);
             if (s_bloom[i].id > 0) {
@@ -285,7 +304,7 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
             }
         }
     }
-    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0 || s_lights_loc < 0 || s_shape_loc < 0) return;
+    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0 || s_lights_loc < 0 || s_shape_loc < 0 || s_relief_loc < 0) return;
     if (table_design < 0 || table_design >= TABLE_DESIGN_COUNT) return;
     SetShaderValue(s_shader, s_cutoff_loc, &k_table_dark_cutoff[table_design],
                    SHADER_UNIFORM_FLOAT);
@@ -307,6 +326,9 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
     SetShaderValue(s_shader, s_phase_loc, phase, SHADER_UNIFORM_VEC4);
     SetShaderValueV(s_shader, s_lights_loc, positions, SHADER_UNIFORM_VEC2, TABLE_GLOW_LIGHT_COUNT);
     SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
+    float relief[2] = {fmaxf(0.0f, TABLE_GLOW_RELIEF_MIN),
+                      fmaxf(TABLE_GLOW_RELIEF_MIN + 0.0001f, TABLE_GLOW_RELIEF_FULL)};
+    SetShaderValue(s_shader, s_relief_loc, relief, SHADER_UNIFORM_VEC2);
     /* Max-combine footprints in the shader, rather than adding ten light washes. */
     float strength = fminf(1.0f, fmaxf(0.0f,
         (TABLE_GLOW_IDLE + TABLE_GLOW_MUSIC_GAIN * s_level) * TABLE_GLOW_LIGHT_STRENGTH));
@@ -332,10 +354,10 @@ void table_glow_unload(void) {
     }
     if (s_blur_shader.id > 0) UnloadShader(s_blur_shader);
     s_blur_shader = (Shader){0};
-    s_blur_step_loc = -1;
+    s_blur_step_loc = s_blur_gain_loc = -1;
     if (s_shader.id > 0) UnloadShader(s_shader);
     s_shader = (Shader){0};
-    s_phase_loc = s_cutoff_loc = s_lights_loc = s_shape_loc = -1;
+    s_phase_loc = s_cutoff_loc = s_lights_loc = s_shape_loc = s_relief_loc = -1;
     s_attempted = 0;
     s_light_clock = 0.0;
     s_level = 0.0f;
