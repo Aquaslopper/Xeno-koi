@@ -7,14 +7,14 @@
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
 #define TABLE_GLOW_LIGHT_COUNT 12 /* 1..16 independent, smoothly roaming lights */
-#define TABLE_GLOW_LIGHT_STRENGTH 1.2f
-#define TABLE_GLOW_SIZE_A 0.010f /* alternate the two tuned footprint sizes */
-#define TABLE_GLOW_SIZE_B 0.004f
+#define TABLE_GLOW_LIGHT_STRENGTH 1.15f
+#define TABLE_GLOW_SIZE_A 0.008f /* alternate the two tuned footprint sizes */
+#define TABLE_GLOW_SIZE_B 0.006f
 #define TABLE_GLOW_HALO_SIZE_A 0.09f
 #define TABLE_GLOW_HALO_SIZE_B 0.034f
 /* Normalized local relief: flat pixels emit no light. Raise to isolate ridges. */
-#define TABLE_GLOW_RELIEF_MIN 0.055f
-#define TABLE_GLOW_RELIEF_FULL 0.10f
+#define TABLE_GLOW_RELIEF_MIN 0.015f
+#define TABLE_GLOW_RELIEF_FULL 0.50f
 #if TABLE_GLOW_LIGHT_COUNT < 1 || TABLE_GLOW_LIGHT_COUNT > 16
 #error TABLE_GLOW_LIGHT_COUNT must be between 1 and 16
 #endif
@@ -22,15 +22,15 @@
 #define GLOW_STRING(x) GLOW_STRING_INNER(x)
 #define TABLE_GLOW_SPEED_A 0.33f
 #define TABLE_GLOW_SPEED_B -0.25f
-#define TABLE_GLOW_IDLE 0.24f
+#define TABLE_GLOW_IDLE 0.21f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.78f
+#define TABLE_GLOW_MUSIC_GAIN 0.79f
 #define TABLE_GLOW_LEVEL_GAIN 1.0f
-#define TABLE_GLOW_ATTACK 0.026f
-#define TABLE_GLOW_RELEASE 0.70f
+#define TABLE_GLOW_ATTACK 0.023f
+#define TABLE_GLOW_RELEASE 0.65f
 /* Table meter only: these never affect sound or the Action Card meter. */
 #define TABLE_GLOW_ADAPT_SPEED 0.98f /* >1 adapts faster, <1 more slowly; positive */
-#define TABLE_GLOW_BEAT_CONTRAST 1.16f /* 1 = linear; >1 suppresses weaker accents */
+#define TABLE_GLOW_BEAT_CONTRAST 1.3f /* 1 = linear; >1 suppresses weaker accents */
 #define TABLE_GLOW_BLOOM_GAIN 2.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.1f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
