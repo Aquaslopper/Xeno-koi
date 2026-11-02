@@ -24,12 +24,12 @@
 #define TABLE_GLOW_SPEED_B -0.25f
 #define TABLE_GLOW_IDLE 0.21f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.79f
+#define TABLE_GLOW_MUSIC_GAIN 0.59f
 #define TABLE_GLOW_LEVEL_GAIN 1.0f
-#define TABLE_GLOW_ATTACK 0.023f
+#define TABLE_GLOW_ATTACK 0.022f
 #define TABLE_GLOW_RELEASE 0.65f
 /* Table meter only: these never affect sound or the Action Card meter. */
-#define TABLE_GLOW_ADAPT_SPEED 0.98f /* >1 adapts faster, <1 more slowly; positive */
+#define TABLE_GLOW_ADAPT_SPEED 1.1f /* >1 adapts faster, <1 more slowly; positive */
 #define TABLE_GLOW_BEAT_CONTRAST 1.3f /* 1 = linear; >1 suppresses weaker accents */
 #define TABLE_GLOW_BLOOM_GAIN 2.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.1f /* blur spacing in quarter-resolution pixels */
@@ -44,11 +44,11 @@ static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
     [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
     [TABLE_DESIGN_CITY]    = 0.15f,
     [TABLE_DESIGN_CASTLE]  = 0.30f,
-    [TABLE_DESIGN_HOLE]    = 0.32f,
-    [TABLE_DESIGN_ARCTIC]  = 0.32f,
-    [TABLE_DESIGN_HARVEST] = 0.20f,
+    [TABLE_DESIGN_HOLE]    = 0.30f,
+    [TABLE_DESIGN_ARCTIC]  = 0.25f,
+    [TABLE_DESIGN_HARVEST] = 0.25f,
     [TABLE_DESIGN_FACE]    = 0.15f,
-    [TABLE_DESIGN_REALM]   = 0.10f
+    [TABLE_DESIGN_REALM]   = 0.15f
 };
 
 static Shader s_shader;
