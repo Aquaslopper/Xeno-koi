@@ -7,15 +7,15 @@
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
 #define TABLE_GLOW_SPEED_A 0.23f
 #define TABLE_GLOW_SPEED_B -0.15f
-#define TABLE_GLOW_IDLE 0.25f
+#define TABLE_GLOW_IDLE 0.30f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.80f
+#define TABLE_GLOW_MUSIC_GAIN 0.70f
 #define TABLE_GLOW_LEVEL_GAIN 1.0f
-#define TABLE_GLOW_ATTACK 0.030f
-#define TABLE_GLOW_RELEASE 0.80f
+#define TABLE_GLOW_ATTACK 0.050f
+#define TABLE_GLOW_RELEASE 1.20f
 /* Table meter only: these never affect sound or the Action Card meter. */
-#define TABLE_GLOW_ADAPT_SPEED 0.9f /* >1 adapts faster, <1 more slowly; positive */
-#define TABLE_GLOW_BEAT_CONTRAST 1.2f /* 1 = linear; >1 suppresses weaker accents */
+#define TABLE_GLOW_ADAPT_SPEED 0.95f /* >1 adapts faster, <1 more slowly; positive */
+#define TABLE_GLOW_BEAT_CONTRAST 1.1f /* 1 = linear; >1 suppresses weaker accents */
 #define TABLE_GLOW_BLOOM_GAIN 4.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.4f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
@@ -145,7 +145,7 @@ void table_glow_sync_music(AudioAssets *audio, int active, int paused,
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
     "    float core = mask * (exp(-d1 / 0.008) * s1 + exp(-d2 / 0.005) * s2) * 2.50;\n" \
-    "    float bloom = mask * (exp(-d1 / 2.82) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 5.78) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
+    "    float bloom = mask * (exp(-d1 / 0.02) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.08) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.60) * str;\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
