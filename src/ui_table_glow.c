@@ -7,15 +7,15 @@
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
 #define TABLE_GLOW_SPEED_A 0.25f
 #define TABLE_GLOW_SPEED_B -0.18f
-#define TABLE_GLOW_IDLE 0.20f
+#define TABLE_GLOW_IDLE 0.12f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.80f
-#define TABLE_GLOW_LEVEL_GAIN 3.0f
-#define TABLE_GLOW_ATTACK 0.050f
-#define TABLE_GLOW_RELEASE 0.16f
+#define TABLE_GLOW_MUSIC_GAIN 0.90f
+#define TABLE_GLOW_LEVEL_GAIN 1.0f
+#define TABLE_GLOW_ATTACK 0.015f
+#define TABLE_GLOW_RELEASE 0.30f
 /* Table meter only: these never affect sound or the Action Card meter. */
-#define TABLE_GLOW_ADAPT_SPEED 1.0f /* >1 adapts faster, <1 more slowly; positive */
-#define TABLE_GLOW_BEAT_CONTRAST 1.20f /* 1 = linear; >1 suppresses weaker accents */
+#define TABLE_GLOW_ADAPT_SPEED 0.8f /* >1 adapts faster, <1 more slowly; positive */
+#define TABLE_GLOW_BEAT_CONTRAST 1.00f /* 1 = linear; >1 suppresses weaker accents */
 #define TABLE_GLOW_BLOOM_GAIN 3.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.3f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
@@ -27,7 +27,7 @@
    The selected normal/CRT artwork uses the same table-specific setting. */
 static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
     [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
-    [TABLE_DESIGN_CITY]    = 0.16f,
+    [TABLE_DESIGN_CITY]    = 0.18f,
     [TABLE_DESIGN_CASTLE]  = 0.32f,
     [TABLE_DESIGN_HOLE]    = 0.34f,
     [TABLE_DESIGN_ARCTIC]  = 0.38f,
