@@ -659,7 +659,6 @@ void storage_load_settings(GameSettings *s) {
     fclose(f);
     s->fontScale = 1.15f;   // force default 115%
     
-    fclose(f);
     if (s->difficulty == DIFFICULTY_DEUS) {
         s->ruleset = RULESET_YAKUZA;
         s->master_timer = 15;
