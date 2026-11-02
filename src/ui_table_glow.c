@@ -5,15 +5,15 @@
 #include <math.h>
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
-#define TABLE_GLOW_SPEED_A 0.15f
-#define TABLE_GLOW_SPEED_B -0.05f
-#define TABLE_GLOW_IDLE 0.50f
+#define TABLE_GLOW_SPEED_A 0.22f
+#define TABLE_GLOW_SPEED_B -0.12f
+#define TABLE_GLOW_IDLE 0.20f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.25f
-#define TABLE_GLOW_LEVEL_GAIN 5.0f
-#define TABLE_GLOW_ATTACK 0.16f
-#define TABLE_GLOW_RELEASE 0.80f
-#define TABLE_GLOW_BLOOM_GAIN 3.65f /* additive halo strength, 0 disables */
+#define TABLE_GLOW_MUSIC_GAIN 0.50f
+#define TABLE_GLOW_LEVEL_GAIN 7.0f
+#define TABLE_GLOW_ATTACK 0.8f
+#define TABLE_GLOW_RELEASE 0.40f
+#define TABLE_GLOW_BLOOM_GAIN 3.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.3f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
 #define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
@@ -24,11 +24,11 @@
    The selected normal/CRT artwork uses the same table-specific setting. */
 static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
     [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
-    [TABLE_DESIGN_CITY]    = 0.17f,
+    [TABLE_DESIGN_CITY]    = 0.16f,
     [TABLE_DESIGN_CASTLE]  = 0.32f,
-    [TABLE_DESIGN_HOLE]    = 0.36f,
-    [TABLE_DESIGN_ARCTIC]  = 0.42f,
-    [TABLE_DESIGN_HARVEST] = 0.13f,
+    [TABLE_DESIGN_HOLE]    = 0.34f,
+    [TABLE_DESIGN_ARCTIC]  = 0.38f,
+    [TABLE_DESIGN_HARVEST] = 0.16f,
     [TABLE_DESIGN_FACE]    = 0.14f,
     [TABLE_DESIGN_REALM]   = 0.10f
 };
@@ -80,19 +80,19 @@ static void table_glow_music_tap(void *buffer, unsigned int frames) {
     "    float mask = solid * smoothstep(u_dark_cutoff, u_dark_cutoff + 0.10, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n" \
-    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.45 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    vec2 t1 = (vec2(0.5 + 0.40 * cos(u_phase.x), 0.5 + 0.50 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
     "    float d1 = dot(t1, t1);\n" \
     "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
     "    float nd1 = max(dot(n, h1), 0.0);\n" \
-    "    vec2 t2 = (vec2(0.5 + 0.44 * cos(u_phase.y), 0.5 + 0.45 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    vec2 t2 = (vec2(0.5 + 0.35 * cos(u_phase.y), 0.5 + 0.50 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
     "    float d2 = dot(t2, t2);\n" \
     "    vec3 h2 = normalize(normalize(vec3(t2, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
     "    float nd2 = max(dot(n, h2), 0.0);\n" \
     "    float str = fragColor.a * colDiffuse.a;\n" \
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
-    "    float core = mask * (exp(-d1 / 0.097) * s1 + exp(-d2 / 0.045) * s2) * 2.50;\n" \
-    "    float bloom = mask * (exp(-d1 / 0.102) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.052) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
+    "    float core = mask * (exp(-d1 / 0.067) * s1 + exp(-d2 / 0.045) * s2) * 2.50;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.072) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.052) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.60) * str;\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
