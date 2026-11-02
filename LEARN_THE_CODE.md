@@ -1313,6 +1313,12 @@ Eight backgrounds are loaded from `assets/harvest.jpg`, `hole.jpg`, `arctic.jpg`
 `castle.jpg`, `city.jpg`, `deus.png`, `face.jpg`, `realm.jpg`, with matching
 `*_normal.png` maps at bilinear filtering and clamp wrapping.
 
+For a forged table, `table_glow_bloom()` temporarily renders into two smaller
+textures before returning to the table canvas. It saves and restores the parent
+framebuffer explicitly: the web build queries `GL_FRAMEBUFFER_BINDING` because
+raylib 5.5's `rlGetActiveFramebuffer()` returns zero on GLES2/WebGL1; desktop
+uses raylib's query. The cards and HUD drawn afterwards need that restored canvas.
+
 ### 8.3 Ash
 
 Two pools, both fixed:

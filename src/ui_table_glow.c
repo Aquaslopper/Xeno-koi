@@ -2,6 +2,9 @@
 #include "ui_theme.h"
 #include "storage.h"
 #include "rlgl.h"
+#ifdef __EMSCRIPTEN__
+#include <GLES2/gl2.h>
+#endif
 #include <math.h>
 #include <stdio.h>
 
@@ -233,7 +236,14 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
         s_bloom[0].id == 0 || s_bloom[1].id == 0) return;
     /* The board is already inside its 1280x720 canvas. Raylib's texture modes
        do not nest automatically: explicitly restore that framebuffer afterwards. */
+#ifdef __EMSCRIPTEN__
+    /* raylib 5.5's rlGetActiveFramebuffer() always returns 0 on GLES2/WebGL1. */
+    GLint parent_binding = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &parent_binding);
+    unsigned int parent = (unsigned int)parent_binding;
+#else
     unsigned int parent = rlGetActiveFramebuffer();
+#endif
     BeginTextureMode(s_bloom[0]);
     ClearBackground(BLACK);
     BeginBlendMode(BLEND_ADDITIVE);
