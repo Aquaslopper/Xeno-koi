@@ -13,6 +13,9 @@
 #define TABLE_GLOW_LEVEL_GAIN 3.0f
 #define TABLE_GLOW_ATTACK 0.050f
 #define TABLE_GLOW_RELEASE 0.16f
+/* Table meter only: these never affect sound or the Action Card meter. */
+#define TABLE_GLOW_ADAPT_SPEED 1.0f /* >1 adapts faster, <1 more slowly; positive */
+#define TABLE_GLOW_BEAT_CONTRAST 1.20f /* 1 = linear; >1 suppresses weaker accents */
 #define TABLE_GLOW_BLOOM_GAIN 3.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.3f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
@@ -41,28 +44,73 @@ static int s_phase_loc = -1;
 static int s_cutoff_loc = -1;
 static int s_attempted;
 static float s_phase_a, s_phase_b, s_level;
-static unsigned int s_music_peak;
+static unsigned int s_music_meter_raw, s_music_meter_epoch;
+static int s_music_tap_attached;
 
-/* Observe the completed music DSP output; ui_audio.c attaches this LAST.
-   Like the Action Card meter, publish only a normalized scalar atomically.
-   Never write PCM or feed the measured level into audio controls. */
-void table_glow_music_tap(void *buffer, unsigned int frames) {
-    const float *pcm = buffer;
+/* Independent copy of the established Action Card read-only meter pattern.
+   Attached from UI after the existing music DSP; no samples are modified. */
+static void table_music_meter_processor(void *buffer, unsigned int frames) {
+    const float *pcm = (const float *)buffer;
     if (!pcm || frames == 0) return;
-    double sum = 0.0;
-    float peak = 0.0f;
-    for (unsigned int f = 0; f < frames; ++f) {
-        for (unsigned int channel = 0; channel < 2; ++channel) {
-            float v = pcm[f * 2 + channel];
-            if (!isfinite(v)) v = 0.0f;
-            sum += (double)v * v;
-            peak = fmaxf(peak, fabsf(v));
-        }
+    static float fast_ms = 0.0f, lo_rms = 0.12f, hi_rms = 0.24f;
+    static unsigned int last_ep = 0;
+    unsigned int ep = __atomic_load_n(&s_music_meter_epoch, __ATOMIC_RELAXED);
+    if (ep != last_ep) { fast_ms = 0.0f; lo_rms = 0.12f; hi_rms = 0.24f; last_ep = ep; }
+    for (unsigned int f = 0; f < frames; f++) {
+        float l = pcm[f * 2 + 0], r = pcm[f * 2 + 1], p2 = 0.5f * (l * l + r * r);
+        if (!(p2 >= 0.0f) || p2 > 4.0f) p2 = 0.0f;
+        fast_ms += (p2 - fast_ms) * 0.00085f;
     }
-    float rms = (float)sqrt(sum / ((double)frames * 2.0));
-    float level = fminf(1.0f, 0.80f * rms + 0.20f * peak);
-    __atomic_store_n(&s_music_peak, (unsigned int)(level * 1000000.0f),
-                     __ATOMIC_RELAXED);
+    if (fast_ms < 1e-12f) fast_ms = 0.0f;
+    float rms = sqrtf(fast_ms), c_sec = (float)frames / 44100.0f;
+    /* Scale the loud/quiet reference tracking, not the visual attack/release. */
+    c_sec *= fmaxf(0.01f, TABLE_GLOW_ADAPT_SPEED);
+    if (rms > hi_rms) hi_rms += (rms - hi_rms) * (1.0f - expf(-c_sec / 0.05f));
+    else              hi_rms += (rms - hi_rms) * (1.0f - expf(-c_sec / 0.90f));
+    if (rms < lo_rms) lo_rms += (rms - lo_rms) * (1.0f - expf(-c_sec / 0.06f));
+    else              lo_rms += (rms - lo_rms) * (1.0f - expf(-c_sec / 0.90f));
+    float gate = (hi_rms > 0.015f) ? fminf(1.0f, (hi_rms - 0.015f) / 0.075f) : 0.0f;
+    float floor_r = lo_rms * 0.88f, span = fmaxf(0.025f, hi_rms - floor_r);
+    float beat = fminf(1.0f, fmaxf(0.0f, (rms - floor_r) / span));
+    float norm = gate * (0.08f + 0.92f * powf(beat, fmaxf(0.01f, TABLE_GLOW_BEAT_CONTRAST)));
+    __atomic_store_n(&s_music_meter_raw, (unsigned int)(norm * 1000000.0f), __ATOMIC_RELAXED);
+}
+
+
+void table_glow_detach_music(AudioAssets *audio) {
+    if (audio && s_music_tap_attached) {
+        for (int i = 0; i < AUDIO_MAX_TRACKS; ++i)
+            if (audio->has_music_game[i])
+                DetachAudioStreamProcessor(audio->music_game[i].stream, table_music_meter_processor);
+    }
+    s_music_tap_attached = 0;
+    __atomic_add_fetch(&s_music_meter_epoch, 1u, __ATOMIC_RELAXED);
+    __atomic_store_n(&s_music_meter_raw, 0u, __ATOMIC_RELAXED);
+    s_level = 0.0f;
+}
+
+void table_glow_sync_music(AudioAssets *audio, int active, int paused,
+                           float transition_alpha, float dt) {
+    if (!active) {
+        if (s_music_tap_attached) table_glow_detach_music(audio);
+        return;
+    }
+    if (!audio) return;
+    if (!s_music_tap_attached) {
+        __atomic_add_fetch(&s_music_meter_epoch, 1u, __ATOMIC_RELAXED);
+        __atomic_store_n(&s_music_meter_raw, 0u, __ATOMIC_RELAXED);
+        for (int i = 0; i < AUDIO_MAX_TRACKS; ++i)
+            if (audio->has_music_game[i])
+                AttachAudioStreamProcessor(audio->music_game[i].stream, table_music_meter_processor);
+        s_music_tap_attached = 1;
+    }
+    if (paused || dt <= 0.0f) return;
+    float target = audio->current_music == 2
+        ? __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f : 0.0f;
+    target = fminf(1.0f, target * TABLE_GLOW_LEVEL_GAIN) *
+             fminf(1.0f, fmaxf(0.0f, 1.0f - transition_alpha));
+    float tau = target > s_level ? TABLE_GLOW_ATTACK : TABLE_GLOW_RELEASE;
+    s_level += (target - s_level) * (1.0f - expf(-fminf(dt, 0.1f) / tau));
 }
 
 #define TABLE_GLOW_BODY(TEX_FN, OUT_FRAG) \
@@ -221,10 +269,6 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
     SetShaderValue(s_shader, s_cutoff_loc, &k_table_dark_cutoff[table_design],
                    SHADER_UNIFORM_FLOAT);
     dt = fminf(fmaxf(dt, 0.0f), 0.1f);
-    float target = __atomic_exchange_n(&s_music_peak, 0, __ATOMIC_RELAXED) / 1000000.0f;
-    target = fminf(1.0f, target * TABLE_GLOW_LEVEL_GAIN);
-    float tau = target > s_level ? TABLE_GLOW_ATTACK : TABLE_GLOW_RELEASE;
-    s_level += (target - s_level) * (1.0f - expf(-dt / tau));
     s_phase_a = fmodf(s_phase_a + dt * TABLE_GLOW_SPEED_A, 6.2831853f);
     s_phase_b = fmodf(s_phase_b + dt * TABLE_GLOW_SPEED_B, 6.2831853f);
     float phase[4] = { s_phase_a, s_phase_b,
@@ -259,5 +303,5 @@ void table_glow_unload(void) {
     s_phase_loc = s_cutoff_loc = -1;
     s_attempted = 0;
     s_phase_a = s_phase_b = s_level = 0.0f;
-    __atomic_store_n(&s_music_peak, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&s_music_meter_raw, 0u, __ATOMIC_RELAXED);
 }

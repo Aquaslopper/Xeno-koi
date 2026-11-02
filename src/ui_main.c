@@ -27,6 +27,7 @@
 #include "ui_taunt.h"
 #include "ui_speed.h"
 #include "ui_action.h"
+#include "ui_table_glow.h"
 #include "ui_dealership.h"
 #include "replay.h"
 #include "ui_replay.h"
@@ -179,6 +180,7 @@ static void reload_profile_runtime(void) {
     audio_set_bgm_volume(&audio, settings.bgm_volume);
     audio_set_sfx_volume(&audio, settings.sfx_volume);
 #ifndef __EMSCRIPTEN__
+    table_glow_detach_music(&audio);
     audio_set_music_folder(&audio, settings.music_folder);
 #endif
     ai_set_opponent(settings.current_opponent);
@@ -927,6 +929,8 @@ static void update_draw_frame(void) {
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
     action_card_sync_music(&audio, ac_table, ac_paused, transition_alpha, dt);
+    table_glow_sync_music(&audio, in_game && settings.table_design != TABLE_DESIGN_CRT,
+                           ac_paused, transition_alpha, dt);
 
     if (saved_timer > 0.0f) saved_timer -= dt;
     if (log_timer > 0.0f) log_timer -= dt;
@@ -2189,6 +2193,7 @@ int main(int argc, char **argv) {
     storage_save_all(&settings, &stats, &history);
     plexus_save();
     storage_profiles_flush_active();
+    table_glow_detach_music(&audio);
     action_card_detach_music(&audio);
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
