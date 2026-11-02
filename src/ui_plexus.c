@@ -1757,7 +1757,7 @@ typedef struct {
 static const StoryChapterDoc k_story_chapters[12] = {
     {
         "SEQ 01 // THRESHOLD OF OBSIDIAN PINE",
-        "Biomechanical neural link online in the Atrium.",
+        "Acoustica Apexus neural link online in the Atrium.",
         "Deep in the vessel core, entity [DEUS] pulses",
         "beneath twelve sealed floral strata.",
         "Month 01 calibrates Entity 001 in 4 protocols:",
