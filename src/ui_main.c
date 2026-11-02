@@ -40,6 +40,9 @@ Font font_title;    // Audiowide for titles, headers, and button labels
 Font font_body;     // Play for data, options, HUD, and supporting text
 Font small_font;    // Legacy alias for modules that still use the old name
 GameSettings settings;
+void plexus_reload_story_font(float scale);
+static float font_scale_loaded;
+static int font_reload_pending;
 
 /* transition_action codes for start_transition(): 1 = begin a match, 2/3 = resume
    music + result sting, 4 = play the card loader once more and then leave the game. */
@@ -165,6 +168,7 @@ static void reset_profile_transients(void) {
 
 static void reload_profile_runtime(void) {
     storage_load_settings(&settings);
+    font_reload_pending = 1;
 #ifdef __EMSCRIPTEN__
     settings.fullscreen = 0;
 #endif
@@ -818,7 +822,73 @@ static void handle_campaign_overlay_click(Vector2 vm) {
     }
 }
 
+static void reload_fonts(float scale) {
+    unsigned int default_id = GetFontDefault().texture.id;
+    if (font_title.texture.id && font_title.texture.id != default_id) UnloadFont(font_title);
+    if (font_body.texture.id && font_body.texture.id != default_id) UnloadFont(font_body);
+    /* Font rasterisation sizes. raylib rasterises a face ONCE at this size and every draw is
+       a bitmap resize by font_size / baseSize (rtext.c: advanceX is an int rounded at
+       baseSize; MeasureTextEx scales by fontSize/baseSize). The sizes this UI actually draws
+       at run from 11.5px to 56px, so one baseSize per face is a compromise: too high and the
+       small labels - most of the Logfile, all the hub buttons - are downscaled into mush; too
+       low and the big banners upscale and go soft.
+
+       These were 96 and 36, which put Audiowide at 11.5-12.5px at a 0.12x downscale: the
+       glyph is destroyed before the 1280x720 canvas is ever upscaled to the window. Measured
+       against the shipped TTFs with raylib's own stb_truetype path, 48 and 26 improve every
+       size below their base by 2.0x and 1.4x respectively, and keep the largest text (56px
+       banner, 28px body) at a mild 1.17x / 1.08x upscale instead of a hard downscale.
+
+       Push lower for sharper small text at the cost of softer banners: 32 gives 3.0x on the
+       title but puts the 56px banner at 1.75x. Measured width drift at these values is
+       -1.7% to -2.5% (text gets very slightly narrower); because one Font object does both
+       the measuring and the drawing, centring is unaffected and only fit margins move, in the
+       safe direction. The real fix is a second small rasterisation per face selected by size,
+       but that needs every MeasureTextEx routed in lockstep with its draw - see STATUS.md. */
+    /* Raylib divides draw sizes by baseSize. Keep the reference sizes below
+       while loading scaled glyphs so existing draw and measurement calls scale. */
+    const int title_base = (int)(48 * scale);
+    const int body_base = (int)(26 * scale);
+
+    font_title = LoadFontEx("assets/audiowide.ttf", title_base, NULL, 0);
+    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), title_base, NULL, 0);
+    if (!IsFontReady(font_title)) {
+        font_title = GetFontDefault();
+        font_title.baseSize = (int)roundf((float)font_title.baseSize / scale);
+    } else {
+        GenTextureMipmaps(&font_title.texture);
+        SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR);
+        font_title.baseSize = 48;
+    }
+
+    int body_cps[97];
+    for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
+    body_cps[95] = 0x03A6; /* U+03A6 Greek Capital Letter Phi */
+    body_cps[96] = 0x03A8; /* U+03A8 Greek Capital Letter Psi */
+    font_body = LoadFontEx("assets/play.ttf", body_base, body_cps, 97);
+    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), body_base, body_cps, 97);
+    if (!IsFontReady(font_body)) {
+        font_body = GetFontDefault();
+        font_body.baseSize = (int)roundf((float)font_body.baseSize / scale);
+    } else {
+        GenTextureMipmaps(&font_body.texture);
+        SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR);
+        font_body.baseSize = 26;
+    }
+    small_font = font_body;
+    plexus_reload_story_font(scale);
+#ifdef __EMSCRIPTEN__
+    EM_ASM({ document.documentElement.style.setProperty('--font-scale', String($0)); }, scale);
+#endif
+
+    font_scale_loaded = scale;
+}
+
 static void update_draw_frame(void) {
+    if (font_reload_pending) {
+        font_reload_pending = 0;
+        if (settings.fontScale != font_scale_loaded) reload_fonts(settings.fontScale);
+    }
     frame_count++;
     float dt = fminf(0.05f, GetFrameTime());
 
@@ -1163,6 +1233,7 @@ static void update_draw_frame(void) {
         } else if (screen == SCREEN_OPTIONS) {
             int prev_opt_page = screens_get_options_page();
             if (screens_handle_options_click(&settings, &assets, &audio, vm) == ACT_GOTO_MENU) {
+                font_reload_pending = 1;
                 if (ui_hub_deus_snapshot_is_valid()) ui_hub_deus_snapshot_invalidate();
                 if (settings.difficulty != DIFFICULTY_DEUS) {
                     storage_set_deus_session_snapshot(NULL);
@@ -2135,42 +2206,7 @@ int main(int argc, char **argv) {
     board_load_assets(&assets); assets.current_bg = settings.background;
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
 
-    /* Font rasterisation sizes. raylib rasterises a face ONCE at this size and every draw is
-       a bitmap resize by font_size / baseSize (rtext.c: advanceX is an int rounded at
-       baseSize; MeasureTextEx scales by fontSize/baseSize). The sizes this UI actually draws
-       at run from 11.5px to 56px, so one baseSize per face is a compromise: too high and the
-       small labels - most of the Logfile, all the hub buttons - are downscaled into mush; too
-       low and the big banners upscale and go soft.
-
-       These were 96 and 36, which put Audiowide at 11.5-12.5px at a 0.12x downscale: the
-       glyph is destroyed before the 1280x720 canvas is ever upscaled to the window. Measured
-       against the shipped TTFs with raylib's own stb_truetype path, 48 and 26 improve every
-       size below their base by 2.0x and 1.4x respectively, and keep the largest text (56px
-       banner, 28px body) at a mild 1.17x / 1.08x upscale instead of a hard downscale.
-
-       Push lower for sharper small text at the cost of softer banners: 32 gives 3.0x on the
-       title but puts the 56px banner at 1.75x. Measured width drift at these values is
-       -1.7% to -2.5% (text gets very slightly narrower); because one Font object does both
-       the measuring and the drawing, centring is unaffected and only fit margins move, in the
-       safe direction. The real fix is a second small rasterisation per face selected by size,
-       but that needs every MeasureTextEx routed in lockstep with its draw - see STATUS.md. */
-    const int title_base = 48;
-    const int body_base = 26;
-
-    font_title = LoadFontEx("assets/audiowide.ttf", title_base, NULL, 0);
-    if (!IsFontReady(font_title)) font_title = LoadFontEx(TextFormat("%s/assets/audiowide.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), title_base, NULL, 0);
-    if (!IsFontReady(font_title)) font_title = GetFontDefault();
-    else { GenTextureMipmaps(&font_title.texture); SetTextureFilter(font_title.texture, TEXTURE_FILTER_TRILINEAR); }
-
-    int body_cps[97];
-    for (int cp = 0; cp < 95; cp++) body_cps[cp] = 32 + cp;
-    body_cps[95] = 0x03A6; /* U+03A6 Greek Capital Letter Phi */
-    body_cps[96] = 0x03A8; /* U+03A8 Greek Capital Letter Psi */
-    font_body = LoadFontEx("assets/play.ttf", body_base, body_cps, 97);
-    if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), body_base, body_cps, 97);
-    if (!IsFontReady(font_body)) font_body = GetFontDefault();
-    else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
-    small_font = font_body;
+    reload_fonts(settings.fontScale);
 
     storage_load_stats(&stats); storage_load_history(&history); plexus_load();
     storage_write_report(&stats, &history);
