@@ -210,7 +210,7 @@
             if (savedFontScale) {
                 var fontScale = Number(savedFontScale[1]);
                 if (Number.isFinite(fontScale) && fontScale >= 0.5 && fontScale <= 2.0)
-                    document.documentElement.style.setProperty('--font-scale', String(Math.round(fontScale * 4) / 4));
+                    document.documentElement.style.setProperty('--font-scale', String(Math.round(fontScale * 20) / 20));
             }
         } catch (e) {}
         var tooltipCanvas = document.getElementById("canvas");

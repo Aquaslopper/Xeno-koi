@@ -407,7 +407,7 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
             if (pressed && audio) audio_play_click(audio);
         } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 610, 184, 26 })) {
             float fraction = fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f));
-            s->fontScale = 0.5f + roundf(fraction * 6.0f) * 0.25f;
+            s->fontScale = 0.5f + roundf(fraction * 30.0f) * 0.05f;
             if (pressed && audio) audio_play_click(audio);
         }
     }
