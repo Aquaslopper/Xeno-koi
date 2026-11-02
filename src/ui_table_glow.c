@@ -42,12 +42,11 @@ static int s_cutoff_loc = -1;
 static int s_attempted;
 static float s_phase_a, s_phase_b, s_level;
 static unsigned int s_music_peak;
-static int s_tap_attached;
 
-/* Read the final mix (music plus SFX), without changing the audio engine.
-   Raylib mixed processors receive interleaved stereo float device frames.
+/* Read music before reverb; ui_audio.c owns stream attach/detach.
+   Raylib stream processors receive interleaved stereo float device frames.
    Observe only: never alter samples or allocate on the audio thread. */
-static void table_glow_music_tap(void *buffer, unsigned int frames) {
+void table_glow_music_tap(void *buffer, unsigned int frames) {
     const float *pcm = buffer;
     float peak = 0.0f;
     for (unsigned int i = 0; i < frames * 2; ++i) {
@@ -193,10 +192,6 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
 
 void table_glow_draw(Texture2D overlay, float dt, int table_design) {
     if (overlay.id <= 0 || overlay.width <= 0 || overlay.height <= 0) return;
-    if (!s_tap_attached && IsAudioDeviceReady()) {
-        AttachAudioMixedProcessor(table_glow_music_tap);
-        s_tap_attached = 1;
-    }
     if (!s_attempted) {
         s_attempted = 1;
         s_shader = LoadShaderFromMemory(0, k_table_glow_fs);
@@ -246,9 +241,6 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
 }
 
 void table_glow_unload(void) {
-    if (s_tap_attached && IsAudioDeviceReady())
-        DetachAudioMixedProcessor(table_glow_music_tap);
-    s_tap_attached = 0;
     for (int i = 0; i < 2; ++i) {
         if (s_bloom[i].id > 0) UnloadRenderTexture(s_bloom[i]);
         s_bloom[i] = (RenderTexture2D){0};
