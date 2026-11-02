@@ -7,31 +7,31 @@
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
 #define TABLE_GLOW_LIGHT_COUNT 12 /* 1..16 independent, smoothly roaming lights */
-#define TABLE_GLOW_LIGHT_STRENGTH 1.5f
-#define TABLE_GLOW_SIZE_A 0.018f /* alternate the two tuned footprint sizes */
+#define TABLE_GLOW_LIGHT_STRENGTH 1.2f
+#define TABLE_GLOW_SIZE_A 0.012f /* alternate the two tuned footprint sizes */
 #define TABLE_GLOW_SIZE_B 0.002f
 #define TABLE_GLOW_HALO_SIZE_A 0.09f
-#define TABLE_GLOW_HALO_SIZE_B 0.19f
+#define TABLE_GLOW_HALO_SIZE_B 0.041f
 /* Normalized local relief: flat pixels emit no light. Raise to isolate ridges. */
-#define TABLE_GLOW_RELIEF_MIN 0.015f
+#define TABLE_GLOW_RELIEF_MIN 0.035f
 #define TABLE_GLOW_RELIEF_FULL 0.12f
 #if TABLE_GLOW_LIGHT_COUNT < 1 || TABLE_GLOW_LIGHT_COUNT > 16
 #error TABLE_GLOW_LIGHT_COUNT must be between 1 and 16
 #endif
 #define GLOW_STRING_INNER(x) #x
 #define GLOW_STRING(x) GLOW_STRING_INNER(x)
-#define TABLE_GLOW_SPEED_A 0.23f
+#define TABLE_GLOW_SPEED_A 0.33f
 #define TABLE_GLOW_SPEED_B -0.15f
 #define TABLE_GLOW_IDLE 0.30f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
 #define TABLE_GLOW_MUSIC_GAIN 0.75f
 #define TABLE_GLOW_LEVEL_GAIN 1.0f
-#define TABLE_GLOW_ATTACK 0.040f
+#define TABLE_GLOW_ATTACK 0.030f
 #define TABLE_GLOW_RELEASE 1.00f
 /* Table meter only: these never affect sound or the Action Card meter. */
-#define TABLE_GLOW_ADAPT_SPEED 0.96f /* >1 adapts faster, <1 more slowly; positive */
-#define TABLE_GLOW_BEAT_CONTRAST 1.15f /* 1 = linear; >1 suppresses weaker accents */
-#define TABLE_GLOW_BLOOM_GAIN 3.45f /* additive halo strength, 0 disables */
+#define TABLE_GLOW_ADAPT_SPEED 0.97f /* >1 adapts faster, <1 more slowly; positive */
+#define TABLE_GLOW_BEAT_CONTRAST 1.16f /* 1 = linear; >1 suppresses weaker accents */
+#define TABLE_GLOW_BLOOM_GAIN 2.45f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.2f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
 #define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
@@ -45,9 +45,9 @@ static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
     [TABLE_DESIGN_CITY]    = 0.15f,
     [TABLE_DESIGN_CASTLE]  = 0.30f,
     [TABLE_DESIGN_HOLE]    = 0.32f,
-    [TABLE_DESIGN_ARCTIC]  = 0.36f,
-    [TABLE_DESIGN_HARVEST] = 0.17f,
-    [TABLE_DESIGN_FACE]    = 0.14f,
+    [TABLE_DESIGN_ARCTIC]  = 0.32f,
+    [TABLE_DESIGN_HARVEST] = 0.20f,
+    [TABLE_DESIGN_FACE]    = 0.15f,
     [TABLE_DESIGN_REALM]   = 0.10f
 };
 
