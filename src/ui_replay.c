@@ -1,6 +1,7 @@
 #include "ui_replay.h"
 #include "replay.h"
 #include "ui_theme.h"
+#include "ui_board.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,14 +44,14 @@ static void set_status(const char *msg) {
 void ui_replay_set_status(const char *msg) { set_status(msg); }
 
 static void draw_text_snapped(Font font, const char *text, float x, float y, float size, float spacing, Color col) {
-    DrawTextEx(font, text, (Vector2){ floorf(x), floorf(y) }, size, spacing, col);
+    ui_draw_text(font, text, (Vector2){ floorf(x), floorf(y) }, size, spacing, col);
 }
 
 static int button(Rectangle r, const char *label, float size, Vector2 vm, Color col) {
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
     ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    Vector2 ts = MeasureTextEx(font_title, label, size, 1.0f);
+    Vector2 ts = ui_measure_text(font_title, label, size, 1.0f);
     draw_text_snapped(font_title, label, r.x + (r.width - ts.x) * 0.5f, r.y + (r.height - size) * 0.5f,
                       size, 1.0f, hov ? COLOR_PHOSPHOR : col);
     return hov;
@@ -400,7 +401,7 @@ void ui_replay_draw_controls(Vector2 vm) {
         Rectangle p = { 440, 240, 400, 200 };
         DrawRectangleRec(p, (Color){ 0, 0, 0, 240 });
         ui_draw_panel_border(p, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "SAVE REPLAY AS", 640.0f - MeasureTextEx(font_title, "SAVE REPLAY AS", 20.0f, 1.1f).x / 2.0f,
+        draw_text_snapped(font_title, "SAVE REPLAY AS", 640.0f - ui_measure_text(font_title, "SAVE REPLAY AS", 20.0f, 1.1f).x / 2.0f,
                           262.0f, 20.0f, 1.1f, COLOR_PHOSPHOR);
         Rectangle field = { 470, 296, 340, 34 };
         DrawRectangleRec(field, COLOR_PANEL_BG);
@@ -413,7 +414,7 @@ void ui_replay_draw_controls(Vector2 vm) {
         Rectangle p = { 380, 150, 520, 430 };
         DrawRectangleRec(p, (Color){ 0, 0, 0, 240 });
         ui_draw_panel_border(p, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "LOAD REPLAY", 640.0f - MeasureTextEx(font_title, "LOAD REPLAY", 20.0f, 1.1f).x / 2.0f,
+        draw_text_snapped(font_title, "LOAD REPLAY", 640.0f - ui_measure_text(font_title, "LOAD REPLAY", 20.0f, 1.1f).x / 2.0f,
                           166.0f, 20.0f, 1.1f, COLOR_PHOSPHOR);
         if (file_count == 0) draw_text_snapped(font_body, "replays/ IS EMPTY", 420.0f, 205.0f, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         int first = file_page * REPLAY_PAGE_SIZE;
@@ -430,7 +431,7 @@ void ui_replay_draw_controls(Vector2 vm) {
         char page_label[48];
         snprintf(page_label, sizeof(page_label), "%d / %d", file_count ? file_page + 1 : 0,
                  file_count ? (file_count + REPLAY_PAGE_SIZE - 1) / REPLAY_PAGE_SIZE : 0);
-        draw_text_snapped(font_body, page_label, 620.0f - MeasureTextEx(font_body, page_label, 16.0f, 1.0f).x / 2.0f,
+        draw_text_snapped(font_body, page_label, 620.0f - ui_measure_text(font_body, page_label, 16.0f, 1.0f).x / 2.0f,
                           478.0f, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
         button((Rectangle){ 790, 470, 90, 32 }, "NEXT", 14.0f, vm, COLOR_PHOSPHOR);
         button((Rectangle){ 420, 520, 160, 38 }, "PLAY", 16.0f, vm, COLOR_PHOSPHOR);

@@ -1,5 +1,6 @@
 #include "ui_combos.h"
 #include "ui_speed.h"
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -16,19 +17,19 @@ static void label(const char *text, float x, float y, float width, float size, C
     char clipped[160];
     snprintf(clipped, sizeof(clipped), "%s", text);
     size_t n = strlen(clipped);
-    if (MeasureTextEx(font_body, clipped, size, 0.5f).x > width) {
+    if (ui_measure_text(font_body, clipped, size, 0.5f).x > width) {
         if (n > sizeof(clipped) - 4) n = sizeof(clipped) - 4;
         do {
             memcpy(clipped + n, "...", 4);
-            if (MeasureTextEx(font_body, clipped, size, 0.5f).x <= width) break;
+            if (ui_measure_text(font_body, clipped, size, 0.5f).x <= width) break;
         } while (n-- > 0);
     }
-    DrawTextEx(font_body, clipped, (Vector2){ x, y }, size, 0.5f, color);
+    ui_draw_text(font_body, clipped, (Vector2){ floorf(x), floorf(y) }, size, 0.5f, color);
 }
 
 /* Left x that centres a sidebar label (measured like label(), capped at its 96 px) on cx. */
 static float label_centered_x(const char *text, float size, float cx) {
-    float w = MeasureTextEx(font_body, text, size, 0.5f).x;
+    float w = ui_measure_text(font_body, text, size, 0.5f).x;
     if (w > 96.0f) w = 96.0f;
     return cx - w * 0.5f;
 }
@@ -64,7 +65,7 @@ void combos_draw_sidebar(const GameState *g) {
     label(rnd_line, table_skin ? label_centered_x(rnd_line, 16, 1200.9f) : 1168,
           20, 96, 16, COLOR_PHOSPHOR);
     float size = 16;
-    while (size > 12 && MeasureTextEx(font_body, mode_name, size, 0.5f).x > 96) size--;
+    while (size > 12 && ui_measure_text(font_body, mode_name, size, 0.5f).x > 96) size--;
     label(mode_name, table_skin ? label_centered_x(mode_name, size, 1200.9f) : 1168,
           47, 96, size, COLOR_TEXT_INFO);
     for (int p = 1; p >= 0; p--) {

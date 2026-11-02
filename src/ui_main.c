@@ -38,7 +38,6 @@
 
 Font font_title;    // Audiowide for titles, headers, and button labels
 Font font_body;     // Play for data, options, HUD, and supporting text
-Font small_font;    // Legacy alias for modules that still use the old name
 GameSettings settings;
 
 /* transition_action codes for start_transition(): 1 = begin a match, 2/3 = resume
@@ -202,28 +201,28 @@ static void draw_credits_slogan(void) {
     const char *lhs = "[to_be \xCE\xA8(n)]";
     const char *rhs = "[not_to_be \xCE\xA6(n)]";
     float fsz = 20.0f, sp = 1.4f, r = 6.2f, pad = 9.0f;
-    Vector2 ls = MeasureTextEx(font_body, lhs, fsz, sp);
-    Vector2 rs = MeasureTextEx(font_body, rhs, fsz, sp);
+    Vector2 ls = ui_measure_text(font_body, lhs, fsz, sp);
+    Vector2 rs = ui_measure_text(font_body, rhs, fsz, sp);
     float sym_w = (r + pad) * 2.0f;
     float x0 = floorf(640.0f - (ls.x + sym_w + rs.x) * 0.5f);
     float y0 = 488.0f;
-    DrawTextEx(font_body, lhs, (Vector2){ x0, y0 }, fsz, sp, COLOR_PHOSPHOR);
+    ui_draw_text(font_body, lhs, (Vector2){ x0, y0 }, fsz, sp, COLOR_PHOSPHOR);
     Vector2 oc = { x0 + ls.x + pad + r, y0 + 10.2f };
     float d = (r - 0.8f) * 0.70710678f;
     DrawRing(oc, r - 1.55f, r, 0.0f, 360.0f, 32, COLOR_PHOSPHOR);
     DrawLineEx((Vector2){ oc.x - d, oc.y - d }, (Vector2){ oc.x + d, oc.y + d }, 1.55f, COLOR_PHOSPHOR);
     DrawLineEx((Vector2){ oc.x - d, oc.y + d }, (Vector2){ oc.x + d, oc.y - d }, 1.55f, COLOR_PHOSPHOR);
-    DrawTextEx(font_body, rhs, (Vector2){ floorf(x0 + ls.x + sym_w), y0 }, fsz, sp, COLOR_PHOSPHOR);
+    ui_draw_text(font_body, rhs, (Vector2){ floorf(x0 + ls.x + sym_w), y0 }, fsz, sp, COLOR_PHOSPHOR);
 }
 
 static void draw_campaign_preset_gate(void) {
     if (campaign_preset_selected || settings.difficulty == DIFFICULTY_DEUS) return;
     Rectangle r = { 365, 570, 175, 48 };
     const char *label = "SELECT A PRESET";
-    Vector2 size = MeasureTextEx(font_title, label, 16.0f, 1.0f);
+    Vector2 size = ui_measure_text(font_title, label, 16.0f, 1.0f);
     DrawRectangleRec(r, (Color){ 0, 0, 0, 255 });
     DrawRectangleLinesEx(r, 1.5f, COLOR_PHOSPHOR_DIM);
-    DrawTextEx(font_title, label,
+    ui_draw_text(font_title, label,
                (Vector2){ r.x + (r.width - size.x) * 0.5f, r.y + 15.0f },
                16.0f, 1.0f, COLOR_PHOSPHOR_DIM);
 }
@@ -300,7 +299,7 @@ static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int fl
                     (hub_from_screen == SCREEN_HUB_OPTIONS) || (hub_from_screen == SCREEN_PROFILE_MANAGER);
     Font fnt = use_title ? font_title : font_body;
     float sp = use_title ? 1.2f : 1.0f;
-    Vector2 ts = MeasureTextEx(fnt, txt, (float)fsz, sp);
+    Vector2 ts = ui_measure_text(fnt, txt, (float)fsz, sp);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - (float)fsz) * 0.5f) };
     if (flash_on) {
         Color outer1 = COLOR_PHOSPHOR; outer1.a = 115;
@@ -309,12 +308,12 @@ static void draw_hub_strobe_button(Rectangle r, const char *txt, int fsz, int fl
         DrawRectangleLinesEx((Rectangle){ r.x - 2.0f, r.y - 2.0f, r.width + 4.0f, r.height + 4.0f }, 2.0f, outer2);
         DrawRectangleRec(r, COLOR_PHOSPHOR);
         DrawRectangle((int)r.x + 2, (int)r.y + 2, (int)r.width - 4, (int)(r.height * 0.42f), (Color){ 255, 255, 255, 68 });
-        DrawTextEx(fnt, txt, pos, (float)fsz, sp, (Color){ 4, 10, 12, 255 });
+        ui_draw_text(fnt, txt, pos, (float)fsz, sp, (Color){ 4, 10, 12, 255 });
     } else {
         DrawRectangleRec(r, (Color){ 0, 0, 0, 238 });
         DrawRectangleLinesEx(r, 1.5f, COLOR_PHOSPHOR);
         Color dim = COLOR_PHOSPHOR_DIM; dim.a = 150;
-        DrawTextEx(fnt, txt, pos, (float)fsz, sp, dim);
+        ui_draw_text(fnt, txt, pos, (float)fsz, sp, dim);
     }
 }
 
@@ -525,10 +524,10 @@ static void draw_speedcoin_try_again_btn(Vector2 vm) {
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : (Color){ 0, 0, 0, 230 });
     ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    Vector2 ts = MeasureTextEx(font_title, "TRY AGAIN", 18.0f, 1.2f);
+    Vector2 ts = ui_measure_text(font_title, "TRY AGAIN", 18.0f, 1.2f);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - 18.0f) * 0.5f) };
-    DrawTextEx(font_title, "TRY AGAIN", pos, 18.0f, 1.2f, COLOR_PHOSPHOR);
-    if (hov) ui_theme_draw_text_flares(font_title, "TRY AGAIN", pos, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    ui_draw_text(font_title, "TRY AGAIN", pos, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    if (hov) ui_theme_draw_text_flares(ui_font_for_size(font_title, 18.0f), "TRY AGAIN", pos, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
 static float get_flight_duration(int s) { return (s == 0) ? 0.60f : (s == 1) ? 0.60f : 0.60f; }
@@ -607,8 +606,8 @@ static Vector2 replay_draw_landing(const GameState *gs, int card) {
 }
 
 static void draw_hover_action_label(const char *label, Rectangle bounds) {
-    Vector2 ts = MeasureTextEx(font_title, label, 18.0f, 1.2f);
-    DrawTextEx(font_title, label, (Vector2){ floorf(bounds.x + (bounds.width - ts.x) / 2.0f), floorf(bounds.y + (bounds.height - 18.0f) / 2.0f) }, 18.0f, 1.2f, COLOR_PHOSPHOR);
+    Vector2 ts = ui_measure_text(font_title, label, 18.0f, 1.2f);
+    ui_draw_text(font_title, label, (Vector2){ floorf(bounds.x + (bounds.width - ts.x) / 2.0f), floorf(bounds.y + (bounds.height - 18.0f) / 2.0f) }, 18.0f, 1.2f, COLOR_PHOSPHOR);
 }
 
 /* `caption` is drawn under the card, fading with it. Only the quit loader uses it
@@ -656,8 +655,8 @@ static void draw_loading_card(const BoardAssets *ba, float u, const char *captio
     }
     EndBlendMode();
     if (caption && caption[0]) {
-        Vector2 cs = MeasureTextEx(font_body, caption, 18.0f, 2.0f);
-        DrawTextEx(font_body, caption,
+        Vector2 cs = ui_measure_text(font_body, caption, 18.0f, 2.0f);
+        ui_draw_text(font_body, caption,
                    (Vector2){ floorf(640.0f - cs.x * 0.5f), floorf(cr.y + cr.height + 34.0f) },
                    18.0f, 2.0f, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b,
                                          (unsigned char)(255.0f * vis) });
@@ -686,9 +685,9 @@ static void draw_round_end_banner(const GameState *gs, float timer) {
                     (match_over ? action_card_get_match_time_stats(&yt, &yp, &ct, &cp, &mt)
                                 : action_card_get_round_time_stats(&yt, &yp, &ct, &cp, &mt));
     if (show_time) action_card_format_time_line(tline, sizeof(tline), yt, yp, ct, cp, mt);
-    Vector2 ts = MeasureTextEx(font_title, title, 34.0f, 1.5f), ss = MeasureTextEx(font_body, sub, 20.0f, 1.2f);
-    Vector2 gs_sz = show_gold ? MeasureTextEx(font_body, gold, 20.0f, 1.2f) : (Vector2){ 0, 0 };
-    Vector2 tm_sz = show_time ? MeasureTextEx(font_body, tline, 19.0f, 1.2f) : (Vector2){ 0, 0 };
+    Vector2 ts = ui_measure_text(font_title, title, 34.0f, 1.5f), ss = ui_measure_text(font_body, sub, 20.0f, 1.2f);
+    Vector2 gs_sz = show_gold ? ui_measure_text(font_body, gold, 20.0f, 1.2f) : (Vector2){ 0, 0 };
+    Vector2 tm_sz = show_time ? ui_measure_text(font_body, tline, 19.0f, 1.2f) : (Vector2){ 0, 0 };
     float max_w = fmaxf(ts.x, fmaxf(ss.x, fmaxf(gs_sz.x, tm_sz.x)));
     float bw = fmaxf(480.0f, max_w + 88.0f);
     float bh = 104.0f + (show_gold ? 32.0f : 0.0f) + (show_time ? 30.0f : 0.0f);
@@ -697,19 +696,19 @@ static void draw_round_end_banner(const GameState *gs, float timer) {
     DrawRectangleLinesEx(br, 2.0f, (Color){ tcol.r, tcol.g, tcol.b, (unsigned char)(255.0f * alpha) });
     ui_theme_set_panel_flare_glow(br, 0.75f * alpha);
     ui_theme_draw_panel_flares(br);
-    DrawTextEx(font_title, title, (Vector2){ floorf((CANVAS_W - ts.x) * 0.5f), br.y + 18.0f }, 34.0f, 1.5f,
+    ui_draw_text(font_title, title, (Vector2){ floorf((CANVAS_W - ts.x) * 0.5f), br.y + 18.0f }, 34.0f, 1.5f,
                (Color){ tcol.r, tcol.g, tcol.b, (unsigned char)(255.0f * alpha) });
     Color info = COLOR_TEXT_INFO; info.a = (unsigned char)(240.0f * alpha);
-    DrawTextEx(font_body, sub, (Vector2){ floorf((CANVAS_W - ss.x) * 0.5f), br.y + 64.0f }, 20.0f, 1.2f, info);
+    ui_draw_text(font_body, sub, (Vector2){ floorf((CANVAS_W - ss.x) * 0.5f), br.y + 64.0f }, 20.0f, 1.2f, info);
     float row_y = br.y + 96.0f;
     if (show_gold) {
         Color gc = COLOR_AMBER; gc.a = (unsigned char)(255.0f * alpha);
-        DrawTextEx(font_body, gold, (Vector2){ floorf((CANVAS_W - gs_sz.x) * 0.5f), row_y }, 20.0f, 1.2f, gc);
+        ui_draw_text(font_body, gold, (Vector2){ floorf((CANVAS_W - gs_sz.x) * 0.5f), row_y }, 20.0f, 1.2f, gc);
         row_y += 30.0f;
     }
     if (show_time) {
         Color tc = { 236, 150, 160, (unsigned char)(255.0f * alpha) };
-        DrawTextEx(font_body, tline, (Vector2){ floorf((CANVAS_W - tm_sz.x) * 0.5f), row_y }, 19.0f, 1.2f, tc);
+        ui_draw_text(font_body, tline, (Vector2){ floorf((CANVAS_W - tm_sz.x) * 0.5f), row_y }, 19.0f, 1.2f, tc);
     }
 }
 
@@ -723,9 +722,9 @@ static void draw_round_result_extras(const GameState *gs, Vector2 vm) {
         DrawRectangleRec(btn, (Color){ 0, 0, 0, 252 });
         if (hov) DrawRectangleRec(btn, COLOR_BTN_HOVER_BG);
         ui_draw_panel_border(btn, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-        Vector2 ts = MeasureTextEx(font_title, "ATRIUM PLEX", 20.0f, 1.2f);
+        Vector2 ts = ui_measure_text(font_title, "ATRIUM PLEX", 20.0f, 1.2f);
         Vector2 pos = { floorf(btn.x + (btn.width - ts.x) * 0.5f), floorf(btn.y + (btn.height - 20.0f) * 0.5f) };
-        DrawTextEx(font_title, "ATRIUM PLEX", pos, 20.0f, 1.2f, COLOR_PHOSPHOR);
+        ui_draw_text(font_title, "ATRIUM PLEX", pos, 20.0f, 1.2f, COLOR_PHOSPHOR);
     }
     int mp = speed_bar_total();
     int show_sc = (gs->ruleset == RULESET_KK_ADD_10) && (mp > 0);
@@ -738,13 +737,13 @@ static void draw_round_result_extras(const GameState *gs, Vector2 vm) {
     if (show_sc) {
         const char *sc_txt = match_over ? TextFormat("SPEED MINIPOINTS:  %d  =  +%d PTS", mp, mp / 10)
                                         : TextFormat("SPEED MINIPOINTS:  %d", mp);
-        DrawTextEx(font_body, sc_txt, (Vector2){ 230.0f, y }, 19.0f, 1.2f, COLOR_AMBER);
+        ui_draw_text(font_body, sc_txt, (Vector2){ 230.0f, y }, 19.0f, 1.2f, COLOR_AMBER);
         y += 26.0f;
     }
     if (show_tm) {
         char tline[128];
         action_card_format_time_line(tline, sizeof(tline), yt, yp, ct, cp, mt);
-        DrawTextEx(font_body, tline, (Vector2){ 230.0f, y }, 19.0f, 1.2f, (Color){ 236, 150, 160, 255 });
+        ui_draw_text(font_body, tline, (Vector2){ 230.0f, y }, 19.0f, 1.2f, (Color){ 236, 150, 160, 255 });
     }
 }
 
@@ -840,8 +839,8 @@ static void update_draw_frame(void) {
                 "PLEASE ADJUST YOUR VOLUME AND TAKE REGULAR BREAKS."
             };
             for (int i = 0; i < 2; i++) {
-                Vector2 size = MeasureTextEx(font_body, lines[i], 24.0f, 1.0f);
-                DrawTextEx(font_body, lines[i], (Vector2){ floorf((CANVAS_W - size.x) * 0.5f), 348.0f + i * 38.0f },
+                Vector2 size = ui_measure_text(font_body, lines[i], 24.0f, 1.0f);
+                ui_draw_text(font_body, lines[i], (Vector2){ floorf((CANVAS_W - size.x) * 0.5f), 348.0f + i * 38.0f },
                            24.0f, 1.0f, BLACK);
             }
         } else {
@@ -943,7 +942,7 @@ static void update_draw_frame(void) {
         capture_info_begin(0, (Vector2){ 0, 0 });
         card_tooltip_draw();
         BeginDrawing(); ClearBackground(BLACK);
-        DrawTextEx(font_body, "Enlarge the window to play (minimum 960x540)", (Vector2){ 20.0f, 20.0f }, 20.0f, 1.5f, COLOR_PHOSPHOR);
+        ui_draw_text(font_body, "Enlarge the window to play (minimum 960x540)", (Vector2){ 20.0f, 20.0f }, 20.0f, 1.5f, COLOR_PHOSPHOR);
         EndDrawing(); return;
     }
 
@@ -2047,8 +2046,8 @@ static void update_draw_frame(void) {
         float t = fminf(1.0f, deus_banner_timer / 0.50f);             /* fade-out tail */
         unsigned char a = (unsigned char)(t * 200.0f);                /* ~78% - transparent */
         const char *msg = "/// TIME EXPIRED ///";
-        Vector2 ts = MeasureTextEx(font_title, msg, 56.0f, 1.6f);
-        DrawTextEx(font_title, msg, (Vector2){ floorf((CANVAS_W - ts.x) / 2.0f), 330.0f }, 56.0f, 1.6f, (Color){ 0xFF, 0x30, 0x30, a });
+        Vector2 ts = ui_measure_text(font_title, msg, 56.0f, 1.6f);
+        ui_draw_text(font_title, msg, (Vector2){ floorf((CANVAS_W - ts.x) / 2.0f), 330.0f }, 56.0f, 1.6f, (Color){ 0xFF, 0x30, 0x30, a });
         EndTextureMode();
     }
 
@@ -2135,25 +2134,11 @@ int main(int argc, char **argv) {
     board_load_assets(&assets); assets.current_bg = settings.background;
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }
 
-    /* Font rasterisation sizes. raylib rasterises a face ONCE at this size and every draw is
-       a bitmap resize by font_size / baseSize (rtext.c: advanceX is an int rounded at
-       baseSize; MeasureTextEx scales by fontSize/baseSize). The sizes this UI actually draws
-       at run from 11.5px to 56px, so one baseSize per face is a compromise: too high and the
-       small labels - most of the Logfile, all the hub buttons - are downscaled into mush; too
-       low and the big banners upscale and go soft.
-
-       These were 96 and 36, which put Audiowide at 11.5-12.5px at a 0.12x downscale: the
-       glyph is destroyed before the 1280x720 canvas is ever upscaled to the window. Measured
-       against the shipped TTFs with raylib's own stb_truetype path, 48 and 26 improve every
-       size below their base by 2.0x and 1.4x respectively, and keep the largest text (56px
-       banner, 28px body) at a mild 1.17x / 1.08x upscale instead of a hard downscale.
-
-       Push lower for sharper small text at the cost of softer banners: 32 gives 3.0x on the
-       title but puts the 56px banner at 1.75x. Measured width drift at these values is
-       -1.7% to -2.5% (text gets very slightly narrower); because one Font object does both
-       the measuring and the drawing, centring is unaffected and only fit margins move, in the
-       safe direction. The real fix is a second small rasterisation per face selected by size,
-       but that needs every MeasureTextEx routed in lockstep with its draw - see STATUS.md. */
+    /* Keep the established Audiowide / Play raster sizes for display and body roles. Small
+       dense UI uses separate Atkinson Hyperlegible Next faces at 16 px, selected up to 18 px
+       by ui_font_for_size(). ui_measure_text() and ui_draw_text() share that selector, so
+       centring, clipping and fit loops use the same glyph advances as the draw. The 1280x720
+       canvas, post-processing and existing display/brand roles stay unchanged. */
     const int title_base = 48;
     const int body_base = 26;
 
@@ -2170,7 +2155,24 @@ int main(int argc, char **argv) {
     if (!IsFontReady(font_body)) font_body = LoadFontEx(TextFormat("%s/assets/play.ttf", GetApplicationDirectory() ? GetApplicationDirectory() : ""), body_base, body_cps, 97);
     if (!IsFontReady(font_body)) font_body = GetFontDefault();
     else { GenTextureMipmaps(&font_body.texture); SetTextureFilter(font_body.texture, TEXTURE_FILTER_BILINEAR); }
-    small_font = font_body;
+
+    /* Small labels use dedicated 16 px Atkinson faces; keep established display/body roles above 18 px. */
+    const int small_base = UI_SMALL_FONT_BASE_SIZE;
+    small_font = LoadFontEx("assets/AtkinsonHyperlegibleNext-Regular.ttf", small_base, NULL, 0);
+    if (!IsFontReady(small_font))
+        small_font = LoadFontEx(TextFormat("%s/assets/AtkinsonHyperlegibleNext-Regular.ttf",
+                                           GetApplicationDirectory() ? GetApplicationDirectory() : ""),
+                                small_base, NULL, 0);
+    if (!IsFontReady(small_font)) small_font = font_body;
+    else SetTextureFilter(small_font.texture, TEXTURE_FILTER_BILINEAR);
+
+    font_small_semibold = LoadFontEx("assets/AtkinsonHyperlegibleNext-SemiBold.ttf", small_base, NULL, 0);
+    if (!IsFontReady(font_small_semibold))
+        font_small_semibold = LoadFontEx(TextFormat("%s/assets/AtkinsonHyperlegibleNext-SemiBold.ttf",
+                                                    GetApplicationDirectory() ? GetApplicationDirectory() : ""),
+                                         small_base, NULL, 0);
+    if (!IsFontReady(font_small_semibold)) font_small_semibold = font_title;
+    else SetTextureFilter(font_small_semibold.texture, TEXTURE_FILTER_BILINEAR);
 
     storage_load_stats(&stats); storage_load_history(&history); plexus_load();
     storage_write_report(&stats, &history);
@@ -2204,6 +2206,14 @@ int main(int argc, char **argv) {
     if (has_sfx_card_slam) UnloadSound(sfx_card_slam);
     if (has_sfx_banner) UnloadSound(sfx_banner);
     audio_close(&audio);
+    if (small_font.texture.id > 0 && small_font.texture.id != font_body.texture.id &&
+        small_font.texture.id != font_title.texture.id && small_font.texture.id != GetFontDefault().texture.id)
+        UnloadFont(small_font);
+    if (font_small_semibold.texture.id > 0 && font_small_semibold.texture.id != font_title.texture.id &&
+        font_small_semibold.texture.id != font_body.texture.id &&
+        font_small_semibold.texture.id != small_font.texture.id &&
+        font_small_semibold.texture.id != GetFontDefault().texture.id)
+        UnloadFont(font_small_semibold);
     if (font_title.texture.id != GetFontDefault().texture.id) UnloadFont(font_title);
     if (font_body.texture.id != GetFontDefault().texture.id) UnloadFont(font_body);
     plexus_unload_assets();

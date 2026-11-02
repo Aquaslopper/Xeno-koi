@@ -1,6 +1,7 @@
 #include "ui_screens.h"
 #include "ui_replay.h"
 #include "ui_speed.h"
+#include "ui_board.h"
 #include "storage.h"
 #include <stdio.h>
 #include <string.h>
@@ -13,17 +14,17 @@ extern Font font_title;
 extern Font font_body;
 
 static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
-    DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
+    ui_draw_text(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
 }
 
 static void draw_centered_text(Font font, const char *text, float cx, float y, float fsz, float sp, Color col) {
-    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    Vector2 ts = ui_measure_text(font, text, fsz, sp);
     Vector2 pos = { floorf(cx - ts.x / 2.0f), floorf(y) };
-    DrawTextEx(font, text, pos, fsz, sp, col);
+    ui_draw_text(font, text, pos, fsz, sp, col);
 }
 
 static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fsz, float sp, Color col) {
-    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    Vector2 ts = ui_measure_text(font, text, fsz, sp);
     draw_text_ex_snapped(font, text, (Vector2){ b.x + (b.width - ts.x) / 2.0f, b.y + (b.height - fsz) / 2.0f }, fsz, sp, col);
 }
 
@@ -31,10 +32,10 @@ static int draw_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, Color txt
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
     ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
+    Vector2 ts = ui_measure_text(font_title, txt, (float)fsz, 1.2f);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - fsz) * 0.5f) };
-    DrawTextEx(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
-    if (hov) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
+    ui_draw_text(font_title, txt, pos, (float)fsz, 1.2f, txt_col);
+    if (hov) ui_theme_draw_text_flares(ui_font_for_size(font_title, (float)fsz), txt, pos, (float)fsz, 1.2f, txt_col);
     return hov;
 }
 
@@ -190,7 +191,7 @@ static void draw_music_folder_dialog(Vector2 vm) {
     draw_centered_text(font_body, "Type a folder path or Ctrl+V to paste (replaces the field).", 640, 292, 17, 1, COLOR_TEXT_INFO);
     Rectangle field = { 300, 325, 680, 36 };
     DrawRectangleLinesEx(field, 1, COLOR_PHOSPHOR);
-    float width = MeasureTextEx(font_body, music_folder_edit, 18, 1).x;
+    float width = ui_measure_text(font_body, music_folder_edit, 18, 1).x;
     BeginScissorMode(305, 330, 670, 26);
     draw_text_ex_snapped(font_body, music_folder_edit, (Vector2){305 - fmaxf(0, width - 665), 333}, 18, 1, COLOR_TEXT_INFO);
     EndScissorMode();
@@ -775,7 +776,7 @@ void screens_draw_round_result(const BoardAssets *ba, const GameState *g, Vector
 int screens_check_round_result_click(Vector2 vm) { return CheckCollisionPointRec(vm, (Rectangle){ 520, 610, 240, 48 }); }
 
 void screens_draw_banner(const char *text) {
-    Vector2 ts = MeasureTextEx(font_title, text, 28.0f, 1.4f);
+    Vector2 ts = ui_measure_text(font_title, text, 28.0f, 1.4f);
     Rectangle br = { (1280.0f - ts.x) / 2.0f - 30.0f, 320.0f, ts.x + 60.0f, 60.0f };
     DrawRectangleRec(br, (Color){ 0, 0, 0, 230 }); ui_draw_panel_border(br, COLOR_PHOSPHOR);
     draw_text_ex_snapped(font_title, text, (Vector2){ (1280.0f - ts.x) / 2.0f, 336.0f }, 28.0f, 1.4f, COLOR_PHOSPHOR);

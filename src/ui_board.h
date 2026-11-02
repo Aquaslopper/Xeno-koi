@@ -93,7 +93,13 @@ void  board_sync_action_card_mask(uint64_t blind_mask, int distraction_high);
 int   board_is_blind_field_card(int card_id);
 int   board_is_action_distraction_high(void);
 
-/* Global clean font for high-readability UI details */
-extern Font small_font;
+/* Small UI faces are rasterized for dense information; larger roles stay unchanged. */
+#define UI_SMALL_FONT_BASE_SIZE 16
+#define UI_SMALL_FONT_MAX_SIZE 18.0f
+extern Font small_font;             /* Atkinson Hyperlegible Next Regular */
+extern Font font_small_semibold;    /* Atkinson Hyperlegible Next SemiBold */
+Font ui_font_for_size(Font preferred, float size);
+Vector2 ui_measure_text(Font preferred, const char *text, float size, float spacing);
+void ui_draw_text(Font preferred, const char *text, Vector2 pos, float size, float spacing, Color color);
 
 #endif /* UI_BOARD_H */

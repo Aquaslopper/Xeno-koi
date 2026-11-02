@@ -19,17 +19,37 @@ extern Font font_title;
 extern Font font_body;
 extern GameSettings settings;
 
+Font small_font;
+Font font_small_semibold;
+
+Font ui_font_for_size(Font preferred, float size) {
+    if (size > UI_SMALL_FONT_MAX_SIZE) return preferred;
+    if (preferred.texture.id == font_title.texture.id && font_small_semibold.texture.id > 0)
+        return font_small_semibold;
+    if (preferred.texture.id == font_body.texture.id && small_font.texture.id > 0)
+        return small_font;
+    return preferred;
+}
+
+Vector2 ui_measure_text(Font preferred, const char *text, float size, float spacing) {
+    return MeasureTextEx(ui_font_for_size(preferred, size), text, size, spacing);
+}
+
+void ui_draw_text(Font preferred, const char *text, Vector2 pos, float size, float spacing, Color color) {
+    DrawTextEx(ui_font_for_size(preferred, size), text, pos, size, spacing, color);
+}
+
 static void draw_text_ex_snapped(Font font, const char *text, Vector2 pos, float fsz, float sp, Color col) {
-    DrawTextEx(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
+    ui_draw_text(font, text, (Vector2){ floorf(pos.x), floorf(pos.y) }, fsz, sp, col);
 }
 
 static void draw_centered_text(Font font, const char *text, float cx, float y, float fsz, float sp, Color col) {
-    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    Vector2 ts = ui_measure_text(font, text, fsz, sp);
     draw_text_ex_snapped(font, text, (Vector2){ cx - ts.x / 2.0f, y }, fsz, sp, col);
 }
 
 static void draw_text_in_rect(Font font, const char *text, Rectangle b, float fsz, float sp, Color col) {
-    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    Vector2 ts = ui_measure_text(font, text, fsz, sp);
     draw_text_ex_snapped(font, text, (Vector2){ b.x + (b.width - ts.x) / 2.0f, b.y + (b.height - fsz) / 2.0f }, fsz, sp, col);
 }
 

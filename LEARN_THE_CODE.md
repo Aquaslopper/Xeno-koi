@@ -1026,67 +1026,73 @@ borderless toggle when `settings.fullscreen == 1` (skipped entirely on web, wher
 `settings.fullscreen` is forced to 0), `theme_set`, `audio_init`,
 `init_banner_sfx`, `audio_set_effects`, music folder if one is stored, the two
 render textures, the post-processing shader, `board_load_assets`, the Deus
-force (ruleset/background/theme), the two fonts, stats and history.
+force (ruleset/background/theme), the four font faces, stats and history.
 
 The post shader is loaded from `assets/postprocess_web.fs` under Emscripten and
 `assets/postprocess.fs` otherwise, falling back to `<exe dir>/assets/…`, and its
 three uniforms are looked up once: `bloom_intensity`, `crt_intensity`, `gamma`.
 
-Both fonts are loaded with mipmaps and set to trilinear (`audiowide.ttf`) and bilinear
-(`play.ttf`); each falls back to `GetFontDefault()`. `small_font` is assigned
-`font_body` and has no draw sites of its own.
+The main display/body faces retain their established rasterisation and filtering:
+`font_title` is Audiowide at 48 px with mipmaps and trilinear filtering, and `font_body`
+is Play at 26 px with mipmaps and bilinear filtering. Both fall back to
+`GetFontDefault()` when unavailable. The small-information path loads Atkinson Hyperlegible
+Next Regular and SemiBold through Raylib's normal `LoadFontEx` route at 16 px. Those two
+atlases use bilinear filtering without generated mipmaps; if either load fails, its role falls
+back to the corresponding existing Play or Audiowide font.
 
-**Rasterisation sizes.** raylib rasterises a face once, at the `baseSize` given to
-`LoadFontEx`, and every draw afterwards is a bitmap resize by `font_size / baseSize` —
-`LoadFontData` stores `advanceX` as an `int` rounded at `baseSize`, and `MeasureTextEx`
-rescales it by `fontSize / baseSize`. The sizes this UI draws at run from 11.5 px to
-140.8 px, so one `baseSize` per face is always a compromise.
+`ui_font_for_size()` in `ui_board.c` maps requested `font_body` draws at up to
+`UI_SMALL_FONT_MAX_SIZE` (18 px) to Atkinson Regular, and requested `font_title` draws in the
+same range to Atkinson SemiBold. Larger text and custom fonts are returned unchanged. The
+`ui_measure_text()` and `ui_draw_text()` wrappers use the same selection, keeping measurements,
+centering, clipping and fit loops on the exact face used for drawing. Ordinary small UI call
+sites use those wrappers; the Atrium Plex logfile applies the same selector only while its
+window is drawn, so other Plexus-specific page text stays unchanged. Shared widgets such as
+combo sidebars use the small face wherever they appear. `ui_action.c` / `ui_action.h`, scoring,
+rules and cards are not part of this change.
 
-| Face | File | `baseSize` | Drawn at | Resulting scale |
+**Rasterisation sizes.** raylib rasterises a face once, at the `baseSize` passed to
+`LoadFontEx`, then resizes its glyph bitmap by `font_size / baseSize`. `LoadFontData` stores
+`advanceX` as an integer rounded at the base size, and `MeasureTextEx` rescales it. Atkinson's
+16 px base covers the small-information workload from about 11 to 18 px (0.69×–1.125×),
+while the original display/body faces remain responsible for larger roles and scoped legacy
+contexts.
+
+| Face | File | `baseSize` | Role / draw range | Resulting scale |
 |---|---|---:|---|---|
-| `font_title` | `audiowide.ttf` | **48** (was 96) | 11.5 – 140.8 px | 0.24× – 2.93× |
-| `font_body` | `play.ttf` | **26** (was 36) | 13.5 – 37.4 px | 0.52× – 1.44× |
-| `s_story_font` | `saira_condensed.ttf` | **32** (was 64) | 20.5 – 31 px | 0.64× – 0.97× |
+| `font_title` | `audiowide.ttf` | **48** (unchanged) | Display / brand; larger than 18 px, plus unscoped legacy UI | 0.24×–2.93× in those contexts |
+| `font_body` | `play.ttf` | **26** (unchanged) | Body; larger than 18 px, plus unscoped legacy UI | 0.52×–1.44× in those contexts |
+| `small_font` | `AtkinsonHyperlegibleNext-Regular.ttf` | **16** | Dense body labels, about 11–18 px | 0.69×–1.125× |
+| `font_small_semibold` | `AtkinsonHyperlegibleNext-SemiBold.ttf` | **16** | Dense title/label roles, about 11–18 px | 0.69×–1.125× |
+| `s_story_font` | `saira_condensed.ttf` | **32** (unchanged) | Story reading, 20.5–31 px | 0.64×–0.97× |
 
-There is deliberately **no** second `font_display` face. One existed for a few days: an
-Audiowide rasterisation at 176 px so the `[XENO / KOI]` brand line could be drawn 1:1 instead
-of stretched 3.67× from the 48 px master. It made the brand line sharp, and it cost a whole
-extra atlas — 94 padded glyphs at that size need 1024×1024, i.e. ~4 MB of RGBA plus mipmaps
-(~5.4 MB) of VRAM and ~1.4 MB of glyph bitmaps in RAM — to sharpen one line of text on one
-screen. The owner weighed it and chose the smaller build: the brand line is drawn from the shared
-48 px face again (176 px at the time, 140.8 px since the 29 October 2026 resize) and is very
-slightly softer. Do not reintroduce a per-size
-face without that trade being agreed, and note the metric hazard that killed the general font
-LOD below: measuring with one face and drawing with another.
+There is deliberately **no** second `font_display` face. A 176 px Audiowide rasterisation
+was tried for the `[XENO / KOI]` brand line, but the atlas added roughly 4 MB of RGBA plus
+mipmaps (about 5.4 MB of VRAM) to sharpen one line on one screen. The owner chose the smaller
+build and kept the shared 48 px role. The selected Atkinson faces serve small UI only; they do
+not replace or redefine the established display/brand roles.
 
-The old values were the cause of the unreadable Logfile: Audiowide at 11.5–12.5 px was a
-**0.12× downscale of a 96 px master**, so the month buttons and every hub button label were
-destroyed before the 1280×720 canvas was ever upscaled to the window. Raising the ratio is
-worth more than raising the canvas resolution, because the damage happens at the glyph step.
-The two constants are `title_base` / `body_base` in `ui_main.c` and the literal in
-`plexus_load()`; lowering them sharpens small text further at the cost of upscaling the big
-banners (`title_base` 32 gives a 3.0× gain on small text but puts the 56 px banner at 1.75×).
+The earlier small-text problem came from drawing 11.5–12.5 px labels out of the old 96 px
+Audiowide atlas. Lowering the shared Audiowide/Play bases would sharpen small text at the cost
+of softening large banners, so those already-adjusted bases (48/26) are kept. The dedicated
+Atkinson faces fix the approved small-UI path without changing those larger roles or the
+1280×720 canvas.
 
-Changing a `baseSize` shifts measured widths by about −1.7 % to −2.5 % (text gets slightly
-narrower) because `advanceX` is integer-rounded at the new size. That is safe **only**
-because a single `Font` object performs both the measure and the draw at every call site, so
-centring is unaffected and only fit margins move, in the safe direction.
+A separate rasterisation is not metrically interchangeable with the original face because
+`advanceX` is rounded at a different base size. Therefore every small-text measurement and
+its corresponding draw must pass through `ui_measure_text()` / `ui_draw_text()` (or the
+Plexus logfile's explicitly scoped equivalent); measuring one face and drawing another can
+misalign centred text and cause fit errors. When adding or moving a small label, keep both
+operations paired and use bilinear filtering on the 16 px face. The fixed logfile and combo
+labels snap to integral logical-canvas coordinates; animated score popups retain their existing
+fractional movement. Both 1280×720 render textures and the final letterboxed canvas keep their
+existing bilinear filters and scale. The game-overlay fade still draws from its BLANK-cleared
+transparent canvas with the existing alpha tint; this font change does not alter that compositor.
+No new scale, shader or alpha-compositing path is introduced here.
 
-The general fix is a second, *small* rasterisation of each face selected by `font_size`,
-which would put small text at ~1:1. (The narrow exception above — one extra large face used by
-a single call site that measures and draws with it — does not run into the hazard, because no
-measure/draw pair is ever split across the two faces.) It is not done because `advanceX` rounding makes the two
-rasterisations *not* metrically interchangeable — measuring with one face and drawing with
-the other misaligns centred text by up to ~4 px on a long line. Doing it correctly requires
-every `MeasureTextEx` to be routed in lockstep with its draw: about 35 sites across
-`ui_plexus.c` (22, including an auto-shrink loop at `:1104` and a width-chained label at
-`:1968`), `ui_replay.c`, `ui_screens.c`, `ui_board_status.c`, `ui_action.c` and `campaign.c`.
-Note also that `tests/test_table_ui.c` stubs `MeasureTextEx` with a synthetic
-`strlen * (size * 0.6 + spacing)` metric, so it cannot catch a real overflow, and its
-Koi-Koi overlay estimate is still calibrated to `small_font.ttf`'s 0.405 advance ratio.
-raylib 5.5 also offers `FONT_SDF`, which renders crisp from one atlas at any size and would
-remove the whole problem, but it needs an external text shader that would have to coexist
-with the existing fog, bloom and CRT passes.
+`tests/test_table_ui.c` stubs `MeasureTextEx` with a synthetic metric, so its geometry checks
+cannot prove real Atkinson advances or pixel sharpness. The test's Koi-Koi estimate remains
+calibrated to the legacy `small_font.ttf`; it is not a rendering reference for the new faces.
+Actual Raylib output must be checked separately when adjusting font fit or rasterisation.
 
 ### 7.3 Two transitions
 

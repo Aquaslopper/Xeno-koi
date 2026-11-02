@@ -1,6 +1,7 @@
 #include "ui_card_tooltip.h"
 #include "cards.h"
 #include "ui_theme.h"
+#include "ui_board.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -101,9 +102,9 @@ void card_tooltip_draw(void) {
     if (tooltip_web_update(month, type, name,
                            COLOR_PHOSPHOR.r, COLOR_PHOSPHOR.g, COLOR_PHOSPHOR.b)) return;
 #endif
-    float width = fmaxf(MeasureTextEx(font_body, month, 16, 1).x,
-                       fmaxf(MeasureTextEx(font_body, type, 16, 1).x,
-                             MeasureTextEx(font_body, name, 16, 1).x)) + 24;
+    float width = fmaxf(ui_measure_text(font_body, month, 16, 1).x,
+                       fmaxf(ui_measure_text(font_body, type, 16, 1).x,
+                             ui_measure_text(font_body, name, 16, 1).x)) + 24;
     float height = 76;
     float x = tooltip_mouse.x + 16, y = tooltip_mouse.y + 18;
     if (x + width > CANVAS_W - 8) x = tooltip_mouse.x - width - 16;
@@ -111,7 +112,7 @@ void card_tooltip_draw(void) {
     Rectangle panel = { floorf(fmaxf(8, x)), floorf(fmaxf(8, y)), ceilf(width), height };
     DrawRectangleRec(panel, (Color){ 5, 8, 10, 245 });
     ui_draw_panel_border(panel, COLOR_PHOSPHOR_DIM);
-    DrawTextEx(font_body, month, (Vector2){ panel.x + 12, panel.y + 10 }, 16, 1, WHITE);
-    DrawTextEx(font_body, type, (Vector2){ panel.x + 12, panel.y + 30 }, 16, 1, WHITE);
-    DrawTextEx(font_body, name, (Vector2){ panel.x + 12, panel.y + 50 }, 16, 1, WHITE);
+    ui_draw_text(font_body, month, (Vector2){ panel.x + 12, panel.y + 10 }, 16, 1, WHITE);
+    ui_draw_text(font_body, type, (Vector2){ panel.x + 12, panel.y + 30 }, 16, 1, WHITE);
+    ui_draw_text(font_body, name, (Vector2){ panel.x + 12, panel.y + 50 }, 16, 1, WHITE);
 }

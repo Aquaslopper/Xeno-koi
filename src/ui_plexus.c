@@ -67,6 +67,7 @@ static void draw_badge_tour(Vector2 vm);
 static int s_selected_month = 0; /* 0..11 */
 static int s_selected_slot  = 3; /* 0..3 within current month (starts at bottom card 4 for Tutorial 1) */
 static int s_active_tab     = 0; /* 0: node briefing, 1: logfile window, 2..4: modes */
+static int s_logfile_font_scope;
 static unsigned long long s_finished_cards_mask      = 0ULL; /* 48-bit Standard Atlas mask */
 static unsigned long long s_deus_finished_cards_mask = 0ULL; /* 48-bit Hardcore Deus Atlas mask */
 static int s_deus_spine_mode  = 0; /* 0: Standard Spine pass, 1: Hardcore Deus Spine pass */
@@ -371,7 +372,9 @@ static const Rectangle k_atlas_insp_box_rect    = { 760.0f, 162.0f, 214.0f, 286.
 static const Rectangle k_atlas_ach_box_rect     = { 254.0f, 456.0f, 720.0f, 150.0f };
 
 static void draw_text_snapped(Font font, const char *text, float x, float y, float fsz, float sp, Color col) {
-    DrawTextEx(font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
+    /* Logfile-only selection preserves the existing mode and Action Card typography. */
+    Font render_font = s_logfile_font_scope ? ui_font_for_size(font, fsz) : font;
+    DrawTextEx(render_font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
 }
 
 static void copy_clean(char *dst, size_t cap, const char *src) {
@@ -1203,11 +1206,12 @@ static void draw_plexus_btn(Rectangle r, const char *txt, int fsz, Vector2 vm, i
     DrawRectangleRec(r, (hov || active) ? COLOR_BTN_HOVER_BG : PLEXUS_PANEL_BG);
     ui_draw_panel_border(r, (hov || active) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
     Color col = (hov || active) ? COLOR_TEXT_INFO : COLOR_PHOSPHOR;
-    Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
+    Font render_font = s_logfile_font_scope ? ui_font_for_size(font_title, (float)fsz) : font_title;
+    Vector2 ts = MeasureTextEx(render_font, txt, (float)fsz, 1.2f);
     Vector2 pos = { floorf(r.x + (r.width - ts.x) * 0.5f), floorf(r.y + (r.height - (float)fsz) * 0.5f) };
-    DrawTextEx(font_title, txt, pos, (float)fsz, 1.2f, col);
+    DrawTextEx(render_font, txt, pos, (float)fsz, 1.2f, col);
     /* Hover only: an `|| active` gate left the selected tab glowing permanently. */
-    if (hov) ui_theme_draw_text_flares(font_title, txt, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
+    if (hov) ui_theme_draw_text_flares(render_font, txt, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
 }
 
 static void draw_plexus_locked_btn(Rectangle r, const char *txt, int fsz) {
@@ -1221,8 +1225,9 @@ static void draw_plexus_locked_btn(Rectangle r, const char *txt, int fsz) {
         DrawRectangleGradientH(rx + hw, ry + rh - 1, rw - hw, 1, c_mid, c_edge);
     }
     DrawRectangleLinesEx(r, 1.0f, (Color){ 148, 56, 60, 200 });
-    Vector2 ts = MeasureTextEx(font_title, txt, (float)fsz, 1.2f);
-    draw_text_snapped(font_title, txt,
+    Font render_font = s_logfile_font_scope ? ui_font_for_size(font_title, (float)fsz) : font_title;
+    Vector2 ts = MeasureTextEx(render_font, txt, (float)fsz, 1.2f);
+    draw_text_snapped(render_font, txt,
                       r.x + (r.width - ts.x) * 0.5f,
                       r.y + (r.height - (float)fsz) * 0.5f,
                       (float)fsz, 1.2f, (Color){ 182, 82, 86, 225 });
@@ -2478,7 +2483,7 @@ static void draw_logfile_matches_tab(Vector2 vm) {
     } else {
         snprintf(cnt_txt, sizeof(cnt_txt), "[00 / 00]");
     }
-    Vector2 cts = MeasureTextEx(font_body, cnt_txt, 15.5f, 1.1f);
+    Vector2 cts = ui_measure_text(font_body, cnt_txt, 15.5f, 1.1f);
     draw_text_snapped(font_body, cnt_txt, sbar.x + sbar.width - cts.x - 12.0f, sbar.y + 7.0f, 15.5f, 1.1f, COLOR_TEXT_INFO);
 
     /* 5 Match Cards + Right Scroll Triangles */
@@ -2488,8 +2493,8 @@ static void draw_logfile_matches_tab(Vector2 vm) {
         ui_draw_panel_border(empty, COLOR_PHOSPHOR_DIM);
         const char *e1 = "NO COMPLETED MATCHES RECORDED IN THIS CATEGORY YET.";
         const char *e2 = "Finish a story card, Speedcoin run, Action Card match, or Training session.";
-        Vector2 s1 = MeasureTextEx(font_title, e1, 16.0f, 1.2f);
-        Vector2 s2 = MeasureTextEx(font_body,  e2, 16.5f, 1.1f);
+        Vector2 s1 = ui_measure_text(font_title, e1, 16.0f, 1.2f);
+        Vector2 s2 = ui_measure_text(font_body,  e2, 16.5f, 1.1f);
         draw_text_snapped(font_title, e1, empty.x + (empty.width - s1.x) * 0.5f, 376.0f, 16.0f, 1.2f, COLOR_PHOSPHOR);
         draw_text_snapped(font_body,  e2, empty.x + (empty.width - s2.x) * 0.5f, 408.0f, 16.5f, 1.1f, COLOR_TEXT_INFO_DIM);
         return;
@@ -2508,7 +2513,7 @@ static void draw_logfile_matches_tab(Vector2 vm) {
         char btxt[40];
         snprintf(btxt, sizeof(btxt), "[%s]", me->badge);
         draw_text_snapped(font_title, btxt, row.x + 14.0f, row.y + 12.0f, 14.0f, 1.1f, bcol);
-        Vector2 bsz = MeasureTextEx(font_title, btxt, 14.0f, 1.1f);
+        Vector2 bsz = ui_measure_text(font_title, btxt, 14.0f, 1.1f);
         draw_text_snapped(font_title, me->title, row.x + 24.0f + bsz.x, row.y + 11.0f, 15.5f, 1.1f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body,  me->detail, row.x + 14.0f, row.y + 42.0f, 16.0f, 1.1f, COLOR_TEXT_INFO_DIM);
     }
@@ -2596,7 +2601,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
     int icid = (s_atlas_pinned_cid >= 0 && s_atlas_pinned_cid < 48) ? s_atlas_pinned_cid : 3;
     int ic_done = (int)((view_mask >> icid) & 1ULL);
     const char *insp_hdr = s_atlas_view_deus ? "DEUS INSPECTOR" : "CARD INSPECTOR";
-    Vector2 ihs = MeasureTextEx(font_title, insp_hdr, 13.5f, 1.1f);
+    Vector2 ihs = ui_measure_text(font_title, insp_hdr, 13.5f, 1.1f);
     draw_text_snapped(font_title, insp_hdr,
                       k_atlas_insp_box_rect.x + (k_atlas_insp_box_rect.width - ihs.x) * 0.5f,
                       k_atlas_insp_box_rect.y + 8.0f, 13.5f, 1.1f, earned_border);
@@ -2623,8 +2628,8 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
                           (CARDS[icid].type == CARD_TYPE_RIBBON) ? "RIBBON" : "PLAIN";
     char c_sub[48];
     snprintf(c_sub, sizeof(c_sub), "MONTH %02d // %s", (icid / 4) + 1, t_name);
-    Vector2 ct1 = MeasureTextEx(font_title, c_title, 13.5f, 1.0f);
-    Vector2 ct2 = MeasureTextEx(font_body,  c_sub,   14.5f, 1.0f);
+    Vector2 ct1 = ui_measure_text(font_title, c_title, 13.5f, 1.0f);
+    Vector2 ct2 = ui_measure_text(font_body,  c_sub,   14.5f, 1.0f);
     draw_text_snapped(font_title, c_title,
                       k_atlas_insp_box_rect.x + (k_atlas_insp_box_rect.width - ct1.x) * 0.5f,
                       k_atlas_insp_box_rect.y + 226.0f, 13.5f, 1.0f,
@@ -2671,7 +2676,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
     char e_txt[96];
     snprintf(e_txt, sizeof(e_txt), "MILESTONES: %d / 8   |   STD %02d/48   |   DEUS %02d/48",
              earned_cnt, std_done, deus_done);
-    Vector2 ets = MeasureTextEx(font_body, e_txt, 15.0f, 1.0f);
+    Vector2 ets = ui_measure_text(font_body, e_txt, 15.0f, 1.0f);
     draw_text_snapped(font_body, e_txt,
                       k_atlas_ach_box_rect.x + k_atlas_ach_box_rect.width - ets.x - 14.0f,
                       k_atlas_ach_box_rect.y + 8.0f, 15.0f, 1.0f, COLOR_TEXT_INFO);
@@ -2692,6 +2697,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
 }
 
 static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
+    s_logfile_font_scope = 1;
     if (s_log_subtab != LOG_TAB_STORY) {
         commit_viewed_story_months(-1);
     }
@@ -2755,6 +2761,7 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     } else {
         draw_logfile_atlas_tab(ba, st, vm);
     }
+    s_logfile_font_scope = 0;
 }
 
 /* The prologue wall reveals line by line and the CONTINUE button does not exist

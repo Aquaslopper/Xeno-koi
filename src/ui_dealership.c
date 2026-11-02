@@ -1,4 +1,5 @@
 #include "ui_dealership.h"
+#include "ui_board.h"
 
 #include "raylib.h"
 #include <math.h>
@@ -154,8 +155,8 @@ void dealership_draw(void) {
     /* The badge: a D, the dealer's hand, centred in the token. */
     const char *d = "D";
     float fs = 14.0f * pulse;
-    Vector2 sz = MeasureTextEx(font_body, d, fs, 1.0f);
-    DrawTextEx(font_body, d,
+    Vector2 sz = ui_measure_text(font_body, d, fs, 1.0f);
+    ui_draw_text(font_body, d,
                (Vector2){ p.x - sz.x * 0.5f, p.y - sz.y * 0.5f },
                fs, 1.0f, (Color){ 255, 255, 255, 235 });
 }

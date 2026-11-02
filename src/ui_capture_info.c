@@ -1,6 +1,7 @@
 #include "ui_capture_info.h"
 #include "cards.h"
 #include "ui_theme.h"
+#include "ui_board.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,21 +59,21 @@ int capture_info_hovered_card(void) {
 static void draw_fitted_line(const char *text, float x, float y, float max_w, float base_size, Color col) {
     const float sp = 0.6f;
     float sz = base_size;
-    while (sz > 11.0f && MeasureTextEx(font_body, text, sz, sp).x > max_w) {
+    while (sz > 11.0f && ui_measure_text(font_body, text, sz, sp).x > max_w) {
         sz -= 0.5f;
     }
     char clipped[96];
     snprintf(clipped, sizeof(clipped), "%s", text);
     size_t n = strlen(clipped);
-    if (MeasureTextEx(font_body, clipped, sz, sp).x > max_w) {
+    if (ui_measure_text(font_body, clipped, sz, sp).x > max_w) {
         if (n > sizeof(clipped) - 4) n = sizeof(clipped) - 4;
         while (n > 0) {
             memcpy(clipped + n, "...", 4);
-            if (MeasureTextEx(font_body, clipped, sz, sp).x <= max_w) break;
+            if (ui_measure_text(font_body, clipped, sz, sp).x <= max_w) break;
             n--;
         }
     }
-    DrawTextEx(font_body, clipped, (Vector2){ floorf(x), floorf(y) }, sz, sp, col);
+    ui_draw_text(font_body, clipped, (Vector2){ floorf(x), floorf(y) }, sz, sp, col);
 }
 
 static const char *card_category_label(const Card *c) {

@@ -11,12 +11,12 @@ static void draw_text_ex_snapped(Font font, const char *text, Vector2 position,
                                  float font_size, float spacing, Color color) {
     position.x = floorf(position.x);
     position.y = floorf(position.y);
-    DrawTextEx(font, text, position, font_size, spacing, color);
+    ui_draw_text(font, text, position, font_size, spacing, color);
 }
 
 static void draw_centered_text(Font font, const char *text, float center_x, float y,
                                float font_size, float spacing, Color color) {
-    Vector2 text_size = MeasureTextEx(font, text, font_size, spacing);
+    Vector2 text_size = ui_measure_text(font, text, font_size, spacing);
     draw_text_ex_snapped(font, text, (Vector2){ center_x - text_size.x / 2.0f, y },
                font_size, spacing, color);
 }
@@ -60,7 +60,7 @@ void board_draw_info_box(Rectangle box, const char *text, int is_active) {
     int font_size = 16;
     int text_x = (int)box.x + 6;
     float max_width = box.width - (is_active ? 45.0f : 12.0f);
-    float w16 = MeasureTextEx(font_body, text, 16.0f, 1.0f).x;
+    float w16 = ui_measure_text(font_body, text, 16.0f, 1.0f).x;
     if (w16 > max_width && w16 > 0.0f) {
         font_size = (int)(16.0f * (max_width / w16));
         if (font_size < 12) font_size = 12;

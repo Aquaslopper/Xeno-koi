@@ -1,5 +1,6 @@
 #include "ui_taunt.h"
 #include "ui_theme.h"
+#include "ui_board.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,9 +100,9 @@ static void draw_text_wrap_box(Font font, const char *text, Rectangle r, float f
             line[line_len] = ' ';
             memcpy(line + line_len + 1, w_start, w_len);
             line[line_len + 1 + w_len] = '\0';
-            if (MeasureTextEx(font, line, font_size, 2.0f).x > max_w) {
+            if (ui_measure_text(font, line, font_size, 2.0f).x > max_w) {
                 line[line_len] = '\0';
-                DrawTextEx(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
+                ui_draw_text(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
                 cur_y += lh;
                 memcpy(line, w_start, w_len);
                 line[w_len] = '\0';
@@ -112,7 +113,7 @@ static void draw_text_wrap_box(Font font, const char *text, Rectangle r, float f
         }
     }
     if (line_len > 0) {
-        DrawTextEx(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
+        ui_draw_text(font, line, (Vector2){ r.x, cur_y }, font_size, 2.0f, col);
     }
 }
 
@@ -133,7 +134,7 @@ void taunt_draw(void) {
 
         DrawRectangleRec(box, bg);
         ui_draw_panel_border(box, border);
-        DrawTextEx(font_title, "[ CPU TRANSMISSION ]", (Vector2){ box.x + 8.0f, box.y + 7.0f }, 12.0f, 0.8f, title_col);
+        ui_draw_text(font_title, "[ CPU TRANSMISSION ]", (Vector2){ box.x + 8.0f, box.y + 7.0f }, 12.0f, 0.8f, title_col);
         DrawLine((int)box.x + 6, (int)box.y + 24, (int)(box.x + box.width - 6), (int)box.y + 24, dim);
 
         Rectangle text_r = { box.x + 8.0f, box.y + 30.0f, box.width - 16.0f, box.height - 34.0f };

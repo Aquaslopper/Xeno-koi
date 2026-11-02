@@ -320,8 +320,8 @@ void cinematic_draw(void) {
 
     const float font_size = 42.0f;
     const float spacing = 1.8f;
-    Vector2 title_size = MeasureTextEx(font_title, title, font_size, spacing);
-    Vector2 cd_sub_size = s_cinematic_countdown ? MeasureTextEx(font_title, sub, font_size, spacing) : (Vector2){ 0, 0 };
+    Vector2 title_size = ui_measure_text(font_title, title, font_size, spacing);
+    Vector2 cd_sub_size = s_cinematic_countdown ? ui_measure_text(font_title, sub, font_size, spacing) : (Vector2){ 0, 0 };
     int tw = (int)ceilf(title_size.x);
     int pad_x = 54;
     int pad_y = 24;
@@ -362,22 +362,22 @@ void cinematic_draw(void) {
     Color text_col = col_base;
     text_col.a = (unsigned char)(255 * alpha);
     float tx = s_cinematic_countdown ? floorf(box.x + (box.width - title_size.x) * 0.5f) : (float)(box_x + pad_x);
-    DrawTextEx(font_title, title, (Vector2){ tx, (float)(box_y + pad_y) },
+    ui_draw_text(font_title, title, (Vector2){ tx, (float)(box_y + pad_y) },
                font_size, spacing, text_col);
 
     if (s_cinematic_countdown) {
         Color sub_col = col_base;
         sub_col.a = (unsigned char)(235 * alpha);
-        DrawTextEx(font_title, sub,
+        ui_draw_text(font_title, sub,
                    (Vector2){ floorf((CANVAS_W - cd_sub_size.x) / 2.0f), floorf((float)(box_y + box_h + 14)) },
                    font_size, spacing, sub_col);
     } else {
         const float sub_size = 14.0f;
         const float sub_spacing = 1.2f;
-        Vector2 sub_measure = MeasureTextEx(font_body, sub, sub_size, sub_spacing);
+        Vector2 sub_measure = ui_measure_text(font_body, sub, sub_size, sub_spacing);
         Color sub_col = col_dim;
         sub_col.a = (unsigned char)(210 * alpha);
-        DrawTextEx(font_body, sub,
+        ui_draw_text(font_body, sub,
                    (Vector2){ floorf((CANVAS_W - sub_measure.x) / 2.0f), floorf((float)(box_y + box_h + 10)) },
                    sub_size, sub_spacing, sub_col);
     }

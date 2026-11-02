@@ -22,5 +22,5 @@ modified version. Keep the copyright and permission notice with any copy. Nobody
 permission to keep this game alive, and nobody may strip the author's name from it.
 
 Bundled third-party components keep their own licences:
-* **Audiowide, Play and Saira Condensed** fonts — SIL Open Font License 1.1, texts in `assets/OFL-*.txt`.
+* **Audiowide, Play, Saira Condensed, and Atkinson Hyperlegible Next (Regular and SemiBold)** fonts — SIL Open Font License 1.1, texts in `assets/OFL-*.txt`.
 * **raylib 5.5** — zlib licence.

@@ -1,5 +1,6 @@
 #include "ui_speed.h"
 #include "ui_theme.h"
+#include "ui_board.h"
 #include <math.h>
 #include <string.h>
 
@@ -431,22 +432,22 @@ void speed_bar_draw(void) {
             float g = s_ghost / SPEED_GHOST_TIME, u = 1.0f - g;
             float scale = 1.48f + 0.62f * (1.0f - (1.0f - u) * (1.0f - u));
             float g_fsz = fsz * scale, g_sp = sp * scale, ga = g * g;
-            Vector2 gts = MeasureTextEx(font_body, txt, g_fsz, g_sp);
+            Vector2 gts = ui_measure_text(font_body, txt, g_fsz, g_sp);
             Vector2 gpos = { cx - gts.x * 0.5f, cy - 0.529f * g_fsz };
-            DrawTextEx(font_body, txt, gpos, g_fsz, g_sp, (Color){ 255, 182, 20, (unsigned char)(110.0f * ga) });
+            ui_draw_text(font_body, txt, gpos, g_fsz, g_sp, (Color){ 255, 182, 20, (unsigned char)(110.0f * ga) });
             if (!bar_visible) {
                 BeginBlendMode(BLEND_ADDITIVE);
-                DrawTextEx(font_body, txt, gpos, g_fsz, g_sp, (Color){ 255, 200, 45, (unsigned char)(80.0f * ga) });
+                ui_draw_text(font_body, txt, gpos, g_fsz, g_sp, (Color){ 255, 200, 45, (unsigned char)(80.0f * ga) });
                 EndBlendMode();
             }
         }
 
-        Vector2 ts = MeasureTextEx(font_body, txt, fsz, sp);
+        Vector2 ts = ui_measure_text(font_body, txt, fsz, sp);
         Vector2 pos = { cx - ts.x * 0.5f, cy - 0.529f * fsz };
         if (grow < 0.05f) { pos.x = floorf(pos.x); pos.y = floorf(pos.y); }
         if (bar_visible) {
             for (int i = 0; i < 8; i++)
-                DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 1.4f, pos.y + oy[i] * 1.4f }, fsz, sp, (Color){ 16, 10, 0, 210 });
+                ui_draw_text(font_body, txt, (Vector2){ pos.x + ox[i] * 1.4f, pos.y + oy[i] * 1.4f }, fsz, sp, (Color){ 16, 10, 0, 210 });
         }
 
         float r_out = 2.0f + 1.25f * serie + 0.75f * flash, r_in = 1.0f + 0.35f * serie;
@@ -454,16 +455,16 @@ void speed_bar_draw(void) {
         unsigned char a_in  = (unsigned char)fminf(255.0f, (24.0f + 38.0f * serie + 36.0f * flash) * shim);
         BeginBlendMode(BLEND_ADDITIVE);
         for (int i = 0; i < 8; i++) {
-            DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * r_out, pos.y + oy[i] * r_out }, fsz, sp, (Color){ 255, 138, 0, a_out });
-            DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * r_in,  pos.y + oy[i] * r_in  }, fsz, sp, (Color){ 255, 168, 16, a_in  });
+            ui_draw_text(font_body, txt, (Vector2){ pos.x + ox[i] * r_out, pos.y + oy[i] * r_out }, fsz, sp, (Color){ 255, 138, 0, a_out });
+            ui_draw_text(font_body, txt, (Vector2){ pos.x + ox[i] * r_in,  pos.y + oy[i] * r_in  }, fsz, sp, (Color){ 255, 168, 16, a_in  });
         }
         EndBlendMode();
 
         Color base_gold = mix_color((Color){ 255, 188, 18, 255 }, (Color){ 255, 212, 65, 255 }, serie);
-        DrawTextEx(font_body, txt, pos, fsz, sp, mix_color(base_gold, (Color){ 255, 232, 110, 255 }, flash));
+        ui_draw_text(font_body, txt, pos, fsz, sp, mix_color(base_gold, (Color){ 255, 232, 110, 255 }, flash));
         if (!bar_visible) {
             BeginBlendMode(BLEND_ADDITIVE);
-            DrawTextEx(font_body, txt, pos, fsz, sp, (Color){ 255, 196, 38, (unsigned char)fminf(255.0f, (36.0f + 78.0f * serie + 125.0f * flash) * shim) });
+            ui_draw_text(font_body, txt, pos, fsz, sp, (Color){ 255, 196, 38, (unsigned char)fminf(255.0f, (36.0f + 78.0f * serie + 125.0f * flash) * shim) });
             EndBlendMode();
         }
     }
@@ -473,24 +474,24 @@ static void draw_hit_num(const char *txt, float cx, float cy, float fsz, Color c
     static const float ox[8] = { -1.0f, 1.0f, 0.0f, 0.0f, -0.72f, 0.72f, -0.72f, 0.72f };
     static const float oy[8] = { 0.0f, 0.0f, -1.0f, 1.0f, -0.72f, -0.72f, 0.72f, 0.72f };
     float sp = 1.2f;
-    Vector2 ts = MeasureTextEx(font_body, txt, fsz, sp);
+    Vector2 ts = ui_measure_text(font_body, txt, fsz, sp);
     Vector2 pos = { cx - ts.x * 0.5f, cy - 0.529f * fsz };
     outl.a = (unsigned char)((float)outl.a * alpha);
     for (int i = 0; i < 8; i++)
-        DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 1.6f, pos.y + oy[i] * 1.6f }, fsz, sp, outl);
+        ui_draw_text(font_body, txt, (Vector2){ pos.x + ox[i] * 1.6f, pos.y + oy[i] * 1.6f }, fsz, sp, outl);
     BeginBlendMode(BLEND_ADDITIVE);
     Color gcol = glow;
     gcol.a = (unsigned char)fminf(255.0f, (58.0f + 70.0f * flash) * alpha);
     for (int i = 0; i < 8; i++)
-        DrawTextEx(font_body, txt, (Vector2){ pos.x + ox[i] * 2.1f, pos.y + oy[i] * 2.1f }, fsz, sp, gcol);
+        ui_draw_text(font_body, txt, (Vector2){ pos.x + ox[i] * 2.1f, pos.y + oy[i] * 2.1f }, fsz, sp, gcol);
     EndBlendMode();
     Color fill = mix_color(core, hi, flash);
     fill.a = (unsigned char)(255.0f * alpha);
-    DrawTextEx(font_body, txt, pos, fsz, sp, fill);
+    ui_draw_text(font_body, txt, pos, fsz, sp, fill);
     BeginBlendMode(BLEND_ADDITIVE);
     Color boost = glow;
     boost.a = (unsigned char)fminf(255.0f, (78.0f + 92.0f * flash) * alpha);
-    DrawTextEx(font_body, txt, pos, fsz, sp, boost);
+    ui_draw_text(font_body, txt, pos, fsz, sp, boost);
     EndBlendMode();
 }
 

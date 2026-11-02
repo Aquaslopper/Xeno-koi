@@ -1,5 +1,6 @@
 #include "ui_hub.h"
 #include "ui_theme.h"
+#include "ui_board.h"
 #include "version.h"
 #include <math.h>
 #include <stdio.h>
@@ -130,15 +131,15 @@ static const char *hub_difficulty_label(Difficulty d) {
 /* --- Static draw helpers (side-effect free) ------------------------------ */
 
 static void hub_draw_text_snapped(Font font, const char *text, float x, float y, float fsz, float sp, Color col) {
-    DrawTextEx(font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
+    ui_draw_text(font, text, (Vector2){ floorf(x), floorf(y) }, fsz, sp, col);
 }
 
 /* Headings and the brand line draw plain text. The glyph motes live on hovered buttons
    only (hub_draw_button below) - they are a button affordance, not decoration. */
 static void hub_draw_centered(Font font, const char *text, float cx, float y, float fsz, float sp, Color col) {
-    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    Vector2 ts = ui_measure_text(font, text, fsz, sp);
     Vector2 pos = { floorf(cx - ts.x * 0.5f), floorf(y) };
-    DrawTextEx(font, text, pos, fsz, sp, col);
+    ui_draw_text(font, text, pos, fsz, sp, col);
 }
 
 static void hub_draw_backdrop_alpha(const BoardAssets *ba, unsigned char alpha) {
@@ -177,13 +178,13 @@ static void hub_draw_button(Rectangle r, const char *label, int fsz, Vector2 vm)
     int hov = CheckCollisionPointRec(vm, r);
     DrawRectangleRec(r, hov ? COLOR_BTN_HOVER_BG : COLOR_PANEL_BG);
     ui_draw_panel_border(r, hov ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    Vector2 ts = MeasureTextEx(font_title, label, (float)fsz, 1.2f);
+    Vector2 ts = ui_measure_text(font_title, label, (float)fsz, 1.2f);
     Vector2 pos = {
         floorf(r.x + (r.width - ts.x) * 0.5f),
         floorf(r.y + (r.height - (float)fsz) * 0.5f)
     };
-    DrawTextEx(font_title, label, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
-    if (hov) ui_theme_draw_text_flares(font_title, label, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
+    ui_draw_text(font_title, label, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
+    if (hov) ui_theme_draw_text_flares(ui_font_for_size(font_title, (float)fsz), label, pos, (float)fsz, 1.2f, COLOR_PHOSPHOR);
 }
 
 static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, int fsz) {
@@ -202,10 +203,10 @@ static void hub_record_hit(HubButtonHit *out_hit, Rectangle r, const char *lbl, 
    so the line stays optically centred. */
 static void hub_draw_centered_bold(Font font, const char *text, float cx, float y,
                                    float fsz, float sp, Color col) {
-    Vector2 ts = MeasureTextEx(font, text, fsz, sp);
+    Vector2 ts = ui_measure_text(font, text, fsz, sp);
     float x = floorf(cx - (ts.x + 0.9f) * 0.5f);
-    DrawTextEx(font, text, (Vector2){ x, floorf(y) }, fsz, sp, col);
-    DrawTextEx(font, text, (Vector2){ x + 0.9f, floorf(y) }, fsz, sp, col);
+    ui_draw_text(font, text, (Vector2){ x, floorf(y) }, fsz, sp, col);
+    ui_draw_text(font, text, (Vector2){ x + 0.9f, floorf(y) }, fsz, sp, col);
 }
 
 void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int has_active_profile) {
@@ -237,7 +238,7 @@ void ui_hub_draw_title(const BoardAssets *ba, Vector2 vm, float saved_timer, int
        "I cannot see it". */
     {
         const float fsz = 15.0f, sp = 1.2f;
-        Vector2 vs = MeasureTextEx(font_body, XENO_KOI_VERSION, fsz, sp);
+        Vector2 vs = ui_measure_text(font_body, XENO_KOI_VERSION, fsz, sp);
         hub_draw_text_snapped(font_body, XENO_KOI_VERSION,
                               CANVAS_W - 24.0f - vs.x, CANVAS_H - 26.0f,
                               fsz, sp, COLOR_PHOSPHOR);
