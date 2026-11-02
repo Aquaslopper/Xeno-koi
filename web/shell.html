@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>[XENO / KOI] — Biomechanical CRT Edition</title>
+    <title>[XENO / KOI] — Hanafuda: Acoustica Apexus</title>
     <style>
         :root {
             --phosphor: #00ffd2;
@@ -11,7 +11,10 @@
             --bg-dark: #050608;
             --chassis: #0d1014;
             --border: #1a2826;
-            --font-scale: 1;
+            /* Mirrors the engine default in storage_load_settings(): fontScale = 1.15
+               (115%). A pre-read of the saved setting below overrides it; the running
+               game also pushes its own value through --font-scale. */
+            --font-scale: 1.15;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         html, body {
@@ -175,7 +178,7 @@
 </head>
 <body>
     <div class="hud-bar">
-        <div class="hud-title">[XENO // KOI] — BIOMECHANICAL TERMINAL v1.979</div>
+        <div class="hud-title">[XENO // KOI] — HANAFUDA: ACOUSTICA APEXUS v1.979</div>
         <div class="hud-controls">
             <span id="audio-indicator" style="color: var(--phosphor-dim);">AUDIO: STANDBY</span>
             <span class="hud-hint">ESC TO EXIT FULLSCREEN</span>
@@ -186,7 +189,7 @@
         <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
         <div id="loading-overlay">
             <div class="boot-title">[XENO / KOI]</div>
-            <div class="boot-sub">INITIALIZING BIOMECHANICAL NEURAL CORTEX...</div>
+            <div class="boot-sub">INITIALIZING HANAFUDA: ACOUSTICA APEXUS...</div>
             <div class="progress-shell">
                 <div id="progress-fill"></div>
             </div>

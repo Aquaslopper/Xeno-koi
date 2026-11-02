@@ -2154,7 +2154,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--dealer") == 0) auto_dealer = 1;
     }
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(win_w, win_h, "[XENO/KOI] (Giger Biomechanical Edition)");
+    InitWindow(win_w, win_h, "[XENO/KOI] (Hanafuda: Acoustica Apexus)");
     if (GetApplicationDirectory() && GetApplicationDirectory()[0] != '\0') ChangeDirectory(GetApplicationDirectory());
     SetWindowMinSize(960, 540); SetTargetFPS(60);
 
