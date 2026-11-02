@@ -12,7 +12,7 @@ int main(void) {
     assert(a.current_game_track == -1);
     raylib_stub_files_exist = true;
     assert(audio_set_music_folder(&a, "") == 11);
-    assert(raylib_stub_attached == 22); /* music tap + reverb per stream */
+    assert(raylib_stub_attached == 11); /* restored reverb-only chain */
     assert(fabsf(raylib_stub_music_volume - 0.37f) < 0.001f);
 
     char *paths[] = {"/custom music/z.MP3", "/custom music/broken.mp3", "/custom music/b.ogg", "/custom music/a.wav"};
@@ -23,7 +23,7 @@ int main(void) {
     assert(strcmp(paths[0], "/custom music/a.wav") == 0);
     assert(strcmp(paths[1], "/custom music/b.ogg") == 0);
     assert(a.music_game[0].frameCount < a.music_game[1].frameCount);
-    assert(raylib_stub_music_unloaded == 11 && raylib_stub_detached == 22);
+    assert(raylib_stub_music_unloaded == 11 && raylib_stub_detached == 11);
     assert(raylib_stub_lists_unloaded == 1);
     audio_play_menu_music(&a);
     assert(a.current_music == 2 && a.current_game_track == 0);
