@@ -5,6 +5,17 @@
 #include <math.h>
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
+#define TABLE_GLOW_LIGHT_COUNT 10 /* 1..16 independent, smoothly roaming lights */
+#define TABLE_GLOW_LIGHT_STRENGTH 1.0f
+#define TABLE_GLOW_SIZE_A 0.008f /* alternate the two tuned footprint sizes */
+#define TABLE_GLOW_SIZE_B 0.005f
+#define TABLE_GLOW_HALO_SIZE_A 0.02f
+#define TABLE_GLOW_HALO_SIZE_B 0.08f
+#if TABLE_GLOW_LIGHT_COUNT < 1 || TABLE_GLOW_LIGHT_COUNT > 16
+#error TABLE_GLOW_LIGHT_COUNT must be between 1 and 16
+#endif
+#define GLOW_STRING_INNER(x) #x
+#define GLOW_STRING(x) GLOW_STRING_INNER(x)
 #define TABLE_GLOW_SPEED_A 0.23f
 #define TABLE_GLOW_SPEED_B -0.15f
 #define TABLE_GLOW_IDLE 0.30f
@@ -41,9 +52,11 @@ static Shader s_blur_shader;
 static RenderTexture2D s_bloom[2];
 static int s_blur_step_loc = -1;
 static int s_phase_loc = -1;
+static int s_lights_loc = -1, s_shape_loc = -1;
 static int s_cutoff_loc = -1;
 static int s_attempted;
-static float s_phase_a, s_phase_b, s_level;
+static double s_light_clock;
+static float s_level;
 static unsigned int s_music_meter_raw, s_music_meter_epoch;
 static int s_music_tap_attached;
 
@@ -133,19 +146,21 @@ void table_glow_sync_music(AudioAssets *audio, int active, int paused,
     "    float mask = solid * smoothstep(u_dark_cutoff, u_dark_cutoff + 0.10, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n" \
-    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.50 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
-    "    float d1 = dot(t1, t1);\n" \
-    "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
-    "    float nd1 = max(dot(n, h1), 0.0);\n" \
-    "    vec2 t2 = (vec2(0.5 + 0.35 * cos(u_phase.y), 0.5 + 0.50 * sin(u_phase.y * 2.0)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
-    "    float d2 = dot(t2, t2);\n" \
-    "    vec3 h2 = normalize(normalize(vec3(t2, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
-    "    float nd2 = max(dot(n, h2), 0.0);\n" \
     "    float str = fragColor.a * colDiffuse.a;\n" \
-    "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
-    "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
-    "    float core = mask * (exp(-d1 / 0.008) * s1 + exp(-d2 / 0.005) * s2) * 2.50;\n" \
-    "    float bloom = mask * (exp(-d1 / 0.02) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.08) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
+    "    float core = 0.0, bloom = 0.0;\n" \
+    "    for (int i = 0; i < " GLOW_STRING(TABLE_GLOW_LIGHT_COUNT) "; ++i) {\n" \
+    "        vec2 t = (u_lights[i] - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "        float d = dot(t, t);\n" \
+    "        vec3 h = normalize(normalize(vec3(t, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
+    "        float nd = max(dot(n, h), 0.0);\n" \
+    "        float odd = mod(float(i), 2.0);\n" \
+    "        float size = mix(u_shape.x, u_shape.y, odd);\n" \
+    "        float halo = mix(u_shape.z, u_shape.w, odd);\n" \
+    "        core = max(core, exp(-d / size) * (0.30 + 0.70 * pow(nd, 4.5)));\n" \
+    "        bloom = max(bloom, exp(-d / halo) * (0.35 + 0.65 * nd * nd));\n" \
+    "    }\n" \
+    "    core *= mask * 2.50;\n" \
+    "    bloom *= mask * (0.50 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.60) * str;\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
@@ -160,6 +175,8 @@ static const char *const k_table_glow_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform vec2 u_lights[" GLOW_STRING(TABLE_GLOW_LIGHT_COUNT) "];\n"
+    "uniform vec4 u_shape;\n"
     "uniform float u_dark_cutoff;\n"
     TABLE_GLOW_BODY("texture2D", "gl_FragColor");
 #else
@@ -170,6 +187,8 @@ static const char *const k_table_glow_fs =
     "uniform sampler2D texture0;\n"
     "uniform vec4 colDiffuse;\n"
     "uniform vec4 u_phase;\n"
+    "uniform vec2 u_lights[" GLOW_STRING(TABLE_GLOW_LIGHT_COUNT) "];\n"
+    "uniform vec4 u_shape;\n"
     "uniform float u_dark_cutoff;\n"
     "out vec4 finalColor;\n"
     TABLE_GLOW_BODY("texture", "finalColor");
@@ -251,6 +270,8 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
         s_shader = LoadShaderFromMemory(0, k_table_glow_fs);
         if (s_shader.id > 0) {
             s_phase_loc = GetShaderLocation(s_shader, "u_phase");
+            s_lights_loc = GetShaderLocation(s_shader, "u_lights");
+            s_shape_loc = GetShaderLocation(s_shader, "u_shape");
             s_cutoff_loc = GetShaderLocation(s_shader, "u_dark_cutoff");
         }
         s_blur_shader = LoadShaderFromMemory(0, k_blur_fs);
@@ -264,17 +285,31 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
             }
         }
     }
-    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0) return;
+    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0 || s_lights_loc < 0 || s_shape_loc < 0) return;
     if (table_design < 0 || table_design >= TABLE_DESIGN_COUNT) return;
     SetShaderValue(s_shader, s_cutoff_loc, &k_table_dark_cutoff[table_design],
                    SHADER_UNIFORM_FLOAT);
     dt = fminf(fmaxf(dt, 0.0f), 0.1f);
-    s_phase_a = fmodf(s_phase_a + dt * TABLE_GLOW_SPEED_A, 6.2831853f);
-    s_phase_b = fmodf(s_phase_b + dt * TABLE_GLOW_SPEED_B, 6.2831853f);
-    float phase[4] = { s_phase_a, s_phase_b,
-                      1.45f / overlay.width, 1.45f / overlay.height };
+    /* Compute paths on CPU in double precision: no random jumps or shader-clock
+       precision loss. Different frequencies/phases keep panels from moving in sync. */
+    s_light_clock += dt;
+    float positions[TABLE_GLOW_LIGHT_COUNT][2];
+    for (int i = 0; i < TABLE_GLOW_LIGHT_COUNT; ++i) {
+        double seed = i * 2.399963229728653;
+        double x = s_light_clock * TABLE_GLOW_SPEED_A * (1.0 + i * 0.137) + seed;
+        double y = s_light_clock * TABLE_GLOW_SPEED_B * (1.0 + i * 0.173) + seed * 1.71;
+        positions[i][0] = (float)(0.5 + 0.44 * sin(x));
+        positions[i][1] = (float)(0.5 + 0.50 * sin(y));
+    }
+    float phase[4] = {0, 0, 1.45f / overlay.width, 1.45f / overlay.height};
+    float shape[4] = {TABLE_GLOW_SIZE_A, TABLE_GLOW_SIZE_B,
+                      TABLE_GLOW_HALO_SIZE_A, TABLE_GLOW_HALO_SIZE_B};
     SetShaderValue(s_shader, s_phase_loc, phase, SHADER_UNIFORM_VEC4);
-    float strength = TABLE_GLOW_IDLE + TABLE_GLOW_MUSIC_GAIN * s_level;
+    SetShaderValueV(s_shader, s_lights_loc, positions, SHADER_UNIFORM_VEC2, TABLE_GLOW_LIGHT_COUNT);
+    SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
+    /* Max-combine footprints in the shader, rather than adding ten light washes. */
+    float strength = fminf(1.0f, fmaxf(0.0f,
+        (TABLE_GLOW_IDLE + TABLE_GLOW_MUSIC_GAIN * s_level) * TABLE_GLOW_LIGHT_STRENGTH));
     Color theme = COLOR_PHOSPHOR;
     Color tint = {
         (unsigned char)(255.0f + (theme.r - 255.0f) * TABLE_GLOW_THEME_MIX),
@@ -300,8 +335,9 @@ void table_glow_unload(void) {
     s_blur_step_loc = -1;
     if (s_shader.id > 0) UnloadShader(s_shader);
     s_shader = (Shader){0};
-    s_phase_loc = s_cutoff_loc = -1;
+    s_phase_loc = s_cutoff_loc = s_lights_loc = s_shape_loc = -1;
     s_attempted = 0;
-    s_phase_a = s_phase_b = s_level = 0.0f;
+    s_light_clock = 0.0;
+    s_level = 0.0f;
     __atomic_store_n(&s_music_meter_raw, 0u, __ATOMIC_RELAXED);
 }
