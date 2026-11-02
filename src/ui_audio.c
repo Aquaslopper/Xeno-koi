@@ -580,8 +580,8 @@ void audio_close(AudioAssets *a) {
     }
     for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
-            DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
-            UnloadMusicStream(a->music_game[i]);
+         DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
+         UnloadMusicStream(a->music_game[i]);
         }
     }
     if (a->has_sfx_flip) UnloadSound(a->sfx_flip);
