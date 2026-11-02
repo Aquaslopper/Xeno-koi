@@ -3,6 +3,7 @@
 #include "storage.h"
 #include "rlgl.h"
 #include <math.h>
+#include <stdio.h>
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
 #define TABLE_GLOW_LIGHT_COUNT 12 /* 1..16 independent, smoothly roaming lights */
@@ -55,10 +56,11 @@ static Shader s_blur_shader;
 static RenderTexture2D s_bloom[2];
 static int s_blur_step_loc = -1, s_blur_gain_loc = -1;
 static int s_phase_loc = -1;
-static int s_lights_loc = -1, s_shape_loc = -1, s_relief_loc = -1;
+static int s_light_locs[TABLE_GLOW_LIGHT_COUNT];
+static int s_shape_loc = -1, s_relief_loc = -1;
 static int s_cutoff_loc = -1;
 static int s_attempted;
-static double s_light_clock;
+static double s_light_started = -1.0;
 static float s_level;
 static unsigned int s_music_meter_raw, s_music_meter_epoch;
 static int s_music_tap_attached;
@@ -286,7 +288,11 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
         s_shader = LoadShaderFromMemory(0, k_table_glow_fs);
         if (s_shader.id > 0) {
             s_phase_loc = GetShaderLocation(s_shader, "u_phase");
-            s_lights_loc = GetShaderLocation(s_shader, "u_lights");
+            for (int i = 0; i < TABLE_GLOW_LIGHT_COUNT; ++i) {
+                char name[32];
+                snprintf(name, sizeof(name), "u_lights[%d]", i);
+                s_light_locs[i] = GetShaderLocation(s_shader, name);
+            }
             s_shape_loc = GetShaderLocation(s_shader, "u_shape");
             s_relief_loc = GetShaderLocation(s_shader, "u_relief");
             s_cutoff_loc = GetShaderLocation(s_shader, "u_dark_cutoff");
@@ -304,19 +310,21 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
             }
         }
     }
-    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0 || s_lights_loc < 0 || s_shape_loc < 0 || s_relief_loc < 0) return;
+    if (s_shader.id <= 0 || s_phase_loc < 0 || s_cutoff_loc < 0 || s_shape_loc < 0 || s_relief_loc < 0) return;
     if (table_design < 0 || table_design >= TABLE_DESIGN_COUNT) return;
     SetShaderValue(s_shader, s_cutoff_loc, &k_table_dark_cutoff[table_design],
                    SHADER_UNIFORM_FLOAT);
-    dt = fminf(fmaxf(dt, 0.0f), 0.1f);
+    (void)dt; /* Visual motion follows elapsed time, not gameplay/frame-delta gates. */
     /* Compute paths on CPU in double precision: no random jumps or shader-clock
        precision loss. Different frequencies/phases keep panels from moving in sync. */
-    s_light_clock += dt;
+    double now = GetTime();
+    if (s_light_started < 0.0) s_light_started = now;
+    double elapsed = fmax(0.0, now - s_light_started);
     float positions[TABLE_GLOW_LIGHT_COUNT][2];
     for (int i = 0; i < TABLE_GLOW_LIGHT_COUNT; ++i) {
         double seed = i * 2.399963229728653;
-        double x = s_light_clock * TABLE_GLOW_SPEED_A * (1.0 + i * 0.137) + seed;
-        double y = s_light_clock * TABLE_GLOW_SPEED_B * (1.0 + i * 0.173) + seed * 1.71;
+        double x = elapsed * TABLE_GLOW_SPEED_A * (1.0 + i * 0.137) + seed;
+        double y = elapsed * TABLE_GLOW_SPEED_B * (1.0 + i * 0.173) + seed * 1.71;
         positions[i][0] = (float)(0.5 + 0.44 * sin(x));
         positions[i][1] = (float)(0.5 + 0.50 * sin(y));
     }
@@ -324,7 +332,11 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
     float shape[4] = {TABLE_GLOW_SIZE_A, TABLE_GLOW_SIZE_B,
                       TABLE_GLOW_HALO_SIZE_A, TABLE_GLOW_HALO_SIZE_B};
     SetShaderValue(s_shader, s_phase_loc, phase, SHADER_UNIFORM_VEC4);
-    SetShaderValueV(s_shader, s_lights_loc, positions, SHADER_UNIFORM_VEC2, TABLE_GLOW_LIGHT_COUNT);
+    /* Explicit element locations avoid relying on array-base lookup/upload behavior
+       across desktop GL and WebGL. Every light is updated on every draw. */
+    for (int i = 0; i < TABLE_GLOW_LIGHT_COUNT; ++i)
+        if (s_light_locs[i] >= 0)
+            SetShaderValue(s_shader, s_light_locs[i], positions[i], SHADER_UNIFORM_VEC2);
     SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
     float relief[2] = {fmaxf(0.0f, TABLE_GLOW_RELIEF_MIN),
                       fmaxf(TABLE_GLOW_RELIEF_MIN + 0.0001f, TABLE_GLOW_RELIEF_FULL)};
@@ -357,9 +369,10 @@ void table_glow_unload(void) {
     s_blur_step_loc = s_blur_gain_loc = -1;
     if (s_shader.id > 0) UnloadShader(s_shader);
     s_shader = (Shader){0};
-    s_phase_loc = s_cutoff_loc = s_lights_loc = s_shape_loc = s_relief_loc = -1;
+    s_phase_loc = s_cutoff_loc = s_shape_loc = s_relief_loc = -1;
+    for (int i = 0; i < TABLE_GLOW_LIGHT_COUNT; ++i) s_light_locs[i] = -1;
     s_attempted = 0;
-    s_light_clock = 0.0;
+    s_light_started = -1.0;
     s_level = 0.0f;
     __atomic_store_n(&s_music_meter_raw, 0u, __ATOMIC_RELAXED);
 }
