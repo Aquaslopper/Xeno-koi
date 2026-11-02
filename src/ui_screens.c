@@ -360,7 +360,6 @@ void screens_draw_options(const BoardAssets *ba, GameSettings *s, Vector2 vm) {
 
     float g_frac = fmaxf(0.0f, fminf(1.0f, (s->gamma - 0.5f) / 1.5f));
     draw_slider(560, g_frac, "Display Gamma:", TextFormat("%.2f", s->gamma), vm);
-    draw_slider(610, (s->fontScale - 0.5f) / 1.5f, "Font Size:", TextFormat("%d%%", (int)(s->fontScale * 100.0f + 0.5f)), vm);
     draw_options_footer(vm);
 }
 
@@ -405,10 +404,6 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
         } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 560, 184, 26 })) {
             s->gamma = 0.5f + fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f)) * 1.5f;
             if (pressed && audio) audio_play_click(audio);
-        } else if (CheckCollisionPointRec(vm, (Rectangle){ 688, 610, 184, 26 })) {
-            float fraction = fmaxf(0.0f, fminf(1.0f, (vm.x - 688.0f) / 184.0f));
-            s->fontScale = 0.5f + roundf(fraction * 30.0f) * 0.05f;
-            if (pressed && audio) audio_play_click(audio);
         }
     }
     if (!pressed) return ACT_NONE;
@@ -448,9 +443,7 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     else if ((dir = check_selector_click(vm, 502.0f)) != 0) { s->crt_filter = (s->crt_filter + 4 + dir) % 4; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 560, 34, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 560, 34, 26 })) { s->gamma = fminf(2.0f, s->gamma + 0.05f); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 610, 34, 26 })) { s->fontScale = fmaxf(0.5f, s->fontScale - 0.05f); if (audio) audio_play_click(audio); }
-    else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 610, 34, 26 })) { s->fontScale = fminf(2.0f, s->fontScale + 0.05f); if (audio) audio_play_click(audio); }
-
+  
     return ACT_NONE; 
 }
 
