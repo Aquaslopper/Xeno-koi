@@ -9,7 +9,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "ui_table_glow.h"
 
 /* Action-triggered chorus, bass shelf/compression, and space reverb on match music.
    Driven by a smooth, hard-limited synergy curve via audio_set_reverb(amount):
