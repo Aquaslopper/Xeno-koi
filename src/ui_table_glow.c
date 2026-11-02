@@ -5,14 +5,14 @@
 #include <math.h>
 
 /* Independent table-only tuning. Shader relief/highlight constants are below. */
-#define TABLE_GLOW_SPEED_A 0.22f
-#define TABLE_GLOW_SPEED_B -0.12f
+#define TABLE_GLOW_SPEED_A 0.25f
+#define TABLE_GLOW_SPEED_B -0.18f
 #define TABLE_GLOW_IDLE 0.20f
 #define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.50f
-#define TABLE_GLOW_LEVEL_GAIN 7.0f
-#define TABLE_GLOW_ATTACK 0.8f
-#define TABLE_GLOW_RELEASE 0.40f
+#define TABLE_GLOW_MUSIC_GAIN 0.80f
+#define TABLE_GLOW_LEVEL_GAIN 3.0f
+#define TABLE_GLOW_ATTACK 0.050f
+#define TABLE_GLOW_RELEASE 0.16f
 #define TABLE_GLOW_BLOOM_GAIN 3.85f /* additive halo strength, 0 disables */
 #define TABLE_GLOW_BLOOM_RADIUS 1.3f /* blur spacing in quarter-resolution pixels */
 #define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
@@ -79,7 +79,7 @@ void table_glow_music_tap(void *buffer, unsigned int frames) {
     "    float mask = solid * smoothstep(u_dark_cutoff, u_dark_cutoff + 0.10, hc) * smoothstep(0.42, 0.72, hc / peak);\n" \
     "    vec2 g = vec2(hl - hr, hu - hd) / peak;\n" \
     "    vec3 n = normalize(vec3(g * 2.8, 1.0));\n" \
-    "    vec2 t1 = (vec2(0.5 + 0.40 * cos(u_phase.x), 0.5 + 0.50 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
+    "    vec2 t1 = (vec2(0.5 + 0.44 * cos(u_phase.x), 0.5 + 0.50 * sin(u_phase.x)) - fragTexCoord) * vec2(0.70, 1.0);\n" \
     "    float d1 = dot(t1, t1);\n" \
     "    vec3 h1 = normalize(normalize(vec3(t1, 0.30)) + vec3(0.0, 0.0, 1.0));\n" \
     "    float nd1 = max(dot(n, h1), 0.0);\n" \
@@ -90,8 +90,8 @@ void table_glow_music_tap(void *buffer, unsigned int frames) {
     "    float str = fragColor.a * colDiffuse.a;\n" \
     "    float s1 = 0.30 + 0.70 * pow(nd1, 4.5);\n" \
     "    float s2 = 0.30 + 0.70 * pow(nd2, 4.5);\n" \
-    "    float core = mask * (exp(-d1 / 0.067) * s1 + exp(-d2 / 0.045) * s2) * 2.50;\n" \
-    "    float bloom = mask * (exp(-d1 / 0.072) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.052) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
+    "    float core = mask * (exp(-d1 / 0.078) * s1 + exp(-d2 / 0.055) * s2) * 2.50;\n" \
+    "    float bloom = mask * (exp(-d1 / 0.082) * (0.35 + 0.65 * nd1 * nd1) + exp(-d2 / 0.058) * (0.35 + 0.65 * nd2 * nd2)) * (0.50 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.60) * str;\n" \
     "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
