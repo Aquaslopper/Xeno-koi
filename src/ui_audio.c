@@ -388,7 +388,6 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
     if (was_match) audio_stop_music(a);
     for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
-            DetachAudioStreamProcessor(a->music_game[i].stream, table_glow_music_tap);
             DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
             UnloadMusicStream(a->music_game[i]);
         }
@@ -396,7 +395,6 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
         a->music_game[i] = loaded[i];
         if (i < count) {
             SetMusicVolume(loaded[i], a->bgm_volume);
-            AttachAudioStreamProcessor(loaded[i].stream, table_glow_music_tap);
             AttachAudioStreamProcessor(loaded[i].stream, music_reverb_processor);
         }
     }
@@ -583,7 +581,6 @@ void audio_close(AudioAssets *a) {
     }
     for (int i = 0; i < AUDIO_MAX_TRACKS; i++) {
         if (a->has_music_game[i]) {
-         DetachAudioStreamProcessor(a->music_game[i].stream, table_glow_music_tap);
          DetachAudioStreamProcessor(a->music_game[i].stream, music_reverb_processor);
          UnloadMusicStream(a->music_game[i]);
         }
