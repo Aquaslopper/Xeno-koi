@@ -53,6 +53,7 @@ GameSettings settings;
 #define HUB_BLUR_DUR     0.40f
 #define HUB_BLUR_W       480
 #define HUB_BLUR_H       270
+#define POST_SATURATION  1.10f /* 1.00 = neutral, 1.10 = subtle color boost */
 
 static float transition_alpha = 0.0f, transition_timer = 0.0f, round_banner_timer = 0.0f;
 static int startup_stage = 0; /* 1: hearing warning, 2: loading card */
@@ -60,7 +61,7 @@ static float startup_timer = 0.0f;
 static float cached_bloom = -1.0f, cached_crt = -1.0f, cached_gamma = -1.0f;
 static float saved_timer = 0.0f, log_timer = 0.0f, overlay_alpha = 0.0f, deus_banner_timer = 0.0f, speedcoin_gameover_timer = 0.0f;
 static float event_beat_timer = 0.0f;
-static int transition_dir = 0, transition_action = 0, transition_track = 1, pending_result_sfx = 0, loc_bloom, loc_crt, loc_gamma;
+static int transition_dir = 0, transition_action = 0, transition_track = 1, pending_result_sfx = 0, loc_bloom, loc_crt, loc_gamma, loc_saturation;
 static int is_paused = 0, confirm_restart = 0, confirm_reset = 0, campaign_overlay_open = 0;
 static int campaign_preset_selected = 0;
 static int hub_trans_active = 0, hub_from_campaign = 0, hub_reset_opt_page = 0, hub_btn_fsz = 18;
@@ -2057,7 +2058,8 @@ static void update_draw_frame(void) {
     EndTextureMode();
 
     BeginDrawing(); ClearBackground(BLACK);
-    int use_post = (post_shader.id > 0) && (b_val > 0.001f || c_val > 0.001f || fabsf(g_val - 1.0f) > 0.005f);
+    int use_post = (post_shader.id > 0) && (b_val > 0.001f || c_val > 0.001f || fabsf(g_val - 1.0f) > 0.005f ||
+                    (loc_saturation >= 0 && fabsf(POST_SATURATION - 1.0f) > 0.005f));
     if (use_post) BeginShaderMode(post_shader);
     DrawTexturePro(canvas.texture, (Rectangle){ 0, 0, (float)CANVAS_W, -(float)CANVAS_H },
                    (Rectangle){ l.ox, l.oy, CANVAS_W * l.scale, CANVAS_H * l.scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
@@ -2125,6 +2127,10 @@ int main(int argc, char **argv) {
     loc_bloom = GetShaderLocation(post_shader, "bloom_intensity");
     loc_crt = GetShaderLocation(post_shader, "crt_intensity");
     loc_gamma = GetShaderLocation(post_shader, "gamma");
+    loc_saturation = GetShaderLocation(post_shader, "saturation");
+    float saturation = POST_SATURATION;
+    if (loc_saturation >= 0)
+        SetShaderValue(post_shader, loc_saturation, &saturation, SHADER_UNIFORM_FLOAT);
 
     board_load_assets(&assets); assets.current_bg = settings.background;
     if (settings.difficulty == DIFFICULTY_DEUS) { settings.ruleset = RULESET_YAKUZA; settings.background = 5; assets.current_bg = 5; theme_set(5); }

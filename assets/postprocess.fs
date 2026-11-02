@@ -10,6 +10,7 @@ uniform vec4 colDiffuse;
 uniform float bloom_intensity;
 uniform float crt_intensity;
 uniform float gamma;
+uniform float saturation;
 
 // Output fragment color
 out vec4 finalColor;
@@ -61,6 +62,10 @@ void main()
     } else {
         color = clamp(color, 0.0, 1.0);
     }
+
+    // Final color richness: neutral grays stay neutral; no extra exposure/bloom.
+    float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+    color = clamp(mix(vec3(luminance), color, max(saturation, 0.0)), 0.0, 1.0);
 
     finalColor = vec4(color, baseColor.a) * colDiffuse * fragColor;
 }
