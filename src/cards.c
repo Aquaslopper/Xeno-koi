@@ -4,7 +4,7 @@
 const Opponent g_opponents[CAMPAIGN_OPPONENT_COUNT + 1] = {
     {
         0, "01: JANUARY CRANE", "Obsidian Sentinel // Sector 01",
-        "Ancient biomechanical sentinel encased in obsidian plating. Hunts divine Brights with relentless precision.",
+        "Ancient sentinel encased in obsidian plating. Hunts divine Brights with relentless precision.",
         0, YAKU_GOKO, "Brights",
         "THE CRANE SEES ALL FUTURES.",
         "SOLAR RESERVES PEAKING. KOI-KOI!"
@@ -80,8 +80,8 @@ const Opponent g_opponents[CAMPAIGN_OPPONENT_COUNT + 1] = {
         "DELUGE IMMINENT. KOI-KOI!"
     },
     {
-        11, "12: DEC. PHOENIX", "The Apex Biomech // Sector 12",
-        "The Apex Biomech. An immortal processor that endlessly resurrects its strategies from the ashes.",
+        11, "12: DEC. PHOENIX", "The Apex // Sector 12",
+        "The Apex. An immortal processor that endlessly resurrects its strategies from the ashes.",
         44, YAKU_GOKO, "Brights",
         "ASH TO ASH. DUST TO DUST.",
         "REBORN FROM CRUCIBLE. KOI-KOI!"

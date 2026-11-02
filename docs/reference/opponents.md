@@ -25,7 +25,7 @@ A match must be at least **9 rounds on Easy**, **6 on Hard**, or **3 on Master**
 | **09: SEPT. SAKE** | Chemical Processing Unit // Sector 09 | ![09-A Sake Cup](../assets/cards/card-32.webp){ .card-mini } 09-A Sake Cup (id 32) | Animals |
 | **10: OCT. DEER** | Sensory-Stealth Unit // Sector 10 | ![10-A Deer](../assets/cards/card-36.webp){ .card-mini } 10-A Deer (id 36) | Ino-Shika-Cho |
 | **11: NOV. RAIN** | Atmospheric Anomaly // Sector 11 | ![11-B Rainman](../assets/cards/card-40.webp){ .card-mini } 11-B Rainman (id 40) | Ribbons |
-| **12: DEC. PHOENIX** | The Apex Biomech // Sector 12 | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
+| **12: DEC. PHOENIX** | The Apex // Sector 12 | ![12-B Phoenix](../assets/cards/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
 | **ENTITY 13 // DEUS SUPREMUS** ([dossier](deus-supremus.md)) | Omnipresent Machine God // Sector Null | ![12-B Phoenix](../assets/cards/deus/card-44.webp){ .card-mini } 12-B Phoenix (id 44) | Brights |
 
 <!-- END GENERATED: opponents -->
