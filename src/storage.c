@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -548,6 +549,7 @@ void storage_load_settings(GameSettings *s) {
     s->bloom = 1;
     s->crt_filter = 2;
     s->gamma = 1.00f;
+    s->fontScale = 1.15f;   // default = 115%
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
     s->cleared_mask = 0;
@@ -632,6 +634,11 @@ void storage_load_settings(GameSettings *s) {
             } else if (strcmp(k, "gamma") == 0) {
                 float gm = (float)atof(v);
                 if (gm >= 0.5f && gm <= 2.0f) s->gamma = gm;
+            } else if (strcmp(k, "fontScale") == 0) {
+                char *end;
+                float scale = strtof(v, &end);
+                if (end != v && *end == '\0' && scale >= 0.5f && scale <= 2.0f)
+                s->fontScale = roundf(scale * 20.0f) / 20.0f;
             } else if (strcmp(k, "unlocked_opponents") == 0) {
                 int uo = atoi(v);
                 if (uo >= 1 && uo <= 12) s->unlocked_opponents = uo;
@@ -649,6 +656,9 @@ void storage_load_settings(GameSettings *s) {
             }
         }
     }
+    fclose(f);
+    s->fontScale = 1.15f;   // force default 115%
+    
     fclose(f);
     if (s->difficulty == DIFFICULTY_DEUS) {
         s->ruleset = RULESET_YAKUZA;
@@ -705,6 +715,7 @@ void storage_save_settings(const GameSettings *s) {
              "bloom=%d\n"
              "crt_filter=%d\n"
              "gamma=%.2f\n"
+             "fontScale=%.2f\n"
              "unlocked_opponents=%d\n"
              "current_opponent=%d\n"
              "cleared_mask=%llu\n"
@@ -712,7 +723,7 @@ void storage_save_settings(const GameSettings *s) {
              "crt_tables=%d\n",
              s->music_folder, s->rounds, diff_str, s->master_timer, rule_str, s->background,
              s->bgm_volume, s->sfx_volume, s->effect_chorus, s->effect_bass, s->effect_reverb, s->anim_speed, col_str,
-             s->fullscreen, s->bloom, s->crt_filter, s->gamma,
+             s->fullscreen, s->bloom, s->crt_filter, s->gamma, s->fontScale,
              s->unlocked_opponents, s->current_opponent, (unsigned long long)s->cleared_mask,
              s->table_design, s->crt_tables);
     safe_write_text("settings.txt", buf);

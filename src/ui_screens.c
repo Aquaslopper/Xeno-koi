@@ -443,8 +443,8 @@ ScreenAction screens_handle_options_click(GameSettings *s, BoardAssets *ba, Audi
     else if ((dir = check_selector_click(vm, 502.0f)) != 0) { s->crt_filter = (s->crt_filter + 4 + dir) % 4; if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 650, 560, 34, 26 })) { s->gamma = fmaxf(0.5f, s->gamma - 0.05f); if (audio) audio_play_click(audio); }
     else if (CheckCollisionPointRec(vm, (Rectangle){ 876, 560, 34, 26 })) { s->gamma = fminf(2.0f, s->gamma + 0.05f); if (audio) audio_play_click(audio); }
-
-    return ACT_NONE;
+  
+    return ACT_NONE; 
 }
 
 /* Left-column statistics table: labels and values use the readable body face. */

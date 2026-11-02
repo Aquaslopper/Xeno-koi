@@ -555,6 +555,28 @@ static Font story_font(void) {
     return (s_story_font_loaded && s_story_font.texture.id > 0) ? s_story_font : font_body;
 }
 
+void plexus_reload_story_font(float scale) {
+    if (!s_plexus_loaded) return;
+    if (s_story_font_loaded) UnloadFont(s_story_font);
+    s_story_font = (Font){ 0 };
+    s_story_font_loaded = 0;
+    const char *sf_path = resolve_asset_path("assets/saira_condensed.ttf");
+    if (FileExists(sf_path)) {
+        int cps[96];
+        for (int i = 0; i < 95; i++) cps[i] = 32 + i;
+        cps[95] = 0x00D7; /* U+00D7 multiplication sign */
+        /* At the default scale, 32 rather than 64 keeps this face closer to its
+           20.5-31px draw sizes and reduces mipmap bleed between packed glyphs. */
+        s_story_font = LoadFontEx(sf_path, (int)(32 * scale), cps, 96);
+        if (s_story_font.texture.id > 0) {
+            GenTextureMipmaps(&s_story_font.texture);
+            SetTextureFilter(s_story_font.texture, TEXTURE_FILTER_TRILINEAR);
+            s_story_font.baseSize = 32;
+            s_story_font_loaded = 1;
+        }
+    }
+}
+
 static void ensure_plexus_assets(void) {
     if (s_plexus_loaded) return;
     s_plexus_loaded = 1;
@@ -571,24 +593,7 @@ static void ensure_plexus_assets(void) {
             SetTextureWrap(s_plexus_normal, TEXTURE_WRAP_CLAMP);
         }
     }
-    const char *sf_path = resolve_asset_path("assets/saira_condensed.ttf");
-    if (FileExists(sf_path)) {
-        int cps[96];
-        for (int i = 0; i < 95; i++) cps[i] = 32 + i;
-        cps[95] = 0x00D7; /* U+00D7 multiplication sign */
-        /* Rasterised at 32, not 64: this face is only ever drawn at 20.5-31px, so 64 put every
-           story line through a 0.32-0.48x bitmap downscale. At 32 the range becomes 0.64-0.97x,
-           which also keeps the trilinear filter near mip 0 - worth having, because a mip chain
-           over a packed font atlas bleeds neighbouring glyphs into each other. Measured width
-           drift is about -2%, so the hardcoded story lines get slightly narrower, which is the
-           safe direction inside the 518px reader panel. See the note in ui_main.c. */
-        s_story_font = LoadFontEx(sf_path, 32, cps, 96);
-        if (s_story_font.texture.id > 0) {
-            GenTextureMipmaps(&s_story_font.texture);
-            SetTextureFilter(s_story_font.texture, TEXTURE_FILTER_TRILINEAR);
-            s_story_font_loaded = 1;
-        }
-    }
+    plexus_reload_story_font(settings.fontScale);
 }
 
 void plexus_load(void) {
