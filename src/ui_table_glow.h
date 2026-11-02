@@ -1,12 +1,12 @@
 #ifndef UI_TABLE_GLOW_H
 #define UI_TABLE_GLOW_H
-/* Keep audio-only callers independent of Raylib graphics declarations.
-   Raylib defines Texture2D as an alias of struct Texture. */
-struct Texture;
+#include "ui_audio.h"
 
 void table_glow_draw(struct Texture overlay, float dt, int table_design);
 void table_glow_unload(void);
-/* Read-only music stream tap; audio owns attachment after the music DSP. */
-void table_glow_music_tap(void *buffer, unsigned int frames);
+/* UI-owned listener lifecycle; never changes the DSP or Action Card state. */
+void table_glow_sync_music(AudioAssets *audio, int active, int paused,
+                           float transition_alpha, float dt);
+void table_glow_detach_music(AudioAssets *audio);
 
 #endif
