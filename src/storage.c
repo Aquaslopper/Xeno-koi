@@ -549,7 +549,7 @@ void storage_load_settings(GameSettings *s) {
     s->bloom = 1;
     s->crt_filter = 2;
     s->gamma = 1.00f;
-    s->fontScale = 1.0f;
+    s->fontScale = 1.15f;   // default = 115%
     s->unlocked_opponents = 1;
     s->current_opponent = 0;
     s->cleared_mask = 0;
