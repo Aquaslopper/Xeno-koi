@@ -637,7 +637,7 @@ void storage_load_settings(GameSettings *s) {
                 char *end;
                 float scale = strtof(v, &end);
                 if (end != v && *end == '\0' && scale >= 0.5f && scale <= 2.0f)
-                    s->fontScale = (float)((int)(scale * 4.0f + 0.5f)) / 4.0f;
+                s->fontScale = roundf(scale * 20.0f) / 20.0f;
             } else if (strcmp(k, "unlocked_opponents") == 0) {
                 int uo = atoi(v);
                 if (uo >= 1 && uo <= 12) s->unlocked_opponents = uo;
