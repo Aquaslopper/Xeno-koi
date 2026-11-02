@@ -41,7 +41,7 @@
    Castle 0.30 is a first-pass value for owner review; Realm stays unchanged.
    The selected normal/CRT artwork uses the same table-specific setting. */
 static const float k_table_dark_cutoff[TABLE_DESIGN_COUNT] = {
-    [TABLE_DESIGN_CRT]     = 0.08f, /* no overlay; not drawn */
+    [TABLE_DESIGN_CRT]     = 0.25f, /* no overlay; not drawn */
     [TABLE_DESIGN_CITY]    = 0.15f,
     [TABLE_DESIGN_CASTLE]  = 0.30f,
     [TABLE_DESIGN_HOLE]    = 0.30f,
