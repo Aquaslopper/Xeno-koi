@@ -38,7 +38,7 @@ typedef struct {
     int bloom;             /* 0: OFF, 1: MID, 2: FULL (default 1) */
     int crt_filter;        /* 0: OFF, 1: LOW, 2: MID, 3: HIGH (default 2) */
     float gamma;           /* 0.5 .. 2.0, default 1.0f */
-    float fontScale;       /* 0.5 .. 2.0 in 0.25 steps, default 1.0f */
+    float fontScale;       /* 0.5 .. 2.0 in 0.05 steps, default 1.15f */
     int unlocked_opponents;/* 1..12, default 1 */
     int current_opponent;  /* 0..11, default 0 */
     unsigned long long cleared_mask; /* 3 bits per opponent: bit0=bronze(Easy), bit1=silver(Hard), bit2=gold(Master) */
