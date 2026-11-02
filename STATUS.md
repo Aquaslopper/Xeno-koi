@@ -1,8 +1,8 @@
-> **Development handoff (last updated 31 October 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
+> **Development handoff (last updated 2 November 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
 # XENO/KOI: BIOMECHANICAL EDITION - STATUS REPORT
-**Last updated: 31 October 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
+**Last updated: 2 November 2026.** This is a development handoff for the local source, not a release or deployment record. Code in `src/` defines behavior; the wiki in `docs/` explains the rules. See `AGENTS.md` for contributor guardrails and `docs/errata.md` for known issues. **Read the two sections below first: the owner decisions are closed, and `./build.sh` is not optional.**
 
 ## Owner decisions: closed, do not reopen (29 October 2026)
 
@@ -32,6 +32,13 @@ Settled by the maintainer on 29 October 2026. None of these are open questions, 
 
 ## Status Summary
 ## Latest completed work
+
+### Subtle final-scene saturation boost (2 November 2026)
+
+- Added `POST_SATURATION` in `src/ui_main.c`, default 1.10 (1.00 restores neutral), passed once to matching desktop/browser postprocess shaders. Saturation is applied after existing bloom/CRT/gamma, preserving neutral grays and alpha; saturated values clamp to the display range. The postprocess pass stays active for non-neutral saturation even with bloom/CRT off and gamma neutral. No settings menu or persistence format added.
+- Owner approved edits to `assets/postprocess.fs` and `assets/postprocess_web.fs`; no authored image changes. Audio DSP, meters, card lighting, table glow, gameplay, tests and guard baselines are untouched.
+- Passed: normal reading-gate verification using the architectural answers already provided in this conversation; `RAYLIB_SRC=/tmp/xeno-saturation-raylib/src ./build.sh test` (including table UI and music/options UI); strict C99 syntax check of `src/ui_main.c`; numeric neutral-gray/neutral-saturation/unclipped-luminance checks; desktop/web shader-body parity check; Action Card/test guards; `git diff --check`.
+- Not verified: actual GPU shader compilation, desktop/WebAssembly executable builds, and in-game visual appearance. Owner review needed for the 1.10 default; it is not an exact reproduction of an image editor's color adjustment.
 
 ### Pancratium opponent, difficulty and stage setup (31 October 2026)
 
