@@ -141,7 +141,7 @@ static void refresh_names(void) {
         return;
     }
 #ifndef __EMSCRIPTEN__
-    FilePathList files = LoadDirectoryFilesEx(s_settings->music_folder, ".mp3;.ogg;.wav", false);
+    FilePathList files = LoadDirectoryFilesEx(s_settings->music_folder, ".mp3;.ogg;.wav", true);
     if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_paths);
     for (unsigned int i = 0; i < files.count && s_name_count < MP_MAX_NAMES; i++)
         add_name(base_name(files.paths[i]));
