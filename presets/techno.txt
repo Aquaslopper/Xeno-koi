@@ -26,8 +26,8 @@ halo_a = 0.030
 halo_b = 0.025
 core_gain = 2.10               # hard white flash on the ridge
 exposure = 1.90
-relief_min = 0.020             # more of the artwork catches light
-relief_full = 0.42
+relief_min = 0.015             # more of the artwork catches light
+relief_full = 0.40
 
 # --- roaming motion: fast ---
 speed_a = 0.75
