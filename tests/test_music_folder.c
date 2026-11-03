@@ -50,9 +50,9 @@ int main(void) {
         audio_start_match_music(&a, i);
         assert(a.current_game_track == 0);
     }
-    char *many[112];
-    for (int i = 0; i < 112; i++) many[i] = "song.mp3";
-    raylib_stub_files = (FilePathList){112, 112, many};
+    char *many[1000];
+    for (int i = 0; i < 1000; i++) many[i] = "song.mp3";
+    raylib_stub_files = (FilePathList){1000, 1000, many};
     assert(audio_set_music_folder(&a, "/many") == AUDIO_MAX_TRACKS);
     assert(a.game_track_count == AUDIO_MAX_TRACKS);
     audio_start_match_music(&a, AUDIO_MAX_TRACKS);
