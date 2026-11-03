@@ -441,7 +441,8 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
         }
     }
 
-    if (s_campaign_page == CAMPAIGN_PAGE_MUSIC) {
+ if (s_campaign_page == CAMPAIGN_PAGE_MUSIC &&
+        CheckCollisionPointRec(vm, campaign_info_rect())) {
         return music_panel_handle_click(campaign_info_rect(), vm) ? 2 : 0;
     }
 
