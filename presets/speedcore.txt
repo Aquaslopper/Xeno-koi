@@ -1,0 +1,35 @@
+# XENO/KOI table light preset - SPEEDCORE
+# 200+ BPM gabber/speedcore: dots strobe hard on every kick and vanish
+# before the next one. 3 ms attack, ultra short release, only true peaks.
+name = SPEEDCORE
+lights = 12
+strength = 1.60
+idle = 0.06
+music_gain = 1.10
+level_gain = 1.30
+attack = 0.003                 # 3 ms snap (~1/100 of a beat at 200 BPM)
+release = 0.08                 # ~1/4 beat (0.30 s at 200 BPM), gone before the next kick
+adapt_speed = 2.20
+beat_contrast = 2.60           # weak ghost hits ignored
+size_a = 0.005
+size_b = 0.004
+halo_a = 0.060
+halo_b = 0.022
+core_gain = 3.80
+exposure = 2.10
+relief_min = 0.15              # dark maps still catch the strobe
+relief_full = 0.45
+speed_a = 1.10
+speed_b = -0.85
+travel_x = 0.55
+travel_y = 0.60
+theme_mix = 0.60               # terminal colour base
+color_r = 1.00
+color_g = 1.00
+color_b = 1.00
+peak_r = 0.70
+peak_g = 0.95
+peak_b = 1.00
+color_shift = 0.40             # cool flash on the loudest hits
+bloom_gain = 3.60
+bloom_radius = 0.90
