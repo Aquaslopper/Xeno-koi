@@ -22,9 +22,7 @@ extern Font font_body;
 /* One button, three mutually exclusive states. There is no separate "repeat
    the folder" mode: OFF already plays the tracks in order and wraps at the end. */
 enum { MP_MODE_OFF = 0, MP_MODE_RANDOM, MP_MODE_ONE };
-static const char *const k_mode_names[3] = {
-    "MODE: OFF", "MODE: RANDOM", "MODE: LOOP 1"
-};
+
 static const char *const k_mode_notes[3] = {
     "TRACKS IN ORDER", "RANDOM TRACK", "REPEAT ONE TRACK"
 };
@@ -324,16 +322,18 @@ static MusicLayout music_layout(Rectangle r) {
     MusicLayout l;
     memset(&l, 0, sizeof(l));
     float x = r.x + 20.0f, w = r.width - 40.0f, y = r.y;
-    l.test  = (Rectangle){ x,          y + 46.0f,  w,          34.0f };
-    l.minus = (Rectangle){ x + 86.0f,  y + 86.0f,  34.0f,      30.0f };
-    l.name  = (Rectangle){ x + 126.0f, y + 86.0f,  w - 168.0f, 30.0f };
-    l.plus  = (Rectangle){ x + w - 34.0f, y + 86.0f, 34.0f,    30.0f };
-    l.play  = (Rectangle){ x,          y + 122.0f, 110.0f,     30.0f };
-    l.stop  = (Rectangle){ x + 118.0f, y + 122.0f, 110.0f,     30.0f };
-    l.mode = (Rectangle){ x, y + 158.0f, 354.0f, 30.0f };
-    l.preset_minus = (Rectangle){ x + 86.0f,  y + 198.0f, 34.0f,      30.0f };
-    l.preset_name  = (Rectangle){ x + 126.0f, y + 198.0f, w - 168.0f, 30.0f };
-    l.preset_plus  = (Rectangle){ x + w - 34.0f, y + 198.0f, 34.0f,    30.0f };
+    float gap = 8.0f;
+    float third = (w - 2.0f * gap) / 3.0f;
+    l.test  = (Rectangle){ x, y + 46.0f, w, 34.0f };
+    l.minus = (Rectangle){ x, y + 86.0f, 34.0f, 30.0f };
+    l.name  = (Rectangle){ x + 40.0f, y + 86.0f, w - 80.0f, 30.0f };
+    l.plus  = (Rectangle){ x + w - 34.0f, y + 86.0f, 34.0f, 30.0f };
+    l.play  = (Rectangle){ x, y + 122.0f, third, 30.0f };
+    l.stop  = (Rectangle){ x + third + gap, y + 122.0f, third, 30.0f };
+    l.mode  = (Rectangle){ x + 2.0f * (third + gap), y + 122.0f, third, 30.0f };
+    l.preset_minus = (Rectangle){ x, y + 166.0f, 34.0f, 30.0f };
+    l.preset_name  = (Rectangle){ x + 40.0f, y + 166.0f, w - 80.0f, 30.0f };
+    l.preset_plus  = (Rectangle){ x + w - 34.0f, y + 166.0f, 34.0f, 30.0f };
     for (int i = 0; i < MP_MAX_FOLDERS; i++)
         l.folder[i] = (Rectangle){ x + (float)(i % 2) * (w * 0.5f + 4.0f),
                                    y + 52.0f + (float)(i / 2) * 38.0f,
@@ -395,7 +395,7 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
     }
     MusicLayout l = music_layout(r);
     float x = r.x + 20.0f, y = r.y;
-    draw_heading(s_folder_view ? "MUSIC // PICK FOLDER" : "MUSIC // MATCH START TRACK",
+    draw_heading(s_folder_view ? "FOLDER" : "MUSIC",
                  x, y + 12.0f, 17.0f, COLOR_PHOSPHOR);
     DrawLine((int)x, (int)(y + 42.0f), (int)(r.x + r.width - 20.0f), (int)(y + 42.0f), COLOR_PHOSPHOR_DIM);
 
@@ -406,9 +406,9 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
             draw_chip(l.folder[i], s_folder_labels[i], font_body, 14.0f, vm, active);
         }
         if (s_folder_count <= 2)
-            draw_label("NO MUSIC SUBFOLDERS FOUND UNDER assets/music.", x, y + 92.0f, 13.0f, COLOR_TEXT_INFO_DIM);
+            draw_label("NO MUSIC SUBFOLDERS FOUND.", x, y + 92.0f, 13.0f, COLOR_TEXT_INFO_DIM);
         draw_chip(l.back, "< BACK", font_title, 14.0f, vm, 0);
-        draw_label("BROWSE... PICKS ANY FOLDER ON YOUR PC.", x + 126.0f, y + 219.0f, 13.0f, COLOR_TEXT_INFO_DIM);
+        draw_label("BROWSE... PICKS ANY FOLDER.", x + 126.0f, y + 219.0f, 13.0f, COLOR_TEXT_INFO_DIM);
         if (s_message) draw_label(s_message, x, y + 248.0f, 12.0f, COLOR_TEXT_INFO);
         return;
     }
@@ -417,32 +417,29 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
        through the frame loop, with the player's saved effect sliders applied. */
     draw_chip(l.test, s_effect_test == 1 ? "TEST EFFECT: ON" : "TEST EFFECT: OFF",
               font_title, 15.0f, vm, s_effect_test == 1);
-    draw_label("START", x, y + 92.0f, 16.0f, COLOR_PHOSPHOR);
     draw_chip(l.minus, "-", font_title, 18.0f, vm, 0);
     draw_value(l.name, track_label(s_audio), vm);
     draw_chip(l.plus, "+", font_title, 18.0f, vm, 0);
     draw_chip(l.play, "PLAY", font_title, 15.0f, vm, !s_stopped && s_audio && s_audio->current_music == 2);
     draw_chip(l.stop, "STOP", font_title, 15.0f, vm, s_stopped);
-    draw_label(s_stopped ? "STOPPED" : (s_audio && s_audio->current_music == 2 ? "PLAYING" : "READY"),
-               x + 240.0f, y + 129.0f, 13.0f, COLOR_TEXT_INFO);
     draw_chip(l.mode, k_mode_names[s_mode], font_title, 14.0f, vm, s_mode != MP_MODE_OFF);
-    draw_label(k_mode_notes[s_mode], x + 366.0f, y + 166.0f, 12.0f, COLOR_TEXT_INFO_DIM);
 
-    /* Second row underneath the player: pick how the 12 table dots react. */
-    DrawLine((int)x, (int)(y + 192.0f), (int)(r.x + r.width - 20.0f), (int)(y + 192.0f), COLOR_PHOSPHOR_DIM);
-    draw_label("PRESETS", x, y + 204.0f, 16.0f, COLOR_PHOSPHOR);
+    /* The second stepper underneath the player picks how the 12 dots react. */
+    DrawLine((int)x, (int)(y + 158.0f), (int)(r.x + r.width - 20.0f), (int)(y + 158.0f), COLOR_PHOSPHOR_DIM);
     draw_chip(l.preset_minus, "<", font_title, 18.0f, vm, 0);
     draw_value(l.preset_name, preset_label(), vm);
     draw_chip(l.preset_plus, ">", font_title, 18.0f, vm, 0);
 
-    char folder_line[160];
-    const char *folder = (s_settings && s_settings->music_folder[0]) ?
-                         base_name(s_settings->music_folder) : "BUILT-IN";
-    snprintf(folder_line, sizeof(folder_line), "FOLDER: %s  //  %d TRACKS",
-             folder, s_audio ? s_audio->game_track_count : 0);
-    draw_label(folder_line, x, y + 234.0f, 13.0f, COLOR_TEXT_INFO);
-    if (s_message) draw_label(s_message, x, y + 250.0f, 12.0f, COLOR_TEXT_INFO);
-    else draw_label("CLICK TRACK NAME FOR FOLDERS. PRESET NAME RELOADS presets/.", x, y + 250.0f, 12.0f, COLOR_TEXT_INFO_DIM);
+    if (s_message) {
+        draw_label(s_message, x, y + 206.0f, 12.0f, COLOR_TEXT_INFO);
+    } else {
+        char folder_line[160];
+        const char *folder = (s_settings && s_settings->music_folder[0]) ?
+                             base_name(s_settings->music_folder) : "BUILT-IN";
+        snprintf(folder_line, sizeof(folder_line), "%s  //  %d TRACKS",
+                 folder, s_audio ? s_audio->game_track_count : 0);
+        draw_label(folder_line, x, y + 206.0f, 13.0f, COLOR_TEXT_INFO);
+    }
 }
 
 int music_panel_handle_click(Rectangle r, Vector2 vm) {
