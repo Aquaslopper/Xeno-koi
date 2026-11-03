@@ -1,5 +1,6 @@
 #include "ui_music_panel.h"
 #include "ui_light_preset.h"
+#include "ui_folder_picker.h"
 #include "ui_theme.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,17 +8,28 @@
 #include <math.h>
 
 /* The match-music setup panel. No DSP lives here: it only drives the existing
-   playlist (audio_set_music_folder / audio_start_match_music / audio_stop_music)
-   and reuses the Options effect test (audio_preview_effect) through the frame
-   loop. It behaves like a player: one pinned track starts a match, RANDOM plays
-   a random track, LOOP 1 repeats one track, LOOP repeats the playlist, and with
-   none of them the tracks play in order. State is global because music is global
-   to both hubs; it is not persisted, and only the effect test is menu-only. */
+   music folder (audio_set_music_folder / audio_start_match_music /
+   audio_stop_music) and reuses the Options effect test (audio_preview_effect)
+   through the frame loop. It behaves like a player: one pinned track starts a
+   match, and ONE three-state button chooses how the folder's tracks advance
+   (OFF = in order and wrapping, RANDOM, LOOP 1). The folder can be any folder
+   on the PC via the native picker. State is global because music is global to
+   both hubs; it is not persisted, and only the effect test is menu-only. */
 
 extern Font font_title;
 extern Font font_body;
 
-enum { MP_REPEAT_OFF = 0, MP_REPEAT_ALL, MP_REPEAT_ONE };
+/* One button, three mutually exclusive states. There is no separate "repeat
+   the folder" mode: OFF already plays the tracks in order and wraps at the end. */
+enum { MP_MODE_OFF = 0, MP_MODE_RANDOM, MP_MODE_ONE };
+static const char *const k_mode_names[3] = {
+    "MODE: OFF", "MODE: RANDOM", "MODE: LOOP 1"
+};
+static const char *const k_mode_notes[3] = {
+    "TRACKS IN ORDER", "RANDOM TRACK", "REPEAT ONE TRACK"
+};
+
+#define MP_BROWSE_INDEX 1 /* folder-view chip that opens the native dialog */
 
 #define MP_MAX_NAMES   AUDIO_MAX_TRACKS
 #define MP_NAME_LEN    64
@@ -27,10 +39,9 @@ enum { MP_REPEAT_OFF = 0, MP_REPEAT_ALL, MP_REPEAT_ONE };
 static GameSettings *s_settings;
 static AudioAssets  *s_audio;
 static int s_open;
-static int s_effect_test = -1;       /* -1 idle, 0 dry A/B, 1 reverb on */
-static int s_stopped;                /* STOP / playlist end: no auto playback */
-static int s_random;                 /* RANDOM chip */
-static int s_repeat = MP_REPEAT_OFF; /* LOOP / LOOP 1 chips */
+static int s_effect_test = -1;       /* -1 idle, 0 dry A/B, 1 effect on (Options test) */
+static int s_stopped;                /* STOP: no auto playback until PLAY / a match */
+static int s_mode = MP_MODE_OFF;     /* the single three-state track-mode button */
 static int s_pinned = 1;             /* 1-based track that starts the next match */
 static int s_folder_view;
 static const char *s_message;
@@ -60,7 +71,7 @@ void music_panel_sync(int hub_visible) {
     if (!hub_visible && s_open) music_panel_close();
 }
 
-/* A folder switch can shrink the playlist, so clamp the pin before use. */
+/* A folder switch can shrink the track list, so clamp the pin before use. */
 static int pinned_track(const AudioAssets *a) {
     int n = a ? a->game_track_count : 0;
     if (n <= 0) return 1;
@@ -71,20 +82,19 @@ static int pinned_track(const AudioAssets *a) {
 
 int music_panel_match_track(const AudioAssets *a) {
     s_stopped = 0; /* a new match always starts music, even after STOP */
-    return s_random ? 0 : pinned_track(a); /* 0: RANDOM, let ui_main.c pick */
+    return s_mode == MP_MODE_RANDOM ? 0 : pinned_track(a); /* 0: let ui_main.c pick */
 }
 
 int music_panel_next_track(const AudioAssets *a, int random_track) {
     int n = a ? a->game_track_count : 0;
     if (n <= 0) return 1;
     int cur = (a->current_game_track >= 0 && a->current_game_track < n) ? a->current_game_track : 0;
-    /* 1-based track numbers, wrapped by audio_start_match_music(). */
-    if (s_repeat == MP_REPEAT_ONE) return cur + 1;
-    if (s_random) return random_track;
-    if (cur + 1 < n) return cur + 2;
-    if (s_repeat == MP_REPEAT_ALL) return 1;
-    s_stopped = 1; /* repeat off and the last track ended: stay stopped */
-    return 0;
+    /* 1-based track numbers, wrapped by audio_start_match_music(). OFF plays
+       the folder in order and wraps at the end - music is always playing, so a
+       separate "repeat the folder" mode would be a no-op. */
+    if (s_mode == MP_MODE_ONE) return cur + 1;
+    if (s_mode == MP_MODE_RANDOM) return random_track;
+    return (cur + 1) % n + 1;
 }
 
 /* ---------------------------------------------------------------- file names */
@@ -161,9 +171,10 @@ static void music_root(char *buf, size_t cap) {
     snprintf(buf, cap, "./assets/music");
 }
 
-/* One level of subfolders under each folder: a subfolder can be picked as the
-   playlist folder, which is how subfolders are supported without touching the
-   hash-guarded audio DSP file. */
+/* Shortcuts to subfolders under assets/music. These are only conveniences: the
+   BROWSE chip can pick any folder on the PC, so nobody has to move their music
+   into the game folder. A subfolder replaces the match-music folder without
+   touching the hash-guarded audio DSP file. */
 static void scan_subfolders(const char *dir, const char *prefix, int depth) {
     FilePathList list = LoadDirectoryFiles(dir);
     for (unsigned int i = 0; i < list.count && s_folder_count < MP_MAX_FOLDERS; i++) {
@@ -187,6 +198,9 @@ static void scan_subfolders(const char *dir, const char *prefix, int depth) {
 static void refresh_folders(void) {
     s_folder_count = 0;
     add_folder("", "BUILT-IN MUSIC");
+    /* Slot MP_BROWSE_INDEX. Its path is unused; the click handler opens the
+       native folder window instead of applying it. */
+    add_folder("", "BROWSE...  (ANY FOLDER)");
 #ifndef __EMSCRIPTEN__
     char root[512];
     music_root(root, sizeof(root));
@@ -209,7 +223,13 @@ void music_panel_open(void) {
     s_open = 1;
     s_folder_view = 0;
     s_message = NULL;
-    if (s_settings) snprintf(s_cached_folder, sizeof(s_cached_folder), "%s", s_settings->music_folder);
+    if (s_settings) {
+        snprintf(s_cached_folder, sizeof(s_cached_folder), "%s", s_settings->music_folder);
+        /* Mirror the Options page-2 test: push the player's saved effect sliders
+           into the DSP before this panel's TEST button starts a wet preview. */
+        audio_set_effects(s_settings->effect_chorus, s_settings->effect_bass,
+                          s_settings->effect_reverb);
+    }
     light_preset_init();
     refresh_names();
     refresh_folders();
@@ -239,7 +259,17 @@ static void apply_folder(const char *path) {
     refresh_folders();
     /* audio_set_music_folder() restarts on a random track; keep the pin audible. */
     audio_start_match_music(s_audio, s_pinned);
-    s_message = "PLAYLIST REPLACED.";
+    s_message = "MUSIC FOLDER REPLACED.";
+}
+
+/* Native OS folder window. The dialog is modal, so this runs on the UI thread
+   between frames; the game resumes with the chosen path when it closes. */
+static void pick_folder_dialog(void) {
+    char picked[MP_FOLDER_LEN];
+    int rc = ui_pick_music_folder(picked, sizeof(picked));
+    if (rc == 1) apply_folder(picked);
+    else if (rc == 0) s_message = "FOLDER PICK CANCELLED.";
+    else s_message = "NATIVE FOLDER PICKER IS DESKTOP ONLY.";
 }
 
 static void step_track(int dir) {
@@ -281,7 +311,7 @@ static const char *track_label(const AudioAssets *a) {
 
 typedef struct {
     Rectangle test, minus, name, plus, play, stop;
-    Rectangle mode[3];
+    Rectangle mode;                 /* one button, three states */
     Rectangle preset_minus, preset_name, preset_plus;
     Rectangle folder[MP_MAX_FOLDERS];
     Rectangle back;
@@ -300,8 +330,7 @@ static MusicLayout music_layout(Rectangle r) {
     l.plus  = (Rectangle){ x + w - 34.0f, y + 86.0f, 34.0f,    30.0f };
     l.play  = (Rectangle){ x,          y + 122.0f, 110.0f,     30.0f };
     l.stop  = (Rectangle){ x + 118.0f, y + 122.0f, 110.0f,     30.0f };
-    for (int i = 0; i < 3; i++)
-        l.mode[i] = (Rectangle){ x + (float)i * 118.0f, y + 158.0f, 110.0f, 30.0f };
+    l.mode = (Rectangle){ x, y + 158.0f, 354.0f, 30.0f };
     l.preset_minus = (Rectangle){ x + 86.0f,  y + 198.0f, 34.0f,      30.0f };
     l.preset_name  = (Rectangle){ x + 126.0f, y + 198.0f, w - 168.0f, 30.0f };
     l.preset_plus  = (Rectangle){ x + w - 34.0f, y + 198.0f, 34.0f,    30.0f };
@@ -372,23 +401,22 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
 
     if (s_folder_view) {
         for (int i = 0; i < s_folder_count; i++) {
-            int active = s_settings && !strcmp(s_folders[i], s_settings->music_folder);
+            int active = i != MP_BROWSE_INDEX && s_settings &&
+                         !strcmp(s_folders[i], s_settings->music_folder);
             draw_chip(l.folder[i], s_folder_labels[i], font_body, 14.0f, vm, active);
         }
-        if (s_folder_count <= 1)
-            draw_label("NO SUBFOLDERS FOUND. ADD FOLDERS UNDER assets/music.", x, y + 92.0f, 13.0f, COLOR_TEXT_INFO_DIM);
+        if (s_folder_count <= 2)
+            draw_label("NO MUSIC SUBFOLDERS FOUND UNDER assets/music.", x, y + 92.0f, 13.0f, COLOR_TEXT_INFO_DIM);
         draw_chip(l.back, "< BACK", font_title, 14.0f, vm, 0);
-        draw_label("PICK A FOLDER TO REPLACE THE MATCH PLAYLIST.", x + 126.0f, y + 219.0f, 13.0f, COLOR_TEXT_INFO_DIM);
+        draw_label("BROWSE... PICKS ANY FOLDER ON YOUR PC.", x + 126.0f, y + 219.0f, 13.0f, COLOR_TEXT_INFO_DIM);
         if (s_message) draw_label(s_message, x, y + 248.0f, 12.0f, COLOR_TEXT_INFO);
         return;
     }
 
-    char mode_label[3][16];
-    snprintf(mode_label[0], sizeof(mode_label[0]), "RANDOM %s", s_random ? "ON" : "OFF");
-    snprintf(mode_label[1], sizeof(mode_label[1]), "LOOP %s", s_repeat == MP_REPEAT_ALL ? "ON" : "OFF");
-    snprintf(mode_label[2], sizeof(mode_label[2]), "LOOP 1 %s", s_repeat == MP_REPEAT_ONE ? "ON" : "OFF");
-    int mode_on[3] = { s_random, s_repeat == MP_REPEAT_ALL, s_repeat == MP_REPEAT_ONE };
-    draw_chip(l.test, "TEST WITH REVERB EFFECTS ON", font_title, 15.0f, vm, s_effect_test == 1);
+    /* Exact same wet/dry test as SYSTEM CONFIGURATION page 2: audio_preview_effect()
+       through the frame loop, with the player's saved effect sliders applied. */
+    draw_chip(l.test, s_effect_test == 1 ? "TEST EFFECT: ON" : "TEST EFFECT: OFF",
+              font_title, 15.0f, vm, s_effect_test == 1);
     draw_label("START", x, y + 92.0f, 16.0f, COLOR_PHOSPHOR);
     draw_chip(l.minus, "-", font_title, 18.0f, vm, 0);
     draw_value(l.name, track_label(s_audio), vm);
@@ -397,12 +425,8 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
     draw_chip(l.stop, "STOP", font_title, 15.0f, vm, s_stopped);
     draw_label(s_stopped ? "STOPPED" : (s_audio && s_audio->current_music == 2 ? "PLAYING" : "READY"),
                x + 240.0f, y + 129.0f, 13.0f, COLOR_TEXT_INFO);
-    for (int i = 0; i < 3; i++)
-        draw_chip(l.mode[i], mode_label[i], font_title, 14.0f, vm, mode_on[i]);
-    const char *next = s_repeat == MP_REPEAT_ONE ? "REPEAT ONE" :
-                       s_random ? "RANDOM TRACK" :
-                       s_repeat == MP_REPEAT_ALL ? "LOOP PLAYLIST" : "NEXT IN ORDER";
-    draw_label(next, x + 366.0f, y + 166.0f, 12.0f, COLOR_TEXT_INFO_DIM);
+    draw_chip(l.mode, k_mode_names[s_mode], font_title, 14.0f, vm, s_mode != MP_MODE_OFF);
+    draw_label(k_mode_notes[s_mode], x + 366.0f, y + 166.0f, 12.0f, COLOR_TEXT_INFO_DIM);
 
     /* Second row underneath the player: pick how the 12 table dots react. */
     DrawLine((int)x, (int)(y + 192.0f), (int)(r.x + r.width - 20.0f), (int)(y + 192.0f), COLOR_PHOSPHOR_DIM);
@@ -418,7 +442,7 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
              folder, s_audio ? s_audio->game_track_count : 0);
     draw_label(folder_line, x, y + 234.0f, 13.0f, COLOR_TEXT_INFO);
     if (s_message) draw_label(s_message, x, y + 250.0f, 12.0f, COLOR_TEXT_INFO);
-    else draw_label("START TRACK PLAYS IN MATCHES. CLICK NAMES FOR FOLDERS / RELOAD.", x, y + 250.0f, 12.0f, COLOR_TEXT_INFO_DIM);
+    else draw_label("CLICK TRACK NAME FOR FOLDERS. PRESET NAME RELOADS presets/.", x, y + 250.0f, 12.0f, COLOR_TEXT_INFO_DIM);
 }
 
 int music_panel_handle_click(Rectangle r, Vector2 vm) {
@@ -427,7 +451,8 @@ int music_panel_handle_click(Rectangle r, Vector2 vm) {
     if (s_folder_view) {
         for (int i = 0; i < s_folder_count; i++) {
             if (CheckCollisionPointRec(vm, l.folder[i])) {
-                apply_folder(s_folders[i]);
+                if (i == MP_BROWSE_INDEX) pick_folder_dialog();
+                else apply_folder(s_folders[i]);
                 return 1;
             }
         }
@@ -435,11 +460,16 @@ int music_panel_handle_click(Rectangle r, Vector2 vm) {
         return 1;
     }
     if (CheckCollisionPointRec(vm, l.test)) {
-        /* The Options A/B test, three states: wet, dry, back to normal playback. */
-        s_effect_test = (s_effect_test == 1) ? 0 : (s_effect_test == 0) ? -1 : 1;
+        /* Exactly the Options page-2 test: ON = wet at full strength, OFF =
+           the same track dry. -1 is only reached by closing the panel or PLAY /
+           STOP, which is how the player leaves the test. */
+        if (s_settings)
+            audio_set_effects(s_settings->effect_chorus, s_settings->effect_bass,
+                              s_settings->effect_reverb);
+        s_effect_test = (s_effect_test == 1) ? 0 : 1;
         s_stopped = 0;
-        s_message = (s_effect_test == 1) ? "REVERB EFFECT: ON  (FULL STRENGTH)." :
-                    (s_effect_test == 0) ? "REVERB EFFECT: DRY A/B COMPARISON." : "EFFECT TEST OFF.";
+        s_message = (s_effect_test == 1) ? "TEST EFFECT: ON (YOUR OPTIONS SETTINGS)." :
+                                           "TEST EFFECT: OFF (DRY COMPARISON).";
     } else if (CheckCollisionPointRec(vm, l.minus)) {
         step_track(-1);
     } else if (CheckCollisionPointRec(vm, l.plus)) {
@@ -465,18 +495,9 @@ int music_panel_handle_click(Rectangle r, Vector2 vm) {
         s_stopped = 1;
         s_effect_test = -1;
         s_message = "PLAYBACK STOPPED.";
-    } else {
-        for (int i = 0; i < 3; i++) {
-            if (CheckCollisionPointRec(vm, l.mode[i])) {
-                if (i == 0) s_random = !s_random;
-                else {
-                    int mode = (i == 1) ? MP_REPEAT_ALL : MP_REPEAT_ONE;
-                    s_repeat = (s_repeat == mode) ? MP_REPEAT_OFF : mode;
-                }
-                s_message = "TRACK ADVANCE MODE SET.";
-                break;
-            }
-        }
+    } else if (CheckCollisionPointRec(vm, l.mode)) {
+        s_mode = (s_mode + 1) % 3; /* OFF -> RANDOM -> LOOP 1 -> OFF */
+        s_message = "TRACK MODE SET.";
     }
     return 1;
 }

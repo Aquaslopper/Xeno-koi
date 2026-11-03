@@ -1007,8 +1007,9 @@ static void update_draw_frame(void) {
         if (audio.current_music != 2) audio_start_match_music(&audio, (in_game && transition_track > 0) ? transition_track : pick_match_track(0));
         else if (audio_is_match_music_finished(&audio)) {
             int nt = music_panel_next_track(&audio, pick_match_track(1));
+            /* OFF wraps to track 1, RANDOM picks a fresh track, LOOP 1 repeats;
+               only STOP can leave the folder silent outside a match. */
             if (nt > 0) audio_start_match_music(&audio, nt);
-            /* nt == 0: playlist finished with repeat off, leave it stopped. */
         }
     }
     int ac_table = in_game && plexus_action_card_is_active();

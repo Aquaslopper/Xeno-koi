@@ -25,13 +25,13 @@ int  music_panel_handle_click(Rectangle r, Vector2 vm);
 
 /* Frame-loop hooks. -1/0/1 follows the existing Options effect test. */
 int  music_panel_effect_test(void);
-/* 1 when STOP was pressed or the playlist finished with repeat off. */
+/* 1 when STOP was pressed: hub auto-play stays off until PLAY or a match. */
 int  music_panel_music_stopped(void);
-/* 1-based pinned match-start track, or 0 when RANDOM is on (ui_main.c randomises).
+/* 1-based pinned match-start track, or 0 in RANDOM mode (ui_main.c randomises).
    Also clears STOP: a new match always starts music. */
-int  music_panel_match_track(const AudioAssets *a);
-/* 1-based track after one ends: LOOP 1 repeats, RANDOM takes random_track,
-   LOOP wraps to track 1, none plays the next in order. 0 = playlist ended. */
-int  music_panel_next_track(const AudioAssets *a, int random_track);
+int music_panel_match_track(const AudioAssets *a);
+/* 1-based track after one ends: LOOP 1 repeats the current track, RANDOM takes
+   random_track, OFF plays the next track in the folder and wraps at the end. */
+int music_panel_next_track(const AudioAssets *a, int random_track);
 
 #endif /* UI_MUSIC_PANEL_H */
