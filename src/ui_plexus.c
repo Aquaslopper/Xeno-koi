@@ -3137,10 +3137,10 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             line3 = "Changes apply immediately across the Plex and table.";
         } else if (hover_bottom == 6) {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  MUSIC");
-            snprintf(sub, sizeof(sub), "MATCH TRACK  //  GLOBAL PLAYLIST");
+            snprintf(sub, sizeof(sub), "MATCH TRACK  //  LIGHT PRESETS");
             line1 = "Steps through the tracks and picks a music folder.";
-            line2 = "Tests the reverb effect, plays or stops the track.";
-            line3 = "RANDOM / LOOP / LOOP 1 choose what plays next.";
+            line2 = "Tests your audio effect options, plays or stops the track.";
+            line3 = "OFF / RANDOM / LOOP 1 picks what plays next.";
         } else if (s_active_tab == 0) {
             const char *deus_p = is_deus_spine_active() ? "DEUS // " : "";
             if (s_selected_month == 0) {
