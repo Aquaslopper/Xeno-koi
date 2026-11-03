@@ -324,15 +324,15 @@ static MusicLayout music_layout(Rectangle r) {
     float gap = 8.0f;
     float third = (w - 2.0f * gap) / 3.0f;
     l.test  = (Rectangle){ x, y + 46.0f, w, 34.0f };
-    l.minus = (Rectangle){ x, y + 86.0f, 34.0f, 30.0f };
-    l.name  = (Rectangle){ x + 40.0f, y + 86.0f, w - 80.0f, 30.0f };
-    l.plus  = (Rectangle){ x + w - 34.0f, y + 86.0f, 34.0f, 30.0f };
-    l.play  = (Rectangle){ x, y + 122.0f, third, 30.0f };
-    l.stop  = (Rectangle){ x + third + gap, y + 122.0f, third, 30.0f };
-    l.mode  = (Rectangle){ x + 2.0f * (third + gap), y + 122.0f, third, 30.0f };
-    l.preset_minus = (Rectangle){ x, y + 166.0f, 34.0f, 30.0f };
-    l.preset_name  = (Rectangle){ x + 40.0f, y + 166.0f, w - 80.0f, 30.0f };
-    l.preset_plus  = (Rectangle){ x + w - 34.0f, y + 166.0f, 34.0f, 30.0f };
+    l.minus = (Rectangle){ x, y + 94.0f, 34.0f, 30.0f };
+    l.name  = (Rectangle){ x + 40.0f, y + 94.0f, w - 80.0f, 30.0f };
+    l.plus  = (Rectangle){ x + w - 34.0f, y + 94.0f, 34.0f, 30.0f };
+    l.play  = (Rectangle){ x, y + 134.0f, third, 30.0f };
+    l.stop  = (Rectangle){ x + third + gap, y + 134.0f, third, 30.0f };
+    l.mode  = (Rectangle){ x + 2.0f * (third + gap), y + 134.0f, third, 30.0f };
+    l.preset_minus = (Rectangle){ x, y + 182.0f, 34.0f, 30.0f };
+    l.preset_name  = (Rectangle){ x + 40.0f, y + 182.0f, w - 80.0f, 30.0f };
+    l.preset_plus  = (Rectangle){ x + w - 34.0f, y + 182.0f, 34.0f, 30.0f };
     for (int i = 0; i < MP_MAX_FOLDERS; i++)
         l.folder[i] = (Rectangle){ x + (float)(i % 2) * (w * 0.5f + 4.0f),
                                    y + 52.0f + (float)(i / 2) * 38.0f,
@@ -424,20 +424,22 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
     draw_chip(l.mode, k_mode_names[s_mode], font_title, 14.0f, vm, s_mode != MP_MODE_OFF);
 
     /* The second stepper underneath the player picks how the 12 dots react. */
-    DrawLine((int)x, (int)(y + 158.0f), (int)(r.x + r.width - 20.0f), (int)(y + 158.0f), COLOR_PHOSPHOR_DIM);
+    DrawLine((int)x, (int)(y + 174.0f), (int)(r.x + r.width - 20.0f), (int)(y + 174.0f), COLOR_PHOSPHOR_DIM);
     draw_chip(l.preset_minus, "<", font_title, 18.0f, vm, 0);
     draw_value(l.preset_name, preset_label(), vm);
     draw_chip(l.preset_plus, ">", font_title, 18.0f, vm, 0);
 
+    const char *preset = light_preset_name(light_preset_selected());
+    char desc[192];
     if (s_message) {
-        draw_label(s_message, x, y + 206.0f, 12.0f, COLOR_TEXT_INFO);
+        snprintf(desc, sizeof(desc), "%s  //  %s", preset, s_message);
+        draw_label(desc, x, y + 226.0f, 12.0f, COLOR_TEXT_INFO);
     } else {
-        char folder_line[160];
         const char *folder = (s_settings && s_settings->music_folder[0]) ?
                              base_name(s_settings->music_folder) : "BUILT-IN";
-        snprintf(folder_line, sizeof(folder_line), "%s  //  %d TRACKS",
-                 folder, s_audio ? s_audio->game_track_count : 0);
-        draw_label(folder_line, x, y + 206.0f, 13.0f, COLOR_TEXT_INFO);
+        snprintf(desc, sizeof(desc), "%s  //  %s  //  %d TRACKS",
+                 preset, folder, s_audio ? s_audio->game_track_count : 0);
+        draw_label(desc, x, y + 226.0f, 12.0f, COLOR_TEXT_INFO);
     }
 }
 
