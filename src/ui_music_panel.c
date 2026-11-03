@@ -38,7 +38,7 @@ static AudioAssets  *s_audio;
 static int s_open;
 static int s_effect_test = -1;       /* -1 idle, 0 dry A/B, 1 effect on (Options test) */
 static int s_stopped;                /* STOP: no auto playback until PLAY / a match */
-static int s_mode = MP_MODE_OFF;     /* the single three-state track-mode button */
+static int s_mode = MP_MODE_RANDOM;     /* the single three-state track-mode button */
 static int s_pinned = 1;             /* 1-based track that starts the next match */
 static int s_folder_view;
 static const char *s_message;
