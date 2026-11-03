@@ -1,3 +1,17 @@
+### MUSIC panel: START fix and decluttered layout (3 November 2026)
+
+- Pancratium: `campaign_handle_click()` no longer swallows every click made while
+  the MUSIC tab is open; only clicks inside `campaign_info_rect()` go to the panel,
+  so START works directly. The Plex music panel stays modal by design.
+- The shared panel drops the `START`, `PRESETS`, READY/PLAYING/STOPPED and mode-note
+  labels, shortens both headings, puts PLAY / STOP / MODE in one even row, aligns
+  both steppers to the full inner width and replaces the two footer lines with one.
+  No behaviour, state or audio change.
+- Removed the last "playlist" / three-button wording from the Plex MUSIC briefing.
+- Not verified: no display/GPU in this environment, so the new layout, the native
+  Windows folder dialog and GLSL driver compilation were not visually checked.
+
+
 > **Development handoff (last updated 3 November 2026).** This records the local source status and verification noted below; it is not a release or deployment record. For current rules, use the code in `src/` and the wiki in `docs/`. The original build spec, `HANDOFF_KoiKoi_Giger_v2.pdf`, is legacy; see `AGENTS.md` and `docs/errata.md`.
 # XENO/KOI: BIOMECHANICAL EDITION — Project Status
 
