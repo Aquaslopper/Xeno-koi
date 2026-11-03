@@ -1,0 +1,36 @@
+# XENO/KOI table light preset - CLUB
+# House / club (~124-128 BPM): solid four-on-the-floor, dots that glow on
+# every kick with a steady, danceable pulse. Slightly bigger and softer
+# than TECHNO.
+name = CLUB
+lights = 12
+strength = 1.40
+idle = 0.10
+music_gain = 0.90
+level_gain = 1.20
+attack = 0.006
+release = 0.18                 # ~1/3 beat (0.48 s at 124 BPM) - stays on the kick
+adapt_speed = 1.50
+beat_contrast = 1.80
+size_a = 0.008
+size_b = 0.006
+halo_a = 0.095
+halo_b = 0.038
+core_gain = 2.80
+exposure = 1.80
+relief_min = 0.18
+relief_full = 0.50
+speed_a = 0.55
+speed_b = -0.42
+travel_x = 0.48
+travel_y = 0.52
+theme_mix = 0.60
+color_r = 1.00
+color_g = 0.95
+color_b = 1.00
+peak_r = 0.85
+peak_g = 0.70
+peak_b = 1.00
+color_shift = 0.50             # violet pulse on the drop
+bloom_gain = 2.80
+bloom_radius = 1.20

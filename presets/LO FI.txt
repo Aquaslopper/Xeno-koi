@@ -1,0 +1,35 @@
+# XENO/KOI table light preset - LOFI
+# Dusty hip-hop / lo-fi: warm, slow bloom that breathes with the phrase,
+# few wide dots drifting lazily. Nothing snaps.
+name = LOFI
+lights = 6
+strength = 0.90
+idle = 0.30                    # soft glow in the quiet passages
+music_gain = 0.35
+level_gain = 0.80
+attack = 0.28                  # ~2/5 beat (0.71 s at 85 BPM)
+release = 2.80                 # ~4 beats, tape-like tail
+adapt_speed = 0.45
+beat_contrast = 0.70           # soft ghost notes count too
+size_a = 0.013
+size_b = 0.010
+halo_a = 0.150
+halo_b = 0.070
+core_gain = 1.60
+exposure = 1.20
+relief_min = 0.25              # only stronger ridges glow
+relief_full = 0.65
+speed_a = 0.08
+speed_b = -0.06
+travel_x = 0.35
+travel_y = 0.38
+theme_mix = 0.60
+color_r = 1.00
+color_g = 0.88
+color_b = 0.70
+peak_r = 1.00
+peak_g = 0.72
+peak_b = 0.45
+color_shift = 0.60             # warm amber drift as it rises
+bloom_gain = 1.50
+bloom_radius = 2.20            # wide, smeared halo

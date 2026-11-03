@@ -1,0 +1,35 @@
+# XENO/KOI table light preset - AMBIENT
+# Ambient / chillout: almost no beat to follow, so the table just breathes.
+# Four huge soft dots, very slow, very long release, gentle warm light.
+name = AMBIENT
+lights = 4
+strength = 0.85
+idle = 0.32                    # the table never goes fully dark
+music_gain = 0.20
+level_gain = 0.70
+attack = 0.50                  # no real beat (60-90 BPM) - free-running swell
+release = 3.50                 # swells in and out over seconds
+adapt_speed = 0.30
+beat_contrast = 0.50           # everything counts, nothing punches
+size_a = 0.016
+size_b = 0.013
+halo_a = 0.200
+halo_b = 0.090
+core_gain = 1.40
+exposure = 1.15
+relief_min = 0.30              # dark maps: only the strongest relief glows
+relief_full = 0.70
+speed_a = 0.05
+speed_b = -0.04
+travel_x = 0.30
+travel_y = 0.32
+theme_mix = 0.60
+color_r = 0.95
+color_g = 1.00
+color_b = 0.90
+peak_r = 0.75
+peak_g = 0.90
+peak_b = 1.00
+color_shift = 0.55             # faint cool shimmer on louder passages
+bloom_gain = 3.40
+bloom_radius = 0.60            # maximum smear
