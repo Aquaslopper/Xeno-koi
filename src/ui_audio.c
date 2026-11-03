@@ -364,7 +364,7 @@ int audio_set_music_folder(AudioAssets *a, const char *folder) {
     FilePathList files = {0};
     if (custom) {
         if (!DirectoryExists(folder)) return -1;
-        files = LoadDirectoryFilesEx(folder, ".mp3;.ogg;.wav", false);
+        files = LoadDirectoryFilesEx(folder, ".mp3;.ogg;.wav", true);
         if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_music_paths);
     }
     unsigned int limit = custom ? files.count : 11;
