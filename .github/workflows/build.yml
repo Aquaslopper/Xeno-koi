@@ -42,6 +42,8 @@ jobs:
             -lopengl32 -lgdi32 -lwinmm -static -mwindows \
             -o dist/KoiKoi.exe
           cp -rf assets/* dist/assets/
+          # Player-editable table-light presets sit next to the exe, like build.sh win.
+          cp -rf presets dist/presets/
           [ -f settings.txt ] && cp settings.txt dist/ || true
 
       - name: Package Release ZIP
