@@ -22,9 +22,8 @@ extern Font font_body;
 /* One button, three mutually exclusive states. There is no separate "repeat
    the folder" mode: OFF already plays the tracks in order and wraps at the end. */
 enum { MP_MODE_OFF = 0, MP_MODE_RANDOM, MP_MODE_ONE };
-
-static const char *const k_mode_notes[3] = {
-    "TRACKS IN ORDER", "RANDOM TRACK", "REPEAT ONE TRACK"
+static const char *const k_mode_names[3] = {
+    "MODE: OFF", "MODE: RANDOM", "MODE: LOOP 1"
 };
 
 #define MP_BROWSE_INDEX 1 /* folder-view chip that opens the native dialog */
