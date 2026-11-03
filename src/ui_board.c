@@ -1037,7 +1037,7 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     int live_table = (s_bezel_phase_stamp >= 0.0f && fabsf(t - s_bezel_phase_stamp) < 0.25f);
     float p0 = live_table ? s_bezel_phase_acc[0] : (t * 0.52f);
     float p1 = live_table ? s_bezel_phase_acc[1] : (-t * 0.37f);
-    float seed = dest.x * 0.019f + dest.y * 0.013f;
+    float seed = t * 0.52f;
     float phase[4] = {
         p0 + seed,
         p1 + seed * 2.3f,
