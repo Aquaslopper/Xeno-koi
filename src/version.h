@@ -8,7 +8,7 @@
    A CI job that already knows the tag can override it:
        -DXENO_KOI_VERSION='"V26"' */
 #ifndef XENO_KOI_VERSION
-#define XENO_KOI_VERSION "V26"
+#define XENO_KOI_VERSION "V27"
 #endif
 
 #endif
