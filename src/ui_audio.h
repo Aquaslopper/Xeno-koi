@@ -3,7 +3,7 @@
 
 #include "raylib.h"
 
-#define AUDIO_MAX_TRACKS 100
+#define AUDIO_MAX_TRACKS 1000
 
 typedef struct {
     Music music_menu;
