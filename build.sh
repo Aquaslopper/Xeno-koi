@@ -92,6 +92,9 @@ if [ "$1" = "win" ]; then
     mkdir -p dist/assets
     cp -rf assets/* dist/assets/
     cp -f assets/small_font.ttf dist/assets/small_font.ttf
+    # Shareable, player-editable table-light presets sit next to the exe.
+    mkdir -p dist/presets
+    cp -f presets/*.txt dist/presets/
     [ -f settings.txt ] && cp -f settings.txt dist/settings.txt || true
     exit 0
 fi

@@ -1,4 +1,5 @@
 #include "ui_table_glow.h"
+#include "ui_light_preset.h"
 #include "ui_theme.h"
 #include "storage.h"
 #include "rlgl.h"
@@ -8,36 +9,18 @@
 #include <math.h>
 #include <stdio.h>
 
-/* Independent table-only tuning. Shader relief/highlight constants are below. */
-#define TABLE_GLOW_LIGHT_COUNT 12 /* 1..16 independent, smoothly roaming lights */
-#define TABLE_GLOW_LIGHT_STRENGTH 1.12f
-#define TABLE_GLOW_SIZE_A 0.008f /* alternate the two tuned footprint sizes */
-#define TABLE_GLOW_SIZE_B 0.006f
-#define TABLE_GLOW_HALO_SIZE_A 0.09f
-#define TABLE_GLOW_HALO_SIZE_B 0.034f
-/* Normalized local relief: flat pixels emit no light. Raise to isolate ridges. */
-#define TABLE_GLOW_RELIEF_MIN 0.015f
-#define TABLE_GLOW_RELIEF_FULL 0.50f
+/* Independent table-only tuning. Every runtime number now comes from a shareable
+   preset: k_default in ui_light_preset.c holds exactly these factory values and
+   presets/default.txt explains each key. Only the fixed shader array size and the
+   quarter-resolution bloom buffers stay here. */
+#define TABLE_GLOW_LIGHT_COUNT 12 /* dots the shader can address; a preset uses 1..12 */
+#define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
+#define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
 #if TABLE_GLOW_LIGHT_COUNT < 1 || TABLE_GLOW_LIGHT_COUNT > 16
 #error TABLE_GLOW_LIGHT_COUNT must be between 1 and 16
 #endif
 #define GLOW_STRING_INNER(x) #x
 #define GLOW_STRING(x) GLOW_STRING_INNER(x)
-#define TABLE_GLOW_SPEED_A 0.33f
-#define TABLE_GLOW_SPEED_B -0.25f
-#define TABLE_GLOW_IDLE 0.21f
-#define TABLE_GLOW_THEME_MIX 0.60f /* 0 = white light, 1 = full terminal color */
-#define TABLE_GLOW_MUSIC_GAIN 0.59f
-#define TABLE_GLOW_LEVEL_GAIN 1.0f
-#define TABLE_GLOW_ATTACK 0.021f
-#define TABLE_GLOW_RELEASE 0.64f
-/* Table meter only: these never affect sound or the Action Card meter. */
-#define TABLE_GLOW_ADAPT_SPEED 1.08f /* >1 adapts faster, <1 more slowly; positive */
-#define TABLE_GLOW_BEAT_CONTRAST 1.3f /* 1 = linear; >1 suppresses weaker accents */
-#define TABLE_GLOW_BLOOM_GAIN 2.55f /* additive halo strength, 0 disables */
-#define TABLE_GLOW_BLOOM_RADIUS 1.1f /* blur spacing in quarter-resolution pixels */
-#define TABLE_GLOW_BLOOM_W (CANVAS_W / 4)
-#define TABLE_GLOW_BLOOM_H (CANVAS_H / 4)
 
 /* Brightness cutoff per named table, before theme tint and music strength.
    0..1: below cutoff stays unlit; the next 0.10 fades smoothly into light.
@@ -77,6 +60,9 @@ static void table_music_meter_processor(void *buffer, unsigned int frames) {
     static unsigned int last_ep = 0;
     unsigned int ep = __atomic_load_n(&s_music_meter_epoch, __ATOMIC_RELAXED);
     if (ep != last_ep) { fast_ms = 0.0f; lo_rms = 0.12f; hi_rms = 0.24f; last_ep = ep; }
+    /* Two preset knobs are published as lock-free atomics by the UI thread; the
+       callback reads nothing else from the preset. No allocations, no file I/O. */
+    float adapt = light_preset_adapt_speed(), contrast = light_preset_beat_contrast();
     for (unsigned int f = 0; f < frames; f++) {
         float l = pcm[f * 2 + 0], r = pcm[f * 2 + 1], p2 = 0.5f * (l * l + r * r);
         if (!(p2 >= 0.0f) || p2 > 4.0f) p2 = 0.0f;
@@ -85,7 +71,7 @@ static void table_music_meter_processor(void *buffer, unsigned int frames) {
     if (fast_ms < 1e-12f) fast_ms = 0.0f;
     float rms = sqrtf(fast_ms), c_sec = (float)frames / 44100.0f;
     /* Scale the loud/quiet reference tracking, not the visual attack/release. */
-    c_sec *= fmaxf(0.01f, TABLE_GLOW_ADAPT_SPEED);
+    c_sec *= fmaxf(0.01f, adapt);
     if (rms > hi_rms) hi_rms += (rms - hi_rms) * (1.0f - expf(-c_sec / 0.05f));
     else              hi_rms += (rms - hi_rms) * (1.0f - expf(-c_sec / 0.90f));
     if (rms < lo_rms) lo_rms += (rms - lo_rms) * (1.0f - expf(-c_sec / 0.06f));
@@ -93,7 +79,7 @@ static void table_music_meter_processor(void *buffer, unsigned int frames) {
     float gate = (hi_rms > 0.015f) ? fminf(1.0f, (hi_rms - 0.015f) / 0.075f) : 0.0f;
     float floor_r = lo_rms * 0.88f, span = fmaxf(0.025f, hi_rms - floor_r);
     float beat = fminf(1.0f, fmaxf(0.0f, (rms - floor_r) / span));
-    float norm = gate * (0.08f + 0.92f * powf(beat, fmaxf(0.01f, TABLE_GLOW_BEAT_CONTRAST)));
+    float norm = gate * (0.08f + 0.92f * powf(beat, fmaxf(0.01f, contrast)));
     __atomic_store_n(&s_music_meter_raw, (unsigned int)(norm * 1000000.0f), __ATOMIC_RELAXED);
 }
 
@@ -126,14 +112,18 @@ void table_glow_sync_music(AudioAssets *audio, int active, int paused,
         s_music_tap_attached = 1;
     }
     if (paused || dt <= 0.0f) return;
+    const LightPreset *p = light_preset_current();
     float target = audio->current_music == 2
         ? __atomic_load_n(&s_music_meter_raw, __ATOMIC_RELAXED) / 1000000.0f : 0.0f;
-    target = fminf(1.0f, target * TABLE_GLOW_LEVEL_GAIN) *
+    target = fminf(1.0f, target * p->level_gain) *
              fminf(1.0f, fmaxf(0.0f, 1.0f - transition_alpha));
-    float tau = target > s_level ? TABLE_GLOW_ATTACK : TABLE_GLOW_RELEASE;
+    float tau = target > s_level ? p->attack : p->release;
     s_level += (target - s_level) * (1.0f - expf(-fminf(dt, 0.1f) / tau));
 }
 
+/* u_phase.xy are spare: the preset sends core gain and exposure there, while
+   u_phase.zw stay the texel offsets of the relief sampler. Reusing them keeps
+   the WebGL1 uniform count exactly where it was. */
 #define TABLE_GLOW_BODY(TEX_FN, OUT_FRAG) \
     "float bval(vec3 v) { return 0.45 * dot(v, vec3(0.299, 0.587, 0.114)) + 0.55 * max(max(v.r, v.g), v.b); }\n" \
     "void main() {\n" \
@@ -169,10 +159,10 @@ void table_glow_sync_music(AudioAssets *audio, int active, int paused,
     "        core = max(core, exp(-d / size) * (0.30 + 0.70 * pow(nd, 4.5)));\n" \
     "        bloom = max(bloom, exp(-d / halo) * (0.35 + 0.65 * nd * nd));\n" \
     "    }\n" \
-    "    core *= mask * 2.50;\n" \
+    "    core *= mask * u_phase.x;\n" \
     "    bloom *= mask * (0.50 + 0.65 * str);\n" \
     "    float raw = (core + bloom * 0.60) * str;\n" \
-    "    float a = 0.88 * (1.0 - exp(-raw * 1.65));\n" \
+    "    float a = 0.88 * (1.0 - exp(-raw * u_phase.y));\n" \
     "    " OUT_FRAG " = vec4(fragColor.rgb, a);\n" \
     "}\n"
 
@@ -232,7 +222,8 @@ static const char *const k_blur_fs = BLOOM_INTERFACE
 #undef BLOOM_INTERFACE
 
 static void table_glow_bloom(Texture2D overlay, Color tint) {
-    if (TABLE_GLOW_BLOOM_GAIN <= 0.0f || s_blur_step_loc < 0 || s_blur_gain_loc < 0 ||
+    const LightPreset *p = light_preset_current();
+    if (p->bloom_gain <= 0.0f || s_blur_step_loc < 0 || s_blur_gain_loc < 0 ||
         s_bloom[0].id == 0 || s_bloom[1].id == 0) return;
     /* The board is already inside its 1280x720 canvas. Raylib's texture modes
        do not nest automatically: explicitly restore that framebuffer afterwards. */
@@ -259,8 +250,8 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
         int source = pass == 0 ? 0 : 1, dest = 1 - source;
         BeginTextureMode(s_bloom[dest]);
         ClearBackground(BLACK);
-        float step[2] = {pass == 0 ? TABLE_GLOW_BLOOM_RADIUS / TABLE_GLOW_BLOOM_W : 0,
-                         pass == 1 ? TABLE_GLOW_BLOOM_RADIUS / TABLE_GLOW_BLOOM_H : 0};
+        float step[2] = {pass == 0 ? p->bloom_radius / TABLE_GLOW_BLOOM_W : 0,
+                         pass == 1 ? p->bloom_radius / TABLE_GLOW_BLOOM_H : 0};
         SetShaderValue(s_blur_shader, s_blur_step_loc, step, SHADER_UNIFORM_VEC2);
         BeginShaderMode(s_blur_shader);
         DrawTextureRec(s_bloom[source].texture,
@@ -278,7 +269,7 @@ static void table_glow_bloom(Texture2D overlay, Color tint) {
     }
     /* Gain is a float in the compositor, not an overflowing 8-bit alpha.
        A zero blur step makes this an identity sample with the requested gain. */
-    float zero_step[2] = {0, 0}, gain = fmaxf(0.0f, TABLE_GLOW_BLOOM_GAIN);
+    float zero_step[2] = {0, 0}, gain = fmaxf(0.0f, p->bloom_gain);
     SetShaderValue(s_blur_shader, s_blur_step_loc, zero_step, SHADER_UNIFORM_VEC2);
     SetShaderValue(s_blur_shader, s_blur_gain_loc, &gain, SHADER_UNIFORM_FLOAT);
     BeginBlendMode(BLEND_ADDITIVE);
@@ -325,22 +316,29 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
     SetShaderValue(s_shader, s_cutoff_loc, &k_table_dark_cutoff[table_design],
                    SHADER_UNIFORM_FLOAT);
     (void)dt; /* Visual motion follows elapsed time, not gameplay/frame-delta gates. */
+    const LightPreset *p = light_preset_current();
     /* Compute paths on CPU in double precision: no random jumps or shader-clock
-       precision loss. Different frequencies/phases keep panels from moving in sync. */
+       precision loss. Different frequencies/phases keep panels from moving in sync.
+       Inactive dots are parked far outside the texture, so a preset can use
+       fewer than 12 lights without recompiling the shader. */
     double now = GetTime();
     if (s_light_started < 0.0) s_light_started = now;
     double elapsed = fmax(0.0, now - s_light_started);
     float positions[TABLE_GLOW_LIGHT_COUNT][2];
     for (int i = 0; i < TABLE_GLOW_LIGHT_COUNT; ++i) {
+        if (i >= p->lights) {
+            positions[i][0] = positions[i][1] = -10.0f;
+            continue;
+        }
         double seed = i * 2.399963229728653;
-        double x = elapsed * TABLE_GLOW_SPEED_A * (1.0 + i * 0.137) + seed;
-        double y = elapsed * TABLE_GLOW_SPEED_B * (1.0 + i * 0.173) + seed * 1.71;
-        positions[i][0] = (float)(0.5 + 0.44 * sin(x));
-        positions[i][1] = (float)(0.5 + 0.50 * sin(y));
+        double x = elapsed * p->speed_a * (1.0 + i * 0.137) + seed;
+        double y = elapsed * p->speed_b * (1.0 + i * 0.173) + seed * 1.71;
+        positions[i][0] = (float)(0.5 + p->travel_x * sin(x));
+        positions[i][1] = (float)(0.5 + p->travel_y * sin(y));
     }
-    float phase[4] = {0, 0, 1.45f / overlay.width, 1.45f / overlay.height};
-    float shape[4] = {TABLE_GLOW_SIZE_A, TABLE_GLOW_SIZE_B,
-                      TABLE_GLOW_HALO_SIZE_A, TABLE_GLOW_HALO_SIZE_B};
+    float phase[4] = {p->core_gain, p->exposure,
+                      1.45f / overlay.width, 1.45f / overlay.height};
+    float shape[4] = {p->size_a, p->size_b, p->halo_a, p->halo_b};
     SetShaderValue(s_shader, s_phase_loc, phase, SHADER_UNIFORM_VEC4);
     /* Explicit element locations avoid relying on array-base lookup/upload behavior
        across desktop GL and WebGL. Every light is updated on every draw. */
@@ -348,17 +346,27 @@ void table_glow_draw(Texture2D overlay, float dt, int table_design) {
         if (s_light_locs[i] >= 0)
             SetShaderValue(s_shader, s_light_locs[i], positions[i], SHADER_UNIFORM_VEC2);
     SetShaderValue(s_shader, s_shape_loc, shape, SHADER_UNIFORM_VEC4);
-    float relief[2] = {fmaxf(0.0f, TABLE_GLOW_RELIEF_MIN),
-                      fmaxf(TABLE_GLOW_RELIEF_MIN + 0.0001f, TABLE_GLOW_RELIEF_FULL)};
+    float relief[2] = {fmaxf(0.0f, p->relief_min),
+                      fmaxf(p->relief_min + 0.0001f, p->relief_full)};
     SetShaderValue(s_shader, s_relief_loc, relief, SHADER_UNIFORM_VEC2);
     /* Max-combine footprints in the shader, rather than adding ten light washes. */
-    float strength = fminf(1.0f, fmaxf(0.0f,
-        (TABLE_GLOW_IDLE + TABLE_GLOW_MUSIC_GAIN * s_level) * TABLE_GLOW_LIGHT_STRENGTH));
+    float strength = fminf(1.0f, fmaxf(0.0f, (p->idle + p->music_gain * s_level) * p->strength));
+    /* The terminal colour is the factory tint; a preset can recolour the base
+       light and gently drift it toward peak_r/g/b as the music level rises. */
     Color theme = COLOR_PHOSPHOR;
+    float shift = fminf(1.0f, fmaxf(0.0f, p->color_shift * s_level));
+    float tint_rgb[3] = {
+        255.0f + (theme.r - 255.0f) * p->theme_mix,
+        255.0f + (theme.g - 255.0f) * p->theme_mix,
+        255.0f + (theme.b - 255.0f) * p->theme_mix
+    };
     Color tint = {
-        (unsigned char)(255.0f + (theme.r - 255.0f) * TABLE_GLOW_THEME_MIX),
-        (unsigned char)(255.0f + (theme.g - 255.0f) * TABLE_GLOW_THEME_MIX),
-        (unsigned char)(255.0f + (theme.b - 255.0f) * TABLE_GLOW_THEME_MIX),
+        (unsigned char)fminf(255.0f, fmaxf(0.0f,
+            tint_rgb[0] * (p->color_r + (p->peak_r - p->color_r) * shift))),
+        (unsigned char)fminf(255.0f, fmaxf(0.0f,
+            tint_rgb[1] * (p->color_g + (p->peak_g - p->color_g) * shift))),
+        (unsigned char)fminf(255.0f, fmaxf(0.0f,
+            tint_rgb[2] * (p->color_b + (p->peak_b - p->color_b) * shift))),
         (unsigned char)(255 * strength)
     };
     table_glow_bloom(overlay, tint);
