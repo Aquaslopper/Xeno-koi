@@ -38,7 +38,7 @@ static AudioAssets  *s_audio;
 static int s_open;
 static int s_effect_test = -1;       /* -1 idle, 0 dry A/B, 1 effect on (Options test) */
 static int s_stopped;                /* STOP: no auto playback until PLAY / a match */
-static int s_mode = MP_MODE_OFF;     /* the single three-state track-mode button */
+static int s_mode = MP_MODE_RANDOM;     /* the single three-state track-mode button */
 static int s_pinned = 1;             /* 1-based track that starts the next match */
 static int s_folder_view;
 static const char *s_message;
@@ -141,7 +141,7 @@ static void refresh_names(void) {
         return;
     }
 #ifndef __EMSCRIPTEN__
-    FilePathList files = LoadDirectoryFilesEx(s_settings->music_folder, ".mp3;.ogg;.wav", false);
+    FilePathList files = LoadDirectoryFilesEx(s_settings->music_folder, ".mp3;.ogg;.wav", true);
     if (files.count > 1) qsort(files.paths, files.count, sizeof(*files.paths), compare_paths);
     for (unsigned int i = 0; i < files.count && s_name_count < MP_MAX_NAMES; i++)
         add_name(base_name(files.paths[i]));

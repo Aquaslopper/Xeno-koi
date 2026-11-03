@@ -1037,7 +1037,7 @@ static void board_draw_table_bezel_shine(Rectangle dest, float pulse_alpha) {
     int live_table = (s_bezel_phase_stamp >= 0.0f && fabsf(t - s_bezel_phase_stamp) < 0.25f);
     float p0 = live_table ? s_bezel_phase_acc[0] : (t * 0.52f);
     float p1 = live_table ? s_bezel_phase_acc[1] : (-t * 0.37f);
-    float seed = dest.x * 0.019f + dest.y * 0.013f;
+    float seed = t * 0.52f;
     float phase[4] = {
         p0 + seed,
         p1 + seed * 2.3f,
@@ -1378,7 +1378,7 @@ void board_draw_table(const BoardAssets *ba, const GameState *g, const AnimState
         if (!board_is_blind_field_card(fcid)) field_month_mask |= (uint16_t)(1u << CARDS[fcid].month);
     }
     int drag_m = (dragging_idx >= 0 && dragging_idx < g->hand_count[0]) ? CARDS[g->hand[0][dragging_idx]].month : -1;
-    float pulse = 0.12f + 0.28f * (0.5f + 0.5f * sinf(cur_time * 4.0f));
+    float pulse = 0.38f + 0.51f * (0.5f + 0.5f * sinf(cur_time * 4.0f));
 
     for (int s = 0; s < TABLE_TOTAL_SLOTS; s++) {
         int cid = s_slot_card[s];

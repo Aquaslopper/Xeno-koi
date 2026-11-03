@@ -7,27 +7,27 @@
 name = JAZZ
 
 # --- how many dots and how bright they are ---
-lights = 8                     # fewer dots, calmer table
+lights = 12                    
 strength = 0.95
-idle = 0.28                    # a soft glow even in the quiet passages
-music_gain = 0.38              # the meter only nudges the brightness up
-level_gain = 0.85
+idle = 0.24                    # a soft glow even in the quiet passages
+music_gain = 0.75              # the meter only nudges the brightness up
+level_gain = 1.00
 
 # --- the peak meter: long attack, long release = a rising bloom ---
 attack = 0.16                  # eases in with the phrase
-release = 1.40                 # lingers after the note
+release = 0.80                 # lingers after the note
 adapt_speed = 0.60             # slow references, no twitching
 beat_contrast = 0.85           # lets soft accents through
 
 # --- footprint: wide soft cores and halos ---
 size_a = 0.011
 size_b = 0.009
-halo_a = 0.130
+halo_a = 0.030
 halo_b = 0.060
 core_gain = 1.90               # no hard flash
 exposure = 1.25
-relief_min = 0.020             # only the stronger ridges glow
-relief_full = 0.60
+relief_min = 0.015             
+
 
 # --- roaming motion: slow, small orbit ---
 speed_a = 0.12
@@ -36,14 +36,8 @@ travel_x = 0.40
 travel_y = 0.44
 
 # --- colour: warm base drifting toward cool blue as the music rises ---
-theme_mix = 0.45
-color_r = 1.00
-color_g = 0.82
-color_b = 0.62
-peak_r = 0.55
-peak_g = 0.75
-peak_b = 1.00
-color_shift = 0.75             # gentle colour drift, not a strobe
+theme_mix = 0.65
+
 
 # --- additive bloom ---
 bloom_gain = 1.70
