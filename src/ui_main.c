@@ -18,6 +18,8 @@
 #include "ui_anim.h"
 #include "ui_motion.h"
 #include "ui_audio.h"
+#include "ui_music_panel.h"
+#include "ui_light_preset.h"
 #include "ui_screens.h"
 #include "ui_hub.h"
 #include "ui_plexus.h"
@@ -456,6 +458,10 @@ static void play_match_capture_sfx(void) {
 }
 
 static int pick_match_track(int next) {
+    /* RANDOM off: the track pinned in the MUSIC panel starts the match. RANDOM on
+       returns 0 here, so the existing random picker below chooses instead. */
+    int pinned = music_panel_match_track(&audio);
+    if (pinned > 0) return pinned;
     int n = (audio.game_track_count > 0) ? audio.game_track_count : 1;
     if (next && n > 1 && audio.current_game_track >= 0)
         return ((audio.current_game_track + 1 + (rand() % (n - 1))) % n) + 1;
@@ -790,6 +796,7 @@ static void handle_campaign_overlay_click(Vector2 vm) {
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         CheckCollisionPointRec(vm, (Rectangle){ 365, 570, 175, 48 })) return;
     int cres = campaign_handle_click(&settings, &settings.current_opponent, vm);
+    if (cres == -1 || cres == 1) music_panel_close();
     if (cres == -1) {
         audio_play_click(&audio);
         if (CheckCollisionPointRec(vm, (Rectangle){ 1145, 48, 32, 28 }))
@@ -989,13 +996,21 @@ static void update_draw_frame(void) {
     audio_set_bgm_volume(&audio, settings.bgm_volume * (1.0f - transition_alpha));
     audio_update(&audio);
     int in_game = (screen == SCREEN_GAME);
-    int audio_test = screen == SCREEN_OPTIONS ? screens_audio_test_state() : -1;
+    music_panel_sync(screen == SCREEN_START || screen == SCREEN_HUB_CAMPAIGN || screen == SCREEN_ATRIUM);
+    int audio_test = (screen == SCREEN_OPTIONS) ? screens_audio_test_state() : music_panel_effect_test();
     if (audio_test >= 0) {
         audio_preview_effect(&audio, audio_test);
+    } else if (music_panel_music_stopped() && !in_game) {
+        if (!in_game) audio_set_reverb(0.0f);
     } else {
         if (!in_game) audio_set_reverb(0.0f);
         if (audio.current_music != 2) audio_start_match_music(&audio, (in_game && transition_track > 0) ? transition_track : pick_match_track(0));
-        else if (audio_is_match_music_finished(&audio)) audio_start_match_music(&audio, pick_match_track(1));
+        else if (audio_is_match_music_finished(&audio)) {
+            int nt = music_panel_next_track(&audio, pick_match_track(1));
+            /* OFF wraps to track 1, RANDOM picks a fresh track, LOOP 1 repeats;
+               only STOP can leave the folder silent outside a match. */
+            if (nt > 0) audio_start_match_music(&audio, nt);
+        }
     }
     int ac_table = in_game && plexus_action_card_is_active();
     int ac_paused = is_paused || plexus_tutorial_panel_open();
@@ -2177,6 +2192,8 @@ int main(int argc, char **argv) {
     srand((unsigned int)time(NULL) ^ seed);
     theme_set(settings.terminal_color);
     audio_init(&audio, settings.bgm_volume, settings.sfx_volume);
+    music_panel_bind(&settings, &audio);
+    light_preset_init();
     init_banner_sfx();
     init_card_slam_sfx();
     audio_set_effects(settings.effect_chorus, settings.effect_bass, settings.effect_reverb);

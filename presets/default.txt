@@ -1,0 +1,49 @@
+# XENO/KOI table light preset - DEFAULT
+# The untouched shipped look. Copy this file to make your own preset; every
+# key below is optional and the range in brackets is the hard clamp.
+# Edit, save, then click the preset name in the MUSIC panel to reload.
+
+name = DEFAULT                 # [text, 31 chars] label shown in the PRESETS row
+
+# --- how many dots and how bright they are ---
+lights = 12                    # [1..12] active roaming dots; fewer = calmer table
+strength = 1.12                # [0..4] overall brightness of every dot
+idle = 0.21                    # [0..1] brightness when there is no music
+music_gain = 0.59              # [0..2] how strongly the peak meter raises brightness
+level_gain = 1.00              # [0..4] sensitivity of that meter
+
+# --- the peak meter (read-only tap on the match music stream) ---
+attack = 0.021                 # [0.001..1] seconds to brighten on a hit; small = snappy
+release = 0.64                 # [0.01..5] seconds to fade; large = smooth and floaty
+adapt_speed = 1.08             # [0.01..5] how fast the loud/quiet references adapt
+beat_contrast = 1.30           # [0.1..5] >1 ignores weak accents, <1 lets them through
+
+# --- footprint of the dots (even/odd dots alternate sizes) ---
+size_a = 0.008                 # [0.001..0.05] tight core radius of even dots
+size_b = 0.006                 # [0.001..0.05] tight core radius of odd dots
+halo_a = 0.090                 # [0.005..0.30] wide halo radius of even dots
+halo_b = 0.034                 # [0.005..0.30] wide halo radius of odd dots
+core_gain = 2.50               # [0..8] punch of the hard highlight
+exposure = 1.65                # [0.1..6] highlight exposure curve
+relief_min = 0.015             # [0..0.9] relief edge where light starts to appear
+relief_full = 0.50             # [0..1] relief edge where the light is full strength
+
+# --- roaming motion (pure elapsed time, not beat driven) ---
+speed_a = 0.33                 # [-3..3] horizontal drift speed
+speed_b = -0.25                # [-3..3] vertical drift speed
+travel_x = 0.44                # [0..0.9] horizontal path width
+travel_y = 0.50                # [0..0.9] vertical path width
+
+# --- colour ---
+theme_mix = 0.60               # [0..1] 0 = pure white dots, 1 = full terminal colour
+color_r = 1.00                 # [0..1] base tint, red
+color_g = 1.00                 # [0..1] base tint, green
+color_b = 1.00                 # [0..1] base tint, blue
+peak_r = 1.00                  # [0..1] red the dot drifts toward as music rises
+peak_g = 1.00                  # [0..1] green the dot drifts toward as music rises
+peak_b = 1.00                  # [0..1] blue the dot drifts toward as music rises
+color_shift = 0.00             # [0..1] how strongly music blends base -> peak colour
+
+# --- additive quarter-resolution bloom ---
+bloom_gain = 2.55              # [0..8] halo strength; 0 switches the bloom off
+bloom_radius = 1.10            # [0..6] blur spread in quarter-resolution pixels

@@ -6,6 +6,7 @@
 #include "ui_speed.h"
 #include "ui_action.h"
 #include "ui_theme.h"
+#include "ui_music_panel.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -318,24 +319,24 @@ static const Rectangle k_hiscore_rect  = { 516.0f, 302.0f, 160.0f,  48.0f };
 static const Rectangle k_settings_rect = { 706.0f, 302.0f, 160.0f,  48.0f };
 static const Rectangle k_start_rect    = { 896.0f, 302.0f, 160.0f,  48.0f };
 static const Rectangle k_mode_cfg_rect = { 516.0f, 362.0f, 540.0f, 266.0f };
-/* Six identical buttons on a 26 px gutter, centred as one block: the old row ran
-   156/152/170/170/170/196 wide, so OPTION was 44 px fatter than LOGFILE for no
-   reason but label length, and the row read as six different controls. 158 px is
-   the widest label ("ACTION CARD", 137.6 px at 16 pt) plus 10 px of air, and 44 px
-   of height keeps them lighter than the 48 px action row above. */
-#define PLEXUS_BOTTOM_W 158.0f
+/* Seven identical buttons, centred as one block. The MUSIC button joins the row
+   because music is global to the Plex, not a per-mode setting. 142 px still fits
+   the widest label ("ACTION CARD", ~129 px at 15 pt) and keeps the row inside the
+   same 101 px margins; 44 px of height stays lighter than the 48 px action row. */
+#define PLEXUS_BOTTOM_W 142.0f
 #define PLEXUS_BOTTOM_H  44.0f
-#define PLEXUS_BOTTOM_GAP 26.0f
-static const Rectangle k_bottom_rects[6] = {
+#define PLEXUS_BOTTOM_GAP 14.0f
+static const Rectangle k_bottom_rects[7] = {
     { 101.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* SAVE & BACK */
-    { 285.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* LOGFILE */
-    { 469.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* SPEEDCOIN */
-    { 653.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* ACTION CARD */
-    { 837.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* TRAINING */
-    {1021.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }  /* OPTION */
+    { 257.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* LOGFILE */
+    { 413.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* SPEEDCOIN */
+    { 569.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* ACTION CARD */
+    { 725.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* TRAINING */
+    { 881.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }, /* OPTION */
+    {1037.0f, 648.0f, PLEXUS_BOTTOM_W, PLEXUS_BOTTOM_H }  /* MUSIC */
 };
-static const char * const k_bottom_labels[6] = {
-    "SAVE & BACK", "LOGFILE", "SPEEDCOIN", "ACTION CARD", "TRAINING", "OPTION"
+static const char * const k_bottom_labels[7] = {
+    "SAVE & BACK", "LOGFILE", "SPEEDCOIN", "ACTION CARD", "TRAINING", "OPTION", "MUSIC"
 };
 
 /* Full-Panel 4-Tab Logfile Window geometry ({ 236, 22, 756, 602 }) */
@@ -1179,6 +1180,11 @@ Rectangle plexus_get_option_btn_rect(void) {
 }
 
 int plexus_close_subpanel(void) {
+    /* ESC closes the global music panel before any Plex-specific drawer. */
+    if (music_panel_is_open()) {
+        music_panel_close();
+        return 1;
+    }
     /* ESC during the D-badge tour skips it. Same end state as the last click. */
     if (!s_badge_seen) {
         s_badge_seen = 1;
@@ -3082,7 +3088,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
         char sc_line3[96];
         int hover_bottom = -1;
         if (s_intro_seen && s_badge_seen && !s_hiscore_open) {
-            for (int bi = 0; bi < 6; bi++) {
+            for (int bi = 0; bi < 7; bi++) {
                 if (CheckCollisionPointRec(vm, k_bottom_rects[bi])) {
                     hover_bottom = bi;
                     break;
@@ -3129,6 +3135,12 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             line1 = "Adjusts master, music, SFX, and DSP effect levels.";
             line2 = "Switches terminal phosphor palettes and CRT/bloom.";
             line3 = "Changes apply immediately across the Plex and table.";
+        } else if (hover_bottom == 6) {
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  MUSIC");
+            snprintf(sub, sizeof(sub), "MATCH TRACK  //  GLOBAL PLAYLIST");
+            line1 = "Steps through the tracks and picks a music folder.";
+            line2 = "Tests the reverb effect, plays or stops the track.";
+            line3 = "RANDOM / LOOP / LOOP 1 choose what plays next.";
         } else if (s_active_tab == 0) {
             const char *deus_p = is_deus_spine_active() ? "DEUS // " : "";
             if (s_selected_month == 0) {
@@ -3323,15 +3335,19 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
         }
     }
 
-    /* 4. Bottom Bar: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION */
-    for (int i = 0; i < 6; i++) {
+    /* 4. Bottom Bar: SAVE & BACK, LOGFILE, SPEEDCOIN, ACTION CARD, TRAINING, OPTION, MUSIC */
+    for (int i = 0; i < 7; i++) {
         if (!is_bottom_btn_unlocked(i)) {
-            draw_plexus_locked_btn(k_bottom_rects[i], k_bottom_labels[i], 16);
+            draw_plexus_locked_btn(k_bottom_rects[i], k_bottom_labels[i], 15);
         } else {
-            int active = (i >= 1 && i <= 4 && s_active_tab == i);
-            draw_plexus_btn(k_bottom_rects[i], k_bottom_labels[i], 16, vm, active);
+            int active = (i >= 1 && i <= 4 && s_active_tab == i) ||
+                         (i == 6 && music_panel_is_open());
+            draw_plexus_btn(k_bottom_rects[i], k_bottom_labels[i], 15, vm, active);
         }
     }
+    /* The shared music panel takes the Plex stage panel's rectangle; it is drawn
+       last so it sits above the briefing and START row while it is open. */
+    music_panel_draw(k_mode_cfg_rect, vm);
 }
 
 void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
@@ -3485,6 +3501,14 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
                 plexus_save();
             }
         }
+        if (out_clicked) *out_clicked = 1;
+        return ACT_NONE;
+    }
+
+    /* Global music panel: a click inside drives the panel, any other click closes
+       it. It is modal so a click cannot also hit the START row underneath. */
+    if (music_panel_is_open()) {
+        if (!music_panel_handle_click(k_mode_cfg_rect, vm)) music_panel_close();
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
@@ -3776,19 +3800,32 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
     }
-    /* Bottom Bar: index 0 is SAVE & BACK, 1..4 are tabs, 5 is OPTION */
+    /* Bottom Bar: index 0 is SAVE & BACK, 1..4 are tabs, 5 is OPTION, 6 is MUSIC */
     if (CheckCollisionPointRec(vm, k_bottom_rects[0])) {
         s_mode_settings_open = 0;
         s_mode_settings_page = 0;
+        music_panel_close();
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_MENU;
     }
     if (CheckCollisionPointRec(vm, k_bottom_rects[5])) {
         s_mode_settings_open = 0;
         s_mode_settings_page = 0;
+        music_panel_close();
         plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_GOTO_OPTIONS;
+    }
+    if (CheckCollisionPointRec(vm, k_bottom_rects[6])) {
+        music_panel_toggle();
+        if (music_panel_is_open()) {
+            s_mode_settings_open = 0;
+            s_mode_settings_page = 0;
+            s_hiscore_open = 0;
+            if (s_active_tab == 1) { s_active_tab = 0; sync_plex_tab_theme(); }
+        }
+        if (out_clicked) *out_clicked = 1;
+        return ACT_NONE;
     }
     for (int i = 1; i < 5; i++) {
         if (CheckCollisionPointRec(vm, k_bottom_rects[i])) {

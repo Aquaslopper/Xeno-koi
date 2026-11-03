@@ -39,9 +39,11 @@ jobs:
           x86_64-w64-mingw32-gcc -std=c99 -O2 src/*.c \
             -Iraylib_win/include \
             raylib_win/lib/libraylib.a \
-            -lopengl32 -lgdi32 -lwinmm -static -mwindows \
+            -lopengl32 -lgdi32 -lwinmm -lole32 -lshell32 -luser32 -static -mwindows \
             -o dist/KoiKoi.exe
           cp -rf assets/* dist/assets/
+          # Player-editable table-light presets sit next to the exe, like build.sh win.
+          cp -rf presets dist/presets/
           [ -f settings.txt ] && cp settings.txt dist/ || true
 
       - name: Package Release ZIP

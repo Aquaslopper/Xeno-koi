@@ -2,6 +2,7 @@
 #include "cards.h"
 #include "storage.h"
 #include "ui_theme.h"
+#include "ui_music_panel.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,7 +29,8 @@ static int draw_btn_custom(Rectangle r, const char *txt, int fsz, Vector2 vm, Co
 typedef enum {
     CAMPAIGN_PAGE_OPPONENT = 0,
     CAMPAIGN_PAGE_DIFFICULTY,
-    CAMPAIGN_PAGE_STAGE
+    CAMPAIGN_PAGE_STAGE,
+    CAMPAIGN_PAGE_MUSIC
 } CampaignSetupPage;
 
 static CampaignSetupPage s_campaign_page = CAMPAIGN_PAGE_OPPONENT;
@@ -52,6 +54,11 @@ static const char *const k_campaign_background_names[8] = {
 
 static Rectangle campaign_page_button(int page) {
     return (Rectangle){ 365.0f, 245.0f + page * 66.0f, 175.0f, 52.0f };
+}
+
+/* The right-hand frame shared by the three setup views and the MUSIC panel. */
+static Rectangle campaign_info_rect(void) {
+    return (Rectangle){ 560.0f, 245.0f, 565.0f, 300.0f };
 }
 
 static Rectangle campaign_map_card(int map) {
@@ -348,34 +355,40 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
     DrawTexturePro(ba->atlas, portrait_src, portrait, (Vector2){ 0, 0 }, 0.0f,
                    (selected_opponent < unlocked_opponents) ? WHITE : (Color){ 30, 30, 30, 255 });
 
-    for (int page = 0; page < 3; page++) {
+    for (int page = 0; page < 4; page++) {
         Rectangle r = campaign_page_button(page);
         int active = s_campaign_page == (CampaignSetupPage)page;
         draw_btn_custom(r, page == CAMPAIGN_PAGE_OPPONENT ? "OPPONENT" :
-                           page == CAMPAIGN_PAGE_DIFFICULTY ? "DIFFICULTY" : "STAGE",
+                           page == CAMPAIGN_PAGE_DIFFICULTY ? "DIFFICULTY" :
+                           page == CAMPAIGN_PAGE_STAGE ? "STAGE" : "MUSIC",
                         17, vm, active ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
         if (active) DrawRectangleLinesEx(r, 2.0f, COLOR_PHOSPHOR);
     }
 
-    Rectangle info = { 560.0f, 245.0f, 565.0f, 300.0f };
-    DrawRectangleRec(info, COLOR_PANEL_BG);
-    ui_draw_panel_border(info, COLOR_PHOSPHOR_DIM);
+    Rectangle info = campaign_info_rect();
     int unlocked = selected_opponent < unlocked_opponents;
-    if (s_campaign_page == CAMPAIGN_PAGE_OPPONENT) {
-        if (unlocked) campaign_draw_opponent_page(ba, settings, campaign_get_opponent(selected_opponent), selected_opponent);
-        else {
-            static const int req_b[12] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
-            static const int req_s[12] = { 0,0,0,0,1,2,3,6,7,8,9,10 };
-            static const int req_g[12] = { 0,0,0,0,0,0,0,1,2,4,6,9 };
-            DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 580.0f, 260.0f }, 23.0f, 1.2f, COLOR_RED);
-            DrawTextEx(font_body, TextFormat("REQUIRES: %d BRONZE / %d SILVER / %d GOLD",
-                       req_b[selected_opponent], req_s[selected_opponent], req_g[selected_opponent]),
-                       (Vector2){ 580.0f, 304.0f }, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
-        }
-    } else if (s_campaign_page == CAMPAIGN_PAGE_DIFFICULTY) {
-        campaign_draw_difficulty_page(vm, settings, difficulty_selected);
+    if (s_campaign_page == CAMPAIGN_PAGE_MUSIC) {
+        /* The shared panel draws its own frame, identical to the one below. */
+        music_panel_draw(info, vm);
     } else {
-        campaign_draw_stage_page(ba, settings, vm, unlocked);
+        DrawRectangleRec(info, COLOR_PANEL_BG);
+        ui_draw_panel_border(info, COLOR_PHOSPHOR_DIM);
+        if (s_campaign_page == CAMPAIGN_PAGE_OPPONENT) {
+            if (unlocked) campaign_draw_opponent_page(ba, settings, campaign_get_opponent(selected_opponent), selected_opponent);
+            else {
+                static const int req_b[12] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
+                static const int req_s[12] = { 0,0,0,0,1,2,3,6,7,8,9,10 };
+                static const int req_g[12] = { 0,0,0,0,0,0,0,1,2,4,6,9 };
+                DrawTextEx(font_title, "[ LOCKED SECTOR ]", (Vector2){ 580.0f, 260.0f }, 23.0f, 1.2f, COLOR_RED);
+                DrawTextEx(font_body, TextFormat("REQUIRES: %d BRONZE / %d SILVER / %d GOLD",
+                           req_b[selected_opponent], req_s[selected_opponent], req_g[selected_opponent]),
+                           (Vector2){ 580.0f, 304.0f }, 16.0f, 1.0f, COLOR_TEXT_INFO_DIM);
+            }
+        } else if (s_campaign_page == CAMPAIGN_PAGE_DIFFICULTY) {
+            campaign_draw_difficulty_page(vm, settings, difficulty_selected);
+        } else {
+            campaign_draw_stage_page(ba, settings, vm, unlocked);
+        }
     }
 
     Rectangle start = { 365.0f, 570.0f, 175.0f, 48.0f };
@@ -392,6 +405,7 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
     if (CheckCollisionPointRec(vm, (Rectangle){ 1145, 48, 32, 28 }) ||
         CheckCollisionPointRec(vm, (Rectangle){ 720.0f, 570.0f, 180.0f, 48.0f })) {
         s_campaign_page = CAMPAIGN_PAGE_OPPONENT;
+        music_panel_close();
         return -1;
     }
 
@@ -417,12 +431,18 @@ int campaign_handle_click(GameSettings *settings, int *out_selected, Vector2 vm)
         }
     }
 
-    /* The three setup selectors reuse the Atrium's one-panel-at-a-time pattern. */
-    for (int page = 0; page < 3; page++) {
+    /* The four setup selectors reuse the Atrium's one-panel-at-a-time pattern. */
+    for (int page = 0; page < 4; page++) {
         if (CheckCollisionPointRec(vm, campaign_page_button(page))) {
             s_campaign_page = (CampaignSetupPage)page;
+            if (page == CAMPAIGN_PAGE_MUSIC) music_panel_open();
+            else music_panel_close();
             return 2;
         }
+    }
+
+    if (s_campaign_page == CAMPAIGN_PAGE_MUSIC) {
+        return music_panel_handle_click(campaign_info_rect(), vm) ? 2 : 0;
     }
 
     if (*out_selected < unlocked_opponents && s_campaign_page == CAMPAIGN_PAGE_DIFFICULTY) {

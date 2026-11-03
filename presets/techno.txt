@@ -1,0 +1,50 @@
+# XENO/KOI table light preset - TECHNO
+# For speedcore, hardcore, four-on-the-floor kicks: tiny dots that snap on the
+# beat and die instantly, fast roaming, high bloom. Defaults are kept here too
+# so you can see the whole picture; presets/default.txt explains every key.
+# Edit, save, then click the preset name in the MUSIC panel to reload.
+
+name = TECHNO
+
+# --- how many dots and how bright they are ---
+lights = 12                    # all twelve, busy table
+strength = 1.35                # louder than DEFAULT
+idle = 0.10                    # almost dark between kicks
+music_gain = 0.95              # the meter drives nearly all the brightness
+level_gain = 1.25              # extra sensitivity for quiet masters
+
+# --- the peak meter: short attack, very short release = flashy ---
+attack = 0.006                 # snaps on instantly
+release = 0.14                 # gone before the next beat
+adapt_speed = 1.80             # tracks drops and breakdowns quickly
+beat_contrast = 1.90           # only real peaks punch through
+
+# --- footprint: small hard cores, tight halos ---
+size_a = 0.006
+size_b = 0.004
+halo_a = 0.070
+halo_b = 0.025
+core_gain = 3.10               # hard white flash on the ridge
+exposure = 1.90
+relief_min = 0.010             # more of the artwork catches light
+relief_full = 0.42
+
+# --- roaming motion: fast ---
+speed_a = 0.75
+speed_b = -0.60
+travel_x = 0.44
+travel_y = 0.50
+
+# --- colour: mostly white with a cool flash on peaks ---
+theme_mix = 0.35
+color_r = 1.00
+color_g = 0.90
+color_b = 1.00
+peak_r = 0.60
+peak_g = 0.90
+peak_b = 1.00
+color_shift = 0.35             # a little blue on the loud hits
+
+# --- additive bloom ---
+bloom_gain = 3.20              # strong strobe halo
+bloom_radius = 1.00            # tight, not smeared
