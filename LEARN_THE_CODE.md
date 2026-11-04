@@ -1893,13 +1893,6 @@ smaller box. With the frame removed the copy is drawn straight onto the card and
 | line 1 | `SECTORS nn/12   //   COINS nn/36` | `A monastic vault for the calibration of tactical reflexes` |
 | line 2 | rotating combat line | `and the accumulation of theater dossiers.` |
 
-**Fit margins are the constraint here, not taste.** The Pancratium copies are centred on
-x 290 inside a 320 px panel, which leaves 14 px each side for the widest string
-(`SECTORS…` measures 291.5 px at 17 pt with spacing 1.1; it was 273.3 px at 16 pt, already
-wider than the 272 px strip it used to sit in). Widening the panel or shortening that line is
-what has to happen before it grows again — do not just raise the point size. The Atrium copy
-draws 516 px and 395 px in a 668 px panel at 19 pt, so it has room.
-
 Footer `BACK` is `{510, 594, 260, 48}`.
 
 The Pancratium card's second line is the only moving copy on the screen. `hub_draw_combat_line()`
@@ -1920,12 +1913,6 @@ read — so these numbers are **not** chamber-local. Plexus tutorials, protocols
 Action Card runs are diverted to their own `plexus_*_finish` paths and never reach
 `storage_record_match()`, so they do not move any of the four lines.
 
-There is deliberately **no Spine ladder and no second frame on these cards** any more. Earlier
-the Atrium card carried twelve ticks down its left edge and a bright 2 px frame plus an inner
-hairline; both were removed so the two cards are one system, and the Spine count is not printed
-on this screen at all. Do not reintroduce a second read-out of the same number, and do not give
-one card a frame the other does not have.
-
 The **Pancratium page** (`SCREEN_HUB_CAMPAIGN`) is headed `PANCRATIUM`; its first button is the
 `APEX PANCRATIUM CIRCUIT` (the twelve-opponent tournament, which is what the code still calls
 the campaign) and it keeps `RECORDS & STATS`, `SYSTEM OPTIONS` (returns here via
@@ -1937,98 +1924,8 @@ card loader holds with a `-decoupled-` caption under the card, and the process e
 at the end of the hold (`quit_requested`). `draw_loading_card()` takes a `caption`
 argument for exactly this; every other caller passes `NULL`.
 
-### 10.6 Story beats and per-card protocols
 
-`k_story_beats[48]` holds one `StoryBeat` per spine card, indexed by
-`card_id = month * 4 + slot`, and is the only place story text lives
-(planned in `plexus/roadmap_story.md`):
 
-```c
-typedef struct {
-    const char *signal[3];    /* spine briefing body lines                */
-    const char *intrusion[6]; /* keeper voice, one frozen panel           */
-    const char *trace[6];     /* vessel voice, [0] becomes the log line   */
-} StoryBeat;
-```
-
-The briefing reads `signal[]`: months 02–12 put all three lines in `line1..3`,
-while Month 01 keeps its tutorial title and description on `line1..2` and shows
-`signal[0]` alone on `line3`. `trace[0]` is written into the MATCHES logfile
-entry when a protocol card is cleared. Text is ASCII only (all three faces load
-codepoints 32–126) and no line wraps or clips, so the budgets in
-`plexus/roadmap_story.md` §5 are load-bearing.
-
-A card whose `intrusion[0]` is non-NULL is a **story protocol**: clicking `START`
-deals a real round on the player's ruleset and opens one frozen keeper panel
-before play. `story_beat_has_protocol()` is the single test; every other card keeps
-the beta instant-clear path. Fourteen cards qualify today — all four of Month 02,
-and each of Months 03–12's FACE card (`slot 0`).
-
-Protocols ride the tutorial state machine rather than a parallel one. Three extra
-`TutorialStep` values carry them, and `s_tut_card_id >= 4` is the discriminator
-that keeps every Month 01 branch untouched:
-
-```
-PROTO_WAIT_DEAL      engine_start_round() has dealt; waiting for the board to settle
-PROTO_PANEL_STORY    frozen: keeper transmission, [CONTINUE] unfreezes
-PROTO_PLAY           ordinary play until the round ends
-```
-
-`plexus_tutorial_setup_round()` gives protocols `total_rounds = 1` with `dealer = 0`
-and pins `current_player = 0` after the lucky check, so the transmission always
-lands before the CPU moves. `PROTO_PANEL_STORY` is in `tut_step_is_frozen()`, so
-the existing gates (`plexus_tutorial_panel_open()`, the `tut_frozen` early return in
-the GAME branch, the panel draw at `ui_main.c`) work unchanged; its rect is
-`{280, 150, 720, 380}`, the same as the default tutorial panel. Finishing the round
-runs `plexus_tutorial_finish_match()`, which marks the card, flips the next slot and
-now writes a card-aware log title (`PROTOCOL CLEARED` above `cid == 4`).
-
-Because protocols are tutorial-active, they deliberately skip what a campaign match
-gets: no replay record, no campaign stats, no clearance coins, no Deus ruleset
-override, and speedbar/audio telemetry is isolated by `tut_save_telemetry()` /
-`tut_restore_telemetry()`.
-
-The contributor rules that keep this from growing a second engine — one table, one
-protocol test, one state machine, ASCII-only text, branch order above the generic
-`>= 4` path — are written out in `AGENTS.md` under "Atrium Plex story beats and
-story protocols". Read that before adding a story card.
-
-### 10.7 The Plex's own record (no campaign data)
-
-The two modes keep separate saves: the Pancratium writes `profiles/stats.txt`
-through `storage_record_match()`, the Plex writes `profiles/plexsave.txt` through
-`plexus_save()`. They used to share more than that in *display*: five sites in
-`ui_plexus.c` printed `GameStats` — the Pancratium career record — inside the Atrium,
-so campaign wins appeared as Plex totals. All five now read Plex data only, and
-`ui_plexus.c` contains **no `st->` access at all**; the `const GameStats *st` in the
-public signatures is kept because `ui_main.c` passes it, and the functions mark it
-`(void)st` (the atlas tab has done that since before this cleanup).
-
-| site | before | now |
-|---|---|---|
-| `draw_logfile_stats_box()` | record line `st->matches_won + s_ac_wins`, `st->koi_calls_you` | `[nn/48] [TR W-L] [SC runs] [AC W-L]` |
-| `draw_logfile_training_tab()` | `CAREER + PLEX`, campaign win streak, favourite yaku, peak round, `AI PLAYSTYLES n/12` | `PLEX RECORD`, `PERFECT SERIE`, `CARDS CLEARED`, `PEAK SCORING TR/AC`, `SPEEDCOIN HI` |
-| `draw_logfile_matches_tab()` | `ALL COMPLETED MATCHES & RUNS` = campaign + Plex | `ALL PLEX RUNS` = Plex only |
-| `plexus_draw_training_result()` right panel | heading `OVERALL STATS`, six `GameStats` lines | heading `PLEX ARCHIVE`, six Plex lines |
-| `plexus_draw_training_result()` left panel | unchanged, session-scoped (`g` only) | unchanged |
-
-Everything the panels now show is already in `plexsave.txt`:
-`s_tr_runs/wins/losses/best_score/rounds_total`, `s_ac_runs/wins/losses/best_score`,
-`s_sc_runs/s_sc_best_wave/s_sc_ranks[]`, `s_finished_cards_mask`,
-`s_deus_finished_cards_mask`, plus the speedbar/audio telemetry.
-
-The one deliberate remaining tie is the **training opponent list**, which is still
-capped by `get_unlocked_camp_opponents()` (i.e. Pancratium `unlocked_opponents`), on
-the owner's instruction. Note for whoever reads the achievements list: the Plex
-achievement `SECTOR HUNTER (12/12 RIVALS)` is also keyed to that campaign unlock, so
-it is a second, smaller tie — left alone deliberately, not overlooked.
-
-What is *not* a leak: to run its own matches the Plex borrows the shared
-`GameSettings` struct (`snapshot_campaign_settings()` / `plexus_sync_match_settings()`
-/ `plexus_restore_match_settings()`, `ui_plexus.c` ~958-1030). That is the engine's
-single config struct, not a save file; `save_current_profile()` restores before
-writing, so `settings.txt` never receives Plex values. Any new Plex screen should
-still read its data from `plexus_save()`'s own fields rather than from `GameStats`.
 
 ---
 
