@@ -126,14 +126,7 @@ typedef enum {
     TUT3_PANEL_METERS,
     TUT3_PANEL_HORRORS,
     TUT3_FREE_PLAY,
-    /* Generic story protocol on any spine card above Month 01 (card_id >= 4):
-       one ordinary dealt round, one frozen keeper transmission, then play.
-       These ride the tutorial machine on purpose -- see the note above
-       story_beat_has_protocol(). Do not add a fourth state, a second freeze
-       flag or a second match launcher for story content. */
-    PROTO_WAIT_DEAL,
-    PROTO_PANEL_STORY,
-    PROTO_PLAY
+
 } TutorialStep;
 
 static int s_tut_active  = 0;
@@ -1871,6 +1864,57 @@ static const StoryChapterDoc k_story_chapters[12] = {
     }
 };
 
+static Rectangle story_month_btn_rect(int m) {
+    return (Rectangle){ 254.0f, floorf(122.0f + (float)(m + 1) * 37.3f), 190.0f, 33.0f };
+}
+
+static void draw_story_centered(Font fnt, const char *txt, float cx, float y, float fsz, float sp, Color col) {
+    if (!txt || !txt[0]) return;
+    Vector2 sz = MeasureTextEx(fnt, txt, fsz, sp);
+    DrawTextEx(fnt, txt, (Vector2){ floorf(cx - sz.x * 0.5f), floorf(y) }, fsz, sp, col);
+}
+
+static void draw_story_chain_formula(Font fnt, float cx, float y, float base_sz, float max_w, float sp, Color col) {
+    static const struct { const char *txt; int sub; } k_seg[] = {
+        { "P(w", 0 }, { "1", 1 }, { ", w", 0 }, { "2", 1 }, { ", ..., w", 0 }, { "n", 1 },
+        { ") = P(w", 0 }, { "1", 1 },
+        { ") \xC3\x97 P(w", 0 }, { "2", 1 }, { "|w", 0 }, { "1", 1 },
+        { ") \xC3\x97 P(w", 0 }, { "3", 1 }, { "|w", 0 }, { "1", 1 }, { ",w", 0 }, { "2", 1 },
+        { ") \xC3\x97 ... \xC3\x97 P(w", 0 }, { "n", 1 }, { "|w", 0 }, { "1", 1 }, { ",...,w", 0 }, { "n-1", 1 },
+        { ")", 0 }
+    };
+    const int n_seg = (int)(sizeof(k_seg) / sizeof(k_seg[0]));
+    float sz = base_sz;
+    for (int pass = 0; pass < 2; pass++) {
+        float sub_sz = roundf(sz * 0.68f);
+        float sub_sp = sp * 0.75f;
+        float join_gap = fmaxf(0.5f, sp * 0.65f);
+        float total_w = 0.0f;
+        for (int i = 0; i < n_seg; i++) {
+            Vector2 ms = MeasureTextEx(fnt, k_seg[i].txt, k_seg[i].sub ? sub_sz : sz,
+                                       k_seg[i].sub ? sub_sp : sp);
+            total_w += ms.x + ((i + 1 < n_seg) ? join_gap : 0.0f);
+        }
+        if (pass == 0 && max_w > 0.0f && total_w > max_w && total_w > 1.0f) {
+            sz = floorf(sz * (max_w / total_w) * 2.0f) * 0.5f;
+            if (sz < 12.0f) sz = 12.0f;
+            continue;
+        }
+        float cur_x = floorf(cx - total_w * 0.5f);
+        float base_y = floorf(y);
+        float sub_y  = floorf(y + sz * 0.34f);
+        for (int i = 0; i < n_seg; i++) {
+            float fsz_i = k_seg[i].sub ? sub_sz : sz;
+            float sp_i  = k_seg[i].sub ? sub_sp : sp;
+            Vector2 ms  = MeasureTextEx(fnt, k_seg[i].txt, fsz_i, sp_i);
+            DrawTextEx(fnt, k_seg[i].txt, (Vector2){ roundf(cur_x), k_seg[i].sub ? sub_y : base_y },
+                       fsz_i, sp_i, col);
+            cur_x += ms.x + join_gap;
+        }
+        break;
+    }
+}
+
 static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Color fill_col) {
     if (ratio < 0.0f) ratio = 0.0f;
     if (ratio > 1.0f) ratio = 1.0f;
@@ -2885,15 +2929,16 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                 /* Tutorials keep their own title/description on lines 1-2; the
                    story beat only ever gets the third line here, so the feedback
                    that teaches the mode can never be overwritten by lore. */
-                line3 = k_story_beats[card_id].signal[0];
+                line3 = "";
             } else {
                 snprintf(hdr, sizeof(hdr), "%sMONTH %02d  //  %s", deus_p, s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
-                const StoryBeat *bt = story_beat(card_id);
                 if (bt && bt->signal[0]) {
-                    line1 = bt->signal[0];
-                    line2 = bt->signal[1] ? bt->signal[1] : "";
-                    line3 = bt->signal[2] ? bt->signal[2] : "";
+                    line1 = is_deus_spine_active()
+                            ? "DEUS PASS CARD  //  COMPLETE TO ADVANCE"
+                            : "CARD  //  COMPLETE TO ADVANCE";
+                    line2 = "";
+                    line3 = "";
                 } else {
                     line1 = is_deus_spine_active() ? "HARDCORE DEUS PASS  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
                     line2 = "";
@@ -3464,21 +3509,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             s_tut_active  = 1;
             s_tut_card_id = cid;
             s_tut_step    = TUT1_WAIT_DEAL;
-            if (out_clicked) *out_clicked = 1;
-            return ACT_START_GAME;
-        }
-        /* A card with a keeper transmission plays one real round before it is
-           marked cleared; every other card keeps the beta instant-clear path. */
-        if (story_beat_has_protocol(cid)) {
-            s_training_active = 0;
-            plexus_speedcoin_abort();
-            plexus_action_card_abort();
-            s_mode_settings_open = 0;
-            s_mode_settings_page = 0;
-            tut_save_telemetry();
-            s_tut_active  = 1;
-            s_tut_card_id = cid;
-            s_tut_step    = PROTO_WAIT_DEAL;
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -4762,7 +4792,6 @@ void plexus_tutorial_finish_match(void) {
         char title[88];
         const char *detail = "Standard Koi-Koi rules conditioning finished -- Card 3 unlocked.";
         snprintf(title, sizeof(title), "[%s] TUTORIAL CLEARED", CARDS[cid].name);
-        }
         plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY", title, detail);
     }
     plexus_save();
