@@ -14,6 +14,7 @@ STRICT CONSTRAINTS:
 - Keep all changes minimal, surgical.
 - NEVER create, edit, or delete files in tests/ (or touch tools/tests_guard.*) without explicit prior approval from the maintainer. Run any scratch checks in /tmp and delete them before finishing.
 - NEVER create, overwrite, or delete anything under assets/ without explicit prior approval from the maintainer. Art there is authored, not generated: a file that exists is the maintainer's, even when a tool could produce something similar. Automation may write into assets/ only after the maintainer has seen the exact list of files and said yes. A generator run on a copy in /tmp is the way to show a proposal without touching the tree.
+- **NEVER edit, append to, or modify `LEARN_THE_CODE.md` or `AGENTS.md`.** Both files are strictly read-only for all coding agents.
 - OUTPUT REQUIREMENT: WRITE SILENTLY TO DISK. ZERO CODE OUTPUT. NO PREAMBLE. SHORT SUMMARY OF WHAT YOU CHANGED IN CHAT.
 
 STRICT OUTPUT RULE WHEN CODING:
