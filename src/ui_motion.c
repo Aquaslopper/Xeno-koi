@@ -307,15 +307,15 @@ void cinematic_draw(void) {
     if (s_cinematic_countdown) {
         float elapsed = s_cinematic_duration - s_cinematic_timer;
         title = (elapsed < 1.0f) ? "3" : (elapsed < 2.0f) ? "2" : (elapsed < 3.0f) ? "1" : "START";
-        snprintf(sub_buf, sizeof(sub_buf), "// WAVE %d //", s_cinematic_round);
+        snprintf(sub_buf, sizeof(sub_buf), "/ WAVE %d /", s_cinematic_round);
         sub = sub_buf;
     } else if (s_cinematic_round <= 1) {
         title = "MATCH START";
-        sub = "// NEURAL LINK ESTABLISHED //";
+        sub = "/ NEURAL LINK ESTABLISHED /";
     } else {
         snprintf(buf, sizeof(buf), "ROUND %d START", s_cinematic_round);
         title = buf;
-        sub = "// DECK SHUFFLED & DEALT //";
+        sub = "/ DECK SHUFFLED & DEALT /";
     }
 
     const float font_size = 42.0f;

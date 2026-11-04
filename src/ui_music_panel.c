@@ -432,12 +432,12 @@ void music_panel_draw(Rectangle r, Vector2 vm) {
     const char *preset = light_preset_name(light_preset_selected());
     char desc[192];
     if (s_message) {
-        snprintf(desc, sizeof(desc), "%s  //  %s", preset, s_message);
+        snprintf(desc, sizeof(desc), "%s  /  %s", preset, s_message);
         draw_label(desc, x, y + 226.0f, 12.0f, COLOR_TEXT_INFO);
     } else {
         const char *folder = (s_settings && s_settings->music_folder[0]) ?
                              base_name(s_settings->music_folder) : "BUILT-IN";
-        snprintf(desc, sizeof(desc), "%s  //  %s  //  %d TRACKS",
+        snprintf(desc, sizeof(desc), "%s  /  %s  /  %d TRACKS",
                  preset, folder, s_audio ? s_audio->game_track_count : 0);
         draw_label(desc, x, y + 226.0f, 12.0f, COLOR_TEXT_INFO);
     }

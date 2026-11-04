@@ -263,7 +263,7 @@ static void hub_draw_menu_panel(const BoardAssets *ba, const char *title, const 
 }
 
 void ui_hub_draw_options_menu(const BoardAssets *ba, Vector2 vm, float saved_timer) {
-    hub_draw_menu_panel(ba, "OPTIONS", "SYSTEM SETTINGS  //  PROFILE DATA  //  CREDITS");
+    hub_draw_menu_panel(ba, "OPTIONS", "SYSTEM SETTINGS  /  PROFILE DATA  /  CREDITS");
     for (int i = 0; i < 4; i++) hub_draw_button(k_options_menu_btns[i], k_options_menu_labels[i], 18, vm);
     if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "PROFILE SAVED", 640.0f, 590.0f, 17.0f, 1.0f, COLOR_PHOSPHOR);
@@ -288,7 +288,7 @@ int ui_hub_profile_manager_selected_slot(void) { return s_profile_manager_select
 
 void ui_hub_draw_profile_manager(const BoardAssets *ba, const int slots[3], int active_slot,
                                  int selected_slot, Vector2 vm, float saved_timer, int error) {
-    hub_draw_menu_panel(ba, "PROFILE LOAD / SAVE", "SELECT A SLOT  //  PROFILES ARE STORED SEPARATELY");
+    hub_draw_menu_panel(ba, "PROFILE LOAD / SAVE", "SELECT A SLOT  /  PROFILES ARE STORED SEPARATELY");
     for (int i = 0; i < 3; i++) {
         Rectangle r = k_profile_rows[i];
         int slot = i + 1;
@@ -296,9 +296,9 @@ void ui_hub_draw_profile_manager(const BoardAssets *ba, const int slots[3], int 
         DrawRectangleRec(r, selected ? (Color){ 8, 28, 31, 242 } : (Color){ 0, 0, 0, 224 });
         DrawRectangleLinesEx(r, selected ? 2.0f : 1.0f, selected ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
         char label[96];
-        snprintf(label, sizeof(label), "SLOT %02d  //  %s%s", slot,
+        snprintf(label, sizeof(label), "SLOT %02d  /  %s%s", slot,
                  slots[i] ? "PROFILE" : "EMPTY",
-                 (slot == active_slot) ? "  //  ACTIVE" : "");
+                 (slot == active_slot) ? "  /  ACTIVE" : "");
         hub_draw_text_snapped(font_body, label, r.x + 24.0f, r.y + 21.0f, 19.0f, 1.0f,
                               selected ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
         if (CheckCollisionPointRec(vm, r)) {
@@ -321,7 +321,7 @@ void ui_hub_draw_profile_manager(const BoardAssets *ba, const int slots[3], int 
                               k_profile_actions[i].y + 14.0f, 15.0f, 1.0f, COLOR_PHOSPHOR_DIM);
         }
     }
-    if (error) hub_draw_centered(font_body, "PROFILE OPERATION FAILED  //  ACTIVE DATA PRESERVED",
+    if (error) hub_draw_centered(font_body, "PROFILE OPERATION FAILED  /  ACTIVE DATA PRESERVED",
                                  640.0f, 610.0f, 16.0f, 1.0f, COLOR_RED);
     else if (saved_timer > 0.0f)
         hub_draw_centered(font_body, "PROFILE SAVED", 640.0f, 610.0f, 16.0f, 1.0f, COLOR_PHOSPHOR);
@@ -356,20 +356,20 @@ HubAction ui_hub_handle_profile_manager_click(Vector2 vm, HubButtonHit *out_hit,
    in here" without a wall of text. Same GameStats the result and stats screens read. */
 static void hub_draw_combat_line(const GameStats *st, float cx, float y) {
     char line[96];
-    const char *txt = "NO MATCHES YET  //  PLAY ONE";
+    const char *txt = "NO MATCHES YET  /  PLAY ONE";
     Color col = COLOR_AMBER;
     if (st && st->matches_played > 0) {
         col = COLOR_TEXT_INFO_DIM;
         switch ((int)(GetTime() / 5.0f) % 4) {
             case 0:
-                snprintf(line, sizeof(line), "W %d / L %d   //   STREAK %d",
+                snprintf(line, sizeof(line), "W %d / L %d   /   STREAK %d",
                          st->matches_won, st->matches_lost, st->current_streak);
                 break;
             case 1: {
                 int rate = (st->matches_played > 0)
                                ? (int)((100.0f * (float)st->matches_won) / (float)st->matches_played)
                                : 0;
-                snprintf(line, sizeof(line), "WIN RATE %d%%   //   BEST STREAK %d",
+                snprintf(line, sizeof(line), "WIN RATE %d%%   /   BEST STREAK %d",
                          rate, st->best_streak);
                 break;
             }
@@ -377,7 +377,7 @@ static void hub_draw_combat_line(const GameStats *st, float cx, float y) {
                 snprintf(line, sizeof(line), "TOP YAKU  %s", storage_get_favorite_combo(st));
                 break;
             default:
-                snprintf(line, sizeof(line), "KOI CALLS %d   //   BEST ROUND %d",
+                snprintf(line, sizeof(line), "KOI CALLS %d   /   BEST ROUND %d",
                          st->koi_calls_you, st->highest_round_score);
                 break;
         }
@@ -398,7 +398,7 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, const GameSt
     hub_draw_backdrop(ba);
 
     hub_draw_centered(font_title, "[XENO / KOI]", 640.0f, 36.0f, 44.0f, 2.2f, COLOR_PHOSPHOR);
-    hub_draw_centered(font_body, "MAIN TERMINAL  //  MODE SELECT", 640.0f, 92.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
+    hub_draw_centered(font_body, "MAIN TERMINAL  /  MODE SELECT", 640.0f, 92.0f, 20.0f, 2.0f, COLOR_PHOSPHOR_DIM);
 
     /* Left Card: CAMPAIGN -- slim, one frame. */
     DrawRectangleRec(k_main_left_panel, COLOR_PANEL_BG);
@@ -406,7 +406,7 @@ void ui_hub_draw_main(const BoardAssets *ba, const GameSettings *s, const GameSt
     /* The card holds the button and nothing else framed. The copy above it used to
        sit in its own 58 px box, which bought no legibility and cost the text the
        room to grow; the box and its two constants are gone (owner, 29 Oct 2026). */
-    snprintf(line1, sizeof(line1), "SECTORS %02d/12   //   COINS %02d/36", sectors, coins);
+    snprintf(line1, sizeof(line1), "SECTORS %02d/12   /   COINS %02d/36", sectors, coins);
     hub_draw_centered(font_body, line1, 290.0f, 286.0f, 17.0f, 1.1f, COLOR_PHOSPHOR);
     /* Deus is a session-long warning, so it outranks the rotating combat line. */
     if (is_deus) {
@@ -492,8 +492,8 @@ void ui_hub_draw_campaign(const BoardAssets *ba, const GameSettings *s, Vector2 
     ui_draw_panel_border(k_camp_deus_box, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
     hub_draw_centered(font_title, is_deus ? "DEUS MODE: ON" : "DEUS MODE: OFF",
                       640.0f, 443.0f, 17.0f, 1.3f, is_deus ? COLOR_RED : COLOR_PHOSPHOR_DIM);
-    const char *deus_hint = !is_deus ? "CLICK TO ACTIVATE // SESSION ONLY" :
-                            ui_hub_deus_snapshot_is_valid() ? "CLICK TO DEACTIVATE" : "OFF DISABLED // USE OPTIONS";
+    const char *deus_hint = !is_deus ? "CLICK TO ACTIVATE / SESSION ONLY" :
+                            ui_hub_deus_snapshot_is_valid() ? "CLICK TO DEACTIVATE" : "OFF DISABLED / USE OPTIONS";
     hub_draw_centered(font_body, deus_hint, 640.0f, 468.0f, 14.0f, 1.0f, COLOR_TEXT_INFO_DIM);
 
     hub_draw_button(k_camp_back_btn, "BACK", 20, vm);

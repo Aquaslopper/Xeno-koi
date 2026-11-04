@@ -263,24 +263,24 @@ static unsigned int hash_briefing_line(unsigned int h, const char *s) {
 }
 
 static const char * const k_month_names[12] = {
-    "JANUARY // PINE",
-    "FEBRUARY // PLUM",
-    "MARCH // CHERRY",
-    "APRIL // WISTERIA",
-    "MAY // IRIS",
-    "JUNE // PEONY",
-    "JULY // BUSH CLOVER",
-    "AUGUST // SUSUKI",
-    "SEPTEMBER // CHRYSANTHEMUM",
-    "OCTOBER // MAPLE",
-    "NOVEMBER // WILLOW",
-    "DECEMBER // PAULOWNIA"
+    "JANUARY / PINE",
+    "FEBRUARY / PLUM",
+    "MARCH / CHERRY",
+    "APRIL / WISTERIA",
+    "MAY / IRIS",
+    "JUNE / PEONY",
+    "JULY / BUSH CLOVER",
+    "AUGUST / SUSUKI",
+    "SEPTEMBER / CHRYSANTHEMUM",
+    "OCTOBER / MAPLE",
+    "NOVEMBER / WILLOW",
+    "DECEMBER / PAULOWNIA"
 };
 
 static const char * const k_month_short_labels[12] = {
-    "01 // JANUARY",   "02 // FEBRUARY",  "03 // MARCH",     "04 // APRIL",
-    "05 // MAY",       "06 // JUNE",      "07 // JULY",      "08 // AUGUST",
-    "09 // SEPTEMBER", "10 // OCTOBER",   "11 // NOVEMBER",  "12 // DECEMBER"
+    "01 / JANUARY",   "02 / FEBRUARY",  "03 / MARCH",     "04 / APRIL",
+    "05 / MAY",       "06 / JUNE",      "07 / JULY",      "08 / AUGUST",
+    "09 / SEPTEMBER", "10 / OCTOBER",   "11 / NOVEMBER",  "12 / DECEMBER"
 };
 
 /* The briefing card lights up when its copy changes. It used to decay at 1.15/s
@@ -299,7 +299,7 @@ static const Rectangle k_card_rects[4] = {
 };
 /* The briefing card is 196 tall, not 250: its copy ends at +172 and the extra
    56 px was dead space inside the frame (owner, 29 Oct 2026). The width is at
-   its limit and cannot shrink - "MONTH 01 // JANUARY [TUTORIAL]" already draws
+   its limit and cannot shrink - "MONTH 01 / JANUARY [TUTORIAL]" already draws
    502 px across a 496 px inner width, and the longest speedcoin line 521 px. */
 static const Rectangle k_briefing_rect = { 516.0f,  82.0f, 540.0f, 196.0f };
 /* One action row under the card: three 160 px slots on a 30 px gutter, right edge
@@ -1303,7 +1303,7 @@ static void get_ruleset_box_colors(Ruleset rs, Color *out_fill, Color *out_bdr) 
    (settings.crt_tables), reachable from where the Plex picks a stage. It sits in the
    panel header row, right of the title and left of the close box: it restyles the table
    the stage uses, so it belongs beside the stage choice rather than inside a mode page.
-   Widths are measured, not guessed - "ACTION CARD  //  STAGE SELECT" in audiowide 16
+   Widths are measured, not guessed - "ACTION CARD  /  STAGE SELECT" in audiowide 16
    ends at ~878 in a worst case, and the close box starts at 1014. */
 static Rectangle plex_casing_chip_rect(void) {
     return (Rectangle){ 910.0f, k_mode_cfg_rect.y + 7.0f, 92.0f, 22.0f };
@@ -1349,11 +1349,11 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
     ui_draw_panel_border(k_mode_cfg_rect, COLOR_PHOSPHOR);
 
     int stage_page = (s_active_tab == 2) || (s_mode_settings_page == 1);
-    const char *hdr = (s_active_tab == 2) ? "SPEEDCOIN  //  STAGE SELECT" :
-                      (s_active_tab == 3) ? (stage_page ? "ACTION CARD  //  STAGE SELECT"
-                                                        : "ACTION CARD  //  MATCH SETTINGS")
-                                          : (stage_page ? "TRAINING  //  STAGE SELECT"
-                                                        : "TRAINING  //  MATCH SETTINGS");
+    const char *hdr = (s_active_tab == 2) ? "SPEEDCOIN  /  STAGE SELECT" :
+                      (s_active_tab == 3) ? (stage_page ? "ACTION CARD  /  STAGE SELECT"
+                                                        : "ACTION CARD  /  MATCH SETTINGS")
+                                          : (stage_page ? "TRAINING  /  STAGE SELECT"
+                                                        : "TRAINING  /  MATCH SETTINGS");
     draw_text_snapped(font_title, hdr, k_mode_cfg_rect.x + 18.0f, k_mode_cfg_rect.y + 10.0f,
                       16.0f, 1.3f, COLOR_PHOSPHOR);
     draw_cfg_step_btn((Rectangle){ 1014.0f, (k_mode_cfg_rect.y + 7.0f), 26.0f, 22.0f }, "X", vm, 1);
@@ -1402,7 +1402,7 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
         DrawRectangleRec(swatch_r, theme_get(cur_col).base);
         DrawRectangleLinesEx(swatch_r, 1.0f, COLOR_PHOSPHOR);
 
-        draw_text_snapped(font_body, TextFormat("STAGE: %s  //  %s  //  %s",
+        draw_text_snapped(font_body, TextFormat("STAGE: %s  /  %s  /  %s",
                                                 k_plex_stage_names[cur_stage], bg_name, col_name),
                           lx, (k_mode_cfg_rect.y + 235.0f), 14.0f, 0.9f, COLOR_TEXT_INFO_DIM);
         if (s_active_tab == 3 || s_active_tab == 4) {
@@ -1495,7 +1495,7 @@ static void draw_mode_settings_panel(const BoardAssets *ba, Vector2 vm) {
 
     DrawLine((int)k_mode_cfg_rect.x + 18, (int)(k_mode_cfg_rect.y + 219.0f),
              (int)(k_mode_cfg_rect.x + k_mode_cfg_rect.width - 18.0f), (int)(k_mode_cfg_rect.y + 219.0f), COLOR_PHOSPHOR_DIM);
-    draw_text_snapped(font_body, TextFormat("STAGE: %s  //  %s  //  %s",
+    draw_text_snapped(font_body, TextFormat("STAGE: %s  /  %s  /  %s",
                                             k_plex_stage_names[cur_stage], bg_name, col_name),
                       lx, (k_mode_cfg_rect.y + 235.0f), 14.0f, 0.9f, COLOR_TEXT_INFO_DIM);
     draw_cfg_step_btn((Rectangle){ 926.0f, (k_mode_cfg_rect.y + 229.0f), 112.0f, 27.0f }, "PAGE 2 >", vm, 1);
@@ -1692,7 +1692,7 @@ static void draw_logfile_stats_box(Rectangle box) {
     DrawRectangleRec(box, PLEXUS_SUBBOX_BG);
     ui_draw_panel_border(box, COLOR_PHOSPHOR_DIM);
 
-    draw_text_snapped(font_title, "STATS // SPEEDBAR, AUDIO & ARCHIVE",
+    draw_text_snapped(font_title, "STATS / SPEEDBAR, AUDIO & ARCHIVE",
                       box.x + 14.0f, box.y + 10.0f, 16.0f, 1.3f, COLOR_PHOSPHOR);
     DrawLine((int)box.x + 14, (int)box.y + 34, (int)(box.x + box.width - 14.0f), (int)box.y + 34, COLOR_PHOSPHOR_DIM);
 
@@ -1749,7 +1749,7 @@ typedef struct {
 
 static const StoryChapterDoc k_story_chapters[1] = {
     {
-        "SEQ 01 // PROLOGUE",
+        "SEQ 01 / PROLOGUE",
         "Acoustica Apexus neural link online in the Atrium.",
         "Deep in the vessel core, entity [DEUS] pulses",
         "beneath twelve sealed floral strata.",
@@ -1842,7 +1842,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
 
         if (!unlocked) {
             char ltxt[32];
-            snprintf(ltxt, sizeof(ltxt), "%02d // LOCKED", m + 1);
+            snprintf(ltxt, sizeof(ltxt), "%02d / LOCKED", m + 1);
             DrawRectangleRec(br, (Color){ 6, 10, 12, 195 });
             DrawRectangleLinesEx(br, 1.0f, (Color){ COLOR_PHOSPHOR_DIM.r, COLOR_PHOSPHOR_DIM.g, COLOR_PHOSPHOR_DIM.b, 80 });
             draw_text_snapped(font_title, ltxt, br.x + 12.0f, br.y + 9.0f, 12.5f, 1.1f, COLOR_PHOSPHOR_DIM);
@@ -1850,7 +1850,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
             DrawRectangleRec(br, (sel || hov) ? COLOR_BTN_HOVER_BG : PLEXUS_SUBBOX_BG);
             ui_draw_panel_border(br, (sel || hov) ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
             Color tcol = (sel || hov) ? COLOR_TEXT_INFO : COLOR_PHOSPHOR;
-            const char *lbl = (m < 0) ? "00 // PROLOGUE" : k_month_short_labels[m];
+            const char *lbl = (m < 0) ? "00 / PROLOGUE" : k_month_short_labels[m];
             draw_text_snapped(font_title, lbl,
                               br.x + 10.0f, br.y + 9.0f, 12.5f, 1.1f, tcol);
             if (m < 0) {
@@ -1874,11 +1874,11 @@ static void draw_logfile_story_tab(Vector2 vm) {
         /* The Prologue is chapter entry [0]; its title is the only monthly-style
            header the reader needs now that it is the single story document. */
         char prologue_hdr[96];
-        snprintf(prologue_hdr, sizeof(prologue_hdr), "%s  //  ATRIUM PLEX ENTRY",
+        snprintf(prologue_hdr, sizeof(prologue_hdr), "%s  /  ATRIUM PLEX ENTRY",
                  k_story_chapters[0].seq_title);
         draw_text_snapped(font_body, prologue_hdr,
                           tx, doc.y + 14.0f, 15.5f, 1.05f, COLOR_PHOSPHOR);
-        draw_text_snapped(font_title, "SEQUENTIAL DEPENDENCE  //  TOKEN CONDITIONING",
+        draw_text_snapped(font_title, "SEQUENTIAL DEPENDENCE  /  TOKEN CONDITIONING",
                           tx, doc.y + 40.0f, 16.5f, 1.15f, COLOR_TEXT_INFO);
         DrawLine((int)tx, (int)doc.y + 68, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 68, COLOR_PHOSPHOR_DIM);
 
@@ -1902,7 +1902,7 @@ static void draw_logfile_story_tab(Vector2 vm) {
                           tx + 4.0f, doc.y + 368.0f, 22.0f, 0.9f, COLOR_PHOSPHOR);
 
         DrawLine((int)tx, (int)doc.y + 422, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 422, COLOR_PHOSPHOR_DIM);
-        draw_text_snapped(font_title, "TRANSMISSION 00  //  ATRIUM PLEX ENTRY RECORD  [REREADABLE]",
+        draw_text_snapped(font_title, "TRANSMISSION 00  /  ATRIUM PLEX ENTRY RECORD  [REREADABLE]",
                           tx, doc.y + 438.0f, 13.0f, 1.05f, COLOR_PHOSPHOR_DIM);
         return;
     }
@@ -1930,7 +1930,7 @@ static void draw_logfile_training_tab(void) {
 
     /* 1. Top-Left: Speedbar Reflex & Match Precision */
     float lx = b_spd.x + 16.0f;
-    draw_text_snapped(font_title, "SPEEDBAR // REFLEX & PRECISION", lx, b_spd.y + 10.0f, 15.0f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "SPEEDBAR / REFLEX & PRECISION", lx, b_spd.y + 10.0f, 15.0f, 1.1f, COLOR_PHOSPHOR);
     DrawLine((int)lx, (int)b_spd.y + 32, (int)(b_spd.x + b_spd.width - 16.0f), (int)b_spd.y + 32, COLOR_PHOSPHOR_DIM);
 
     float spd_ratio = (drops > 0) ? (1.0f - (avg_sec - 0.35f) / 2.65f) : 0.0f;
@@ -1955,7 +1955,7 @@ static void draw_logfile_training_tab(void) {
 
     /* 2. Top-Right: Audio FX & Action Card Telemetry */
     float rx = b_aud.x + 16.0f;
-    draw_text_snapped(font_title, "ACTION FX // AUDIO & OVERLOAD", rx, b_aud.y + 10.0f, 15.0f, 1.1f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "ACTION FX / AUDIO & OVERLOAD", rx, b_aud.y + 10.0f, 15.0f, 1.1f, COLOR_PHOSPHOR);
     DrawLine((int)rx, (int)b_aud.y + 32, (int)(b_aud.x + b_aud.width - 16.0f), (int)b_aud.y + 32, COLOR_PHOSPHOR_DIM);
 
     draw_text_snapped(font_body, TextFormat("PEAK SYNERGY   :  %.1f%%", aud_pk * 100.0f),
@@ -2056,19 +2056,19 @@ static void draw_logfile_matches_tab(Vector2 vm) {
     char sum_txt[96];
     if (s_match_filter == MLOG_SPEEDCOIN) {
         int hi = (s_sc_rank_count > 0) ? s_sc_ranks[0].score : 0;
-        snprintf(sum_txt, sizeof(sum_txt), "SPEEDCOIN ARCHIVE  //  %d RUNS  |  TOP: %d PTS  [BEST W-%02d]",
+        snprintf(sum_txt, sizeof(sum_txt), "SPEEDCOIN ARCHIVE  /  %d RUNS  |  TOP: %d PTS  [BEST W-%02d]",
                  s_sc_runs, hi, s_sc_best_wave);
     } else if (s_match_filter == MLOG_ACTION_CARD) {
-        snprintf(sum_txt, sizeof(sum_txt), "ACTION CARD ARCHIVE  //  %dW - %dL  (%d RUNS)  |  BEST: %d PTS",
+        snprintf(sum_txt, sizeof(sum_txt), "ACTION CARD ARCHIVE  /  %dW - %dL  (%d RUNS)  |  BEST: %d PTS",
                  s_ac_wins, s_ac_losses, s_ac_runs, s_ac_best_score);
     } else if (s_match_filter == MLOG_TRAINING) {
-        snprintf(sum_txt, sizeof(sum_txt), "TRAINING ARCHIVE  //  %d SESSIONS  (%dW - %dL)  |  BEST: %d PTS",
+        snprintf(sum_txt, sizeof(sum_txt), "TRAINING ARCHIVE  /  %d SESSIONS  (%dW - %dL)  |  BEST: %d PTS",
                  s_tr_runs, s_tr_wins, s_tr_losses, s_tr_best_score);
     } else if (s_match_filter == MLOG_SPINE) {
-        snprintf(sum_txt, sizeof(sum_txt), "STORY COMPLETIONS  //  STANDARD %02d/48  |  DEUS %02d/48",
+        snprintf(sum_txt, sizeof(sum_txt), "STORY COMPLETIONS  /  STANDARD %02d/48  |  DEUS %02d/48",
                  count_mask_cards(s_finished_cards_mask), count_mask_cards(s_deus_finished_cards_mask));
     } else {
-        snprintf(sum_txt, sizeof(sum_txt), "ALL PLEX RUNS  //  TOTAL %dW - %dL  |  %d LOGGED",
+        snprintf(sum_txt, sizeof(sum_txt), "ALL PLEX RUNS  /  TOTAL %dW - %dL  |  %d LOGGED",
                  s_ac_wins + s_tr_wins, s_ac_losses + s_tr_losses, f_cnt);
     }
     draw_text_snapped(font_body, sum_txt, sbar.x + 12.0f, sbar.y + 6.0f, 16.0f, 1.1f, COLOR_PHOSPHOR);
@@ -2225,7 +2225,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
                           (CARDS[icid].type == CARD_TYPE_ANIMAL) ? "ANIMAL" :
                           (CARDS[icid].type == CARD_TYPE_RIBBON) ? "RIBBON" : "PLAIN";
     char c_sub[48];
-    snprintf(c_sub, sizeof(c_sub), "MONTH %02d // %s", (icid / 4) + 1, t_name);
+    snprintf(c_sub, sizeof(c_sub), "MONTH %02d / %s", (icid / 4) + 1, t_name);
     Vector2 ct1 = MeasureTextEx(font_title, c_title, 13.5f, 1.0f);
     Vector2 ct2 = MeasureTextEx(font_body,  c_sub,   14.5f, 1.0f);
     draw_text_snapped(font_title, c_title,
@@ -2322,20 +2322,20 @@ static void draw_logfile_window(const BoardAssets *ba, const GameStats *st, Vect
     if (active_done >= 48) {
         if (is_deus_spine_active()) {
             snprintf(dir_txt, sizeof(dir_txt),
-                     "DIRECTIVE // DEUS HARDCORE STORY 48/48 COMPLETE  --  CONVERGENCE ACHIEVED");
+                     "DIRECTIVE / DEUS HARDCORE STORY 48/48 COMPLETE  --  CONVERGENCE ACHIEVED");
         } else {
             snprintf(dir_txt, sizeof(dir_txt),
-                     "DIRECTIVE // STANDARD STORY 48/48 COMPLETE  --  DEUS PASS READY IN [ATLAS]");
+                     "DIRECTIVE / STANDARD STORY 48/48 COMPLETE  --  DEUS PASS READY IN [ATLAS]");
         }
     } else if (is_month_completed(s_selected_month) && s_selected_month + 1 < 12) {
         snprintf(dir_txt, sizeof(dir_txt),
-                 "DIRECTIVE // %sMONTH %02d COMPLETE  --  PRESS [NEXT] ABOVE THE CARDS FOR MONTH %02d",
+                 "DIRECTIVE / %sMONTH %02d COMPLETE  --  PRESS [NEXT] ABOVE THE CARDS FOR MONTH %02d",
                  is_deus_spine_active() ? "DEUS " : "", s_selected_month + 1, s_selected_month + 2);
     } else {
         int sl = highest_unlocked_slot(s_selected_month);
         int cid = s_selected_month * 4 + sl;
         snprintf(dir_txt, sizeof(dir_txt),
-                 "DIRECTIVE // %sMONTH %02d (%s)  --  NEXT: CARD %d OF 4 [%s]",
+                 "DIRECTIVE / %sMONTH %02d (%s)  --  NEXT: CARD %d OF 4 [%s]",
                  is_deus_spine_active() ? "DEUS " : "",
                  s_selected_month + 1, k_month_names[s_selected_month],
                  sl + 1, CARDS[cid].name);
@@ -2417,8 +2417,8 @@ static void draw_intro_story_pass(Font sf, float dx, float dy, float a1, float a
        that flag. It fades in with the first line and sits above the opening
        statement, clear of the 184 px line 1. */
     if (a1 > 0.005f) {
-        Vector2 fs = MeasureTextEx(font_title, "TRANSMISSION 00  //  ATRIUM PLEX ENTRY", 15.0f, 1.6f);
-        draw_text_snapped(font_title, "TRANSMISSION 00  //  ATRIUM PLEX ENTRY",
+        Vector2 fs = MeasureTextEx(font_title, "TRANSMISSION 00  /  ATRIUM PLEX ENTRY", 15.0f, 1.6f);
+        draw_text_snapped(font_title, "TRANSMISSION 00  /  ATRIUM PLEX ENTRY",
                           cx - fs.x * 0.5f, 128.0f + dy, 15.0f, 1.6f,
                           intro_with_alpha(COLOR_PHOSPHOR_DIM, a1));
         float half = 260.0f;
@@ -2450,7 +2450,7 @@ static void draw_intro_story_pass(Font sf, float dx, float dy, float a1, float a
                             "Your \"resistance\" is predicted and incorporated.",
                             cx, 468.0f + dy, 26.5f, 0.95f, c_end);
         draw_story_centered(font_title,
-                            "END OF PROLOGUE // PROCEED TO MONTH 01",
+                            "END OF PROLOGUE / PROCEED TO MONTH 01",
                             cx, 556.0f + dy, 17.0f, 1.3f,
                             intro_with_alpha(COLOR_PHOSPHOR_DIM, a4));
     }
@@ -2507,7 +2507,7 @@ static void draw_plexus_hiscore_overlay(Vector2 vm) {
     DrawRectangleRec(k_hiscore_box, PLEXUS_PANEL_BG);
     ui_draw_panel_border(k_hiscore_box, COLOR_PHOSPHOR);
 
-    draw_text_snapped(font_title, ac ? "ACTION CARD  //  HISCORE BOARD" : "SPEEDCOIN  //  HISCORE BOARD",
+    draw_text_snapped(font_title, ac ? "ACTION CARD  /  HISCORE BOARD" : "SPEEDCOIN  /  HISCORE BOARD",
                       k_hiscore_box.x + 22.0f, k_hiscore_box.y + 16.0f, 20.0f, 1.4f, COLOR_PHOSPHOR);
     DrawLine((int)k_hiscore_box.x + 20, (int)k_hiscore_box.y + 48,
              (int)(k_hiscore_box.x + k_hiscore_box.width - 20.0f), (int)k_hiscore_box.y + 48,
@@ -2516,7 +2516,7 @@ static void draw_plexus_hiscore_overlay(Vector2 vm) {
     float x = k_hiscore_box.x + 24.0f;
 
     if (ac) {
-        draw_text_snapped(font_body, TextFormat("BEST SCORE  %d PTS   //   RUNS %d   //   %dW-%dL",
+        draw_text_snapped(font_body, TextFormat("BEST SCORE  %d PTS   /   RUNS %d   /   %dW-%dL",
                                                 s_ac_best_score, s_ac_runs, s_ac_wins, s_ac_losses),
                           x, k_hiscore_box.y + 62.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         DrawLine((int)x, (int)k_hiscore_box.y + 90,
@@ -2535,14 +2535,14 @@ static void draw_plexus_hiscore_overlay(Vector2 vm) {
             row++;
         }
         if (row == 0) {
-            draw_text_snapped(font_body, "NO ACTION CARD RUNS YET  //  PRESS START TO OPEN THE BOARD.",
+            draw_text_snapped(font_body, "NO ACTION CARD RUNS YET  /  PRESS START TO OPEN THE BOARD.",
                               x, k_hiscore_box.y + 120.0f, 16.0f, 1.1f, COLOR_PHOSPHOR_DIM);
         } else if (row == 5) {
             draw_text_snapped(font_body, "OLDER RUNS ARE IN [LOGFILE] > MATCHES > ACTION CARD.",
                               x, k_hiscore_box.y + 380.0f, 14.0f, 1.05f, COLOR_PHOSPHOR_DIM);
         }
     } else {
-        draw_text_snapped(font_body, TextFormat("RUNS %d   //   BEST WAVE W-%02d   //   TOP 8 PERSISTED",
+        draw_text_snapped(font_body, TextFormat("RUNS %d   /   BEST WAVE W-%02d   /   TOP 8 PERSISTED",
                                                 s_sc_runs, s_sc_best_wave),
                           x, k_hiscore_box.y + 62.0f, 17.0f, 1.2f, COLOR_TEXT_INFO);
         /* Columns are drawn one by one at the same offsets the data uses (and at
@@ -2694,59 +2694,59 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             }
         }
         if (hover_bottom == 0) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SAVE & BACK");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  SAVE & BACK");
             snprintf(sub, sizeof(sub), "CHECKPOINT & EXIT TO TITLE SCREEN");
             line1 = "Writes Plex progress, unlocks, and records to disk.";
             line2 = "Returns to the main menu without losing your place.";
             line3 = "Shortcut: ESC also saves and exits the Plex.";
         } else if (hover_bottom == 1) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  LOGFILE");
-            snprintf(sub, sizeof(sub), "STORY  //  TRAINING  //  MATCHES  //  ATLAS");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  LOGFILE");
+            snprintf(sub, sizeof(sub), "STORY  /  TRAINING  /  MATCHES  /  ATLAS");
             line1 = "Reads unlocked monthly logs and Plex record totals.";
             line2 = "Reviews completed Calendar, Speedcoin & Action runs.";
             line3 = "Inspects all 48 Hanafuda and Deus cards in Atlas.";
         } else if (hover_bottom == 2) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
-            snprintf(sub, sizeof(sub), "TIMED SOLO CAPTURE  //  180s CLOCK");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  SPEEDCOIN");
+            snprintf(sub, sizeof(sub), "TIMED SOLO CAPTURE  /  180s CLOCK");
             line1 = "14 field cards, 8 in hand, no CPU. Drop fast and clean.";
             line2 = "Score: Wave yaku + 1 bonus PT per 5 Speedcoins.";
             line3 = is_speedcoin_bottom_unlocked()
                     ? "+10s per 10 MP, -10s per miss; 30 MP deals Hand 2."
                     : "Unlocks on the bar at Month 04 (taught in Month 01).";
         } else if (hover_bottom == 3) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
-            snprintf(sub, sizeof(sub), "KK-ADD-10 KOI-KOI  //  FIVE TABLE HORRORS");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  ACTION CARD");
+            snprintf(sub, sizeof(sub), "KK-ADD-10 KOI-KOI  /  FIVE TABLE HORRORS");
             line1 = "Koi-Koi vs CPU with twin pulse and fluid meters.";
             line2 = "Score: KK-ADD-10 yaku + mults; Gold Coin +10 PTS.";
             line3 = is_action_card_bottom_unlocked()
                     ? "Below 50% fluid, the sigil strikes the turn player."
                     : "Unlocks on the bar at Month 08 (taught in Month 01).";
         } else if (hover_bottom == 4) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
-            snprintf(sub, sizeof(sub), "FREE MATCH  //  CUSTOM RULESET & OPPONENT");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  TRAINING");
+            snprintf(sub, sizeof(sub), "FREE MATCH  /  CUSTOM RULESET & OPPONENT");
             line1 = "Practice against any unlocked campaign opponent.";
             line2 = "Score: Uses chosen ruleset, rounds, and turn timer.";
             line3 = "Tracks Plex W-L and best score; no campaign coins.";
         } else if (hover_bottom == 5) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  OPTION");
-            snprintf(sub, sizeof(sub), "AUDIO  //  DISPLAY  //  TERMINAL THEME");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  OPTION");
+            snprintf(sub, sizeof(sub), "AUDIO  /  DISPLAY  /  TERMINAL THEME");
             line1 = "Adjusts master, music, SFX, and DSP effect levels.";
             line2 = "Switches terminal phosphor palettes and CRT/bloom.";
             line3 = "Changes apply immediately across the Plex and table.";
         } else if (hover_bottom == 6) {
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  MUSIC");
-            snprintf(sub, sizeof(sub), "MATCH TRACK  //  LIGHT PRESETS");
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  MUSIC");
+            snprintf(sub, sizeof(sub), "MATCH TRACK  /  LIGHT PRESETS");
             line1 = "Steps through the tracks and picks a music folder.";
             line2 = "Tests your audio effect options, plays or stops the track.";
             line3 = "OFF / RANDOM / LOOP 1 picks what plays next.";
         } else if (s_active_tab == 0) {
-            const char *deus_p = is_deus_spine_active() ? "DEUS // " : "";
+            const char *deus_p = is_deus_spine_active() ? "DEUS / " : "";
             if (s_selected_month == 0) {
                 static const char * const k_tut_titles[4] = {
-                    "TUTORIAL 04 // FINAL VERIFICATION MATCH",
-                    "SPECIAL GAME // KK-ADD-10 ACTION CARD AUDIO EFFECT",
-                    "TUTORIAL 02 // SPEEDCOIN SATURATION PROTOCOL",
-                    "TUTORIAL 01 // STANDARD RULES OF KOI-KOI"
+                    "TUTORIAL 04 / FINAL VERIFICATION MATCH",
+                    "SPECIAL GAME / KK-ADD-10 ACTION CARD AUDIO EFFECT",
+                    "TUTORIAL 02 / SPEEDCOIN SATURATION PROTOCOL",
+                    "TUTORIAL 01 / STANDARD RULES OF KOI-KOI"
                 };
                 static const char * const k_tut_desc1[4] = {
                     "Short match to verify everything learned.",
@@ -2754,13 +2754,13 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                     "180s Speedcoin saturation tutorial.",
                     "Learn floral matching, deck draw, yaku & Koi-Koi."
                 };
-                snprintf(hdr, sizeof(hdr), "%sMONTH 01  //  %s   [TUTORIAL]", deus_p, k_month_names[0]);
+                snprintf(hdr, sizeof(hdr), "%sMONTH 01  /  %s   [TUTORIAL]", deus_p, k_month_names[0]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
                 line3 = "Press START to launch this tutorial.";
             } else {
-                snprintf(hdr, sizeof(hdr), "%sMONTH %02d  //  %s", deus_p, s_selected_month + 1, k_month_names[s_selected_month]);
+                snprintf(hdr, sizeof(hdr), "%sMONTH %02d  /  %s", deus_p, s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = is_deus_spine_active() ? "HARDCORE DEUS PASS  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
                 snprintf(line2_buf, sizeof(line2_buf), "Month %02d - Card %d of 4  |  %s",
@@ -2771,8 +2771,8 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             }
         } else if (s_active_tab == 2) {
             int drops = speed_bar_graded_drops();
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
-            snprintf(sub, sizeof(sub), "SOLO HIGHSCORE  //  180s CLOCK   [RUNS: %d]", s_sc_runs);
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  SPEEDCOIN");
+            snprintf(sub, sizeof(sub), "SOLO HIGHSCORE  /  180s CLOCK   [RUNS: %d]", s_sc_runs);
             line1 = "14 field (2x7) + 8 hand. +10s/10 MP, -10s miss.";
             if (s_sc_rank_count >= 2) {
                 snprintf(sc_line2, sizeof(sc_line2),
@@ -2791,7 +2791,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             }
             if (drops > 0) {
                 snprintf(sc_line3, sizeof(sc_line3),
-                         "Avg %.2fs  //  %.1f%% overlap  //  %d MP [x%d]",
+                         "Avg %.2fs  /  %.1f%% overlap  /  %d MP [x%d]",
                          speed_bar_avg_drop_seconds(), speed_bar_avg_cover_pct(),
                          speed_bar_lifetime_minipoints(), speed_bar_best_streak());
                 line3 = sc_line3;
@@ -2804,12 +2804,12 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             int aud_trig = board_get_audio_action_triggers();
             int ac_sym = action_card_get_symbols_fired();
             int ac_tm  = action_card_get_lifetime_time();
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  ACTION CARD");
-            snprintf(sub, sizeof(sub), "KK-ADD-10  //  %s  //  %d ROUNDS   [%dW-%dL]",
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  ACTION CARD");
+            snprintf(sub, sizeof(sub), "KK-ADD-10  /  %s  /  %d ROUNDS   [%dW-%dL]",
                      d_name, s_ac_cfg_rounds, s_ac_wins, s_ac_losses);
             if (s_ac_runs > 0 || ac_sym > 0 || ac_tm > 0) {
                 snprintf(sc_line1, sizeof(sc_line1),
-                         "Best: %d PTS  //  Time Taken: %d  //  Symbols: %d",
+                         "Best: %d PTS  /  Time Taken: %d  /  Symbols: %d",
                          s_ac_best_score, ac_tm, ac_sym);
                 line1 = sc_line1;
             } else {
@@ -2817,7 +2817,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             }
             if (aud_trig > 0) {
                 snprintf(sc_line2, sizeof(sc_line2),
-                         "Audio FX: %.0f%% Peak  //  %.1fs Full  //  %d Triggers",
+                         "Audio FX: %.0f%% Peak  /  %.1fs Full  /  %d Triggers",
                          board_get_audio_peak_synergy() * 100.0f,
                          board_get_audio_full_hold_seconds(), aud_trig);
                 line2 = sc_line2;
@@ -2826,7 +2826,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             }
             if (drops > 0) {
                 snprintf(sc_line3, sizeof(sc_line3),
-                         "Speedbar: %.2fs avg  //  %.1f%% overlap  //  %d MP",
+                         "Speedbar: %.2fs avg  /  %.1f%% overlap  /  %d MP",
                          speed_bar_avg_drop_seconds(), speed_bar_avg_cover_pct(),
                          speed_bar_lifetime_minipoints());
                 line3 = sc_line3;
@@ -2835,8 +2835,8 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             }
         } else {
             const char *d_name = diff_short_name(s_tr_cfg_diff, s_tr_cfg_timer);
-            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  TRAINING");
-            snprintf(sub, sizeof(sub), "%s  //  %s  //  %d ROUNDS",
+            snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  /  TRAINING");
+            snprintf(sub, sizeof(sub), "%s  /  %s  /  %d ROUNDS",
                      ruleset_short_name(s_tr_cfg_ruleset), d_name, s_tr_cfg_rounds);
             const Opponent *op = campaign_get_opponent(clamped_tr_opponent());
             snprintf(sc_line1, sizeof(sc_line1), "Opponent: %s (%s)  [%d/12 Unlocked]",
@@ -3333,7 +3333,7 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         int month_done = is_month_completed(s_selected_month);
         if (!was_done) {
             char title[88], detail[112];
-            snprintf(title, sizeof(title), "%s[%s] CLEARED  //  MONTH %02d CARD %d",
+            snprintf(title, sizeof(title), "%s[%s] CLEARED  /  MONTH %02d CARD %d",
                      deus_pass ? "DEUS " : "", CARDS[cid].name,
                      s_selected_month + 1, (cid % 4) + 1);
             if (month_done && !deus_pass && count_mask_cards(s_finished_cards_mask) >= 48) {
@@ -3464,7 +3464,7 @@ void plexus_training_finish(const GameState *g) {
     int mp = speed_bar_total();
 
     char title[88], detail[112];
-    snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_nm);
+    snprintf(title, sizeof(title), "%s  /  YOU %d - CPU %d  [%s]", res, you, cpu, d_nm);
     snprintf(detail, sizeof(detail), "%s  |  %d RDS  |  Rival E-%02d  |  Speedcoins: %d MP",
              r_nm, g->total_rounds, opp_num, mp);
     plexus_match_log_push(MLOG_TRAINING, "TRAINING", title, detail);
@@ -3488,16 +3488,16 @@ void plexus_draw_training_result(const BoardAssets *ba, const GameState *g, cons
         DrawTexturePro(s_plexus_bg, (Rectangle){ 0, 0, 1280, 720 }, (Rectangle){ 0, 0, 1280, 720 }, (Vector2){ 0, 0 }, 0.0f, WHITE);
     else ClearBackground(BLACK);
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 200 });
-    const char *hdr = "TRAINING  //  STATS & TELEMETRY";
+    const char *hdr = "TRAINING  /  STATS & TELEMETRY";
     Vector2 hts = MeasureTextEx(font_title, hdr, 28.0f, 1.4f);
     draw_text_snapped(font_title, hdr, (1280.0f - hts.x) * 0.5f, 24.0f, 28.0f, 1.4f, COLOR_PHOSPHOR);
 
     Rectangle lbox = { 100.0f, 76.0f, 524.0f, 530.0f }, rtop = { 656.0f, 76.0f, 524.0f, 304.0f };
     DrawRectangleRec(lbox, PLEXUS_PANEL_BG); ui_draw_panel_border(lbox, COLOR_PHOSPHOR);
     DrawRectangleRec(rtop, PLEXUS_PANEL_BG); ui_draw_panel_border(rtop, COLOR_PHOSPHOR);
-    draw_text_snapped(font_title, "TRAINING SESSION  //  STATS", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "TRAINING SESSION  /  STATS", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine(116, 118, 608, 118, COLOR_PHOSPHOR_DIM);
-    draw_text_snapped(font_title, "PLEX ARCHIVE  //  INNER RECORDS", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "PLEX ARCHIVE  /  INNER RECORDS", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine(672, 118, 1164, 118, COLOR_PHOSPHOR_DIM);
 
     int rw = 0, rl = 0, rd = 0, hi_you = 0, hi_cpu = 0, y_tot = 0, top_y = -1, top_yv = 0;
@@ -3622,7 +3622,7 @@ void plexus_action_card_finish_match(const GameState *g) {
     s_ac_last_mt = mt;
 
     char title[88], detail[112];
-    snprintf(title, sizeof(title), "%s  //  YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
+    snprintf(title, sizeof(title), "%s  /  YOU %d - CPU %d  [%s]", res, you, cpu, d_name);
     snprintf(detail, sizeof(detail), "KK-ADD-10 (%d RDS)  |  Speedcoins: %d MP (+%d)  |  Time: YOU %d / CPU %d",
              g->total_rounds, mp, mp / 10, yt, ct);
     plexus_match_log_push(MLOG_ACTION_CARD, "ACTION CARD", title, detail);
@@ -3645,7 +3645,7 @@ void plexus_draw_action_card_result(const BoardAssets *ba, const GameState *g, c
     int cpu = g ? g->total_score[1] : 0;
     const char *outcome = (you > cpu) ? "VICTORY" : (you < cpu) ? "DEFEAT" : "DRAW";
     char hdr[64];
-    snprintf(hdr, sizeof(hdr), "ACTION CARD  //  %s", outcome);
+    snprintf(hdr, sizeof(hdr), "ACTION CARD  /  %s", outcome);
     Vector2 hts = MeasureTextEx(font_title, hdr, 28.0f, 1.4f);
     Color hdr_col = (you < cpu) ? COLOR_RED : COLOR_PHOSPHOR;
     draw_text_snapped(font_title, hdr, (1280.0f - hts.x) * 0.5f, 24.0f, 28.0f, 1.4f, hdr_col);
@@ -3654,9 +3654,9 @@ void plexus_draw_action_card_result(const BoardAssets *ba, const GameState *g, c
     Rectangle rtop = { 656.0f, 76.0f, 524.0f, 304.0f };
     DrawRectangleRec(lbox, PLEXUS_PANEL_BG); ui_draw_panel_border(lbox, COLOR_PHOSPHOR);
     DrawRectangleRec(rtop, PLEXUS_PANEL_BG); ui_draw_panel_border(rtop, COLOR_PHOSPHOR);
-    draw_text_snapped(font_title, "ACTION CARD  //  MATCH BREAKDOWN", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "ACTION CARD  /  MATCH BREAKDOWN", 118.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine(116, 118, 608, 118, COLOR_PHOSPHOR_DIM);
-    draw_text_snapped(font_title, "AUDIO FX  //  ARCHIVE TELEMETRY", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+    draw_text_snapped(font_title, "AUDIO FX  /  ARCHIVE TELEMETRY", 674.0f, 90.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine(672, 118, 1164, 118, COLOR_PHOSPHOR_DIM);
 
     int rw = 0, rl = 0, rd = 0, hi_you = 0, hi_cpu = 0, y_tot = 0, top_y = -1, top_yv = 0;
@@ -4347,7 +4347,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     float y = pr.y + 18.0f;
 
     if (s_tut_step == TUT1_PANEL_INTRO) {
-        draw_text_snapped(font_title, "STEP 1 OF 5  //  MATCH BY MONTH PLANT",
+        draw_text_snapped(font_title, "STEP 1 OF 5  /  MATCH BY MONTH PLANT",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
@@ -4373,7 +4373,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         draw_text_snapped(font_body, "on the table (Month 08 Susuki).",
                           x + 184.0f, y + 162.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     } else if (s_tut_step == TUT1_PANEL_DECK_DRAW) {
-        draw_text_snapped(font_title, "STEP 2 OF 5  //  AUTOMATIC DECK DRAW",
+        draw_text_snapped(font_title, "STEP 2 OF 5  /  AUTOMATIC DECK DRAW",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
@@ -4397,7 +4397,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         draw_text_snapped(font_body, "otherwise it stays on the table.",
                           x + 184.0f, y + 138.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
     } else if (s_tut_step == TUT1_PANEL_LEFT_AREA) {
-        draw_text_snapped(font_title, "STEP 3 OF 5  //  SCORING AREA (LEFT LANES)",
+        draw_text_snapped(font_title, "STEP 3 OF 5  /  SCORING AREA (LEFT LANES)",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
@@ -4413,7 +4413,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
                           "Hover any captured mini-card to inspect it.",
                           x, y + 132.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
     } else if (s_tut_step == TUT1_PANEL_TRY_COMBO) {
-        draw_text_snapped(font_title, "STEP 4 OF 5  //  FORM A COMBO (YAKU)",
+        draw_text_snapped(font_title, "STEP 4 OF 5  /  FORM A COMBO (YAKU)",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
@@ -4439,7 +4439,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
         draw_text_snapped(font_body, "onto [09-A Sake Cup] on the table.",
                           x + 184.0f, y + 162.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     } else if (s_tut_step == TUT1_PANEL_KOI_DECIDE) {
-        draw_text_snapped(font_title, "STEP 5 OF 5  //  KOI-KOI OR SHOBU",
+        draw_text_snapped(font_title, "STEP 5 OF 5  /  KOI-KOI OR SHOBU",
                           x, y, 20.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 30.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 30.0f), COLOR_PHOSPHOR_DIM);
         draw_text_snapped(font_body,
@@ -4451,30 +4451,30 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     } else if (s_tut_step == TUT2_PANEL_CORE) {
         draw_text_snapped(font_body, "> Objective: System Saturation before System Collapse.", x, y, 18.0f, 1.2f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 32.0f), (int)(pr.x + pr.width - pad), (int)(y + 32.0f), COLOR_PHOSPHOR_DIM);
-        draw_text_snapped(font_title, "// THE CORE PRINCIPLE //", x, y + 52.0f, 20.0f, 1.3f, COLOR_PHOSPHOR);
+        draw_text_snapped(font_title, "/ THE CORE PRINCIPLE /", x, y + 52.0f, 20.0f, 1.3f, COLOR_PHOSPHOR);
         draw_text_snapped(font_body, "You are playing against the death of the machine. 180 seconds remain.", x, y + 96.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
         draw_text_snapped(font_body, "No opponent. Just the Construct and your synapses.", x, y + 128.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     } else if (s_tut_card_id == 2) {
         static const struct { TutorialStep st; const char *hdr; int hi; const char *ln[8]; } k_p2[4] = {
-            { TUT2_PANEL_SYNC, "// SYNCHRONIZATION //", 2, {
+            { TUT2_PANEL_SYNC, "/ SYNCHRONIZATION /", 2, {
                 "Every single move demands absolute neural precision.", "",
                 "- The SPEEDBAR extracts your reaction speed (1.00s limit).",
                 "- If you MISPLACE a card or hesitate too long:",
                 "  -> SHOCK: -10 seconds drained from your remaining lifetime (timer).",
                 "  -> FRACTURE: Your \"Perfect Serie\" breaks instantly.", NULL, NULL } },
-            { TUT2_PANEL_PARASITE, "// ANTI-PARASITE PROTOCOL //", 7, {
+            { TUT2_PANEL_PARASITE, "/ ANTI-PARASITE PROTOCOL /", 7, {
                 "The Construct detects blind firing and reckless harvesting.", "",
                 "- Three consecutive FAILURES (Miss Hits) activate INVERSION.",
                 "- The Atrium constricts:",
                 "  Instead of dispensing new fragments, the STOCK pile marked left",
                 "  CONSUMES an already captured field card back into its maw.", "",
                 "- Land ONE precise match to calm the system and restore normal stock flow." } },
-            { TUT2_PANEL_HAND2, "// THE SECOND MATURATION (HAND 2) //", 2, {
+            { TUT2_PANEL_HAND2, "/ THE SECOND MATURATION (HAND 2) /", 2, {
                 "A standard cycle (Wave) expires after 8 moves. Unless you feed the core.", "",
                 "- 30 SPEEDCOINS within a single Wave.",
                 "- Upon hitting this threshold, the STOCK PILE begins to GLOW.",
                 "- Rotating phosphor dots crawl around the pasteboard matrix.", NULL, NULL, NULL } },
-            { TUT2_PANEL_NO_HESITATION, "// NO HESITATION //", 4, {
+            { TUT2_PANEL_NO_HESITATION, "/ NO HESITATION /", 4, {
                 "In this mode, there is no \"KOI-KOI\" and no \"SHOBU\".", "",
                 "- The Construct does not deliberate. It only eats time.",
                 "- Your Yaku (combinations) form organically in the background.",
@@ -4785,10 +4785,10 @@ void plexus_speedcoin_finish_run(int final_score, int waves, int run_coins, int 
 
     char title[88], detail[112];
     if (s_sc_last_rank_idx >= 0) {
-        snprintf(title, sizeof(title), "%d PTS  //  WAVE %02d  [RANK #%02d]",
+        snprintf(title, sizeof(title), "%d PTS  /  WAVE %02d  [RANK #%02d]",
                  s_sc_last_score, s_sc_last_waves, s_sc_last_rank_idx + 1);
     } else {
-        snprintf(title, sizeof(title), "%d PTS  //  WAVE %02d  [180s RUN]",
+        snprintf(title, sizeof(title), "%d PTS  /  WAVE %02d  [180s RUN]",
                  s_sc_last_score, s_sc_last_waves);
     }
     snprintf(detail, sizeof(detail), "Speedcoin Bonus: +%d PTS (%d MP)  |  Best Serie: x%d  |  Drops: %d",
@@ -4810,7 +4810,7 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
     }
     DrawRectangle(0, 0, 1280, 720, (Color){ 0, 0, 0, 200 });
 
-    const char *hdr = "SPEEDCOIN  //  TIME EXPIRED";
+    const char *hdr = "SPEEDCOIN  /  TIME EXPIRED";
     Vector2 hts = MeasureTextEx(font_title, hdr, 28.0f, 1.4f);
     draw_text_snapped(font_title, hdr, (1280.0f - hts.x) * 0.5f, 24.0f, 28.0f, 1.4f, COLOR_PHOSPHOR);
 
@@ -4819,7 +4819,7 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
     ui_draw_panel_border(banner, COLOR_PHOSPHOR);
     char sum_txt[128];
     snprintf(sum_txt, sizeof(sum_txt),
-             "FINAL SCORE: %d PTS     //     WAVE %d     //     %d MP (+%d PTS)",
+             "FINAL SCORE: %d PTS     /     WAVE %d     /     %d MP (+%d PTS)",
              s_sc_last_score, s_sc_last_waves, s_sc_last_coins, s_sc_last_bonus);
     Vector2 sts = MeasureTextEx(font_title, sum_txt, 20.0f, 1.2f);
     draw_text_snapped(font_title, sum_txt, banner.x + (banner.width - sts.x) * 0.5f,
@@ -4829,7 +4829,7 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
     Rectangle rank_box = { 160.0f, 154.0f, 464.0f, 448.0f };
     DrawRectangleRec(rank_box, PLEXUS_PANEL_BG);
     ui_draw_panel_border(rank_box, COLOR_PHOSPHOR);
-    draw_text_snapped(font_title, "SPEEDCOIN RANKLIST  //  TOP 08",
+    draw_text_snapped(font_title, "SPEEDCOIN RANKLIST  /  TOP 08",
                       rank_box.x + 18.0f, rank_box.y + 14.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine((int)rank_box.x + 16, (int)rank_box.y + 42,
              (int)(rank_box.x + rank_box.width - 16.0f), (int)rank_box.y + 42, COLOR_PHOSPHOR_DIM);
@@ -4864,7 +4864,7 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
     Rectangle run_box = { 656.0f, 154.0f, 464.0f, 224.0f };
     DrawRectangleRec(run_box, PLEXUS_PANEL_BG);
     ui_draw_panel_border(run_box, COLOR_PHOSPHOR);
-    draw_text_snapped(font_title, "THIS RUN  //  SCORE BREAKDOWN",
+    draw_text_snapped(font_title, "THIS RUN  /  SCORE BREAKDOWN",
                       run_box.x + 16.0f, run_box.y + 14.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
     DrawLine((int)run_box.x + 16, (int)run_box.y + 42,
              (int)(run_box.x + run_box.width - 16.0f), (int)run_box.y + 42, COLOR_PHOSPHOR_DIM);
@@ -4880,10 +4880,10 @@ void plexus_draw_speedcoin_result(const BoardAssets *ba, const GameStats *st, Ve
     draw_text_snapped(font_body, TextFormat("RUN BEST SERIE :  x%d PERFECT  [%d DROPS]", s_sc_last_streak, s_sc_last_drops),
                       run_box.x + 18.0f, run_box.y + 146.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
     if (s_sc_last_drops > 0) {
-        draw_text_snapped(font_body, TextFormat("RUN SPEED/ACC  :  %.2fs  //  %.1f%% OVERLAP", s_sc_last_avg_sec, s_sc_last_avg_cov),
+        draw_text_snapped(font_body, TextFormat("RUN SPEED/ACC  :  %.2fs  /  %.1f%% OVERLAP", s_sc_last_avg_sec, s_sc_last_avg_cov),
                           run_box.x + 18.0f, run_box.y + 178.0f, 18.0f, 1.2f, COLOR_PHOSPHOR);
     } else {
-        draw_text_snapped(font_body, "RUN SPEED/ACC  :  --.--s  //  --.-% OVERLAP",
+        draw_text_snapped(font_body, "RUN SPEED/ACC  :  --.--s  /  --.-% OVERLAP",
                           run_box.x + 18.0f, run_box.y + 178.0f, 18.0f, 1.2f, COLOR_TEXT_INFO_DIM);
     }
 

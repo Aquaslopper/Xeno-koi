@@ -457,7 +457,7 @@ static void draw_stat_row(int row, const char *label, const char *value, int div
 
 void screens_draw_stats(const BoardAssets *ba, const GameStats *st, const GameSettings *settings, const MatchHistory *h, Vector2 vm, int confirm_reset, float log_timer) {
     draw_bg_if_loaded(ba, 180);
-    draw_centered_text(font_title, "COMBAT TELEMETRY // STATS", 640.0f, 34.0f, 30.0f, 1.4f, COLOR_PHOSPHOR);
+    draw_centered_text(font_title, "COMBAT TELEMETRY / STATS", 640.0f, 34.0f, 30.0f, 1.4f, COLOR_PHOSPHOR);
     Rectangle p = { 100, 90, 1080, 500 };
     DrawRectangleRec(p, COLOR_PANEL_BG);
     ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);
@@ -598,12 +598,12 @@ void screens_draw_match_result(const BoardAssets *ba, const GameState *g, const 
         if (meets_clearance) {
             int unlocked_next = (s->unlocked_opponents == s->current_opponent + 2);
             if (unlocked_next)
-                draw_centered_text(font_body, "/// CLEARANCE VERIFIED: NEXT SECTOR UNLOCKED! ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+                draw_centered_text(font_body, "/ CLEARANCE VERIFIED: NEXT SECTOR UNLOCKED! /", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
             else
-                draw_centered_text(font_body, "/// CLEARANCE VERIFIED: COIN EARNED ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
+                draw_centered_text(font_body, "/ CLEARANCE VERIFIED: COIN EARNED /", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_PHOSPHOR);
         }
         else if (s->current_opponent == s->unlocked_opponents - 1)
-            draw_centered_text(font_body, "/// MATCH WON (Clearance Unfulfilled: Requires Master 3+, Hard 6+, or Easy 9+ Rounds) ///", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_AMBER);
+            draw_centered_text(font_body, "/ MATCH WON (Clearance Unfulfilled: Requires Master 3+, Hard 6+, or Easy 9+ Rounds) /", 640.0f, 120.0f, 17.0f, 1.2f, COLOR_AMBER);
     }
     Rectangle p = { 340, 150, 600, 440 };
     DrawRectangleRec(p, COLOR_PANEL_BG); ui_draw_panel_border(p, COLOR_PHOSPHOR_DIM);

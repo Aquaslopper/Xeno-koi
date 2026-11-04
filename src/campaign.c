@@ -187,7 +187,7 @@ static void campaign_draw_opponent_page(const BoardAssets *ba, const GameSetting
                (Vector2){ 580.0f, 322.0f }, 16.0f, 1.1f, COLOR_TEXT_INFO);
     DrawTextEx(font_body, TextFormat("SIGNATURE: %s", CARDS[opp->favorite_card_id].name),
                (Vector2){ 580.0f, 345.0f }, 15.0f, 1.0f, COLOR_TEXT_INFO);
-    DrawTextEx(font_body, "CLEARANCE // MASTER 3 RDS   HARD 6 RDS   EASY 9 RDS",
+    DrawTextEx(font_body, "CLEARANCE / MASTER 3 RDS   HARD 6 RDS   EASY 9 RDS",
                (Vector2){ 580.0f, 371.0f }, 13.0f, 0.8f, COLOR_PHOSPHOR_DIM);
     const Texture2D *coins[3] = { &ba->coin_gold, &ba->coin_silver, &ba->coin_bronze };
     const char *names[3] = { "MASTER", "HARD", "EASY" };
@@ -207,7 +207,7 @@ static void campaign_draw_opponent_page(const BoardAssets *ba, const GameSetting
 
 static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settings,
                                           int difficulty_selected) {
-    static const char *const labels[3] = { "EASY // 9 ROUNDS", "HARD // 6 ROUNDS", "MASTER // 3 ROUNDS" };
+    static const char *const labels[3] = { "EASY / 9 ROUNDS", "HARD / 6 ROUNDS", "MASTER / 3 ROUNDS" };
     static const char *const accuracy[3] = {
         "AI ACCURACY: 20-60%", "AI ACCURACY: 50-80%", "AI ACCURACY: 78-100%"
     };
@@ -239,7 +239,7 @@ static void campaign_draw_difficulty_page(Vector2 vm, const GameSettings *settin
 
 static void campaign_draw_stage_page(const BoardAssets *ba, const GameSettings *settings,
                                      Vector2 vm, int enabled) {
-    DrawTextEx(font_title, "STAGE // MAP SELECT", (Vector2){ 580.0f, 258.0f }, 20.0f, 1.0f, COLOR_PHOSPHOR);
+    DrawTextEx(font_title, "STAGE / MAP SELECT", (Vector2){ 580.0f, 258.0f }, 20.0f, 1.0f, COLOR_PHOSPHOR);
     /* Casing style, not another table: any map you pick can be rendered in CRT phosphor. */
     draw_btn_custom(k_crt_toggle_rect,
                     settings->crt_tables ? "CRT CASING: ON" : "CRT CASING: OFF", 12, vm,
@@ -296,7 +296,7 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
     draw_btn_custom((Rectangle){ 1145, 48, 32, 28 }, "X", 18, vm, COLOR_PHOSPHOR);
 
     if (settings->difficulty == DIFFICULTY_DEUS) {
-        DrawTextEx(font_title, "CAMPAIGN: DEUS SUPREMUS // PRIME INTELLECT", (Vector2){ 295.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
+        DrawTextEx(font_title, "CAMPAIGN: DEUS SUPREMUS / PRIME INTELLECT", (Vector2){ 295.0f, 52.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
         Rectangle big_box = { 155.0f, 140.0f, 200.0f, 320.0f };
         DrawRectangleRec((Rectangle){ big_box.x - 4, big_box.y - 4, big_box.width + 8, big_box.height + 8 }, COLOR_PANEL_BG);
         ui_draw_panel_border((Rectangle){ big_box.x - 2, big_box.y - 2, big_box.width + 4, big_box.height + 4 }, COLOR_PHOSPHOR);
@@ -307,8 +307,8 @@ void campaign_draw_overlay(const BoardAssets *ba, const GameSettings *settings, 
         Rectangle txt_box = { 380.0f, 140.0f, 745.0f, 320.0f };
         DrawRectangleRec(txt_box, COLOR_PANEL_BG);
         ui_draw_panel_border(txt_box, COLOR_PHOSPHOR_DIM);
-        DrawTextEx(font_title, "ENTITY 13 // DEUS SUPREMUS", (Vector2){ 400.0f, 158.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
-        DrawTextEx(font_body, "Omnipresent Machine God // Sector Null", (Vector2){ 400.0f, 188.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
+        DrawTextEx(font_title, "ENTITY 13 / DEUS SUPREMUS", (Vector2){ 400.0f, 158.0f }, 24.0f, 1.2f, COLOR_PHOSPHOR);
+        DrawTextEx(font_body, "Omnipresent Machine God / Sector Null", (Vector2){ 400.0f, 188.0f }, 16.0f, 2.0f, COLOR_TEXT_INFO_DIM);
         DrawLine(400, 212, 1105, 212, COLOR_PHOSPHOR_DIM);
         DrawTextEx(font_body, "RULESET: YAKUZA RULES (LOCKED)", (Vector2){ 400.0f, 224.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);
         DrawTextEx(font_body, "AI INTELLECT: 100.0% OPTIMAL (ZERO BLUNDERS)", (Vector2){ 400.0f, 248.0f }, 17.0f, 2.0f, COLOR_TEXT_INFO);

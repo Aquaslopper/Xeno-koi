@@ -684,7 +684,7 @@ static void draw_round_end_banner(const GameState *gs, float timer) {
     Color tcol = (w == 0) ? COLOR_PHOSPHOR : (w == 1) ? COLOR_RED : COLOR_PHOSPHOR_DIM;
     char sub[80], gold[64] = "", tline[128] = "";
     if (match_over || w < 0) snprintf(sub, sizeof(sub), "%sSCORE:  YOU %d  -  CPU %d", match_over ? "FINAL " : "", p0, p1);
-    else snprintf(sub, sizeof(sub), "+%d PTS   //   SCORE: YOU %d - CPU %d", gs->current_round_record.award, p0, p1);
+    else snprintf(sub, sizeof(sub), "+%d PTS   /   SCORE: YOU %d - CPU %d", gs->current_round_record.award, p0, p1);
     int show_gold = (gs->ruleset == RULESET_KK_ADD_10) && (speed_bar_total() > 0);
     if (show_gold) {
         int mp = speed_bar_total();
@@ -1847,7 +1847,7 @@ static void update_draw_frame(void) {
                         if (g.phase == PHASE_ROUND_END && speed_mode_clock() > 0.0f && !board_busy) {
                             if (plexus_speedcoin_deal_hand2(&g)) {
                                 audio_play_flip(&audio);
-                                anim_start_banner(&anim, "30 MP // BONUS HAND DEALT", 1.10f);
+                                anim_start_banner(&anim, "30 MP / BONUS HAND DEALT", 1.10f);
                                 prev_round_phase = PHASE_NONE;
                                 trigger_event_beat(0.30f);
                             } else if (prev_round_phase != PHASE_ROUND_END) {
@@ -2132,7 +2132,7 @@ static void update_draw_frame(void) {
         BeginTextureMode(canvas);
         float t = fminf(1.0f, deus_banner_timer / 0.50f);             /* fade-out tail */
         unsigned char a = (unsigned char)(t * 200.0f);                /* ~78% - transparent */
-        const char *msg = "/// TIME EXPIRED ///";
+        const char *msg = "/ TIME EXPIRED /";
         Vector2 ts = MeasureTextEx(font_title, msg, 56.0f, 1.6f);
         DrawTextEx(font_title, msg, (Vector2){ floorf((CANVAS_W - ts.x) / 2.0f), 330.0f }, 56.0f, 1.6f, (Color){ 0xFF, 0x30, 0x30, a });
         EndTextureMode();
