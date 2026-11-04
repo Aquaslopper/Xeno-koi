@@ -1879,10 +1879,6 @@ typedef struct {
 } StoryBeat;
 
 
-
-
-static const StoryBeat *story_beat(int cid) {
-    return (cid >= 0 && cid < 48) ? &k_story_beats[cid] : NULL;
 }
 
 static int story_beat_has_protocol(int cid) {
