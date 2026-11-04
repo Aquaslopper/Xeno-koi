@@ -4761,13 +4761,7 @@ void plexus_tutorial_finish_match(void) {
     if (!was_done) {
         char title[88];
         const char *detail = "Standard Koi-Koi rules conditioning finished -- Card 3 unlocked.";
-        const StoryBeat *bt = story_beat(cid);
-        if (cid >= 4) {
-            snprintf(title, sizeof(title), "[%s] PROTOCOL CLEARED", CARDS[cid].name);
-            if (bt && bt->trace[0]) detail = bt->trace[0];
-            else detail = "Story protocol finished -- next story card unlocked.";
-        } else {
-            snprintf(title, sizeof(title), "[%s] TUTORIAL 01 CLEARED", CARDS[cid].name);
+        snprintf(title, sizeof(title), "[%s] TUTORIAL CLEARED", CARDS[cid].name);
         }
         plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY", title, detail);
     }
