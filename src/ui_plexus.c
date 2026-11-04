@@ -125,8 +125,7 @@ typedef enum {
     TUT3_WAIT_START,
     TUT3_PANEL_METERS,
     TUT3_PANEL_HORRORS,
-    TUT3_FREE_PLAY,
-
+    TUT3_FREE_PLAY
 } TutorialStep;
 
 static int s_tut_active  = 0;
