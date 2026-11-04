@@ -1871,13 +1871,6 @@ static const StoryChapterDoc k_story_chapters[12] = {
     }
 };
 
-
-typedef struct {
-    const char *signal[3];
-    const char *intrusion[6];
-    const char *trace[6];
-}
-
 static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Color fill_col) {
     if (ratio < 0.0f) ratio = 0.0f;
     if (ratio > 1.0f) ratio = 1.0f;
