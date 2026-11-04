@@ -1876,65 +1876,6 @@ typedef struct {
     const char *signal[3];
     const char *intrusion[6];
     const char *trace[6];
-} StoryBeat;
-
-
-}
-
-static int story_beat_has_protocol(int cid) {
-    const StoryBeat *b = story_beat(cid);
-    return (b && b->intrusion[0]) ? 1 : 0;
-}
-
-static Rectangle story_month_btn_rect(int m) {
-    return (Rectangle){ 254.0f, floorf(122.0f + (float)(m + 1) * 37.3f), 190.0f, 33.0f };
-}
-
-static void draw_story_centered(Font fnt, const char *txt, float cx, float y, float fsz, float sp, Color col) {
-    if (!txt || !txt[0]) return;
-    Vector2 sz = MeasureTextEx(fnt, txt, fsz, sp);
-    DrawTextEx(fnt, txt, (Vector2){ floorf(cx - sz.x * 0.5f), floorf(y) }, fsz, sp, col);
-}
-
-static void draw_story_chain_formula(Font fnt, float cx, float y, float base_sz, float max_w, float sp, Color col) {
-    static const struct { const char *txt; int sub; } k_seg[] = {
-        { "P(w", 0 }, { "1", 1 }, { ", w", 0 }, { "2", 1 }, { ", ..., w", 0 }, { "n", 1 },
-        { ") = P(w", 0 }, { "1", 1 },
-        { ") \xC3\x97 P(w", 0 }, { "2", 1 }, { "|w", 0 }, { "1", 1 },
-        { ") \xC3\x97 P(w", 0 }, { "3", 1 }, { "|w", 0 }, { "1", 1 }, { ",w", 0 }, { "2", 1 },
-        { ") \xC3\x97 ... \xC3\x97 P(w", 0 }, { "n", 1 }, { "|w", 0 }, { "1", 1 }, { ",...,w", 0 }, { "n-1", 1 },
-        { ")", 0 }
-    };
-    const int n_seg = (int)(sizeof(k_seg) / sizeof(k_seg[0]));
-    float sz = base_sz;
-    for (int pass = 0; pass < 2; pass++) {
-        float sub_sz = roundf(sz * 0.68f);
-        float sub_sp = sp * 0.75f;
-        float join_gap = fmaxf(0.5f, sp * 0.65f);
-        float total_w = 0.0f;
-        for (int i = 0; i < n_seg; i++) {
-            Vector2 ms = MeasureTextEx(fnt, k_seg[i].txt, k_seg[i].sub ? sub_sz : sz,
-                                       k_seg[i].sub ? sub_sp : sp);
-            total_w += ms.x + ((i + 1 < n_seg) ? join_gap : 0.0f);
-        }
-        if (pass == 0 && max_w > 0.0f && total_w > max_w && total_w > 1.0f) {
-            sz = floorf(sz * (max_w / total_w) * 2.0f) * 0.5f;
-            if (sz < 12.0f) sz = 12.0f;
-            continue;
-        }
-        float cur_x = floorf(cx - total_w * 0.5f);
-        float base_y = floorf(y);
-        float sub_y  = floorf(y + sz * 0.34f);
-        for (int i = 0; i < n_seg; i++) {
-            float fsz_i = k_seg[i].sub ? sub_sz : sz;
-            float sp_i  = k_seg[i].sub ? sub_sp : sp;
-            Vector2 ms  = MeasureTextEx(fnt, k_seg[i].txt, fsz_i, sp_i);
-            DrawTextEx(fnt, k_seg[i].txt, (Vector2){ roundf(cur_x), k_seg[i].sub ? sub_y : base_y },
-                       fsz_i, sp_i, col);
-            cur_x += ms.x + join_gap;
-        }
-        break;
-    }
 }
 
 static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Color fill_col) {
