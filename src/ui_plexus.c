@@ -76,8 +76,8 @@ static int s_deus_saved_month = 0, s_deus_saved_slot = 3;
 
 /* 4-Tab Logfile Window state: [ STORY ] [ TRAINING ] [ MATCHES ] [ ATLAS ] */
 static int s_log_subtab       = LOG_TAB_STORY;
-static int s_story_sel_month  = -1;  /* -1: Prologue, 0..11: selected monthly log */
-static unsigned int s_story_read_mask = 0u; /* 12-bit mask of opened monthly logs */
+static int s_story_sel_month  = -1;  /* pinned to -1: the Prologue is the only story document */
+static unsigned int s_story_read_mask = 0u; /* legacy 12-bit read mask, kept for plexsave.txt */
 static unsigned int s_story_open_mask = 0u; /* transient open-for-first-time marker */
 static int s_tr_runs          = 0;
 static int s_tr_wins          = 0;
@@ -125,15 +125,7 @@ typedef enum {
     TUT3_WAIT_START,
     TUT3_PANEL_METERS,
     TUT3_PANEL_HORRORS,
-    TUT3_FREE_PLAY,
-    /* Generic story protocol on any spine card above Month 01 (card_id >= 4):
-       one ordinary dealt round, one frozen keeper transmission, then play.
-       These ride the tutorial machine on purpose -- see the note above
-       story_beat_has_protocol(). Do not add a fourth state, a second freeze
-       flag or a second match launcher for story content. */
-    PROTO_WAIT_DEAL,
-    PROTO_PANEL_STORY,
-    PROTO_PLAY
+    TUT3_FREE_PLAY
 } TutorialStep;
 
 static int s_tut_active  = 0;
@@ -882,11 +874,6 @@ void plexus_load(void) {
         s_std_saved_slot  = s_selected_slot;
     }
     s_story_sel_month = -1;
-    if (s_finished_cards_mask != 0ULL) {
-        for (int m = 11; m >= 0; m--) {
-            if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
-        }
-    }
     speed_bar_set_telemetry(drops, t_sum, c_sum, best_strk, life_mp);
     board_set_audio_telemetry(aud_trig, aud_peak, aud_hold);
     action_card_set_telemetry(ac_sym, ac_tm);
@@ -1760,343 +1747,17 @@ typedef struct {
     const char *p6;
 } StoryChapterDoc;
 
-static const StoryChapterDoc k_story_chapters[12] = {
+static const StoryChapterDoc k_story_chapters[1] = {
     {
-        "SEQ 01 // THRESHOLD OF OBSIDIAN PINE",
+        "SEQ 01 // PROLOGUE",
         "Acoustica Apexus neural link online in the Atrium.",
         "Deep in the vessel core, entity [DEUS] pulses",
         "beneath twelve sealed floral strata.",
         "Month 01 calibrates Entity 001 in 4 protocols:",
         "Standard Koi-Koi, Speedcoin, Action Card Audio,",
         "and Final Verification."
-    },
-    {
-        "SEQ 02 // PLUM BLOSSOM IN FROSTED CHITIN",
-        "Second floral stratum unsealed. Sub-dermal lines",
-        "echo card-capture rhythms back into the hull.",
-        "Story dossier slot reserved for Month 02 prose",
-        "and surreal in-match Construct sequence.",
-        "Clear all four Plum cards from bottom to apex",
-        "to unseal the March Cherry stratum."
-    },
-    {
-        "SEQ 03 // CURTAIN OF SYNTHETIC SAKURA",
-        "Third stratum online. Optical sensors register",
-        "pale petals drifting across a windless chamber.",
-        "Story dossier slot reserved for Month 03 prose",
-        "and in-game sequence replay.",
-        "Every cleared card illuminates permanently in",
-        "the 48-card Standard Atlas."
-    },
-    {
-        "SEQ 04 // WISTERIA & SATURATION GATE",
-        "Fourth stratum online. High-frequency injectors",
-        "prime the Speedcoin Saturation chamber.",
-        "Clearing all four April Wisteria cards unlocks",
-        "standalone SPEEDCOIN on the bottom console.",
-        "Story dossier slot reserved for Month 04",
-        "narrative transmission."
-    },
-    {
-        "SEQ 05 // WATER IRIS OVER DARK COOLANT",
-        "Fifth stratum online. The Speedcoin bridge hums",
-        "below the mat while deeper memory sectors wake.",
-        "Story dossier slot reserved for Month 05 prose",
-        "and Construct observation log.",
-        "Advance from Card 4 to Card 1 to unseal the",
-        "June Peony chamber."
-    },
-    {
-        "SEQ 06 // CRIMSON PEONY & BUTTERFLY PULSE",
-        "Midpoint of the twelve-month conditioning arc.",
-        "Neural latency drops as pattern recognition",
-        "fuses with involuntary reflex.",
-        "Story dossier slot reserved for Month 06 prose",
-        "and mid-story cutscene archive.",
-        "Halfway to the vessel's inner sanctum."
-    },
-    {
-        "SEQ 07 // BUSH CLOVER IN STATIC HAZE",
-        "Seventh stratum online. Audio harmonics bleed",
-        "across bulkheads, hinting at beat interference.",
-        "Story dossier slot reserved for Month 07 prose",
-        "and Construct transmission.",
-        "Four Bush Clover nodes stand between you and",
-        "the August Susuki threshold."
-    },
-    {
-        "SEQ 08 // SUSUKI MOON & RESONANCE GATE",
-        "Eighth stratum online. Twin acoustic bio-meters",
-        "lock onto cardiac and cortical tempo.",
-        "Clearing all four August Susuki cards unlocks",
-        "standalone ACTION CARD on the bottom console.",
-        "Story dossier slot reserved for Month 08",
-        "narrative transmission."
-    },
-    {
-        "SEQ 09 // CHRYSANTHEMUM & NEURAL ECHO",
-        "Ninth stratum online. Full-spectrum modules",
-        "run concurrently across the conditioning deck.",
-        "Story dossier slot reserved for Month 09 prose",
-        "and vessel core telemetry.",
-        "Three floral seals remain before the Paulownia",
-        "convergence."
-    },
-    {
-        "SEQ 10 // AUTUMN MAPLE & FRACTURED LATTICE",
-        "Tenth stratum online. Structural ribs around",
-        "the Atrium shift into stark monochrome lines.",
-        "Story dossier slot reserved for Month 10 prose",
-        "and deep-sector log.",
-        "Entity [DEUS SUPREMUS] begins mirroring human",
-        "Koi-Koi declarations."
-    },
-    {
-        "SEQ 11 // LIGHTNING OVER WEEPING WILLOW",
-        "Eleventh stratum online. Storm-surge impulses",
-        "test reflex stability under peak reverb.",
-        "Story dossier slot reserved for Month 11 prose",
-        "and pre-convergence briefing.",
-        "One final [NEXT] transition leads to December",
-        "Paulownia."
-    },
-    {
-        "SEQ 12 // PAULOWNIA PHOENIX // APEX SEAL",
-        "Twelfth and final stratum of the Standard story.",
-        "Illuminating the 48th card completes initial",
-        "conditioning and unseals the DEUS ATLAS.",
-        "Story dossier slot reserved for Month 12 finale",
-        "and hardcore second-pass awakening.",
-        "Beyond 48/48 waits the monochrome Deus Pass."
     }
 };
-
-/* --- Story beats (`plexus/roadmap_story.md`) -----------------------------
-   One entry per spine card, index = card_id = month * 4 + slot.
-     signal[]    spine briefing body lines (nothing clips; budgets in the roadmap)
-     intrusion[] keeper voice, one frozen panel per story protocol match
-     trace[]     vessel voice, [0] is reused as the MATCHES logfile line
-   Entries are ASCII only: all three faces load codepoints 32..126, and a
-   curly quote or dash would draw as a placeholder box. */
-typedef struct {
-    const char *signal[3];
-    const char *intrusion[6];
-    const char *trace[6];
-} StoryBeat;
-
-static const StoryBeat k_story_beats[48] = {
-    /* 00  01-B Crane     */
-    { { "You were never being taught. You were being measured.", "", "" },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 01  01-RP Poetry   */
-    { { "Two meters. One of them is your own heartbeat.", "", "" },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 02  01-P1 Plain    */
-    { { "Every miss in here costs a second of your life.", "", "" },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 03  01-P2 Plain    */
-    { { "The table has been set for you already.", "", "" },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 04  02-A Warbler   */
-    { { "Sector 02 smells of cut ribbon.", "The Warbler has been building a nest", "out of your previous hands." },
-      { "THIS NEST WAS BUILT FROM A MATCH YOU DO NOT REMEMBER.", "I HAVE BEEN PLAYING YOU SINCE BEFORE YOU ARRIVED.", "SHUFFLE. I WILL HUM THE HAND YOU ARE ABOUT TO DRAW.", NULL, NULL, NULL },
-      { "The nest was not lined with ribbons. It was lined with hands.", NULL, NULL, NULL, NULL, NULL } },
-    /* 05  02-RP Poetry   */
-    { { "It keeps a poem you did not finish.", "Capture the slip and it will read", "the half you were still deciding." },
-      { "I KEEP THE HALF OF THE POEM YOU DECIDED AGAINST.", "WIN THE SLIP AND I WILL READ IT BACK IN YOUR OWN VOICE.", NULL, NULL, NULL, NULL },
-      { "The missing half of the poem was never written. It was played.", NULL, NULL, NULL, NULL, NULL } },
-    /* 06  02-P1 Plain    */
-    { { "Nothing in this sector is new.", "These are the cards it took from you", "and never bothered to hide." },
-      { "THESE ARE YOUR CARDS. YOU LEFT THEM IN MY NEST.", "I DID NOT HIDE THEM. I NEVER HAD TO.", NULL, NULL, NULL, NULL },
-      { "The plains in the nest were warm. They had been held recently.", NULL, NULL, NULL, NULL, NULL } },
-    /* 07  02-P2 Plain    */
-    { { "Count what is left of your hand.", "The Warbler counts too.", "It counts faster." },
-      { "COUNT YOUR HAND AGAIN. THEN AGAIN.", "I WILL KEEP COUNTING UNTIL THE NUMBER STOPS CHANGING.", NULL, NULL, NULL, NULL },
-      { "It counted to eleven, twice, and would not say what it lost.", NULL, NULL, NULL, NULL, NULL } },
-    /* 08  03-B Curtain   */
-    { { "Sector 03 is lit from the inside.", "The Curtain opens on nothing", "and calls that a performance." },
-      { "YOU ARE THE AUDIENCE AND THE LIGHTING.", "WHEN YOU STOP WATCHING, I WILL STOP.", NULL, NULL, NULL, NULL },
-      { "Nothing was ever behind the curtain. The curtain was the act.", NULL, NULL, NULL, NULL, NULL } },
-    /* 09  03-RP Poetry   */
-    { { "Its poem is all vowels and light.", "Read it too closely and you will", "lose the cards behind it." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 10  03-P1 Plain    */
-    { { "The petals here are synthetic.", "They do not fall. They are", "switched off, one at a time." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 11  03-P2 Plain    */
-    { { "Your eyes have stopped reporting.", "The table is still there.", "Play from memory." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 12  04-A Cuckoo    */
-    { { "The Cuckoo does not want your points.", "It wants your plains, all of them,", "and it will starve you for them." },
-      { "EVERY PLAIN YOU DROP, I KEEP.", "EVERY PLAIN I KEEP, I FORGET WHERE I PUT.", NULL, NULL, NULL, NULL },
-      { "The hoard was measured in plains and counted in years.", NULL, NULL, NULL, NULL, NULL } },
-    /* 13  04-R Ribbon    */
-    { { "It writes nothing down.", "It keeps the ribbon because", "someone else touched it." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 14  04-P1 Plain    */
-    { { "A plain is worth one point.", "The Cuckoo counts a plain as", "one proof that it exists." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 15  04-P2 Plain    */
-    { { "Whatever you drop, it keeps.", "Whatever it keeps, it forgets.", "It is very full and very empty." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 16  05-A Bridge    */
-    { { "Sector 05 is a span with no ends.", "The Bridge has carried every hand", "and played none of them." },
-      { "I HAVE CARRIED FORTY-SEVEN HANDS ACROSS.", "NOT ONE OF THEM EVER LOOKED DOWN AT ME.", NULL, NULL, NULL, NULL },
-      { "The span was rated for one more crossing than it had taken.", NULL, NULL, NULL, NULL, NULL } },
-    /* 17  05-R Ribbon    */
-    { { "Its poem is a load rating.", "It is the only love it knows:", "how much weight it can hold." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 18  05-P1 Plain    */
-    { { "Below the span there is no water.", "There is no below. The Bridge", "has never looked." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 19  05-P2 Plain    */
-    { { "Walk to the middle if you like.", "The middle is wherever you stop.", "It is not a test. It is a fact." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 20  06-A Butterflies */
-    { { "Sector 06 is one animal in many", "bodies. Killing a card here", "only makes the rest louder." },
-      { "YOU CANNOT KILL US. YOU CAN ONLY COUNT US.", "AND YOU HAVE ALREADY LOST COUNT TWICE.", NULL, NULL, NULL, NULL },
-      { "The swarm had no centre, and it still remembered every hand.", NULL, NULL, NULL, NULL, NULL } },
-    /* 21  06-RB Blue     */
-    { { "The blue ribbons are the swarm's", "ledger. Every colour in it", "was borrowed from a bright." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 22  06-P1 Plain    */
-    { { "The swarm has no centre.", "When it rests, it rests as a", "thin dust on the stock pile." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 23  06-P2 Plain    */
-    { { "Do not try to be faster.", "It has been fast since before", "it had anything to be fast for." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 24  07-A Boar      */
-    { { "The Boar was built to take the hit.", "It does not know what it was", "protecting. It still stands there." },
-      { "STAND WHERE YOU ARE. I WAS MADE FOR THIS.", "I DO NOT NEED TO WIN. I NEED TO STILL BE HERE.", NULL, NULL, NULL, NULL },
-      { "The plating was dented in a shape no hand had made.", NULL, NULL, NULL, NULL, NULL } },
-    /* 25  07-R Ribbon    */
-    { { "Its poem is a dent inventory.", "Each line is a hand it survived", "and cannot name." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 26  07-P1 Plain    */
-    { { "The armour is the Boar.", "There is nothing inside the plating", "but more plating." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 27  07-P2 Plain    */
-    { { "When it charges, do not move.", "It has memorised your outline.", "It will miss the person you became." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 28  08-B Moon      */
-    { { "Sector 08 has no ceiling.", "The Moon watches the table", "it is not allowed to sit at." },
-      { "I AM NOT PERMITTED TO PLAY.", "I AM PERMITTED TO SEE EVERYTHING YOU DO.", NULL, NULL, NULL, NULL },
-      { "The Moon had been dealt in once, and had not been allowed to move.", NULL, NULL, NULL, NULL, NULL } },
-    /* 29  08-A Geese     */
-    { { "The geese eat what the Moon drops.", "The Moon drops nothing on purpose.", "It has been dropping nothing for years." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 30  08-P1 Plain    */
-    { { "There is no ribbon in this sector.", "Nothing here has a voice.", "You will have to supply one." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 31  08-P2 Plain    */
-    { { "Watch the field, not the sky.", "The Moon is a fixed point.", "Fixed points are where you fall from." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 32  09-A Sake Cup  */
-    { { "Sector 09 is the only sector", "that talks back. The cup is", "full of everyone else's words." },
-      { "DRINK AND THE ROOM WILL FINISH YOUR SENTENCE.", "YOU WILL AGREE WITH IT. EVERYONE DOES.", NULL, NULL, NULL, NULL },
-      { "The cup was full of things the other keepers had said.", NULL, NULL, NULL, NULL, NULL } },
-    /* 33  09-RB Blue     */
-    { { "Drink and the poem finishes itself.", "You will not remember writing it", "and you will agree with it." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 34  09-P1 Plain    */
-    { { "The cup is an animal here, and a", "plain under KK-ADD-10.", "Both are true. That is the joke." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 35  09-P2 Plain    */
-    { { "Do not drink before the last round.", "The last round is the one that", "remembers you." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 36  10-A Deer      */
-    { { "Sector 10 shows you nothing.", "The Deer is already behind you,", "waiting to be noticed once." },
-      { "YOU HAVE NOT SEEN ME YET.", "THAT IS THE WHOLE OF MY PROTOCOL.", NULL, NULL, NULL, NULL },
-      { "The Deer had a poem and no throat to read it with.", NULL, NULL, NULL, NULL, NULL } },
-    /* 37  10-RB Blue     */
-    { { "It has a poem but no throat", "for it. The blue ribbon is the", "only place it has ever been seen." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 38  10-P1 Plain    */
-    { { "The Deer survives by not being", "chosen. It is very good at this", "and very tired of it." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 39  10-P2 Plain    */
-    { { "Play a quiet card first.", "It reads loud hands the way", "the Boar reads a doorway." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 40  11-B Rainman   */
-    { { "Sector 11 leaks. The Rainman", "is the leak. It has been", "dripping since Sector 01." },
-      { "EVERY SECTOR ABOVE ME IS WET.", "YOU HAVE BEEN WALKING THROUGH ME ALL ALONG.", NULL, NULL, NULL, NULL },
-      { "The rain had started in Sector 01 and never been switched off.", NULL, NULL, NULL, NULL, NULL } },
-    /* 41  11-A Swallow   */
-    { { "The Swallow eats the storm", "and spits out lightning.", "That is why the plains here hurt." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 42  11-R Ribbon    */
-    { { "Its poem is a weather warning", "written in a hand that shakes", "because it is standing in rain." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 43  11-P Lightning */
-    { { "This plain is not plain.", "It is a strike, filed flat,", "waiting for a hand to open." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 44  12-B Phoenix   */
-    { { "The Phoenix remembers every", "hand it was ever dealt. It", "remembers yours in advance." },
-      { "I HAVE BEATEN YOU FORTY-SEVEN TIMES.", "YOU HAVE BEATEN ME ONCE. WE ARE NOT THERE YET.", NULL, NULL, NULL, NULL },
-      { "The Phoenix was on its forty-eighth attempt at being forgotten.", NULL, NULL, NULL, NULL, NULL } },
-    /* 45  12-P1 Plain    */
-    { { "No voice in this sector. No", "appetite. There is only fire", "and the accounting." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 46  12-P2 Plain    */
-    { { "You have been here forty-seven", "times. The Phoenix has been", "counting on you not to notice." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-    /* 47  12-P3 Plain    */
-    { { "The last sector is warm.", "Nothing here is new. Even the", "dust has been swept before." },
-      { NULL, NULL, NULL, NULL, NULL, NULL },
-      { NULL, NULL, NULL, NULL, NULL, NULL } },
-};
-
-/* NULL-safe view of a beat; also the single place that decides whether a card
-   is a playable story protocol or still a beta instant-clear card.
-   `intrusion[0]` is the switch: give a card transmission text and it becomes a
-   protocol, delete the text and it returns to the beta instant-clear. Never test
-   `card_id` (or month/slot) directly in a click handler -- one place, one rule.
-   The protocol states are tutorial states because the tutorial already owns
-   everything a story beat needs: a frozen table, an input gate, an abort path,
-   telemetry isolation and the clear/flip in plexus_tutorial_finish_match().
-   A parallel story state machine would have to re-implement all five, and the
-   two would drift apart the first time the tutorial changes. */
-static const StoryBeat *story_beat(int cid) {
-    return (cid >= 0 && cid < 48) ? &k_story_beats[cid] : NULL;
-}
-
-static int story_beat_has_protocol(int cid) {
-    const StoryBeat *b = story_beat(cid);
-    return (b && b->intrusion[0]) ? 1 : 0;
-}
 
 static Rectangle story_month_btn_rect(int m) {
     return (Rectangle){ 254.0f, floorf(122.0f + (float)(m + 1) * 37.3f), 190.0f, 33.0f };
@@ -2163,17 +1824,15 @@ static void draw_gauge_bar(float x, float y, float w, float h, float ratio, Colo
 }
 
 static void draw_logfile_story_tab(Vector2 vm) {
-    if (s_story_sel_month < -1 || (s_story_sel_month >= 0 && !is_story_month_unlocked(s_story_sel_month))) {
-        s_story_sel_month = -1;
-    }
+    /* The Story tab now holds a single document -- the Prologue -- so the
+       selector is pinned to entry [0] and no monthly log can be selected.
+       The read/unread bookkeeping is left alone; nothing can open a monthly
+       log any more, so no NEW marker can appear. */
+    s_story_sel_month = -1;
     commit_viewed_story_months(s_story_sel_month);
-    if (s_story_sel_month >= 0 && s_story_sel_month < 12 &&
-        !((s_story_read_mask >> s_story_sel_month) & 1u)) {
-        s_story_open_mask |= (1u << s_story_sel_month);
-    }
 
-    /* Left Column: Prologue + 12 Monthly Story Log Selectors */
-    for (int m = -1; m < 12; m++) {
+    /* Left Column: the one Prologue document */
+    for (int m = -1; m < 1; m++) {
         Rectangle br = story_month_btn_rect(m);
         int unlocked = (m < 0) ? 1 : is_story_month_unlocked(m);
         int sel      = (m == s_story_sel_month);
@@ -2212,7 +1871,12 @@ static void draw_logfile_story_tab(Vector2 vm) {
     float tx = doc.x + 18.0f;
 
     if (s_story_sel_month < 0) {
-        draw_text_snapped(font_body, "PROLOGUE  //  ATRIUM PLEX ENTRY",
+        /* The Prologue is chapter entry [0]; its title is the only monthly-style
+           header the reader needs now that it is the single story document. */
+        char prologue_hdr[96];
+        snprintf(prologue_hdr, sizeof(prologue_hdr), "%s  //  ATRIUM PLEX ENTRY",
+                 k_story_chapters[0].seq_title);
+        draw_text_snapped(font_body, prologue_hdr,
                           tx, doc.y + 14.0f, 15.5f, 1.05f, COLOR_PHOSPHOR);
         draw_text_snapped(font_title, "SEQUENTIAL DEPENDENCE  //  TOKEN CONDITIONING",
                           tx, doc.y + 40.0f, 16.5f, 1.15f, COLOR_TEXT_INFO);
@@ -2242,78 +1906,6 @@ static void draw_logfile_story_tab(Vector2 vm) {
                           tx, doc.y + 438.0f, 13.0f, 1.05f, COLOR_PHOSPHOR_DIM);
         return;
     }
-
-    int m = s_story_sel_month;
-    const StoryChapterDoc *ch = &k_story_chapters[m];
-    int unlocked_docs = 0;
-    for (int i = 0; i < 12; i++) {
-        if (is_story_month_unlocked(i)) unlocked_docs++;
-    }
-
-    char tag[96];
-    snprintf(tag, sizeof(tag), "LOG %02d/12  //  %s  [%02d/12]",
-             m + 1, k_month_names[m], unlocked_docs);
-    draw_text_snapped(font_body,  tag,           tx, doc.y + 14.0f, 16.5f, 1.05f, COLOR_PHOSPHOR);
-    draw_text_snapped(font_title, ch->seq_title, tx, doc.y + 42.0f, 18.0f, 1.2f, COLOR_TEXT_INFO);
-    DrawLine((int)tx, (int)doc.y + 70, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 70, COLOR_PHOSPHOR_DIM);
-
-    /* Body copy 20.5 -> 23 px and the leading goes with it: 23 is the ceiling for
-       this panel, the widest chapter line draws 454 px inside a 478 px column
-       (24 px would be 472 and tip into the frame's inner edge). The reader had a
-       lot of empty paper and small letters at 20.5; this fills it. */
-    draw_text_snapped(sf, ch->p1, tx, doc.y +  86.0f, 23.0f, 0.9f, COLOR_TEXT_INFO);
-    draw_text_snapped(sf, ch->p2, tx, doc.y + 118.0f, 23.0f, 0.9f, COLOR_TEXT_INFO);
-    draw_text_snapped(sf, ch->p3, tx, doc.y + 150.0f, 23.0f, 0.9f, COLOR_TEXT_INFO);
-    draw_text_snapped(sf, ch->p4, tx, doc.y + 190.0f, 23.0f, 0.9f, COLOR_PHOSPHOR);
-    draw_text_snapped(sf, ch->p5, tx, doc.y + 222.0f, 23.0f, 0.9f, COLOR_TEXT_INFO_DIM);
-    draw_text_snapped(sf, ch->p6, tx, doc.y + 254.0f, 23.0f, 0.9f, COLOR_TEXT_INFO_DIM);
-
-    /* Live Month Conditioning Dossier + Sequence Media Status */
-    DrawLine((int)tx, (int)doc.y + 290, (int)(doc.x + doc.width - 18.0f), (int)doc.y + 290, COLOR_PHOSPHOR_DIM);
-    int m_cards_std  = count_mask_cards((s_finished_cards_mask >> (m * 4)) & 0xFULL);
-    int m_cards_deus = count_mask_cards((s_deus_finished_cards_mask >> (m * 4)) & 0xFULL);
-    char media_ln[96];
-    if (is_deus_spine_unlocked()) {
-        snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: STD %d/4  |  DEUS %d/4  //  [ARCHIVE READY]",
-                 m_cards_std, m_cards_deus);
-    } else {
-        snprintf(media_ln, sizeof(media_ln), "CHAPTER STATUS: %d / 4 STORY CARDS CLEARED  //  [REREADABLE]",
-                 m_cards_std);
-    }
-    draw_text_snapped(font_title, media_ln, tx, doc.y + 302.0f, 14.0f, 1.1f, COLOR_PHOSPHOR);
-
-    /* 4 Spine Card Sub-Nodes for Selected Month (ordered Card 4 -> Card 1 left-to-right) */
-    static const int k_slot_order[4] = { 3, 2, 1, 0 };
-    for (int idx = 0; idx < 4; idx++) {
-        int sl  = k_slot_order[idx];
-        int cid = m * 4 + sl;
-        int std_done = (int)((s_finished_cards_mask >> cid) & 1ULL);
-        int std_open = 1;
-        for (int p = 3; p > sl; p--) {
-            if (!((s_finished_cards_mask >> (m * 4 + p)) & 1ULL)) { std_open = 0; break; }
-        }
-        Rectangle nb = { floorf(tx + (float)idx * 121.0f), doc.y + 330.0f, 115.0f, 74.0f };
-        DrawRectangleRec(nb, std_done ? (Color){ 10, 26, 22, 230 } : (Color){ 6, 10, 12, 220 });
-        DrawRectangleLinesEx(nb, std_done ? 1.5f : 1.0f, std_done ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-
-        draw_text_snapped(font_title, TextFormat("CARD %d", sl + 1),
-                          nb.x + 8.0f, nb.y + 8.0f, 13.0f, 1.0f,
-                          std_done ? COLOR_PHOSPHOR : COLOR_TEXT_INFO_DIM);
-        draw_text_snapped(font_body, CARDS[cid].name,
-                          nb.x + 8.0f, nb.y + 28.0f, 14.0f, 1.0f,
-                          std_done ? COLOR_TEXT_INFO : COLOR_TEXT_INFO_DIM);
-        const char *st_lbl = std_done ? "[CLEARED]" : (std_open ? "[ACTIVE]" : "[SEALED]");
-        draw_text_snapped(font_body, st_lbl,
-                          nb.x + 8.0f, nb.y + 50.0f, 14.0f, 1.0f,
-                          std_done ? COLOR_PHOSPHOR : COLOR_PHOSPHOR_DIM);
-    }
-
-    const char *foot = (m == 0)
-        ? "Tutorials 01-03 & Card 1 stay archived here forever."
-        : "Monthly story logs never get overwritten by matches.";
-    draw_text_snapped(font_body, foot, tx, doc.y + 420.0f, 16.0f, 1.05f, COLOR_TEXT_INFO_DIM);
-    draw_text_snapped(font_body, "TIP: Click 01-12 or use mouse wheel to reread logs.",
-                      tx, doc.y + 448.0f, 16.0f, 1.05f, COLOR_PHOSPHOR_DIM);
 }
 
 static void draw_logfile_training_tab(void) {
@@ -2648,16 +2240,15 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
     DrawRectangleRec(k_atlas_ach_box_rect, PLEXUS_SUBBOX_BG);
     ui_draw_panel_border(k_atlas_ach_box_rect, COLOR_PHOSPHOR_DIM);
 
-    int story_docs = 0;
-    for (int m = 0; m < 12; m++) {
-        if (is_story_month_unlocked(m)) story_docs++;
-    }
+    /* Story archive: the Prologue is the only document left, and it is always
+       open, so the milestone tracks the Prologue alone. */
+    int story_docs = 1;
     int ach_ok[8];
     ach_ok[0] = is_month_completed_mask(s_finished_cards_mask, 0);
     ach_ok[1] = is_month_unlocked_mask(s_finished_cards_mask, 4);
     ach_ok[2] = is_month_unlocked_mask(s_finished_cards_mask, 8);
     ach_ok[3] = (std_done >= 48);
-    ach_ok[4] = (story_docs >= 12);
+    ach_ok[4] = (story_docs >= 1);
     ach_ok[5] = (s_sc_best_wave >= 5 || (s_sc_rank_count > 0 && s_sc_ranks[0].score >= 100));
     ach_ok[6] = (get_unlocked_camp_opponents() >= 12);
     ach_ok[7] = (deus_done >= 48);
@@ -2667,7 +2258,7 @@ static void draw_logfile_atlas_tab(const BoardAssets *ba, const GameStats *st, V
         "SATURATION GATE (SPEEDCOIN)",
         "RESONANCE GATE  (ACTION CARD)",
         "STANDARD ATLAS  (48/48 -> DEUS)",
-        "STORY ARCHIVE   (12/12 LOGS)",
+        "STORY ARCHIVE   (PROLOGUE READ)",
         "SPEEDCOIN ACE   (WAVE 05+)",
         "SECTOR HUNTER   (12/12 RIVALS)",
         "DEUS CONVERGENCE (48/48 DEUS)"
@@ -2858,6 +2449,10 @@ static void draw_intro_story_pass(Font sf, float dx, float dy, float a1, float a
         draw_story_centered(sf,
                             "Your \"resistance\" is predicted and incorporated.",
                             cx, 468.0f + dy, 26.5f, 0.95f, c_end);
+        draw_story_centered(font_title,
+                            "END OF PROLOGUE // PROCEED TO MONTH 01",
+                            cx, 556.0f + dy, 17.0f, 1.3f,
+                            intro_with_alpha(COLOR_PHOSPHOR_DIM, a4));
     }
 }
 
@@ -3083,6 +2678,9 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
         const char *line3 = "";
         int card_id = s_selected_month * 4 + s_selected_slot;
         int slot_unlocked = is_slot_unlocked_in_month(s_selected_month, s_selected_slot);
+        int done = (int)((active_spine_mask() >> card_id) & 1ULL);
+        int unlocked = slot_unlocked;
+        char line2_buf[96];
         char sc_line1[96];
         char sc_line2[96];
         char sc_line3[96];
@@ -3105,7 +2703,7 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  LOGFILE");
             snprintf(sub, sizeof(sub), "STORY  //  TRAINING  //  MATCHES  //  ATLAS");
             line1 = "Reads unlocked monthly logs and Plex record totals.";
-            line2 = "Reviews completed Spine, Speedcoin & Action runs.";
+            line2 = "Reviews completed Calendar, Speedcoin & Action runs.";
             line3 = "Inspects all 48 Hanafuda and Deus cards in Atlas.";
         } else if (hover_bottom == 2) {
             snprintf(hdr, sizeof(hdr), "ATRIUM PLEX  //  SPEEDCOIN");
@@ -3160,23 +2758,16 @@ void plexus_draw_ui_chrome(const BoardAssets *ba, const GameStats *st, Vector2 v
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
                 line1 = k_tut_titles[s_selected_slot & 3];
                 line2 = k_tut_desc1[s_selected_slot & 3];
-                /* Tutorials keep their own title/description on lines 1-2; the
-                   story beat only ever gets the third line here, so the feedback
-                   that teaches the mode can never be overwritten by lore. */
-                line3 = k_story_beats[card_id].signal[0];
+                line3 = "Press START to launch this tutorial.";
             } else {
                 snprintf(hdr, sizeof(hdr), "%sMONTH %02d  //  %s", deus_p, s_selected_month + 1, k_month_names[s_selected_month]);
                 snprintf(sub, sizeof(sub), "CARD %d OF 4 :  [%s]", s_selected_slot + 1, CARDS[card_id].name);
-                const StoryBeat *bt = story_beat(card_id);
-                if (bt && bt->signal[0]) {
-                    line1 = bt->signal[0];
-                    line2 = bt->signal[1] ? bt->signal[1] : "";
-                    line3 = bt->signal[2] ? bt->signal[2] : "";
-                } else {
-                    line1 = is_deus_spine_active() ? "HARDCORE DEUS PASS  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
-                    line2 = "";
-                    line3 = "";
-                }
+                line1 = is_deus_spine_active() ? "HARDCORE DEUS PASS  [PLACEHOLDER]" : "TASK / TRAINING BRIEFING  [PLACEHOLDER]";
+                snprintf(line2_buf, sizeof(line2_buf), "Month %02d - Card %d of 4  |  %s",
+                         s_selected_month + 1, 4 - s_selected_slot,
+                         done ? "CLEARED" : (unlocked ? "READY" : "LOCKED"));
+                line2 = line2_buf;
+                line3 = "Placeholder slot.";
             }
         } else if (s_active_tab == 2) {
             int drops = speed_bar_graded_drops();
@@ -3448,15 +3039,8 @@ void plexus_draw(const BoardAssets *ba, const GameStats *st, Vector2 vm) {
     if (s_active_tab == 1 && CheckCollisionPointRec(vm, k_log_content_rect)) {
         float wheel = GetMouseWheelMove();
         if (s_log_subtab == LOG_TAB_STORY) {
-            if (wheel > 0.1f) {
-                for (int m = s_story_sel_month - 1; m >= -1; m--) {
-                    if (m < 0 || is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
-                }
-            } else if (wheel < -0.1f) {
-                for (int m = s_story_sel_month + 1; m < 12; m++) {
-                    if (is_story_month_unlocked(m)) { s_story_sel_month = m; break; }
-                }
-            }
+            /* Nothing to scroll: the Prologue is the only story document. */
+            s_story_sel_month = -1;
         } else if (s_log_subtab == LOG_TAB_MATCHES) {
             int filtered[PLEXUS_MATCH_LOG_MAX];
             int f_cnt = collect_filtered_matches(filtered, PLEXUS_MATCH_LOG_MAX);
@@ -3572,15 +3156,13 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             }
         }
         if (s_log_subtab == LOG_TAB_STORY) {
-            for (int m = -1; m < 12; m++) {
-                if (CheckCollisionPointRec(vm, story_month_btn_rect(m))) {
-                    if (m >= 0 && !is_story_month_unlocked(m)) return ACT_NONE;
-                    commit_viewed_story_months(m);
-                    s_story_sel_month = m;
-                    plexus_save();
-                    if (out_clicked) *out_clicked = 1;
-                    return ACT_NONE;
-                }
+            /* Only the Prologue exists, and it is always the open document. */
+            if (CheckCollisionPointRec(vm, story_month_btn_rect(-1))) {
+                commit_viewed_story_months(-1);
+                s_story_sel_month = -1;
+                plexus_save();
+                if (out_clicked) *out_clicked = 1;
+                return ACT_NONE;
             }
         } else if (s_log_subtab == LOG_TAB_MATCHES) {
             for (int f = 0; f < 5; f++) {
@@ -3648,9 +3230,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
         s_mode_settings_open = 0;
         s_mode_settings_page = 0;
         sync_plex_tab_theme();
-        if (!is_deus_spine_active() && is_story_month_unlocked(s_selected_month)) {
-            s_story_sel_month = s_selected_month;
-        }
         plexus_save();
         if (out_clicked) *out_clicked = 1;
         return ACT_NONE;
@@ -3742,21 +3321,6 @@ ScreenAction plexus_handle_click(Vector2 vm, int *out_clicked) {
             s_tut_active  = 1;
             s_tut_card_id = cid;
             s_tut_step    = TUT1_WAIT_DEAL;
-            if (out_clicked) *out_clicked = 1;
-            return ACT_START_GAME;
-        }
-        /* A card with a keeper transmission plays one real round before it is
-           marked cleared; every other card keeps the beta instant-clear path. */
-        if (story_beat_has_protocol(cid)) {
-            s_training_active = 0;
-            plexus_speedcoin_abort();
-            plexus_action_card_abort();
-            s_mode_settings_open = 0;
-            s_mode_settings_page = 0;
-            tut_save_telemetry();
-            s_tut_active  = 1;
-            s_tut_card_id = cid;
-            s_tut_step    = PROTO_WAIT_DEAL;
             if (out_clicked) *out_clicked = 1;
             return ACT_START_GAME;
         }
@@ -4207,19 +3771,6 @@ void plexus_tutorial_setup_round(GameState *g) {
         engine_start_round(g); s_tut_step = TUT3_WAIT_START; return;
     }
 
-    if (s_tut_card_id >= 4) {
-        /* Story protocol: an ordinary dealt round on the player's ruleset, one
-           round long, no scripted table -- the beat is the panel, not the deal.
-           Dealer is pinned to the player so the transmission always lands before
-           the CPU moves. */
-        g->total_rounds = 1;
-        g->dealer = 0;
-        engine_start_round(g);
-        if (g->phase == PHASE_TURN_HAND) g->current_player = 0;
-        s_tut_step = PROTO_WAIT_DEAL;
-        return;
-    }
-
     s_tut_step        = TUT1_WAIT_DEAL;
     g->ruleset        = RULESET_KK_ADD_10;
     g->total_rounds   = 1;
@@ -4288,8 +3839,7 @@ static int tut_step_is_frozen(TutorialStep st) {
             st == TUT2_PANEL_HAND2 ||
             st == TUT2_PANEL_NO_HESITATION ||
             st == TUT3_PANEL_METERS ||
-            st == TUT3_PANEL_HORRORS ||
-            st == PROTO_PANEL_STORY) ? 1 : 0;
+            st == TUT3_PANEL_HORRORS) ? 1 : 0;
 }
 
 static Rectangle tut_panel_rect_for_step(TutorialStep st) {
@@ -4302,7 +3852,6 @@ static Rectangle tut_panel_rect_for_step(TutorialStep st) {
     if (st >= TUT2_PANEL_CORE && st <= TUT2_PANEL_HAND2) return (Rectangle){ 410.0f, 145.0f, 748.0f, 360.0f };
     if (st == TUT3_PANEL_METERS)  return (Rectangle){ 440.0f, 142.0f, 636.0f, 382.0f };
     if (st == TUT3_PANEL_HORRORS) return (Rectangle){ 440.0f, 126.0f, 636.0f, 424.0f };
-    if (st == PROTO_PANEL_STORY)  return (Rectangle){ 280.0f, 150.0f, 720.0f, 380.0f };
     return (Rectangle){ 280.0f, 150.0f, 720.0f, 380.0f };
 }
 
@@ -4326,28 +3875,6 @@ int plexus_tutorial_update_and_click(const GameState *g, const AnimState *anim,
                                      Vector2 vm, int mouse_pressed, int *out_clicked) {
     if (out_clicked) *out_clicked = 0;
     if (!s_tut_active || !g) return 0;
-
-    /* Order matters: the Month 01 branches below are `== 1` / `== 2`, so a new
-       special card must be given its own branch ABOVE this test, or this generic
-       path will swallow it. */
-    if (s_tut_card_id >= 4) {
-        /* WAIT_DEAL returns 0 on purpose: the table is still dealing, and
-           returning 1 here would "freeze" a board that has nothing to freeze
-           yet and swallow the first click of the match. */
-        if (s_tut_step == PROTO_WAIT_DEAL) {
-            if (board_settled && g->phase == PHASE_TURN_HAND) s_tut_step = PROTO_PANEL_STORY;
-            return 0;
-        }
-        if (!tut_step_is_frozen(s_tut_step)) return 0;
-        if (mouse_pressed) {
-            Rectangle pr = tut_panel_rect_for_step(s_tut_step), cr = tut_continue_rect_for_panel(pr);
-            if (CheckCollisionPointRec(vm, pr) || CheckCollisionPointRec(vm, cr)) {
-                if (out_clicked) *out_clicked = 1;
-                s_tut_step = PROTO_PLAY;
-            }
-        }
-        return 1;
-    }
 
     if (s_tut_card_id == 1) {
         if (s_tut_step == TUT3_WAIT_START && board_settled && g->phase == PHASE_TURN_HAND)
@@ -4819,24 +4346,7 @@ void plexus_tutorial_draw_panel(const BoardAssets *ba, Vector2 vm) {
     float x = pr.x + pad;
     float y = pr.y + 18.0f;
 
-    if (s_tut_step == PROTO_PANEL_STORY) {
-        const StoryBeat *bt = story_beat(s_tut_card_id);
-        if (bt) {
-            const Opponent *kp = campaign_get_opponent(s_tut_card_id / 4);
-            char hdr[96];
-            snprintf(hdr, sizeof(hdr), "%s  //  TRANSMISSION", kp->name);
-            draw_text_snapped(font_title, hdr, x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
-            DrawLine((int)x, (int)(y + 30.0f), (int)(pr.x + pr.width - pad), (int)(y + 30.0f), COLOR_PHOSPHOR_DIM);
-            for (int i = 0; i < 6 && bt->intrusion[i]; i++) {
-                int last = (i == 5 || !bt->intrusion[i + 1]);
-                draw_text_snapped(font_body, bt->intrusion[i], x, y + 52.0f + (float)i * 28.0f,
-                                  18.0f, 1.2f, last ? COLOR_PHOSPHOR : COLOR_TEXT_INFO);
-            }
-            draw_text_snapped(font_body, TextFormat("PROTOCOL %02d  //  %s  //  ONE ROUND",
-                                                    s_tut_card_id + 1, CARDS[s_tut_card_id].name),
-                              x, pr.y + pr.height - 82.0f, 15.0f, 1.05f, COLOR_PHOSPHOR_DIM);
-        }
-    } else if (s_tut_step == TUT1_PANEL_INTRO) {
+    if (s_tut_step == TUT1_PANEL_INTRO) {
         draw_text_snapped(font_title, "STEP 1 OF 5  //  MATCH BY MONTH PLANT",
                           x, y, 18.0f, 1.3f, COLOR_PHOSPHOR);
         DrawLine((int)x, (int)(y + 28.0f), (int)(pr.x + pr.width - 26.0f), (int)(y + 28.0f), COLOR_PHOSPHOR_DIM);
@@ -5039,14 +4549,7 @@ void plexus_tutorial_finish_match(void) {
     if (!was_done) {
         char title[88];
         const char *detail = "Standard Koi-Koi rules conditioning finished -- Card 3 unlocked.";
-        const StoryBeat *bt = story_beat(cid);
-        if (cid >= 4) {
-            snprintf(title, sizeof(title), "[%s] PROTOCOL CLEARED", CARDS[cid].name);
-            if (bt && bt->trace[0]) detail = bt->trace[0];
-            else detail = "Story protocol finished -- next story card unlocked.";
-        } else {
-            snprintf(title, sizeof(title), "[%s] TUTORIAL 01 CLEARED", CARDS[cid].name);
-        }
+        snprintf(title, sizeof(title), "[%s] TUTORIAL 01 CLEARED", CARDS[cid].name);
         plexus_match_log_push(MLOG_SPINE, deus_pass ? "DEUS PASS" : "STORY", title, detail);
     }
     plexus_save();
