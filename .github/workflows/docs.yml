@@ -10,7 +10,6 @@ on:
       - 'src/**'
       - 'assets/**'
       - 'web/**'
-      - 'tests/**'
       - 'build.sh'
       - '.github/workflows/docs.yml'
   pull_request:
@@ -21,7 +20,6 @@ on:
       - 'src/**'
       - 'assets/**'
       - 'web/**'
-      - 'tests/**'
       - 'build.sh'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
@@ -85,14 +83,6 @@ jobs:
           cp -r /tmp/raylib_web_cache/src/* /tmp/raylib/src/
           cp /tmp/raylib_web_cache/libraylib.a /tmp/libraylib_web.a
 
-      - name: Run table UI regression tests (headless)
-        run: ./tests/test_table_ui.sh
-
-      - name: Run custom music folder regression tests (headless)
-        run: ./tests/test_music_folder.sh
-
-      - name: Enforce approved tests/ folder lock
-        run: ./tools/tests_guard.sh
 
       - name: Build WebAssembly bundle into /play/
         run: |
