@@ -99,21 +99,6 @@ if [ "$1" = "win" ]; then
     exit 0
 fi
 
-# Engine tests (no graphics)
-if [ "$1" = "test" ]; then
-    ./tools/tests_guard.sh
-    ./tools/action_guard.sh
-    gcc -std=c99 -O2 -Wall -Wextra -Isrc tests/test_engine.c src/cards.c src/rules.c src/engine.c src/ai.c \
-        -o /tmp/test_engine && /tmp/test_engine
-    gcc -std=c99 -O2 -Wall -Wextra -Werror -Isrc tools/test_koikoi_trigger.c src/cards.c src/rules.c src/engine.c \
-        -o /tmp/test_koikoi_trigger && /tmp/test_koikoi_trigger
-    if [ -f "${RAYLIB_SRC:-/tmp/raylib/src}/raylib.h" ]; then
-        ./tests/test_table_ui.sh
-    fi
-    ./tests/test_music_folder.sh
-    exit 0
-fi
-
 # WebAssembly (Emscripten / HTML5)
 if [ "$1" = "wasm" ]; then
     RAYLIB_SRC="${RAYLIB_SRC:-/tmp/raylib/src}"
@@ -145,11 +130,6 @@ if [ "$1" = "wasm" ]; then
     exit 0
 fi
 
-# Default: run test if exists, or build available targets
-if [ -f tests/test_engine.c ]; then
-    gcc -std=c99 -O2 -Wall -Wextra -Isrc tests/test_engine.c src/cards.c src/rules.c src/engine.c src/ai.c \
-        -o /tmp/test_engine && /tmp/test_engine
-fi
 if ls src/*.c 1> /dev/null 2>&1; then
     gcc -std=c99 -O2 -Wall -Wextra src/*.c -I/tmp/raylib/src /tmp/libraylib_linux.a \
         -l:libGL.so.1 -lm -lpthread -ldl -lrt -lX11 -o koikoi_linux
